@@ -466,6 +466,19 @@ import sys
 import msgpack
 import time
 import struct
+import math
+
+def normalize_value(x):
+    '''将值标准化，将 None、inf、-inf、nan 都转换为 nan'''
+    if x is None:
+        return float('nan')
+    try:
+        val = float(x)
+        if math.isinf(val) or math.isnan(val):
+            return float('nan')
+        return val
+    except (ValueError, TypeError):
+        return float('nan')
 
 def execute_task(func_code, date, code, expected_length):
     '''执行单个任务，返回结果或NaN'''
@@ -485,8 +498,8 @@ def execute_task(func_code, date, code, expected_length):
         result = func(date, code)
         
         if isinstance(result, list):
-            # 确保返回浮点数类型
-            return [float(x) if x is not None else float('nan') for x in result]
+            # 使用 normalize_value 函数处理所有特殊值
+            return [normalize_value(x) for x in result]
         else:
             return [float('nan')] * expected_length
             
@@ -1245,14 +1258,23 @@ fn run_persistent_task_worker(
 
 
 #[pyfunction]
-#[pyo3(signature = (python_function, args, n_jobs, backup_file, expected_result_length))]
+#[pyo3(signature = (python_function, args, n_jobs, backup_file, expected_result_length, restart_interval=None))]
 pub fn run_pools_queue(
     python_function: PyObject,
     args: &PyList,
     n_jobs: usize,
     backup_file: String,
     expected_result_length: usize,
+    restart_interval: Option<usize>,
 ) -> PyResult<PyObject> {
+    // 处理 restart_interval 参数
+    let restart_interval_value = restart_interval.unwrap_or(200);
+    if restart_interval_value == 0 {
+        return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
+            "restart_interval must be greater than 0"
+        ));
+    }
+    
     // 解析参数
     let mut all_tasks = Vec::new();
     for item in args.iter() {
@@ -1343,12 +1365,13 @@ pub fn run_pools_queue(
     let expected_result_length_clone = expected_result_length;
     let pending_tasks_len = pending_tasks.len();
     let collector_restart_flag = restart_flag.clone();
+    let restart_interval_clone = restart_interval_value;
     let collector_handle = thread::spawn(move || {
         let mut batch_results = Vec::new();
         let mut total_collected = 0;
         let mut batch_count = 0;
         let mut batch_count_this_chunk = 0;
-        let total_batches = (pending_tasks_len + 499) / 500;
+        let total_batches = (pending_tasks_len + 999) / 1000;
         
         println!("🔄 结果收集器启动，等待worker结果...");
         
@@ -1397,8 +1420,8 @@ pub fn run_pools_queue(
                 }
                 batch_results.clear();
 
-                if batch_count_this_chunk >= 500 {
-                    println!("\n🔄 达到500次备份，触发 workers 重启...");
+                if batch_count_this_chunk >= restart_interval_clone {
+                    println!("\n🔄 达到{}次备份，触发 workers 重启...", restart_interval_clone);
                     collector_restart_flag.store(true, Ordering::SeqCst);
                     batch_count_this_chunk = 0;
                 }

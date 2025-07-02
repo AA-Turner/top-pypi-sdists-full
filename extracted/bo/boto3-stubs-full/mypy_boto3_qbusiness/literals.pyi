@@ -34,6 +34,7 @@ __all__ = (
     "AutoSubscriptionStatusType",
     "BrowserExtensionType",
     "ChatModeType",
+    "ChatResponseConfigurationStatusType",
     "ContentTypeType",
     "CreatorModeControlType",
     "DataAccessorAuthenticationTypeType",
@@ -53,6 +54,7 @@ __all__ = (
     "IndexTypeType",
     "ListApplicationsPaginatorName",
     "ListAttachmentsPaginatorName",
+    "ListChatResponseConfigurationsPaginatorName",
     "ListConversationsPaginatorName",
     "ListDataAccessorsPaginatorName",
     "ListDataSourceSyncJobsPaginatorName",
@@ -87,6 +89,7 @@ __all__ = (
     "ReadAccessTypeType",
     "RegionName",
     "ResourceServiceName",
+    "ResponseConfigurationTypeType",
     "ResponseScopeType",
     "RetrieverStatusType",
     "RetrieverTypeType",
@@ -116,6 +119,7 @@ AudioExtractionTypeType = Literal["SUMMARY", "TRANSCRIPT"]
 AutoSubscriptionStatusType = Literal["DISABLED", "ENABLED"]
 BrowserExtensionType = Literal["CHROME", "FIREFOX"]
 ChatModeType = Literal["CREATOR_MODE", "PLUGIN_MODE", "RETRIEVAL_MODE"]
+ChatResponseConfigurationStatusType = Literal["ACTIVE", "CREATING", "FAILED", "UPDATING"]
 ContentTypeType = Literal[
     "CSV",
     "HTML",
@@ -138,7 +142,9 @@ DataSourceStatusType = Literal[
 DataSourceSyncJobStatusType = Literal[
     "ABORTED", "FAILED", "INCOMPLETE", "STOPPING", "SUCCEEDED", "SYNCING", "SYNCING_INDEXING"
 ]
-DocumentAttributeBoostingLevelType = Literal["HIGH", "LOW", "MEDIUM", "NONE", "VERY_HIGH"]
+DocumentAttributeBoostingLevelType = Literal[
+    "HIGH", "LOW", "MEDIUM", "NONE", "ONE", "TWO", "VERY_HIGH"
+]
 DocumentContentOperatorType = Literal["DELETE"]
 DocumentEnrichmentConditionOperatorType = Literal[
     "BEGINS_WITH",
@@ -175,6 +181,7 @@ IndexStatusType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED", "UPDATING"
 IndexTypeType = Literal["ENTERPRISE", "STARTER"]
 ListApplicationsPaginatorName = Literal["list_applications"]
 ListAttachmentsPaginatorName = Literal["list_attachments"]
+ListChatResponseConfigurationsPaginatorName = Literal["list_chat_response_configurations"]
 ListConversationsPaginatorName = Literal["list_conversations"]
 ListDataAccessorsPaginatorName = Literal["list_data_accessors"]
 ListDataSourceSyncJobsPaginatorName = Literal["list_data_source_sync_jobs"]
@@ -250,6 +257,7 @@ PluginTypeType = Literal[
 ]
 QAppsControlModeType = Literal["DISABLED", "ENABLED"]
 ReadAccessTypeType = Literal["ALLOW", "DENY"]
+ResponseConfigurationTypeType = Literal["ALL"]
 ResponseScopeType = Literal["ENTERPRISE_CONTENT_ONLY", "EXTENDED_KNOWLEDGE_ENABLED"]
 RetrieverStatusType = Literal["ACTIVE", "CREATING", "FAILED"]
 RetrieverTypeType = Literal["KENDRA_INDEX", "NATIVE_INDEX"]
@@ -257,7 +265,9 @@ RuleTypeType = Literal["CONTENT_BLOCKER_RULE", "CONTENT_RETRIEVAL_RULE"]
 ScoreConfidenceType = Literal["HIGH", "LOW", "MEDIUM", "NOT_AVAILABLE", "VERY_HIGH"]
 SearchRelevantContentPaginatorName = Literal["search_relevant_content"]
 StatusType = Literal["DISABLED", "ENABLED"]
-StringAttributeValueBoostingLevelType = Literal["HIGH", "LOW", "MEDIUM", "VERY_HIGH"]
+StringAttributeValueBoostingLevelType = Literal[
+    "FIVE", "FOUR", "HIGH", "LOW", "MEDIUM", "ONE", "THREE", "TWO", "VERY_HIGH"
+]
 SubscriptionTypeType = Literal["Q_BUSINESS", "Q_LITE"]
 SystemMessageTypeType = Literal["GROUNDED_RESPONSE", "RESPONSE"]
 VideoExtractionStatusType = Literal["DISABLED", "ENABLED"]
@@ -540,6 +550,7 @@ ServiceName = Literal[
     "notificationscontacts",
     "oam",
     "observabilityadmin",
+    "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
@@ -691,6 +702,7 @@ PaginatorName = Literal[
     "get_chat_controls_configuration",
     "list_applications",
     "list_attachments",
+    "list_chat_response_configurations",
     "list_conversations",
     "list_data_accessors",
     "list_data_source_sync_jobs",

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rebound
-Version: 4.4.8
+Version: 4.4.10
 Summary: An open-source multi-purpose N-body code
 Home-page: https://github.com/hannorein/rebound/
 Author: Hanno Rein
@@ -28,7 +28,7 @@ Dynamic: license
 Dynamic: license-file
 Dynamic: summary
 
-[![Version](https://img.shields.io/badge/rebound-v4.4.8-green.svg?style=flat)](https://rebound.readthedocs.org)
+[![Version](https://img.shields.io/badge/rebound-v4.4.10-green.svg?style=flat)](https://rebound.readthedocs.org)
 [![codecov](https://codecov.io/github/hannorein/rebound/graph/badge.svg?token=Zmynoi99Vl)](https://codecov.io/github/hannorein/rebound)
 [![PyPI](https://badge.fury.io/py/rebound.svg)](https://badge.fury.io/py/rebound)
 [![GPL](https://img.shields.io/badge/license-GPL-green.svg?style=flat)](https://github.com/hannorein/rebound/blob/main/LICENSE)

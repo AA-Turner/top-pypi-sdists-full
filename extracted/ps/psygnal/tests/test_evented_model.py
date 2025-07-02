@@ -7,6 +7,12 @@ from unittest.mock import Mock, call, patch
 
 import numpy as np
 import pytest
+from pydantic import Field
+
+from psygnal import EventedModel
+from psygnal.containers import EventedList
+from psygnal.containers._evented_dict import EventedDict
+from psygnal.containers._evented_set import EventedSet
 
 try:
     from pydantic import PrivateAttr
@@ -16,7 +22,7 @@ except ImportError:
 import pydantic.version
 from pydantic import BaseModel
 
-from psygnal import EmissionInfo, EventedModel
+from psygnal import EmissionInfo
 from psygnal._group import SignalGroup
 from psygnal._signal import ReemissionMode
 
@@ -587,7 +593,7 @@ def test_non_setter_with_dependencies() -> None:
 
 
 def test_unrecognized_property_dependencies():
-    with pytest.warns(UserWarning, match="Unrecognized field dependency: 'b'"):
+    with pytest.warns(UserWarning, match="cannot depend on unrecognized attribute"):
 
         class M(EventedModel):
             x: int
@@ -961,7 +967,7 @@ def test_computed_field() -> None:
 
         model_config = {
             "allow_property_setters": True,
-            "field_dependencies": {"c": ["a", "b"]},
+            "field_dependencies": {"c": ["a", "b"]},  # type: ignore [typeddict-unknown-key]
         }
 
     mock_a = Mock()
@@ -983,3 +989,150 @@ def test_computed_field() -> None:
     m.a = 5
     mock_a.assert_called_with(5)
     mock_c.assert_called_with([5, 20])
+
+
+@pytest.mark.skipif(not PYDANTIC_V2, reason="computed_field added in v2")
+def test_private_field_dependents():
+    from pydantic import PrivateAttr, computed_field
+
+    from psygnal import EventedModel
+
+    class MyModel(EventedModel):
+        _items_dict: dict[str, int] = PrivateAttr(default_factory=dict)
+
+        @computed_field  # type: ignore [prop-decorator]
+        @property
+        def item_names(self) -> list[str]:
+            return list(self._items_dict)
+
+        @computed_field  # type: ignore [prop-decorator]
+        @property
+        def item_sum(self) -> int:
+            return sum(self._items_dict.values())
+
+        def add_item(self, name: str, value: int) -> None:
+            if name in self._items_dict:
+                raise ValueError(f"Name {name} already exists!")
+            self._items_dict = {**self._items_dict, name: value}
+
+        # Ideally the following would work
+        model_config = {
+            "field_dependencies": {  # type: ignore [typeddict-unknown-key]
+                "item_names": ["_items_dict"],
+                "item_sum": ["_items_dict"],
+            }
+        }
+
+    m = MyModel()
+    item_sum_mock = Mock()
+    item_names_mock = Mock()
+    m.events.item_sum.connect(item_sum_mock)
+    m.events.item_names.connect(item_names_mock)
+    m.add_item("a", 1)
+    item_sum_mock.assert_called_once_with(1)
+    item_names_mock.assert_called_once_with(["a"])
+    item_sum_mock.reset_mock()
+    item_names_mock.reset_mock()
+    m.add_item("b", 2)
+    item_sum_mock.assert_called_once_with(3)
+    item_names_mock.assert_called_once_with(["a", "b"])
+
+    # check direct access ass well
+    item_sum_mock.reset_mock()
+    m._items_dict = m._items_dict.copy()
+    assert item_sum_mock.call_count == 0
+    m._items_dict = {}
+    item_sum_mock.assert_called_once_with(0)
+
+
+def test_primary_vs_dependent_optimization() -> None:
+    """Test that dependent properties are not checked when no primary changes occur.
+
+    This test verifies the optimization where, if no primary fields actually change
+    values, the system skips checking dependent properties entirely.
+
+    The current implementation processes primary changes first, and if none of them
+    result in actual value changes, it skips checking dependent properties entirely.
+    """
+
+    class Model(EventedModel):
+        a: int = 1
+
+        @property
+        def b(self) -> int:
+            return self.a + 1
+
+        @b.setter
+        def b(self, b: int) -> None:
+            self.a = b - 1
+
+        if PYDANTIC_V2:
+            model_config = {
+                "allow_property_setters": True,
+                "field_dependencies": {"b": ["a"]},
+            }
+        else:
+
+            class Config:
+                allow_property_setters = True
+                field_dependencies = {"b": ["a"]}
+
+    # pick whether to mock v1 or v2 modules
+    model_module = sys.modules[type(Model).__module__]
+
+    m = Model(a=5)
+
+    # Connect listeners to both primary field and dependent property
+    # so that the system has reason to track changes
+    mock_a = Mock()
+    mock_b = Mock()
+    m.events.a.connect(mock_a)
+    m.events.b.connect(mock_b)
+
+    # Set field 'a' to the same value it already has (no actual change)
+    with patch.object(
+        model_module,
+        "_check_field_equality",
+        wraps=model_module._check_field_equality,
+    ) as check_mock:
+        m.a = 5  # Same value, no change
+
+    # implementation should only check the primary field 'a'
+    # and skip checking dependent property 'b' since no primary change occurred
+    check_mock.assert_has_calls([call(Model, "a", 5, 5)])
+    assert check_mock.call_count == 1, (
+        f"Expected 1 equality check, got {check_mock.call_count}"
+    )
+
+    # No events should be emitted since no actual changes occurred
+    mock_a.assert_not_called()
+    mock_b.assert_not_called()
+
+
+@pytest.mark.skipif(not PYDANTIC_V2, reason="v2 serialization features")
+def test_serialization_and_schema():
+    class TestModel(EventedModel):
+        name: str
+        elist_of_str: EventedList[str] = Field(default_factory=EventedList)
+        eset_of_str: EventedSet[str] = Field(default_factory=EventedSet)
+        edict_of_str: EventedDict[str, str] = Field(default_factory=EventedDict)
+
+    model = TestModel(name="Test")
+    assert isinstance(model.elist_of_str, EventedList)
+    assert isinstance(model.eset_of_str, EventedSet)
+    assert isinstance(model.edict_of_str, EventedDict)
+
+    dumped = model.model_dump(mode="python")
+    assert isinstance(dumped["elist_of_str"], EventedList)
+    assert isinstance(dumped["eset_of_str"], EventedSet)
+    assert isinstance(dumped["edict_of_str"], EventedDict)
+
+    dumped = model.model_dump(mode="json")
+    assert isinstance(dumped["elist_of_str"], list)
+    assert isinstance(dumped["eset_of_str"], list)
+    assert isinstance(dumped["edict_of_str"], dict)
+
+    json_dump = model.model_dump_json()
+    assert isinstance(json_dump, str)
+    assert TestModel.model_json_schema(mode="serialization")
+    assert TestModel.model_json_schema(mode="validation")

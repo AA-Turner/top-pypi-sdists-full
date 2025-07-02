@@ -2391,7 +2391,7 @@ class CfnDataSource(
             :param salesforce_configuration: Provides the configuration information to connect to Salesforce as your data source.
             :param service_now_configuration: Provides the configuration information to connect to ServiceNow as your data source.
             :param share_point_configuration: Provides the configuration information to connect to Microsoft SharePoint as your data source.
-            :param template_configuration: 
+            :param template_configuration: Provides a template for the configuration information to connect to your data source.
             :param web_crawler_configuration: Provides the configuration information required for Amazon Kendra Web Crawler.
             :param work_docs_configuration: Provides the configuration information to connect to Amazon WorkDocs as your data source.
 
@@ -2893,7 +2893,8 @@ class CfnDataSource(
         def template_configuration(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataSource.TemplateConfigurationProperty"]]:
-            '''
+            '''Provides a template for the configuration information to connect to your data source.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kendra-datasource-datasourceconfiguration.html#cfn-kendra-datasource-datasourceconfiguration-templateconfiguration
             '''
             result = self._values.get("template_configuration")
@@ -6539,8 +6540,9 @@ class CfnDataSource(
     )
     class TemplateConfigurationProperty:
         def __init__(self, *, template: builtins.str) -> None:
-            '''
-            :param template: 
+            '''Provides a template for the configuration information to connect to your data source.
+
+            :param template: The template schema used for the data source, where templates schemas are supported. See `Data source template schemas <https://docs.aws.amazon.com/kendra/latest/dg/ds-schemas.html>`_ .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kendra-datasource-templateconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -6564,7 +6566,10 @@ class CfnDataSource(
 
         @builtins.property
         def template(self) -> builtins.str:
-            '''
+            '''The template schema used for the data source, where templates schemas are supported.
+
+            See `Data source template schemas <https://docs.aws.amazon.com/kendra/latest/dg/ds-schemas.html>`_ .
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kendra-datasource-templateconfiguration.html#cfn-kendra-datasource-templateconfiguration-template
             '''
             result = self._values.get("template")

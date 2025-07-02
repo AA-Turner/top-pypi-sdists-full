@@ -326,27 +326,31 @@ def _emit_telemetry(body: CLIUsagePayload) -> None:
     try:
         logger.debug(json.dumps(body.to_dict(), indent=2))
 
+        traceparent = get_traceparent()
+
         def _worker():
             try:
-                # Lazy imports to avoid circular deps
                 from anyscale.authenticate import get_auth_api_client
-                from anyscale.client.openapi_client.api.default_api import DefaultApi
 
-                auth_block = get_auth_api_client()
-                api = DefaultApi(api_client=auth_block.anyscale_api_client)
+                if traceparent:
+                    _trace_id_var.set(body.trace_id)
+
+                api = get_auth_api_client().api_client
                 api.receive_cli_usage_api_v2_cli_usage_post(
                     cli_usage_payload=body, _request_timeout=2
                 )
-            except Exception:  # noqa: BLE001
+
+                logger.debug("[TELEMETRY] POST completed successfully")
+            except Exception as e:  # noqa: BLE001
+                logger.debug(f"[TELEMETRY] POST failed: {e}")
                 # Best-effort only - never crash the CLI
-                pass
 
         thread = threading.Thread(target=_worker, daemon=False)
         thread.start()
         thread.join(timeout=3)
-    except Exception:  # noqa: BLE001
+    except Exception as e:  # noqa: BLE001
+        logger.error(f"[TELEMETRY] Failed to emit: {e}")
         # Telemetry should never crash the CLI
-        pass
 
 
 # ─── Click Patch ─────────────────────────────────────────────────────────────

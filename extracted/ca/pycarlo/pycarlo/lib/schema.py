@@ -42887,6 +42887,14 @@ class Query(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                (
+                    "domain_restrictions",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(UUID)),
+                        graphql_name="domainRestrictions",
+                        default=None,
+                    ),
+                ),
             )
         ),
     )
@@ -42901,6 +42909,9 @@ class Query(sgqlc.types.Type):
     * `dataset` (`String`): Rules apply to tables in this
       dataset/schema
     * `rule` (`MonitoredTableRuleInput!`): New monitoring rule
+    * `domain_restrictions` (`[UUID!]`): Filter by domain UUIDs.Only
+      count tables that belong to the specified domains. If not
+      provided, all tables are considered.
     """
 
     get_account_usage = sgqlc.types.Field(

@@ -61,8 +61,8 @@ config_translation_dir = os.path.join(config_dir, "translations")
 
 # Default config file created if none exists
 DEFAULT_CONFIG_STR = f"""[project]
-# Whether to enable telemetry (default: true). No personal data is collected.
-enable_telemetry = true
+# Whether to enable telemetry (default: false). No personal data is collected.
+enable_telemetry = false
 
 
 # List of environment variables to be provided by each user to use the app.
@@ -153,6 +153,9 @@ cot = "full"
 # The JavaScript file can be served from the public directory.
 # custom_js = "/public/test.js"
 
+# The style of alert boxes. Can be "classic" or "modern".
+alert_style = "classic"
+
 # Specify additional attributes for custom JS file
 # custom_js_attributes = "async type = \\\"module\\\""
 
@@ -163,8 +166,15 @@ cot = "full"
 # login_page_image_filter = "brightness-50 grayscale"
 # login_page_image_dark_filter = "contrast-200 blur-sm"
 
+
 # Specify a custom meta image url.
 # custom_meta_image_url = "https://chainlit-cloud.s3.eu-west-3.amazonaws.com/logo/chainlit_banner.png"
+
+# Load assistant logo directly from URL.
+logo_file_url = ""
+
+# Load assistant avatar image directly from URL.
+default_avatar_file_url = ""
 
 # Specify a custom build directory for the frontend.
 # This can be used to customize the frontend code.
@@ -272,9 +282,9 @@ class FeaturesSettings(DataClassJsonMixin):
 @dataclass
 class HeaderLink(DataClassJsonMixin):
     name: str
-    display_name: Optional[str]
     icon_url: str
     url: str
+    display_name: Optional[str] = None
 
 
 @dataclass()
@@ -292,13 +302,20 @@ class UISettings(DataClassJsonMixin):
     custom_css_attributes: Optional[str] = ""
     # Optional custom JS file that allows you to customize the UI
     custom_js: Optional[str] = None
+
+    alert_style: Optional[Literal["classic", "modern"]] = "classic"
     custom_js_attributes: Optional[str] = "defer"
     # Optional custom background image for login page
     login_page_image: Optional[str] = None
     login_page_image_filter: Optional[str] = None
     login_page_image_dark_filter: Optional[str] = None
+
     # Optional custom meta tag for image preview
     custom_meta_image_url: Optional[str] = None
+    # Optional logo file url
+    logo_file_url: Optional[str] = None
+    # Optional avatar image file url
+    default_avatar_file_url: Optional[str] = None
     # Optional custom build directory for the frontend
     custom_build: Optional[str] = None
     # Optional header links
@@ -358,7 +375,7 @@ class ProjectSettings(DataClassJsonMixin):
     allow_origins: List[str] = Field(default_factory=lambda: ["*"])
     # Socket.io client transports option
     transports: Optional[List[str]] = None
-    enable_telemetry: bool = True
+    enable_telemetry: bool = False
     # List of environment variables to be provided by each user to use the app. If empty, no environment variables will be asked to the user.
     user_env: Optional[List[str]] = None
     # Path to the local langchain cache database

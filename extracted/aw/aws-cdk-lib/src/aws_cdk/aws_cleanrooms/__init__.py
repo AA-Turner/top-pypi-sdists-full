@@ -1378,41 +1378,13 @@ class CfnCollaboration(
         
         cfn_collaboration = cleanrooms.CfnCollaboration(self, "MyCfnCollaboration",
             creator_display_name="creatorDisplayName",
-            creator_member_abilities=["creatorMemberAbilities"],
             description="description",
-            members=[cleanrooms.CfnCollaboration.MemberSpecificationProperty(
-                account_id="accountId",
-                display_name="displayName",
-                member_abilities=["memberAbilities"],
-        
-                # the properties below are optional
-                ml_member_abilities=cleanrooms.CfnCollaboration.MLMemberAbilitiesProperty(
-                    custom_ml_member_abilities=["customMlMemberAbilities"]
-                ),
-                payment_configuration=cleanrooms.CfnCollaboration.PaymentConfigurationProperty(
-                    query_compute=cleanrooms.CfnCollaboration.QueryComputePaymentConfigProperty(
-                        is_responsible=False
-                    ),
-        
-                    # the properties below are optional
-                    job_compute=cleanrooms.CfnCollaboration.JobComputePaymentConfigProperty(
-                        is_responsible=False
-                    ),
-                    machine_learning=cleanrooms.CfnCollaboration.MLPaymentConfigProperty(
-                        model_inference=cleanrooms.CfnCollaboration.ModelInferencePaymentConfigProperty(
-                            is_responsible=False
-                        ),
-                        model_training=cleanrooms.CfnCollaboration.ModelTrainingPaymentConfigProperty(
-                            is_responsible=False
-                        )
-                    )
-                )
-            )],
             name="name",
             query_log_status="queryLogStatus",
         
             # the properties below are optional
             analytics_engine="analyticsEngine",
+            creator_member_abilities=["creatorMemberAbilities"],
             creator_ml_member_abilities=cleanrooms.CfnCollaboration.MLMemberAbilitiesProperty(
                 custom_ml_member_abilities=["customMlMemberAbilities"]
             ),
@@ -1441,6 +1413,34 @@ class CfnCollaboration(
                 preserve_nulls=False
             ),
             job_log_status="jobLogStatus",
+            members=[cleanrooms.CfnCollaboration.MemberSpecificationProperty(
+                account_id="accountId",
+                display_name="displayName",
+        
+                # the properties below are optional
+                member_abilities=["memberAbilities"],
+                ml_member_abilities=cleanrooms.CfnCollaboration.MLMemberAbilitiesProperty(
+                    custom_ml_member_abilities=["customMlMemberAbilities"]
+                ),
+                payment_configuration=cleanrooms.CfnCollaboration.PaymentConfigurationProperty(
+                    query_compute=cleanrooms.CfnCollaboration.QueryComputePaymentConfigProperty(
+                        is_responsible=False
+                    ),
+        
+                    # the properties below are optional
+                    job_compute=cleanrooms.CfnCollaboration.JobComputePaymentConfigProperty(
+                        is_responsible=False
+                    ),
+                    machine_learning=cleanrooms.CfnCollaboration.MLPaymentConfigProperty(
+                        model_inference=cleanrooms.CfnCollaboration.ModelInferencePaymentConfigProperty(
+                            is_responsible=False
+                        ),
+                        model_training=cleanrooms.CfnCollaboration.ModelTrainingPaymentConfigProperty(
+                            is_responsible=False
+                        )
+                    )
+                )
+            )],
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -1454,32 +1454,32 @@ class CfnCollaboration(
         id: builtins.str,
         *,
         creator_display_name: builtins.str,
-        creator_member_abilities: typing.Sequence[builtins.str],
         description: builtins.str,
-        members: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCollaboration.MemberSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]]],
         name: builtins.str,
         query_log_status: builtins.str,
         analytics_engine: typing.Optional[builtins.str] = None,
+        creator_member_abilities: typing.Optional[typing.Sequence[builtins.str]] = None,
         creator_ml_member_abilities: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCollaboration.MLMemberAbilitiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         creator_payment_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCollaboration.PaymentConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         data_encryption_metadata: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCollaboration.DataEncryptionMetadataProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         job_log_status: typing.Optional[builtins.str] = None,
+        members: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCollaboration.MemberSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param creator_display_name: A display name of the collaboration creator.
-        :param creator_member_abilities: The abilities granted to the collaboration creator. *Allowed values* ``CAN_QUERY`` | ``CAN_RECEIVE_RESULTS`` | ``CAN_RUN_JOB``
         :param description: A description of the collaboration provided by the collaboration owner.
-        :param members: A list of initial members, not including the creator. This list is immutable.
         :param name: A human-readable identifier provided by the collaboration owner. Display names are not unique.
         :param query_log_status: An indicator as to whether query logging has been enabled or disabled for the collaboration. When ``ENABLED`` , AWS Clean Rooms logs details about queries run within this collaboration and those logs can be viewed in Amazon CloudWatch Logs. The default value is ``DISABLED`` .
         :param analytics_engine: The analytics engine for the collaboration.
+        :param creator_member_abilities: The abilities granted to the collaboration creator. *Allowed values* ``CAN_QUERY`` | ``CAN_RECEIVE_RESULTS`` | ``CAN_RUN_JOB``
         :param creator_ml_member_abilities: The ML member abilities for a collaboration member.
         :param creator_payment_configuration: An object representing the collaboration member's payment responsibilities set by the collaboration creator.
         :param data_encryption_metadata: The settings for client-side encryption for cryptographic computing.
         :param job_log_status: An indicator as to whether job logging has been enabled or disabled for the collaboration. When ``ENABLED`` , AWS Clean Rooms logs details about jobs run within this collaboration and those logs can be viewed in Amazon CloudWatch Logs. The default value is ``DISABLED`` .
+        :param members: A list of initial members, not including the creator. This list is immutable.
         :param tags: An optional label that you can assign to a resource when you create it. Each tag consists of a key and an optional value, both of which you define. When you use tagging, you can also use tag-based access control in IAM policies to control access to this resource.
         '''
         if __debug__:
@@ -1488,16 +1488,16 @@ class CfnCollaboration(
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnCollaborationProps(
             creator_display_name=creator_display_name,
-            creator_member_abilities=creator_member_abilities,
             description=description,
-            members=members,
             name=name,
             query_log_status=query_log_status,
             analytics_engine=analytics_engine,
+            creator_member_abilities=creator_member_abilities,
             creator_ml_member_abilities=creator_ml_member_abilities,
             creator_payment_configuration=creator_payment_configuration,
             data_encryption_metadata=data_encryption_metadata,
             job_log_status=job_log_status,
+            members=members,
             tags=tags,
         )
 
@@ -1580,19 +1580,6 @@ class CfnCollaboration(
         jsii.set(self, "creatorDisplayName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="creatorMemberAbilities")
-    def creator_member_abilities(self) -> typing.List[builtins.str]:
-        '''The abilities granted to the collaboration creator.'''
-        return typing.cast(typing.List[builtins.str], jsii.get(self, "creatorMemberAbilities"))
-
-    @creator_member_abilities.setter
-    def creator_member_abilities(self, value: typing.List[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ee81f8b64fd681cae1a860e0339dfa0ddeb287c4e709f0b34cc3c8bcf9bc6bd)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "creatorMemberAbilities", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="description")
     def description(self) -> builtins.str:
         '''A description of the collaboration provided by the collaboration owner.'''
@@ -1604,24 +1591,6 @@ class CfnCollaboration(
             type_hints = typing.get_type_hints(_typecheckingstub__eb5edb6a58e1c0f33620eadb56126089a140277fe87954ea4d3a06146b3559ef)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="members")
-    def members(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCollaboration.MemberSpecificationProperty"]]]:
-        '''A list of initial members, not including the creator.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCollaboration.MemberSpecificationProperty"]]], jsii.get(self, "members"))
-
-    @members.setter
-    def members(
-        self,
-        value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCollaboration.MemberSpecificationProperty"]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e816963af09a7c3bdf0ca05211222f43d66929e9fa8216fe82e8fb6e27493bdc)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "members", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -1661,6 +1630,22 @@ class CfnCollaboration(
             type_hints = typing.get_type_hints(_typecheckingstub__1052deb6a86709adcf30bca5621af3b50e52d20c54f6e014b8baeaa998273732)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "analyticsEngine", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="creatorMemberAbilities")
+    def creator_member_abilities(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The abilities granted to the collaboration creator.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "creatorMemberAbilities"))
+
+    @creator_member_abilities.setter
+    def creator_member_abilities(
+        self,
+        value: typing.Optional[typing.List[builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1ee81f8b64fd681cae1a860e0339dfa0ddeb287c4e709f0b34cc3c8bcf9bc6bd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "creatorMemberAbilities", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="creatorMlMemberAbilities")
@@ -1728,6 +1713,24 @@ class CfnCollaboration(
             type_hints = typing.get_type_hints(_typecheckingstub__b4417cba39dba6b058b8e9e8165e109039205858f8f1e7237cc3fa2e9f60ee5c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "jobLogStatus", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="members")
+    def members(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCollaboration.MemberSpecificationProperty"]]]]:
+        '''A list of initial members, not including the creator.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCollaboration.MemberSpecificationProperty"]]]], jsii.get(self, "members"))
+
+    @members.setter
+    def members(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCollaboration.MemberSpecificationProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e816963af09a7c3bdf0ca05211222f43d66929e9fa8216fe82e8fb6e27493bdc)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "members", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -2066,7 +2069,7 @@ class CfnCollaboration(
             *,
             account_id: builtins.str,
             display_name: builtins.str,
-            member_abilities: typing.Sequence[builtins.str],
+            member_abilities: typing.Optional[typing.Sequence[builtins.str]] = None,
             ml_member_abilities: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCollaboration.MLMemberAbilitiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             payment_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCollaboration.PaymentConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
@@ -2090,9 +2093,9 @@ class CfnCollaboration(
                 member_specification_property = cleanrooms.CfnCollaboration.MemberSpecificationProperty(
                     account_id="accountId",
                     display_name="displayName",
-                    member_abilities=["memberAbilities"],
                 
                     # the properties below are optional
+                    member_abilities=["memberAbilities"],
                     ml_member_abilities=cleanrooms.CfnCollaboration.MLMemberAbilitiesProperty(
                         custom_ml_member_abilities=["customMlMemberAbilities"]
                     ),
@@ -2126,8 +2129,9 @@ class CfnCollaboration(
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "account_id": account_id,
                 "display_name": display_name,
-                "member_abilities": member_abilities,
             }
+            if member_abilities is not None:
+                self._values["member_abilities"] = member_abilities
             if ml_member_abilities is not None:
                 self._values["ml_member_abilities"] = ml_member_abilities
             if payment_configuration is not None:
@@ -2156,7 +2160,7 @@ class CfnCollaboration(
             return typing.cast(builtins.str, result)
 
         @builtins.property
-        def member_abilities(self) -> typing.List[builtins.str]:
+        def member_abilities(self) -> typing.Optional[typing.List[builtins.str]]:
             '''The abilities granted to the collaboration member.
 
             *Allowed Values* : ``CAN_QUERY`` | ``CAN_RECEIVE_RESULTS``
@@ -2164,8 +2168,7 @@ class CfnCollaboration(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-collaboration-memberspecification.html#cfn-cleanrooms-collaboration-memberspecification-memberabilities
             '''
             result = self._values.get("member_abilities")
-            assert result is not None, "Required property 'member_abilities' is missing"
-            return typing.cast(typing.List[builtins.str], result)
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
         @builtins.property
         def ml_member_abilities(
@@ -2497,16 +2500,16 @@ class CfnCollaboration(
     jsii_struct_bases=[],
     name_mapping={
         "creator_display_name": "creatorDisplayName",
-        "creator_member_abilities": "creatorMemberAbilities",
         "description": "description",
-        "members": "members",
         "name": "name",
         "query_log_status": "queryLogStatus",
         "analytics_engine": "analyticsEngine",
+        "creator_member_abilities": "creatorMemberAbilities",
         "creator_ml_member_abilities": "creatorMlMemberAbilities",
         "creator_payment_configuration": "creatorPaymentConfiguration",
         "data_encryption_metadata": "dataEncryptionMetadata",
         "job_log_status": "jobLogStatus",
+        "members": "members",
         "tags": "tags",
     },
 )
@@ -2515,31 +2518,31 @@ class CfnCollaborationProps:
         self,
         *,
         creator_display_name: builtins.str,
-        creator_member_abilities: typing.Sequence[builtins.str],
         description: builtins.str,
-        members: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCollaboration.MemberSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]]],
         name: builtins.str,
         query_log_status: builtins.str,
         analytics_engine: typing.Optional[builtins.str] = None,
+        creator_member_abilities: typing.Optional[typing.Sequence[builtins.str]] = None,
         creator_ml_member_abilities: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCollaboration.MLMemberAbilitiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
         creator_payment_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCollaboration.PaymentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
         data_encryption_metadata: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCollaboration.DataEncryptionMetadataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
         job_log_status: typing.Optional[builtins.str] = None,
+        members: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCollaboration.MemberSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnCollaboration``.
 
         :param creator_display_name: A display name of the collaboration creator.
-        :param creator_member_abilities: The abilities granted to the collaboration creator. *Allowed values* ``CAN_QUERY`` | ``CAN_RECEIVE_RESULTS`` | ``CAN_RUN_JOB``
         :param description: A description of the collaboration provided by the collaboration owner.
-        :param members: A list of initial members, not including the creator. This list is immutable.
         :param name: A human-readable identifier provided by the collaboration owner. Display names are not unique.
         :param query_log_status: An indicator as to whether query logging has been enabled or disabled for the collaboration. When ``ENABLED`` , AWS Clean Rooms logs details about queries run within this collaboration and those logs can be viewed in Amazon CloudWatch Logs. The default value is ``DISABLED`` .
         :param analytics_engine: The analytics engine for the collaboration.
+        :param creator_member_abilities: The abilities granted to the collaboration creator. *Allowed values* ``CAN_QUERY`` | ``CAN_RECEIVE_RESULTS`` | ``CAN_RUN_JOB``
         :param creator_ml_member_abilities: The ML member abilities for a collaboration member.
         :param creator_payment_configuration: An object representing the collaboration member's payment responsibilities set by the collaboration creator.
         :param data_encryption_metadata: The settings for client-side encryption for cryptographic computing.
         :param job_log_status: An indicator as to whether job logging has been enabled or disabled for the collaboration. When ``ENABLED`` , AWS Clean Rooms logs details about jobs run within this collaboration and those logs can be viewed in Amazon CloudWatch Logs. The default value is ``DISABLED`` .
+        :param members: A list of initial members, not including the creator. This list is immutable.
         :param tags: An optional label that you can assign to a resource when you create it. Each tag consists of a key and an optional value, both of which you define. When you use tagging, you can also use tag-based access control in IAM policies to control access to this resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cleanrooms-collaboration.html
@@ -2553,41 +2556,13 @@ class CfnCollaborationProps:
             
             cfn_collaboration_props = cleanrooms.CfnCollaborationProps(
                 creator_display_name="creatorDisplayName",
-                creator_member_abilities=["creatorMemberAbilities"],
                 description="description",
-                members=[cleanrooms.CfnCollaboration.MemberSpecificationProperty(
-                    account_id="accountId",
-                    display_name="displayName",
-                    member_abilities=["memberAbilities"],
-            
-                    # the properties below are optional
-                    ml_member_abilities=cleanrooms.CfnCollaboration.MLMemberAbilitiesProperty(
-                        custom_ml_member_abilities=["customMlMemberAbilities"]
-                    ),
-                    payment_configuration=cleanrooms.CfnCollaboration.PaymentConfigurationProperty(
-                        query_compute=cleanrooms.CfnCollaboration.QueryComputePaymentConfigProperty(
-                            is_responsible=False
-                        ),
-            
-                        # the properties below are optional
-                        job_compute=cleanrooms.CfnCollaboration.JobComputePaymentConfigProperty(
-                            is_responsible=False
-                        ),
-                        machine_learning=cleanrooms.CfnCollaboration.MLPaymentConfigProperty(
-                            model_inference=cleanrooms.CfnCollaboration.ModelInferencePaymentConfigProperty(
-                                is_responsible=False
-                            ),
-                            model_training=cleanrooms.CfnCollaboration.ModelTrainingPaymentConfigProperty(
-                                is_responsible=False
-                            )
-                        )
-                    )
-                )],
                 name="name",
                 query_log_status="queryLogStatus",
             
                 # the properties below are optional
                 analytics_engine="analyticsEngine",
+                creator_member_abilities=["creatorMemberAbilities"],
                 creator_ml_member_abilities=cleanrooms.CfnCollaboration.MLMemberAbilitiesProperty(
                     custom_ml_member_abilities=["customMlMemberAbilities"]
                 ),
@@ -2616,6 +2591,34 @@ class CfnCollaborationProps:
                     preserve_nulls=False
                 ),
                 job_log_status="jobLogStatus",
+                members=[cleanrooms.CfnCollaboration.MemberSpecificationProperty(
+                    account_id="accountId",
+                    display_name="displayName",
+            
+                    # the properties below are optional
+                    member_abilities=["memberAbilities"],
+                    ml_member_abilities=cleanrooms.CfnCollaboration.MLMemberAbilitiesProperty(
+                        custom_ml_member_abilities=["customMlMemberAbilities"]
+                    ),
+                    payment_configuration=cleanrooms.CfnCollaboration.PaymentConfigurationProperty(
+                        query_compute=cleanrooms.CfnCollaboration.QueryComputePaymentConfigProperty(
+                            is_responsible=False
+                        ),
+            
+                        # the properties below are optional
+                        job_compute=cleanrooms.CfnCollaboration.JobComputePaymentConfigProperty(
+                            is_responsible=False
+                        ),
+                        machine_learning=cleanrooms.CfnCollaboration.MLPaymentConfigProperty(
+                            model_inference=cleanrooms.CfnCollaboration.ModelInferencePaymentConfigProperty(
+                                is_responsible=False
+                            ),
+                            model_training=cleanrooms.CfnCollaboration.ModelTrainingPaymentConfigProperty(
+                                is_responsible=False
+                            )
+                        )
+                    )
+                )],
                 tags=[CfnTag(
                     key="key",
                     value="value"
@@ -2625,27 +2628,27 @@ class CfnCollaborationProps:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2049291a9933df94c4258b33838a3aa8100d0214a4519c3d84e6d70ed724c55d)
             check_type(argname="argument creator_display_name", value=creator_display_name, expected_type=type_hints["creator_display_name"])
-            check_type(argname="argument creator_member_abilities", value=creator_member_abilities, expected_type=type_hints["creator_member_abilities"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument members", value=members, expected_type=type_hints["members"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument query_log_status", value=query_log_status, expected_type=type_hints["query_log_status"])
             check_type(argname="argument analytics_engine", value=analytics_engine, expected_type=type_hints["analytics_engine"])
+            check_type(argname="argument creator_member_abilities", value=creator_member_abilities, expected_type=type_hints["creator_member_abilities"])
             check_type(argname="argument creator_ml_member_abilities", value=creator_ml_member_abilities, expected_type=type_hints["creator_ml_member_abilities"])
             check_type(argname="argument creator_payment_configuration", value=creator_payment_configuration, expected_type=type_hints["creator_payment_configuration"])
             check_type(argname="argument data_encryption_metadata", value=data_encryption_metadata, expected_type=type_hints["data_encryption_metadata"])
             check_type(argname="argument job_log_status", value=job_log_status, expected_type=type_hints["job_log_status"])
+            check_type(argname="argument members", value=members, expected_type=type_hints["members"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "creator_display_name": creator_display_name,
-            "creator_member_abilities": creator_member_abilities,
             "description": description,
-            "members": members,
             "name": name,
             "query_log_status": query_log_status,
         }
         if analytics_engine is not None:
             self._values["analytics_engine"] = analytics_engine
+        if creator_member_abilities is not None:
+            self._values["creator_member_abilities"] = creator_member_abilities
         if creator_ml_member_abilities is not None:
             self._values["creator_ml_member_abilities"] = creator_ml_member_abilities
         if creator_payment_configuration is not None:
@@ -2654,6 +2657,8 @@ class CfnCollaborationProps:
             self._values["data_encryption_metadata"] = data_encryption_metadata
         if job_log_status is not None:
             self._values["job_log_status"] = job_log_status
+        if members is not None:
+            self._values["members"] = members
         if tags is not None:
             self._values["tags"] = tags
 
@@ -2668,18 +2673,6 @@ class CfnCollaborationProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def creator_member_abilities(self) -> typing.List[builtins.str]:
-        '''The abilities granted to the collaboration creator.
-
-        *Allowed values* ``CAN_QUERY`` | ``CAN_RECEIVE_RESULTS`` | ``CAN_RUN_JOB``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cleanrooms-collaboration.html#cfn-cleanrooms-collaboration-creatormemberabilities
-        '''
-        result = self._values.get("creator_member_abilities")
-        assert result is not None, "Required property 'creator_member_abilities' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
     def description(self) -> builtins.str:
         '''A description of the collaboration provided by the collaboration owner.
 
@@ -2688,20 +2681,6 @@ class CfnCollaborationProps:
         result = self._values.get("description")
         assert result is not None, "Required property 'description' is missing"
         return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def members(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCollaboration.MemberSpecificationProperty]]]:
-        '''A list of initial members, not including the creator.
-
-        This list is immutable.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cleanrooms-collaboration.html#cfn-cleanrooms-collaboration-members
-        '''
-        result = self._values.get("members")
-        assert result is not None, "Required property 'members' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCollaboration.MemberSpecificationProperty]]], result)
 
     @builtins.property
     def name(self) -> builtins.str:
@@ -2735,6 +2714,17 @@ class CfnCollaborationProps:
         '''
         result = self._values.get("analytics_engine")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def creator_member_abilities(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The abilities granted to the collaboration creator.
+
+        *Allowed values* ``CAN_QUERY`` | ``CAN_RECEIVE_RESULTS`` | ``CAN_RUN_JOB``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cleanrooms-collaboration.html#cfn-cleanrooms-collaboration-creatormemberabilities
+        '''
+        result = self._values.get("creator_member_abilities")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def creator_ml_member_abilities(
@@ -2779,6 +2769,19 @@ class CfnCollaborationProps:
         '''
         result = self._values.get("job_log_status")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def members(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCollaboration.MemberSpecificationProperty]]]]:
+        '''A list of initial members, not including the creator.
+
+        This list is immutable.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cleanrooms-collaboration.html#cfn-cleanrooms-collaboration-members
+        '''
+        result = self._values.get("members")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCollaboration.MemberSpecificationProperty]]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
@@ -9307,16 +9310,16 @@ def _typecheckingstub__a8995527da9ce4212caf3c1fdf601e4947c02ff1e364e92811ac8635b
     id: builtins.str,
     *,
     creator_display_name: builtins.str,
-    creator_member_abilities: typing.Sequence[builtins.str],
     description: builtins.str,
-    members: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCollaboration.MemberSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]]],
     name: builtins.str,
     query_log_status: builtins.str,
     analytics_engine: typing.Optional[builtins.str] = None,
+    creator_member_abilities: typing.Optional[typing.Sequence[builtins.str]] = None,
     creator_ml_member_abilities: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCollaboration.MLMemberAbilitiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     creator_payment_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCollaboration.PaymentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     data_encryption_metadata: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCollaboration.DataEncryptionMetadataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     job_log_status: typing.Optional[builtins.str] = None,
+    members: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCollaboration.MemberSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -9340,20 +9343,8 @@ def _typecheckingstub__4a9f17060755de314c6aea7e9fe1c03f18e31972fafbe5d1edf10b182
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__1ee81f8b64fd681cae1a860e0339dfa0ddeb287c4e709f0b34cc3c8bcf9bc6bd(
-    value: typing.List[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__eb5edb6a58e1c0f33620eadb56126089a140277fe87954ea4d3a06146b3559ef(
     value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e816963af09a7c3bdf0ca05211222f43d66929e9fa8216fe82e8fb6e27493bdc(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCollaboration.MemberSpecificationProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9372,6 +9363,12 @@ def _typecheckingstub__fa852049fd80eee6c2543d7576eb0c8f60a43d90ca97006450c31d8a1
 
 def _typecheckingstub__1052deb6a86709adcf30bca5621af3b50e52d20c54f6e014b8baeaa998273732(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1ee81f8b64fd681cae1a860e0339dfa0ddeb287c4e709f0b34cc3c8bcf9bc6bd(
+    value: typing.Optional[typing.List[builtins.str]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9396,6 +9393,12 @@ def _typecheckingstub__a86b18a30aac6a5afc1830c4adb282d4f0f3199f7c3d3ce99ffb24dad
 
 def _typecheckingstub__b4417cba39dba6b058b8e9e8165e109039205858f8f1e7237cc3fa2e9f60ee5c(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e816963af09a7c3bdf0ca05211222f43d66929e9fa8216fe82e8fb6e27493bdc(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCollaboration.MemberSpecificationProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9442,7 +9445,7 @@ def _typecheckingstub__2c9d415168b79c297b7313d0c42362a70fed420b1dda08e496b99813f
     *,
     account_id: builtins.str,
     display_name: builtins.str,
-    member_abilities: typing.Sequence[builtins.str],
+    member_abilities: typing.Optional[typing.Sequence[builtins.str]] = None,
     ml_member_abilities: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCollaboration.MLMemberAbilitiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     payment_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCollaboration.PaymentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -9482,16 +9485,16 @@ def _typecheckingstub__691566df57f98e85a0cab7f982a0bb63684a2747f18e19d599214bacc
 def _typecheckingstub__2049291a9933df94c4258b33838a3aa8100d0214a4519c3d84e6d70ed724c55d(
     *,
     creator_display_name: builtins.str,
-    creator_member_abilities: typing.Sequence[builtins.str],
     description: builtins.str,
-    members: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCollaboration.MemberSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]]],
     name: builtins.str,
     query_log_status: builtins.str,
     analytics_engine: typing.Optional[builtins.str] = None,
+    creator_member_abilities: typing.Optional[typing.Sequence[builtins.str]] = None,
     creator_ml_member_abilities: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCollaboration.MLMemberAbilitiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     creator_payment_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCollaboration.PaymentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     data_encryption_metadata: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCollaboration.DataEncryptionMetadataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     job_log_status: typing.Optional[builtins.str] = None,
+    members: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCollaboration.MemberSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

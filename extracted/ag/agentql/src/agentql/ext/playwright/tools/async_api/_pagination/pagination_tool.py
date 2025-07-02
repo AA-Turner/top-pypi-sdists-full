@@ -1,5 +1,5 @@
 import logging
-from typing import List, Tuple, Union
+from typing import Union
 
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
@@ -30,7 +30,7 @@ async def paginate(
     include_hidden: bool = DEFAULT_INCLUDE_HIDDEN_DATA,
     mode: ResponseMode = DEFAULT_RESPONSE_MODE,
     force_click: bool = DEFAULT_PAGINATION_CLICK_FORCE,
-) -> List[dict]:
+) -> list[dict]:
     """
     Paginate over specified number of pages and aggregate all returned data.
 
@@ -59,7 +59,7 @@ async def paginate(
     log.debug("Starting Pagination")
     data = []
     for p in range(number_of_pages):
-        log.debug(f"Querying Page {p+1}")
+        log.debug(f"Querying Page {p + 1}")
         is_last_page = p == number_of_pages - 1
         extracted_data, pagination_element = await _get_current_page_info(
             page,
@@ -83,9 +83,7 @@ async def paginate(
 
         # click on the next page element
         try:
-            await pagination_element.click(
-                force=force_click, timeout=DEFAULT_PAGINATION_CLICK_TIMEOUT_MS
-            )
+            await pagination_element.click(force=force_click, timeout=DEFAULT_PAGINATION_CLICK_TIMEOUT_MS)
         except PlaywrightTimeoutError:
             log.debug(
                 f"Timeout error while clicking on the pagination element (Timeout of {DEFAULT_PAGINATION_CLICK_TIMEOUT_MS}ms exceeded). Halting the pagination process. The data gathered so far will be returned."
@@ -108,7 +106,7 @@ async def _get_current_page_info(
     wait_for_network_idle: bool,
     include_hidden: bool,
     mode: ResponseMode,
-) -> Tuple[dict, Union[Locator, None]]:
+) -> tuple[dict, Union[Locator, None]]:
     """
     Extract data from current page and find a locator for next page navigation.
 
@@ -128,8 +126,6 @@ async def _get_current_page_info(
     if is_last_page:
         pagination_element = None
     else:
-        pagination_element = await page.get_by_prompt(
-            prompt=generate_next_page_element_prompt(query)
-        )
+        pagination_element = await page.get_by_prompt(prompt=generate_next_page_element_prompt(query))
 
     return response, pagination_element

@@ -1,5 +1,5 @@
 import logging
-from typing import List, Tuple, Union
+from typing import Union
 
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
@@ -30,7 +30,7 @@ def paginate(
     include_hidden: bool = DEFAULT_INCLUDE_HIDDEN_DATA,
     mode: ResponseMode = DEFAULT_RESPONSE_MODE,
     force_click: bool = DEFAULT_PAGINATION_CLICK_FORCE,
-) -> List[dict]:
+) -> list[dict]:
     """
     Paginate over specified number of pages and aggregate all returned data.
 
@@ -59,7 +59,7 @@ def paginate(
     log.debug("Starting Pagination")
     data = []
     for p in range(number_of_pages):
-        log.debug(f"Querying Page {p+1}")
+        log.debug(f"Querying Page {p + 1}")
         is_last_page = p == number_of_pages - 1
         extracted_data, pagination_element = _get_current_page_info(
             page,
@@ -106,7 +106,7 @@ def _get_current_page_info(
     wait_for_network_idle: bool,
     include_hidden: bool,
     mode: ResponseMode,
-) -> Tuple[dict, Union[Locator, None]]:
+) -> tuple[dict, Union[Locator, None]]:
     """
     Extract data from current page and find a locator for next page navigation.
 

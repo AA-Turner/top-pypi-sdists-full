@@ -1,7 +1,7 @@
 r'''
 # `google_compute_resource_policy`
 
-Refer to the Terraform Registry for docs: [`google_compute_resource_policy`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy).
+Refer to the Terraform Registry for docs: [`google_compute_resource_policy`](https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleComputeResourcePolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleComputeResourcePolicy.GoogleComputeResourcePolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy google_compute_resource_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy google_compute_resource_policy}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class GoogleComputeResourcePolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy google_compute_resource_policy} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy google_compute_resource_policy} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The name of the resource, provided by the client when initially creating the resource. The resource name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_'? which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#name GoogleComputeResourcePolicy#name}
-        :param description: An optional description of this resource. Provide this property when you create the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#description GoogleComputeResourcePolicy#description}
-        :param disk_consistency_group_policy: disk_consistency_group_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#disk_consistency_group_policy GoogleComputeResourcePolicy#disk_consistency_group_policy}
-        :param group_placement_policy: group_placement_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#group_placement_policy GoogleComputeResourcePolicy#group_placement_policy}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#id GoogleComputeResourcePolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param instance_schedule_policy: instance_schedule_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#instance_schedule_policy GoogleComputeResourcePolicy#instance_schedule_policy}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#project GoogleComputeResourcePolicy#project}.
-        :param region: Region where resource policy resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#region GoogleComputeResourcePolicy#region}
-        :param snapshot_schedule_policy: snapshot_schedule_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#snapshot_schedule_policy GoogleComputeResourcePolicy#snapshot_schedule_policy}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#timeouts GoogleComputeResourcePolicy#timeouts}
-        :param workload_policy: workload_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#workload_policy GoogleComputeResourcePolicy#workload_policy}
+        :param name: The name of the resource, provided by the client when initially creating the resource. The resource name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_'? which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#name GoogleComputeResourcePolicy#name}
+        :param description: An optional description of this resource. Provide this property when you create the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#description GoogleComputeResourcePolicy#description}
+        :param disk_consistency_group_policy: disk_consistency_group_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#disk_consistency_group_policy GoogleComputeResourcePolicy#disk_consistency_group_policy}
+        :param group_placement_policy: group_placement_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#group_placement_policy GoogleComputeResourcePolicy#group_placement_policy}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#id GoogleComputeResourcePolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instance_schedule_policy: instance_schedule_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#instance_schedule_policy GoogleComputeResourcePolicy#instance_schedule_policy}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#project GoogleComputeResourcePolicy#project}.
+        :param region: Region where resource policy resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#region GoogleComputeResourcePolicy#region}
+        :param snapshot_schedule_policy: snapshot_schedule_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#snapshot_schedule_policy GoogleComputeResourcePolicy#snapshot_schedule_policy}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#timeouts GoogleComputeResourcePolicy#timeouts}
+        :param workload_policy: workload_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#workload_policy GoogleComputeResourcePolicy#workload_policy}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class GoogleComputeResourcePolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleComputeResourcePolicy to import.
-        :param import_from_id: The id of the existing GoogleComputeResourcePolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleComputeResourcePolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleComputeResourcePolicy to import is found.
         '''
         if __debug__:
@@ -151,7 +151,7 @@ class GoogleComputeResourcePolicy(
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: Enable disk consistency on the resource policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#enabled GoogleComputeResourcePolicy#enabled}
+        :param enabled: Enable disk consistency on the resource policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#enabled GoogleComputeResourcePolicy#enabled}
         '''
         value = GoogleComputeResourcePolicyDiskConsistencyGroupPolicy(enabled=enabled)
 
@@ -169,12 +169,12 @@ class GoogleComputeResourcePolicy(
         vm_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param availability_domain_count: The number of availability domains instances will be spread across. If two instances are in different availability domain, they will not be put in the same low latency network Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#availability_domain_count GoogleComputeResourcePolicy#availability_domain_count}
-        :param collocation: Collocation specifies whether to place VMs inside the same availability domain on the same low-latency network. Specify 'COLLOCATED' to enable collocation. Can only be specified with 'vm_count'. If compute instances are created with a COLLOCATED policy, then exactly 'vm_count' instances must be created at the same time with the resource policy attached. Possible values: ["COLLOCATED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#collocation GoogleComputeResourcePolicy#collocation}
-        :param gpu_topology: Specifies the shape of the GPU slice, in slice based GPU families eg. A4X. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#gpu_topology GoogleComputeResourcePolicy#gpu_topology}
-        :param max_distance: Specifies the number of max logical switches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#max_distance GoogleComputeResourcePolicy#max_distance}
-        :param tpu_topology: Specifies the shape of the TPU slice. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#tpu_topology GoogleComputeResourcePolicy#tpu_topology}
-        :param vm_count: Number of VMs in this placement group. Google does not recommend that you use this field unless you use a compact policy and you want your policy to work only if it contains this exact number of VMs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#vm_count GoogleComputeResourcePolicy#vm_count}
+        :param availability_domain_count: The number of availability domains instances will be spread across. If two instances are in different availability domain, they will not be put in the same low latency network Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#availability_domain_count GoogleComputeResourcePolicy#availability_domain_count}
+        :param collocation: Collocation specifies whether to place VMs inside the same availability domain on the same low-latency network. Specify 'COLLOCATED' to enable collocation. Can only be specified with 'vm_count'. If compute instances are created with a COLLOCATED policy, then exactly 'vm_count' instances must be created at the same time with the resource policy attached. Possible values: ["COLLOCATED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#collocation GoogleComputeResourcePolicy#collocation}
+        :param gpu_topology: Specifies the shape of the GPU slice, in slice based GPU families eg. A4X. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#gpu_topology GoogleComputeResourcePolicy#gpu_topology}
+        :param max_distance: Specifies the number of max logical switches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#max_distance GoogleComputeResourcePolicy#max_distance}
+        :param tpu_topology: Specifies the shape of the TPU slice. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#tpu_topology GoogleComputeResourcePolicy#tpu_topology}
+        :param vm_count: Number of VMs in this placement group. Google does not recommend that you use this field unless you use a compact policy and you want your policy to work only if it contains this exact number of VMs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#vm_count GoogleComputeResourcePolicy#vm_count}
         '''
         value = GoogleComputeResourcePolicyGroupPlacementPolicy(
             availability_domain_count=availability_domain_count,
@@ -198,11 +198,11 @@ class GoogleComputeResourcePolicy(
         vm_stop_schedule: typing.Optional[typing.Union["GoogleComputeResourcePolicyInstanceSchedulePolicyVmStopSchedule", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param time_zone: Specifies the time zone to be used in interpreting the schedule. The value of this field must be a time zone name from the tz database: http://en.wikipedia.org/wiki/Tz_database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#time_zone GoogleComputeResourcePolicy#time_zone}
-        :param expiration_time: The expiration time of the schedule. The timestamp is an RFC3339 string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#expiration_time GoogleComputeResourcePolicy#expiration_time}
-        :param start_time: The start time of the schedule. The timestamp is an RFC3339 string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#start_time GoogleComputeResourcePolicy#start_time}
-        :param vm_start_schedule: vm_start_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#vm_start_schedule GoogleComputeResourcePolicy#vm_start_schedule}
-        :param vm_stop_schedule: vm_stop_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#vm_stop_schedule GoogleComputeResourcePolicy#vm_stop_schedule}
+        :param time_zone: Specifies the time zone to be used in interpreting the schedule. The value of this field must be a time zone name from the tz database: http://en.wikipedia.org/wiki/Tz_database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#time_zone GoogleComputeResourcePolicy#time_zone}
+        :param expiration_time: The expiration time of the schedule. The timestamp is an RFC3339 string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#expiration_time GoogleComputeResourcePolicy#expiration_time}
+        :param start_time: The start time of the schedule. The timestamp is an RFC3339 string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#start_time GoogleComputeResourcePolicy#start_time}
+        :param vm_start_schedule: vm_start_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#vm_start_schedule GoogleComputeResourcePolicy#vm_start_schedule}
+        :param vm_stop_schedule: vm_stop_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#vm_stop_schedule GoogleComputeResourcePolicy#vm_stop_schedule}
         '''
         value = GoogleComputeResourcePolicyInstanceSchedulePolicy(
             time_zone=time_zone,
@@ -223,9 +223,9 @@ class GoogleComputeResourcePolicy(
         snapshot_properties: typing.Optional[typing.Union["GoogleComputeResourcePolicySnapshotSchedulePolicySnapshotProperties", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param schedule: schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#schedule GoogleComputeResourcePolicy#schedule}
-        :param retention_policy: retention_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#retention_policy GoogleComputeResourcePolicy#retention_policy}
-        :param snapshot_properties: snapshot_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#snapshot_properties GoogleComputeResourcePolicy#snapshot_properties}
+        :param schedule: schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#schedule GoogleComputeResourcePolicy#schedule}
+        :param retention_policy: retention_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#retention_policy GoogleComputeResourcePolicy#retention_policy}
+        :param snapshot_properties: snapshot_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#snapshot_properties GoogleComputeResourcePolicy#snapshot_properties}
         '''
         value = GoogleComputeResourcePolicySnapshotSchedulePolicy(
             schedule=schedule,
@@ -244,9 +244,9 @@ class GoogleComputeResourcePolicy(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#create GoogleComputeResourcePolicy#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#delete GoogleComputeResourcePolicy#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#update GoogleComputeResourcePolicy#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#create GoogleComputeResourcePolicy#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#delete GoogleComputeResourcePolicy#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#update GoogleComputeResourcePolicy#update}.
         '''
         value = GoogleComputeResourcePolicyTimeouts(
             create=create, delete=delete, update=update
@@ -263,9 +263,9 @@ class GoogleComputeResourcePolicy(
         max_topology_distance: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: The type of workload policy. Possible values: ["HIGH_AVAILABILITY", "HIGH_THROUGHPUT"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#type GoogleComputeResourcePolicy#type}
-        :param accelerator_topology: The accelerator topology. This field can be set only when the workload policy type is HIGH_THROUGHPUT and cannot be set if max topology distance is set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#accelerator_topology GoogleComputeResourcePolicy#accelerator_topology}
-        :param max_topology_distance: The maximum topology distance. This field can be set only when the workload policy type is HIGH_THROUGHPUT and cannot be set if accelerator topology is set. Possible values: ["BLOCK", "CLUSTER", "SUBBLOCK"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#max_topology_distance GoogleComputeResourcePolicy#max_topology_distance}
+        :param type: The type of workload policy. Possible values: ["HIGH_AVAILABILITY", "HIGH_THROUGHPUT"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#type GoogleComputeResourcePolicy#type}
+        :param accelerator_topology: The accelerator topology. This field can be set only when the workload policy type is HIGH_THROUGHPUT and cannot be set if max topology distance is set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#accelerator_topology GoogleComputeResourcePolicy#accelerator_topology}
+        :param max_topology_distance: The maximum topology distance. This field can be set only when the workload policy type is HIGH_THROUGHPUT and cannot be set if accelerator topology is set. Possible values: ["BLOCK", "CLUSTER", "SUBBLOCK"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#max_topology_distance GoogleComputeResourcePolicy#max_topology_distance}
         '''
         value = GoogleComputeResourcePolicyWorkloadPolicy(
             type=type,
@@ -556,17 +556,17 @@ class GoogleComputeResourcePolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The name of the resource, provided by the client when initially creating the resource. The resource name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_'? which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#name GoogleComputeResourcePolicy#name}
-        :param description: An optional description of this resource. Provide this property when you create the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#description GoogleComputeResourcePolicy#description}
-        :param disk_consistency_group_policy: disk_consistency_group_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#disk_consistency_group_policy GoogleComputeResourcePolicy#disk_consistency_group_policy}
-        :param group_placement_policy: group_placement_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#group_placement_policy GoogleComputeResourcePolicy#group_placement_policy}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#id GoogleComputeResourcePolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param instance_schedule_policy: instance_schedule_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#instance_schedule_policy GoogleComputeResourcePolicy#instance_schedule_policy}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#project GoogleComputeResourcePolicy#project}.
-        :param region: Region where resource policy resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#region GoogleComputeResourcePolicy#region}
-        :param snapshot_schedule_policy: snapshot_schedule_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#snapshot_schedule_policy GoogleComputeResourcePolicy#snapshot_schedule_policy}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#timeouts GoogleComputeResourcePolicy#timeouts}
-        :param workload_policy: workload_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#workload_policy GoogleComputeResourcePolicy#workload_policy}
+        :param name: The name of the resource, provided by the client when initially creating the resource. The resource name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_'? which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#name GoogleComputeResourcePolicy#name}
+        :param description: An optional description of this resource. Provide this property when you create the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#description GoogleComputeResourcePolicy#description}
+        :param disk_consistency_group_policy: disk_consistency_group_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#disk_consistency_group_policy GoogleComputeResourcePolicy#disk_consistency_group_policy}
+        :param group_placement_policy: group_placement_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#group_placement_policy GoogleComputeResourcePolicy#group_placement_policy}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#id GoogleComputeResourcePolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instance_schedule_policy: instance_schedule_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#instance_schedule_policy GoogleComputeResourcePolicy#instance_schedule_policy}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#project GoogleComputeResourcePolicy#project}.
+        :param region: Region where resource policy resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#region GoogleComputeResourcePolicy#region}
+        :param snapshot_schedule_policy: snapshot_schedule_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#snapshot_schedule_policy GoogleComputeResourcePolicy#snapshot_schedule_policy}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#timeouts GoogleComputeResourcePolicy#timeouts}
+        :param workload_policy: workload_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#workload_policy GoogleComputeResourcePolicy#workload_policy}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -715,7 +715,7 @@ class GoogleComputeResourcePolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         must be a dash, lowercase letter, or digit, except the last character,
         which cannot be a dash.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#name GoogleComputeResourcePolicy#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#name GoogleComputeResourcePolicy#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -725,7 +725,7 @@ class GoogleComputeResourcePolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''An optional description of this resource. Provide this property when you create the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#description GoogleComputeResourcePolicy#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#description GoogleComputeResourcePolicy#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -736,7 +736,7 @@ class GoogleComputeResourcePolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleComputeResourcePolicyDiskConsistencyGroupPolicy"]:
         '''disk_consistency_group_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#disk_consistency_group_policy GoogleComputeResourcePolicy#disk_consistency_group_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#disk_consistency_group_policy GoogleComputeResourcePolicy#disk_consistency_group_policy}
         '''
         result = self._values.get("disk_consistency_group_policy")
         return typing.cast(typing.Optional["GoogleComputeResourcePolicyDiskConsistencyGroupPolicy"], result)
@@ -747,14 +747,14 @@ class GoogleComputeResourcePolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleComputeResourcePolicyGroupPlacementPolicy"]:
         '''group_placement_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#group_placement_policy GoogleComputeResourcePolicy#group_placement_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#group_placement_policy GoogleComputeResourcePolicy#group_placement_policy}
         '''
         result = self._values.get("group_placement_policy")
         return typing.cast(typing.Optional["GoogleComputeResourcePolicyGroupPlacementPolicy"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#id GoogleComputeResourcePolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#id GoogleComputeResourcePolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -768,14 +768,14 @@ class GoogleComputeResourcePolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleComputeResourcePolicyInstanceSchedulePolicy"]:
         '''instance_schedule_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#instance_schedule_policy GoogleComputeResourcePolicy#instance_schedule_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#instance_schedule_policy GoogleComputeResourcePolicy#instance_schedule_policy}
         '''
         result = self._values.get("instance_schedule_policy")
         return typing.cast(typing.Optional["GoogleComputeResourcePolicyInstanceSchedulePolicy"], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#project GoogleComputeResourcePolicy#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#project GoogleComputeResourcePolicy#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -783,7 +783,7 @@ class GoogleComputeResourcePolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where resource policy resides.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#region GoogleComputeResourcePolicy#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#region GoogleComputeResourcePolicy#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -794,7 +794,7 @@ class GoogleComputeResourcePolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleComputeResourcePolicySnapshotSchedulePolicy"]:
         '''snapshot_schedule_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#snapshot_schedule_policy GoogleComputeResourcePolicy#snapshot_schedule_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#snapshot_schedule_policy GoogleComputeResourcePolicy#snapshot_schedule_policy}
         '''
         result = self._values.get("snapshot_schedule_policy")
         return typing.cast(typing.Optional["GoogleComputeResourcePolicySnapshotSchedulePolicy"], result)
@@ -803,7 +803,7 @@ class GoogleComputeResourcePolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleComputeResourcePolicyTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#timeouts GoogleComputeResourcePolicy#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#timeouts GoogleComputeResourcePolicy#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleComputeResourcePolicyTimeouts"], result)
@@ -814,7 +814,7 @@ class GoogleComputeResourcePolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleComputeResourcePolicyWorkloadPolicy"]:
         '''workload_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#workload_policy GoogleComputeResourcePolicy#workload_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#workload_policy GoogleComputeResourcePolicy#workload_policy}
         '''
         result = self._values.get("workload_policy")
         return typing.cast(typing.Optional["GoogleComputeResourcePolicyWorkloadPolicy"], result)
@@ -843,7 +843,7 @@ class GoogleComputeResourcePolicyDiskConsistencyGroupPolicy:
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: Enable disk consistency on the resource policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#enabled GoogleComputeResourcePolicy#enabled}
+        :param enabled: Enable disk consistency on the resource policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#enabled GoogleComputeResourcePolicy#enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5a65697076cc8b527c37ac671dcff7bdd055fc9860bfcc2b51c1bdde26625679)
@@ -856,7 +856,7 @@ class GoogleComputeResourcePolicyDiskConsistencyGroupPolicy:
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Enable disk consistency on the resource policy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#enabled GoogleComputeResourcePolicy#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#enabled GoogleComputeResourcePolicy#enabled}
         '''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
@@ -958,12 +958,12 @@ class GoogleComputeResourcePolicyGroupPlacementPolicy:
         vm_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param availability_domain_count: The number of availability domains instances will be spread across. If two instances are in different availability domain, they will not be put in the same low latency network Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#availability_domain_count GoogleComputeResourcePolicy#availability_domain_count}
-        :param collocation: Collocation specifies whether to place VMs inside the same availability domain on the same low-latency network. Specify 'COLLOCATED' to enable collocation. Can only be specified with 'vm_count'. If compute instances are created with a COLLOCATED policy, then exactly 'vm_count' instances must be created at the same time with the resource policy attached. Possible values: ["COLLOCATED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#collocation GoogleComputeResourcePolicy#collocation}
-        :param gpu_topology: Specifies the shape of the GPU slice, in slice based GPU families eg. A4X. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#gpu_topology GoogleComputeResourcePolicy#gpu_topology}
-        :param max_distance: Specifies the number of max logical switches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#max_distance GoogleComputeResourcePolicy#max_distance}
-        :param tpu_topology: Specifies the shape of the TPU slice. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#tpu_topology GoogleComputeResourcePolicy#tpu_topology}
-        :param vm_count: Number of VMs in this placement group. Google does not recommend that you use this field unless you use a compact policy and you want your policy to work only if it contains this exact number of VMs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#vm_count GoogleComputeResourcePolicy#vm_count}
+        :param availability_domain_count: The number of availability domains instances will be spread across. If two instances are in different availability domain, they will not be put in the same low latency network Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#availability_domain_count GoogleComputeResourcePolicy#availability_domain_count}
+        :param collocation: Collocation specifies whether to place VMs inside the same availability domain on the same low-latency network. Specify 'COLLOCATED' to enable collocation. Can only be specified with 'vm_count'. If compute instances are created with a COLLOCATED policy, then exactly 'vm_count' instances must be created at the same time with the resource policy attached. Possible values: ["COLLOCATED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#collocation GoogleComputeResourcePolicy#collocation}
+        :param gpu_topology: Specifies the shape of the GPU slice, in slice based GPU families eg. A4X. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#gpu_topology GoogleComputeResourcePolicy#gpu_topology}
+        :param max_distance: Specifies the number of max logical switches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#max_distance GoogleComputeResourcePolicy#max_distance}
+        :param tpu_topology: Specifies the shape of the TPU slice. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#tpu_topology GoogleComputeResourcePolicy#tpu_topology}
+        :param vm_count: Number of VMs in this placement group. Google does not recommend that you use this field unless you use a compact policy and you want your policy to work only if it contains this exact number of VMs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#vm_count GoogleComputeResourcePolicy#vm_count}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2db4d8cce4484aedfc9b69823c9b1658b16aef170aa4779d79ce656ffabba8c8)
@@ -994,7 +994,7 @@ class GoogleComputeResourcePolicyGroupPlacementPolicy:
         If two instances are in different
         availability domain, they will not be put in the same low latency network
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#availability_domain_count GoogleComputeResourcePolicy#availability_domain_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#availability_domain_count GoogleComputeResourcePolicy#availability_domain_count}
         '''
         result = self._values.get("availability_domain_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1007,7 +1007,7 @@ class GoogleComputeResourcePolicyGroupPlacementPolicy:
         with a COLLOCATED policy, then exactly 'vm_count' instances must be created at the same time with the resource policy
         attached. Possible values: ["COLLOCATED"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#collocation GoogleComputeResourcePolicy#collocation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#collocation GoogleComputeResourcePolicy#collocation}
         '''
         result = self._values.get("collocation")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1016,7 +1016,7 @@ class GoogleComputeResourcePolicyGroupPlacementPolicy:
     def gpu_topology(self) -> typing.Optional[builtins.str]:
         '''Specifies the shape of the GPU slice, in slice based GPU families eg. A4X.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#gpu_topology GoogleComputeResourcePolicy#gpu_topology}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#gpu_topology GoogleComputeResourcePolicy#gpu_topology}
         '''
         result = self._values.get("gpu_topology")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1025,7 +1025,7 @@ class GoogleComputeResourcePolicyGroupPlacementPolicy:
     def max_distance(self) -> typing.Optional[jsii.Number]:
         '''Specifies the number of max logical switches.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#max_distance GoogleComputeResourcePolicy#max_distance}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#max_distance GoogleComputeResourcePolicy#max_distance}
         '''
         result = self._values.get("max_distance")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1034,7 +1034,7 @@ class GoogleComputeResourcePolicyGroupPlacementPolicy:
     def tpu_topology(self) -> typing.Optional[builtins.str]:
         '''Specifies the shape of the TPU slice.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#tpu_topology GoogleComputeResourcePolicy#tpu_topology}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#tpu_topology GoogleComputeResourcePolicy#tpu_topology}
         '''
         result = self._values.get("tpu_topology")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1047,7 +1047,7 @@ class GoogleComputeResourcePolicyGroupPlacementPolicy:
         unless you use a compact policy and you want your policy to work only if it contains this
         exact number of VMs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#vm_count GoogleComputeResourcePolicy#vm_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#vm_count GoogleComputeResourcePolicy#vm_count}
         '''
         result = self._values.get("vm_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1250,11 +1250,11 @@ class GoogleComputeResourcePolicyInstanceSchedulePolicy:
         vm_stop_schedule: typing.Optional[typing.Union["GoogleComputeResourcePolicyInstanceSchedulePolicyVmStopSchedule", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param time_zone: Specifies the time zone to be used in interpreting the schedule. The value of this field must be a time zone name from the tz database: http://en.wikipedia.org/wiki/Tz_database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#time_zone GoogleComputeResourcePolicy#time_zone}
-        :param expiration_time: The expiration time of the schedule. The timestamp is an RFC3339 string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#expiration_time GoogleComputeResourcePolicy#expiration_time}
-        :param start_time: The start time of the schedule. The timestamp is an RFC3339 string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#start_time GoogleComputeResourcePolicy#start_time}
-        :param vm_start_schedule: vm_start_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#vm_start_schedule GoogleComputeResourcePolicy#vm_start_schedule}
-        :param vm_stop_schedule: vm_stop_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#vm_stop_schedule GoogleComputeResourcePolicy#vm_stop_schedule}
+        :param time_zone: Specifies the time zone to be used in interpreting the schedule. The value of this field must be a time zone name from the tz database: http://en.wikipedia.org/wiki/Tz_database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#time_zone GoogleComputeResourcePolicy#time_zone}
+        :param expiration_time: The expiration time of the schedule. The timestamp is an RFC3339 string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#expiration_time GoogleComputeResourcePolicy#expiration_time}
+        :param start_time: The start time of the schedule. The timestamp is an RFC3339 string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#start_time GoogleComputeResourcePolicy#start_time}
+        :param vm_start_schedule: vm_start_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#vm_start_schedule GoogleComputeResourcePolicy#vm_start_schedule}
+        :param vm_stop_schedule: vm_stop_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#vm_stop_schedule GoogleComputeResourcePolicy#vm_stop_schedule}
         '''
         if isinstance(vm_start_schedule, dict):
             vm_start_schedule = GoogleComputeResourcePolicyInstanceSchedulePolicyVmStartSchedule(**vm_start_schedule)
@@ -1286,7 +1286,7 @@ class GoogleComputeResourcePolicyInstanceSchedulePolicy:
         The value of this field must be a time zone name
         from the tz database: http://en.wikipedia.org/wiki/Tz_database.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#time_zone GoogleComputeResourcePolicy#time_zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#time_zone GoogleComputeResourcePolicy#time_zone}
         '''
         result = self._values.get("time_zone")
         assert result is not None, "Required property 'time_zone' is missing"
@@ -1296,7 +1296,7 @@ class GoogleComputeResourcePolicyInstanceSchedulePolicy:
     def expiration_time(self) -> typing.Optional[builtins.str]:
         '''The expiration time of the schedule. The timestamp is an RFC3339 string.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#expiration_time GoogleComputeResourcePolicy#expiration_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#expiration_time GoogleComputeResourcePolicy#expiration_time}
         '''
         result = self._values.get("expiration_time")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1305,7 +1305,7 @@ class GoogleComputeResourcePolicyInstanceSchedulePolicy:
     def start_time(self) -> typing.Optional[builtins.str]:
         '''The start time of the schedule. The timestamp is an RFC3339 string.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#start_time GoogleComputeResourcePolicy#start_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#start_time GoogleComputeResourcePolicy#start_time}
         '''
         result = self._values.get("start_time")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1316,7 +1316,7 @@ class GoogleComputeResourcePolicyInstanceSchedulePolicy:
     ) -> typing.Optional["GoogleComputeResourcePolicyInstanceSchedulePolicyVmStartSchedule"]:
         '''vm_start_schedule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#vm_start_schedule GoogleComputeResourcePolicy#vm_start_schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#vm_start_schedule GoogleComputeResourcePolicy#vm_start_schedule}
         '''
         result = self._values.get("vm_start_schedule")
         return typing.cast(typing.Optional["GoogleComputeResourcePolicyInstanceSchedulePolicyVmStartSchedule"], result)
@@ -1327,7 +1327,7 @@ class GoogleComputeResourcePolicyInstanceSchedulePolicy:
     ) -> typing.Optional["GoogleComputeResourcePolicyInstanceSchedulePolicyVmStopSchedule"]:
         '''vm_stop_schedule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#vm_stop_schedule GoogleComputeResourcePolicy#vm_stop_schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#vm_stop_schedule GoogleComputeResourcePolicy#vm_stop_schedule}
         '''
         result = self._values.get("vm_stop_schedule")
         return typing.cast(typing.Optional["GoogleComputeResourcePolicyInstanceSchedulePolicyVmStopSchedule"], result)
@@ -1367,7 +1367,7 @@ class GoogleComputeResourcePolicyInstanceSchedulePolicyOutputReference(
     @jsii.member(jsii_name="putVmStartSchedule")
     def put_vm_start_schedule(self, *, schedule: builtins.str) -> None:
         '''
-        :param schedule: Specifies the frequency for the operation, using the unix-cron format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#schedule GoogleComputeResourcePolicy#schedule}
+        :param schedule: Specifies the frequency for the operation, using the unix-cron format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#schedule GoogleComputeResourcePolicy#schedule}
         '''
         value = GoogleComputeResourcePolicyInstanceSchedulePolicyVmStartSchedule(
             schedule=schedule
@@ -1378,7 +1378,7 @@ class GoogleComputeResourcePolicyInstanceSchedulePolicyOutputReference(
     @jsii.member(jsii_name="putVmStopSchedule")
     def put_vm_stop_schedule(self, *, schedule: builtins.str) -> None:
         '''
-        :param schedule: Specifies the frequency for the operation, using the unix-cron format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#schedule GoogleComputeResourcePolicy#schedule}
+        :param schedule: Specifies the frequency for the operation, using the unix-cron format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#schedule GoogleComputeResourcePolicy#schedule}
         '''
         value = GoogleComputeResourcePolicyInstanceSchedulePolicyVmStopSchedule(
             schedule=schedule
@@ -1507,7 +1507,7 @@ class GoogleComputeResourcePolicyInstanceSchedulePolicyOutputReference(
 class GoogleComputeResourcePolicyInstanceSchedulePolicyVmStartSchedule:
     def __init__(self, *, schedule: builtins.str) -> None:
         '''
-        :param schedule: Specifies the frequency for the operation, using the unix-cron format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#schedule GoogleComputeResourcePolicy#schedule}
+        :param schedule: Specifies the frequency for the operation, using the unix-cron format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#schedule GoogleComputeResourcePolicy#schedule}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2175abf81687158bad1e61026208b9534b2aaaaaa7fff185301c479f40bb37c9)
@@ -1520,7 +1520,7 @@ class GoogleComputeResourcePolicyInstanceSchedulePolicyVmStartSchedule:
     def schedule(self) -> builtins.str:
         '''Specifies the frequency for the operation, using the unix-cron format.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#schedule GoogleComputeResourcePolicy#schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#schedule GoogleComputeResourcePolicy#schedule}
         '''
         result = self._values.get("schedule")
         assert result is not None, "Required property 'schedule' is missing"
@@ -1601,7 +1601,7 @@ class GoogleComputeResourcePolicyInstanceSchedulePolicyVmStartScheduleOutputRefe
 class GoogleComputeResourcePolicyInstanceSchedulePolicyVmStopSchedule:
     def __init__(self, *, schedule: builtins.str) -> None:
         '''
-        :param schedule: Specifies the frequency for the operation, using the unix-cron format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#schedule GoogleComputeResourcePolicy#schedule}
+        :param schedule: Specifies the frequency for the operation, using the unix-cron format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#schedule GoogleComputeResourcePolicy#schedule}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__801a401e35f986818c01eaae6e307b58274dbd7e93258a2ec7f86ecdc53c1ca6)
@@ -1614,7 +1614,7 @@ class GoogleComputeResourcePolicyInstanceSchedulePolicyVmStopSchedule:
     def schedule(self) -> builtins.str:
         '''Specifies the frequency for the operation, using the unix-cron format.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#schedule GoogleComputeResourcePolicy#schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#schedule GoogleComputeResourcePolicy#schedule}
         '''
         result = self._values.get("schedule")
         assert result is not None, "Required property 'schedule' is missing"
@@ -1705,9 +1705,9 @@ class GoogleComputeResourcePolicySnapshotSchedulePolicy:
         snapshot_properties: typing.Optional[typing.Union["GoogleComputeResourcePolicySnapshotSchedulePolicySnapshotProperties", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param schedule: schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#schedule GoogleComputeResourcePolicy#schedule}
-        :param retention_policy: retention_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#retention_policy GoogleComputeResourcePolicy#retention_policy}
-        :param snapshot_properties: snapshot_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#snapshot_properties GoogleComputeResourcePolicy#snapshot_properties}
+        :param schedule: schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#schedule GoogleComputeResourcePolicy#schedule}
+        :param retention_policy: retention_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#retention_policy GoogleComputeResourcePolicy#retention_policy}
+        :param snapshot_properties: snapshot_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#snapshot_properties GoogleComputeResourcePolicy#snapshot_properties}
         '''
         if isinstance(schedule, dict):
             schedule = GoogleComputeResourcePolicySnapshotSchedulePolicySchedule(**schedule)
@@ -1732,7 +1732,7 @@ class GoogleComputeResourcePolicySnapshotSchedulePolicy:
     def schedule(self) -> "GoogleComputeResourcePolicySnapshotSchedulePolicySchedule":
         '''schedule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#schedule GoogleComputeResourcePolicy#schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#schedule GoogleComputeResourcePolicy#schedule}
         '''
         result = self._values.get("schedule")
         assert result is not None, "Required property 'schedule' is missing"
@@ -1744,7 +1744,7 @@ class GoogleComputeResourcePolicySnapshotSchedulePolicy:
     ) -> typing.Optional["GoogleComputeResourcePolicySnapshotSchedulePolicyRetentionPolicy"]:
         '''retention_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#retention_policy GoogleComputeResourcePolicy#retention_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#retention_policy GoogleComputeResourcePolicy#retention_policy}
         '''
         result = self._values.get("retention_policy")
         return typing.cast(typing.Optional["GoogleComputeResourcePolicySnapshotSchedulePolicyRetentionPolicy"], result)
@@ -1755,7 +1755,7 @@ class GoogleComputeResourcePolicySnapshotSchedulePolicy:
     ) -> typing.Optional["GoogleComputeResourcePolicySnapshotSchedulePolicySnapshotProperties"]:
         '''snapshot_properties block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#snapshot_properties GoogleComputeResourcePolicy#snapshot_properties}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#snapshot_properties GoogleComputeResourcePolicy#snapshot_properties}
         '''
         result = self._values.get("snapshot_properties")
         return typing.cast(typing.Optional["GoogleComputeResourcePolicySnapshotSchedulePolicySnapshotProperties"], result)
@@ -1800,8 +1800,8 @@ class GoogleComputeResourcePolicySnapshotSchedulePolicyOutputReference(
         on_source_disk_delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param max_retention_days: Maximum age of the snapshot that is allowed to be kept. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#max_retention_days GoogleComputeResourcePolicy#max_retention_days}
-        :param on_source_disk_delete: Specifies the behavior to apply to scheduled snapshots when the source disk is deleted. Default value: "KEEP_AUTO_SNAPSHOTS" Possible values: ["KEEP_AUTO_SNAPSHOTS", "APPLY_RETENTION_POLICY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#on_source_disk_delete GoogleComputeResourcePolicy#on_source_disk_delete}
+        :param max_retention_days: Maximum age of the snapshot that is allowed to be kept. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#max_retention_days GoogleComputeResourcePolicy#max_retention_days}
+        :param on_source_disk_delete: Specifies the behavior to apply to scheduled snapshots when the source disk is deleted. Default value: "KEEP_AUTO_SNAPSHOTS" Possible values: ["KEEP_AUTO_SNAPSHOTS", "APPLY_RETENTION_POLICY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#on_source_disk_delete GoogleComputeResourcePolicy#on_source_disk_delete}
         '''
         value = GoogleComputeResourcePolicySnapshotSchedulePolicyRetentionPolicy(
             max_retention_days=max_retention_days,
@@ -1819,9 +1819,9 @@ class GoogleComputeResourcePolicySnapshotSchedulePolicyOutputReference(
         weekly_schedule: typing.Optional[typing.Union["GoogleComputeResourcePolicySnapshotSchedulePolicyScheduleWeeklySchedule", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param daily_schedule: daily_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#daily_schedule GoogleComputeResourcePolicy#daily_schedule}
-        :param hourly_schedule: hourly_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#hourly_schedule GoogleComputeResourcePolicy#hourly_schedule}
-        :param weekly_schedule: weekly_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#weekly_schedule GoogleComputeResourcePolicy#weekly_schedule}
+        :param daily_schedule: daily_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#daily_schedule GoogleComputeResourcePolicy#daily_schedule}
+        :param hourly_schedule: hourly_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#hourly_schedule GoogleComputeResourcePolicy#hourly_schedule}
+        :param weekly_schedule: weekly_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#weekly_schedule GoogleComputeResourcePolicy#weekly_schedule}
         '''
         value = GoogleComputeResourcePolicySnapshotSchedulePolicySchedule(
             daily_schedule=daily_schedule,
@@ -1841,10 +1841,10 @@ class GoogleComputeResourcePolicySnapshotSchedulePolicyOutputReference(
         storage_locations: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param chain_name: Creates the new snapshot in the snapshot chain labeled with the specified name. The chain name must be 1-63 characters long and comply with RFC1035. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#chain_name GoogleComputeResourcePolicy#chain_name}
-        :param guest_flush: Whether to perform a 'guest aware' snapshot. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#guest_flush GoogleComputeResourcePolicy#guest_flush}
-        :param labels: A set of key-value pairs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#labels GoogleComputeResourcePolicy#labels}
-        :param storage_locations: Cloud Storage bucket location to store the auto snapshot (regional or multi-regional). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#storage_locations GoogleComputeResourcePolicy#storage_locations}
+        :param chain_name: Creates the new snapshot in the snapshot chain labeled with the specified name. The chain name must be 1-63 characters long and comply with RFC1035. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#chain_name GoogleComputeResourcePolicy#chain_name}
+        :param guest_flush: Whether to perform a 'guest aware' snapshot. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#guest_flush GoogleComputeResourcePolicy#guest_flush}
+        :param labels: A set of key-value pairs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#labels GoogleComputeResourcePolicy#labels}
+        :param storage_locations: Cloud Storage bucket location to store the auto snapshot (regional or multi-regional). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#storage_locations GoogleComputeResourcePolicy#storage_locations}
         '''
         value = GoogleComputeResourcePolicySnapshotSchedulePolicySnapshotProperties(
             chain_name=chain_name,
@@ -1939,8 +1939,8 @@ class GoogleComputeResourcePolicySnapshotSchedulePolicyRetentionPolicy:
         on_source_disk_delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param max_retention_days: Maximum age of the snapshot that is allowed to be kept. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#max_retention_days GoogleComputeResourcePolicy#max_retention_days}
-        :param on_source_disk_delete: Specifies the behavior to apply to scheduled snapshots when the source disk is deleted. Default value: "KEEP_AUTO_SNAPSHOTS" Possible values: ["KEEP_AUTO_SNAPSHOTS", "APPLY_RETENTION_POLICY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#on_source_disk_delete GoogleComputeResourcePolicy#on_source_disk_delete}
+        :param max_retention_days: Maximum age of the snapshot that is allowed to be kept. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#max_retention_days GoogleComputeResourcePolicy#max_retention_days}
+        :param on_source_disk_delete: Specifies the behavior to apply to scheduled snapshots when the source disk is deleted. Default value: "KEEP_AUTO_SNAPSHOTS" Possible values: ["KEEP_AUTO_SNAPSHOTS", "APPLY_RETENTION_POLICY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#on_source_disk_delete GoogleComputeResourcePolicy#on_source_disk_delete}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a036fa3ffc0db402dd8dff1ba97d01a8f6fb887313da9c0cbbdbd1744a2fcddb)
@@ -1956,7 +1956,7 @@ class GoogleComputeResourcePolicySnapshotSchedulePolicyRetentionPolicy:
     def max_retention_days(self) -> jsii.Number:
         '''Maximum age of the snapshot that is allowed to be kept.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#max_retention_days GoogleComputeResourcePolicy#max_retention_days}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#max_retention_days GoogleComputeResourcePolicy#max_retention_days}
         '''
         result = self._values.get("max_retention_days")
         assert result is not None, "Required property 'max_retention_days' is missing"
@@ -1968,7 +1968,7 @@ class GoogleComputeResourcePolicySnapshotSchedulePolicyRetentionPolicy:
 
         Default value: "KEEP_AUTO_SNAPSHOTS" Possible values: ["KEEP_AUTO_SNAPSHOTS", "APPLY_RETENTION_POLICY"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#on_source_disk_delete GoogleComputeResourcePolicy#on_source_disk_delete}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#on_source_disk_delete GoogleComputeResourcePolicy#on_source_disk_delete}
         '''
         result = self._values.get("on_source_disk_delete")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2079,9 +2079,9 @@ class GoogleComputeResourcePolicySnapshotSchedulePolicySchedule:
         weekly_schedule: typing.Optional[typing.Union["GoogleComputeResourcePolicySnapshotSchedulePolicyScheduleWeeklySchedule", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param daily_schedule: daily_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#daily_schedule GoogleComputeResourcePolicy#daily_schedule}
-        :param hourly_schedule: hourly_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#hourly_schedule GoogleComputeResourcePolicy#hourly_schedule}
-        :param weekly_schedule: weekly_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#weekly_schedule GoogleComputeResourcePolicy#weekly_schedule}
+        :param daily_schedule: daily_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#daily_schedule GoogleComputeResourcePolicy#daily_schedule}
+        :param hourly_schedule: hourly_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#hourly_schedule GoogleComputeResourcePolicy#hourly_schedule}
+        :param weekly_schedule: weekly_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#weekly_schedule GoogleComputeResourcePolicy#weekly_schedule}
         '''
         if isinstance(daily_schedule, dict):
             daily_schedule = GoogleComputeResourcePolicySnapshotSchedulePolicyScheduleDailySchedule(**daily_schedule)
@@ -2108,7 +2108,7 @@ class GoogleComputeResourcePolicySnapshotSchedulePolicySchedule:
     ) -> typing.Optional["GoogleComputeResourcePolicySnapshotSchedulePolicyScheduleDailySchedule"]:
         '''daily_schedule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#daily_schedule GoogleComputeResourcePolicy#daily_schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#daily_schedule GoogleComputeResourcePolicy#daily_schedule}
         '''
         result = self._values.get("daily_schedule")
         return typing.cast(typing.Optional["GoogleComputeResourcePolicySnapshotSchedulePolicyScheduleDailySchedule"], result)
@@ -2119,7 +2119,7 @@ class GoogleComputeResourcePolicySnapshotSchedulePolicySchedule:
     ) -> typing.Optional["GoogleComputeResourcePolicySnapshotSchedulePolicyScheduleHourlySchedule"]:
         '''hourly_schedule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#hourly_schedule GoogleComputeResourcePolicy#hourly_schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#hourly_schedule GoogleComputeResourcePolicy#hourly_schedule}
         '''
         result = self._values.get("hourly_schedule")
         return typing.cast(typing.Optional["GoogleComputeResourcePolicySnapshotSchedulePolicyScheduleHourlySchedule"], result)
@@ -2130,7 +2130,7 @@ class GoogleComputeResourcePolicySnapshotSchedulePolicySchedule:
     ) -> typing.Optional["GoogleComputeResourcePolicySnapshotSchedulePolicyScheduleWeeklySchedule"]:
         '''weekly_schedule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#weekly_schedule GoogleComputeResourcePolicy#weekly_schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#weekly_schedule GoogleComputeResourcePolicy#weekly_schedule}
         '''
         result = self._values.get("weekly_schedule")
         return typing.cast(typing.Optional["GoogleComputeResourcePolicySnapshotSchedulePolicyScheduleWeeklySchedule"], result)
@@ -2155,8 +2155,8 @@ class GoogleComputeResourcePolicySnapshotSchedulePolicySchedule:
 class GoogleComputeResourcePolicySnapshotSchedulePolicyScheduleDailySchedule:
     def __init__(self, *, days_in_cycle: jsii.Number, start_time: builtins.str) -> None:
         '''
-        :param days_in_cycle: Defines a schedule with units measured in days. The value determines how many days pass between the start of each cycle. Days in cycle for snapshot schedule policy must be 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#days_in_cycle GoogleComputeResourcePolicy#days_in_cycle}
-        :param start_time: This must be in UTC format that resolves to one of 00:00, 04:00, 08:00, 12:00, 16:00, or 20:00. For example, both 13:00-5 and 08:00 are valid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#start_time GoogleComputeResourcePolicy#start_time}
+        :param days_in_cycle: Defines a schedule with units measured in days. The value determines how many days pass between the start of each cycle. Days in cycle for snapshot schedule policy must be 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#days_in_cycle GoogleComputeResourcePolicy#days_in_cycle}
+        :param start_time: This must be in UTC format that resolves to one of 00:00, 04:00, 08:00, 12:00, 16:00, or 20:00. For example, both 13:00-5 and 08:00 are valid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#start_time GoogleComputeResourcePolicy#start_time}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__77d8ccf1de1af88cdcd56e7eaab88dc5e19cf82e2884965590fbb84fd7f09a86)
@@ -2173,7 +2173,7 @@ class GoogleComputeResourcePolicySnapshotSchedulePolicyScheduleDailySchedule:
 
         The value determines how many days pass between the start of each cycle. Days in cycle for snapshot schedule policy must be 1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#days_in_cycle GoogleComputeResourcePolicy#days_in_cycle}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#days_in_cycle GoogleComputeResourcePolicy#days_in_cycle}
         '''
         result = self._values.get("days_in_cycle")
         assert result is not None, "Required property 'days_in_cycle' is missing"
@@ -2186,7 +2186,7 @@ class GoogleComputeResourcePolicySnapshotSchedulePolicyScheduleDailySchedule:
         For example,
         both 13:00-5 and 08:00 are valid.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#start_time GoogleComputeResourcePolicy#start_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#start_time GoogleComputeResourcePolicy#start_time}
         '''
         result = self._values.get("start_time")
         assert result is not None, "Required property 'start_time' is missing"
@@ -2289,8 +2289,8 @@ class GoogleComputeResourcePolicySnapshotSchedulePolicyScheduleHourlySchedule:
         start_time: builtins.str,
     ) -> None:
         '''
-        :param hours_in_cycle: The number of hours between snapshots. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#hours_in_cycle GoogleComputeResourcePolicy#hours_in_cycle}
-        :param start_time: Time within the window to start the operations. It must be in an hourly format "HH:MM", where HH : [00-23] and MM : [00] GMT. eg: 21:00 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#start_time GoogleComputeResourcePolicy#start_time}
+        :param hours_in_cycle: The number of hours between snapshots. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#hours_in_cycle GoogleComputeResourcePolicy#hours_in_cycle}
+        :param start_time: Time within the window to start the operations. It must be in an hourly format "HH:MM", where HH : [00-23] and MM : [00] GMT. eg: 21:00 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#start_time GoogleComputeResourcePolicy#start_time}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ec953b9961a7545f4b814387a958d206f70f4cbc842e5cb4afb44dfb4355bc9a)
@@ -2305,7 +2305,7 @@ class GoogleComputeResourcePolicySnapshotSchedulePolicyScheduleHourlySchedule:
     def hours_in_cycle(self) -> jsii.Number:
         '''The number of hours between snapshots.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#hours_in_cycle GoogleComputeResourcePolicy#hours_in_cycle}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#hours_in_cycle GoogleComputeResourcePolicy#hours_in_cycle}
         '''
         result = self._values.get("hours_in_cycle")
         assert result is not None, "Required property 'hours_in_cycle' is missing"
@@ -2318,7 +2318,7 @@ class GoogleComputeResourcePolicySnapshotSchedulePolicyScheduleHourlySchedule:
         It must be in an hourly format "HH:MM",
         where HH : [00-23] and MM : [00] GMT. eg: 21:00
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#start_time GoogleComputeResourcePolicy#start_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#start_time GoogleComputeResourcePolicy#start_time}
         '''
         result = self._values.get("start_time")
         assert result is not None, "Required property 'start_time' is missing"
@@ -2436,8 +2436,8 @@ class GoogleComputeResourcePolicySnapshotSchedulePolicyScheduleOutputReference(
         start_time: builtins.str,
     ) -> None:
         '''
-        :param days_in_cycle: Defines a schedule with units measured in days. The value determines how many days pass between the start of each cycle. Days in cycle for snapshot schedule policy must be 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#days_in_cycle GoogleComputeResourcePolicy#days_in_cycle}
-        :param start_time: This must be in UTC format that resolves to one of 00:00, 04:00, 08:00, 12:00, 16:00, or 20:00. For example, both 13:00-5 and 08:00 are valid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#start_time GoogleComputeResourcePolicy#start_time}
+        :param days_in_cycle: Defines a schedule with units measured in days. The value determines how many days pass between the start of each cycle. Days in cycle for snapshot schedule policy must be 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#days_in_cycle GoogleComputeResourcePolicy#days_in_cycle}
+        :param start_time: This must be in UTC format that resolves to one of 00:00, 04:00, 08:00, 12:00, 16:00, or 20:00. For example, both 13:00-5 and 08:00 are valid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#start_time GoogleComputeResourcePolicy#start_time}
         '''
         value = GoogleComputeResourcePolicySnapshotSchedulePolicyScheduleDailySchedule(
             days_in_cycle=days_in_cycle, start_time=start_time
@@ -2453,8 +2453,8 @@ class GoogleComputeResourcePolicySnapshotSchedulePolicyScheduleOutputReference(
         start_time: builtins.str,
     ) -> None:
         '''
-        :param hours_in_cycle: The number of hours between snapshots. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#hours_in_cycle GoogleComputeResourcePolicy#hours_in_cycle}
-        :param start_time: Time within the window to start the operations. It must be in an hourly format "HH:MM", where HH : [00-23] and MM : [00] GMT. eg: 21:00 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#start_time GoogleComputeResourcePolicy#start_time}
+        :param hours_in_cycle: The number of hours between snapshots. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#hours_in_cycle GoogleComputeResourcePolicy#hours_in_cycle}
+        :param start_time: Time within the window to start the operations. It must be in an hourly format "HH:MM", where HH : [00-23] and MM : [00] GMT. eg: 21:00 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#start_time GoogleComputeResourcePolicy#start_time}
         '''
         value = GoogleComputeResourcePolicySnapshotSchedulePolicyScheduleHourlySchedule(
             hours_in_cycle=hours_in_cycle, start_time=start_time
@@ -2469,7 +2469,7 @@ class GoogleComputeResourcePolicySnapshotSchedulePolicyScheduleOutputReference(
         day_of_weeks: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleComputeResourcePolicySnapshotSchedulePolicyScheduleWeeklyScheduleDayOfWeeks", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param day_of_weeks: day_of_weeks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#day_of_weeks GoogleComputeResourcePolicy#day_of_weeks}
+        :param day_of_weeks: day_of_weeks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#day_of_weeks GoogleComputeResourcePolicy#day_of_weeks}
         '''
         value = GoogleComputeResourcePolicySnapshotSchedulePolicyScheduleWeeklySchedule(
             day_of_weeks=day_of_weeks
@@ -2561,7 +2561,7 @@ class GoogleComputeResourcePolicySnapshotSchedulePolicyScheduleWeeklySchedule:
         day_of_weeks: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleComputeResourcePolicySnapshotSchedulePolicyScheduleWeeklyScheduleDayOfWeeks", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param day_of_weeks: day_of_weeks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#day_of_weeks GoogleComputeResourcePolicy#day_of_weeks}
+        :param day_of_weeks: day_of_weeks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#day_of_weeks GoogleComputeResourcePolicy#day_of_weeks}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__88d043619940693724a8c6d40863df70ddac029d6ea244d66f07949f5da37eaa)
@@ -2576,7 +2576,7 @@ class GoogleComputeResourcePolicySnapshotSchedulePolicyScheduleWeeklySchedule:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleComputeResourcePolicySnapshotSchedulePolicyScheduleWeeklyScheduleDayOfWeeks"]]:
         '''day_of_weeks block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#day_of_weeks GoogleComputeResourcePolicy#day_of_weeks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#day_of_weeks GoogleComputeResourcePolicy#day_of_weeks}
         '''
         result = self._values.get("day_of_weeks")
         assert result is not None, "Required property 'day_of_weeks' is missing"
@@ -2602,8 +2602,8 @@ class GoogleComputeResourcePolicySnapshotSchedulePolicyScheduleWeeklySchedule:
 class GoogleComputeResourcePolicySnapshotSchedulePolicyScheduleWeeklyScheduleDayOfWeeks:
     def __init__(self, *, day: builtins.str, start_time: builtins.str) -> None:
         '''
-        :param day: The day of the week to create the snapshot. e.g. MONDAY Possible values: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#day GoogleComputeResourcePolicy#day}
-        :param start_time: Time within the window to start the operations. It must be in format "HH:MM", where HH : [00-23] and MM : [00-00] GMT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#start_time GoogleComputeResourcePolicy#start_time}
+        :param day: The day of the week to create the snapshot. e.g. MONDAY Possible values: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#day GoogleComputeResourcePolicy#day}
+        :param start_time: Time within the window to start the operations. It must be in format "HH:MM", where HH : [00-23] and MM : [00-00] GMT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#start_time GoogleComputeResourcePolicy#start_time}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1beef23655fd5bbb8eed8b15abecb57a5d11a7a200cdce0f78f45a197db3c987)
@@ -2620,7 +2620,7 @@ class GoogleComputeResourcePolicySnapshotSchedulePolicyScheduleWeeklyScheduleDay
 
         e.g. MONDAY Possible values: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#day GoogleComputeResourcePolicy#day}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#day GoogleComputeResourcePolicy#day}
         '''
         result = self._values.get("day")
         assert result is not None, "Required property 'day' is missing"
@@ -2632,7 +2632,7 @@ class GoogleComputeResourcePolicySnapshotSchedulePolicyScheduleWeeklyScheduleDay
 
         It must be in format "HH:MM", where HH : [00-23] and MM : [00-00] GMT.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#start_time GoogleComputeResourcePolicy#start_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#start_time GoogleComputeResourcePolicy#start_time}
         '''
         result = self._values.get("start_time")
         assert result is not None, "Required property 'start_time' is missing"
@@ -2906,10 +2906,10 @@ class GoogleComputeResourcePolicySnapshotSchedulePolicySnapshotProperties:
         storage_locations: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param chain_name: Creates the new snapshot in the snapshot chain labeled with the specified name. The chain name must be 1-63 characters long and comply with RFC1035. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#chain_name GoogleComputeResourcePolicy#chain_name}
-        :param guest_flush: Whether to perform a 'guest aware' snapshot. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#guest_flush GoogleComputeResourcePolicy#guest_flush}
-        :param labels: A set of key-value pairs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#labels GoogleComputeResourcePolicy#labels}
-        :param storage_locations: Cloud Storage bucket location to store the auto snapshot (regional or multi-regional). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#storage_locations GoogleComputeResourcePolicy#storage_locations}
+        :param chain_name: Creates the new snapshot in the snapshot chain labeled with the specified name. The chain name must be 1-63 characters long and comply with RFC1035. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#chain_name GoogleComputeResourcePolicy#chain_name}
+        :param guest_flush: Whether to perform a 'guest aware' snapshot. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#guest_flush GoogleComputeResourcePolicy#guest_flush}
+        :param labels: A set of key-value pairs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#labels GoogleComputeResourcePolicy#labels}
+        :param storage_locations: Cloud Storage bucket location to store the auto snapshot (regional or multi-regional). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#storage_locations GoogleComputeResourcePolicy#storage_locations}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f0a51e60fada8d896a526bcc79eab3504bd5622b116ed471a779894f5bf2fc7f)
@@ -2934,7 +2934,7 @@ class GoogleComputeResourcePolicySnapshotSchedulePolicySnapshotProperties:
         The chain name must be 1-63 characters long and comply
         with RFC1035.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#chain_name GoogleComputeResourcePolicy#chain_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#chain_name GoogleComputeResourcePolicy#chain_name}
         '''
         result = self._values.get("chain_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2945,7 +2945,7 @@ class GoogleComputeResourcePolicySnapshotSchedulePolicySnapshotProperties:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether to perform a 'guest aware' snapshot.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#guest_flush GoogleComputeResourcePolicy#guest_flush}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#guest_flush GoogleComputeResourcePolicy#guest_flush}
         '''
         result = self._values.get("guest_flush")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2954,7 +2954,7 @@ class GoogleComputeResourcePolicySnapshotSchedulePolicySnapshotProperties:
     def labels(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''A set of key-value pairs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#labels GoogleComputeResourcePolicy#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#labels GoogleComputeResourcePolicy#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -2963,7 +2963,7 @@ class GoogleComputeResourcePolicySnapshotSchedulePolicySnapshotProperties:
     def storage_locations(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Cloud Storage bucket location to store the auto snapshot (regional or multi-regional).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#storage_locations GoogleComputeResourcePolicy#storage_locations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#storage_locations GoogleComputeResourcePolicy#storage_locations}
         '''
         result = self._values.get("storage_locations")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3123,9 +3123,9 @@ class GoogleComputeResourcePolicyTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#create GoogleComputeResourcePolicy#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#delete GoogleComputeResourcePolicy#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#update GoogleComputeResourcePolicy#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#create GoogleComputeResourcePolicy#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#delete GoogleComputeResourcePolicy#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#update GoogleComputeResourcePolicy#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4cc52d7d2fe0ff385af7e3a90b2a976cf111f870587a7a3a709a78cd08b4a63e)
@@ -3142,19 +3142,19 @@ class GoogleComputeResourcePolicyTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#create GoogleComputeResourcePolicy#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#create GoogleComputeResourcePolicy#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#delete GoogleComputeResourcePolicy#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#delete GoogleComputeResourcePolicy#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#update GoogleComputeResourcePolicy#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#update GoogleComputeResourcePolicy#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3289,9 +3289,9 @@ class GoogleComputeResourcePolicyWorkloadPolicy:
         max_topology_distance: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: The type of workload policy. Possible values: ["HIGH_AVAILABILITY", "HIGH_THROUGHPUT"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#type GoogleComputeResourcePolicy#type}
-        :param accelerator_topology: The accelerator topology. This field can be set only when the workload policy type is HIGH_THROUGHPUT and cannot be set if max topology distance is set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#accelerator_topology GoogleComputeResourcePolicy#accelerator_topology}
-        :param max_topology_distance: The maximum topology distance. This field can be set only when the workload policy type is HIGH_THROUGHPUT and cannot be set if accelerator topology is set. Possible values: ["BLOCK", "CLUSTER", "SUBBLOCK"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#max_topology_distance GoogleComputeResourcePolicy#max_topology_distance}
+        :param type: The type of workload policy. Possible values: ["HIGH_AVAILABILITY", "HIGH_THROUGHPUT"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#type GoogleComputeResourcePolicy#type}
+        :param accelerator_topology: The accelerator topology. This field can be set only when the workload policy type is HIGH_THROUGHPUT and cannot be set if max topology distance is set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#accelerator_topology GoogleComputeResourcePolicy#accelerator_topology}
+        :param max_topology_distance: The maximum topology distance. This field can be set only when the workload policy type is HIGH_THROUGHPUT and cannot be set if accelerator topology is set. Possible values: ["BLOCK", "CLUSTER", "SUBBLOCK"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#max_topology_distance GoogleComputeResourcePolicy#max_topology_distance}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f41b119b41850e59796879b871fba2b761099070c635544de095f5ca09bc5bea)
@@ -3310,7 +3310,7 @@ class GoogleComputeResourcePolicyWorkloadPolicy:
     def type(self) -> builtins.str:
         '''The type of workload policy. Possible values: ["HIGH_AVAILABILITY", "HIGH_THROUGHPUT"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#type GoogleComputeResourcePolicy#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#type GoogleComputeResourcePolicy#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -3323,7 +3323,7 @@ class GoogleComputeResourcePolicyWorkloadPolicy:
         This field can be set only when the workload policy type is HIGH_THROUGHPUT
         and cannot be set if max topology distance is set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#accelerator_topology GoogleComputeResourcePolicy#accelerator_topology}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#accelerator_topology GoogleComputeResourcePolicy#accelerator_topology}
         '''
         result = self._values.get("accelerator_topology")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3335,7 +3335,7 @@ class GoogleComputeResourcePolicyWorkloadPolicy:
         This field can be set only when the workload policy type is HIGH_THROUGHPUT
         and cannot be set if accelerator topology is set. Possible values: ["BLOCK", "CLUSTER", "SUBBLOCK"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_compute_resource_policy#max_topology_distance GoogleComputeResourcePolicy#max_topology_distance}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_compute_resource_policy#max_topology_distance GoogleComputeResourcePolicy#max_topology_distance}
         '''
         result = self._values.get("max_topology_distance")
         return typing.cast(typing.Optional[builtins.str], result)

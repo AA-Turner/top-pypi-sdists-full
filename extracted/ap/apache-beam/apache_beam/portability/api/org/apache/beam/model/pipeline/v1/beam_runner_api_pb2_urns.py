@@ -132,6 +132,7 @@ class StandardProtocols(object):
     DATA_SAMPLING = PropertiesFromEnumValue('beam:protocol:data_sampling:v1', '', EMPTY_MONITORING_INFO_SPEC, EMPTY_MONITORING_INFO_LABEL_PROPS)
     SDK_CONSUMING_RECEIVED_DATA = PropertiesFromEnumValue('beam:protocol:sdk_consuming_received_data:v1', '', EMPTY_MONITORING_INFO_SPEC, EMPTY_MONITORING_INFO_LABEL_PROPS)
     ORDERED_LIST_STATE = PropertiesFromEnumValue('beam:protocol:ordered_list_state:v1', '', EMPTY_MONITORING_INFO_SPEC, EMPTY_MONITORING_INFO_LABEL_PROPS)
+    ELEMENT_METADATA = PropertiesFromEnumValue('beam:protocol:element_metadata:v1', '', EMPTY_MONITORING_INFO_SPEC, EMPTY_MONITORING_INFO_LABEL_PROPS)
 
 
 class StandardRequirements(object):

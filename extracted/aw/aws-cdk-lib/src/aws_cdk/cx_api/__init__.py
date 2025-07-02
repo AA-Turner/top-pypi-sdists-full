@@ -812,6 +812,7 @@ from ..cloud_assembly_schema import (
     ContainerImageAssetMetadataEntry as _ContainerImageAssetMetadataEntry_0a212d1d,
     ContextProvider as _ContextProvider_fa789bb5,
     EndpointServiceAvailabilityZonesContextQuery as _EndpointServiceAvailabilityZonesContextQuery_ea3ca0d1,
+    FeatureFlagReportProperties as _FeatureFlagReportProperties_2cfd3047,
     FileAssetMetadataEntry as _FileAssetMetadataEntry_50173f8f,
     HostedZoneContextQuery as _HostedZoneContextQuery_8e6ca28f,
     ICloudAssembly as _ICloudAssembly_3b620685,
@@ -1050,7 +1051,7 @@ class CloudArtifact(
         display_name: typing.Optional[builtins.str] = None,
         environment: typing.Optional[builtins.str] = None,
         metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union[_MetadataEntry_13e1bf79, typing.Dict[builtins.str, typing.Any]]]]] = None,
-        properties: typing.Optional[typing.Union[typing.Union[_AwsCloudFormationStackProperties_50fb16af, typing.Dict[builtins.str, typing.Any]], typing.Union[_AssetManifestProperties_9084879a, typing.Dict[builtins.str, typing.Any]], typing.Union[_TreeArtifactProperties_4092757e, typing.Dict[builtins.str, typing.Any]], typing.Union[_NestedCloudAssemblyProperties_c2fa342d, typing.Dict[builtins.str, typing.Any]]]] = None,
+        properties: typing.Optional[typing.Union[typing.Union[_AwsCloudFormationStackProperties_50fb16af, typing.Dict[builtins.str, typing.Any]], typing.Union[_AssetManifestProperties_9084879a, typing.Dict[builtins.str, typing.Any]], typing.Union[_TreeArtifactProperties_4092757e, typing.Dict[builtins.str, typing.Any]], typing.Union[_NestedCloudAssemblyProperties_c2fa342d, typing.Dict[builtins.str, typing.Any]], typing.Union[_FeatureFlagReportProperties_2cfd3047, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''
         :param assembly: -
@@ -1089,7 +1090,7 @@ class CloudArtifact(
         display_name: typing.Optional[builtins.str] = None,
         environment: typing.Optional[builtins.str] = None,
         metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union[_MetadataEntry_13e1bf79, typing.Dict[builtins.str, typing.Any]]]]] = None,
-        properties: typing.Optional[typing.Union[typing.Union[_AwsCloudFormationStackProperties_50fb16af, typing.Dict[builtins.str, typing.Any]], typing.Union[_AssetManifestProperties_9084879a, typing.Dict[builtins.str, typing.Any]], typing.Union[_TreeArtifactProperties_4092757e, typing.Dict[builtins.str, typing.Any]], typing.Union[_NestedCloudAssemblyProperties_c2fa342d, typing.Dict[builtins.str, typing.Any]]]] = None,
+        properties: typing.Optional[typing.Union[typing.Union[_AwsCloudFormationStackProperties_50fb16af, typing.Dict[builtins.str, typing.Any]], typing.Union[_AssetManifestProperties_9084879a, typing.Dict[builtins.str, typing.Any]], typing.Union[_TreeArtifactProperties_4092757e, typing.Dict[builtins.str, typing.Any]], typing.Union[_NestedCloudAssemblyProperties_c2fa342d, typing.Dict[builtins.str, typing.Any]], typing.Union[_FeatureFlagReportProperties_2cfd3047, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> typing.Optional["CloudArtifact"]:
         '''Returns a subclass of ``CloudArtifact`` based on the artifact type defined in the artifact manifest.
 
@@ -1429,7 +1430,7 @@ class CloudAssemblyBuilder(
         display_name: typing.Optional[builtins.str] = None,
         environment: typing.Optional[builtins.str] = None,
         metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union[_MetadataEntry_13e1bf79, typing.Dict[builtins.str, typing.Any]]]]] = None,
-        properties: typing.Optional[typing.Union[typing.Union[_AwsCloudFormationStackProperties_50fb16af, typing.Dict[builtins.str, typing.Any]], typing.Union[_AssetManifestProperties_9084879a, typing.Dict[builtins.str, typing.Any]], typing.Union[_TreeArtifactProperties_4092757e, typing.Dict[builtins.str, typing.Any]], typing.Union[_NestedCloudAssemblyProperties_c2fa342d, typing.Dict[builtins.str, typing.Any]]]] = None,
+        properties: typing.Optional[typing.Union[typing.Union[_AwsCloudFormationStackProperties_50fb16af, typing.Dict[builtins.str, typing.Any]], typing.Union[_AssetManifestProperties_9084879a, typing.Dict[builtins.str, typing.Any]], typing.Union[_TreeArtifactProperties_4092757e, typing.Dict[builtins.str, typing.Any]], typing.Union[_NestedCloudAssemblyProperties_c2fa342d, typing.Dict[builtins.str, typing.Any]], typing.Union[_FeatureFlagReportProperties_2cfd3047, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Adds an artifact into the cloud assembly.
 
@@ -1669,7 +1670,7 @@ class CloudFormationStackArtifact(
         display_name: typing.Optional[builtins.str] = None,
         environment: typing.Optional[builtins.str] = None,
         metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union[_MetadataEntry_13e1bf79, typing.Dict[builtins.str, typing.Any]]]]] = None,
-        properties: typing.Optional[typing.Union[typing.Union[_AwsCloudFormationStackProperties_50fb16af, typing.Dict[builtins.str, typing.Any]], typing.Union[_AssetManifestProperties_9084879a, typing.Dict[builtins.str, typing.Any]], typing.Union[_TreeArtifactProperties_4092757e, typing.Dict[builtins.str, typing.Any]], typing.Union[_NestedCloudAssemblyProperties_c2fa342d, typing.Dict[builtins.str, typing.Any]]]] = None,
+        properties: typing.Optional[typing.Union[typing.Union[_AwsCloudFormationStackProperties_50fb16af, typing.Dict[builtins.str, typing.Any]], typing.Union[_AssetManifestProperties_9084879a, typing.Dict[builtins.str, typing.Any]], typing.Union[_TreeArtifactProperties_4092757e, typing.Dict[builtins.str, typing.Any]], typing.Union[_NestedCloudAssemblyProperties_c2fa342d, typing.Dict[builtins.str, typing.Any]], typing.Union[_FeatureFlagReportProperties_2cfd3047, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''
         :param assembly: -
@@ -2765,7 +2766,7 @@ class NestedCloudAssemblyArtifact(
         display_name: typing.Optional[builtins.str] = None,
         environment: typing.Optional[builtins.str] = None,
         metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union[_MetadataEntry_13e1bf79, typing.Dict[builtins.str, typing.Any]]]]] = None,
-        properties: typing.Optional[typing.Union[typing.Union[_AwsCloudFormationStackProperties_50fb16af, typing.Dict[builtins.str, typing.Any]], typing.Union[_AssetManifestProperties_9084879a, typing.Dict[builtins.str, typing.Any]], typing.Union[_TreeArtifactProperties_4092757e, typing.Dict[builtins.str, typing.Any]], typing.Union[_NestedCloudAssemblyProperties_c2fa342d, typing.Dict[builtins.str, typing.Any]]]] = None,
+        properties: typing.Optional[typing.Union[typing.Union[_AwsCloudFormationStackProperties_50fb16af, typing.Dict[builtins.str, typing.Any]], typing.Union[_AssetManifestProperties_9084879a, typing.Dict[builtins.str, typing.Any]], typing.Union[_TreeArtifactProperties_4092757e, typing.Dict[builtins.str, typing.Any]], typing.Union[_NestedCloudAssemblyProperties_c2fa342d, typing.Dict[builtins.str, typing.Any]], typing.Union[_FeatureFlagReportProperties_2cfd3047, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''
         :param assembly: -
@@ -3086,7 +3087,7 @@ class TreeCloudArtifact(
         display_name: typing.Optional[builtins.str] = None,
         environment: typing.Optional[builtins.str] = None,
         metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union[_MetadataEntry_13e1bf79, typing.Dict[builtins.str, typing.Any]]]]] = None,
-        properties: typing.Optional[typing.Union[typing.Union[_AwsCloudFormationStackProperties_50fb16af, typing.Dict[builtins.str, typing.Any]], typing.Union[_AssetManifestProperties_9084879a, typing.Dict[builtins.str, typing.Any]], typing.Union[_TreeArtifactProperties_4092757e, typing.Dict[builtins.str, typing.Any]], typing.Union[_NestedCloudAssemblyProperties_c2fa342d, typing.Dict[builtins.str, typing.Any]]]] = None,
+        properties: typing.Optional[typing.Union[typing.Union[_AwsCloudFormationStackProperties_50fb16af, typing.Dict[builtins.str, typing.Any]], typing.Union[_AssetManifestProperties_9084879a, typing.Dict[builtins.str, typing.Any]], typing.Union[_TreeArtifactProperties_4092757e, typing.Dict[builtins.str, typing.Any]], typing.Union[_NestedCloudAssemblyProperties_c2fa342d, typing.Dict[builtins.str, typing.Any]], typing.Union[_FeatureFlagReportProperties_2cfd3047, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''
         :param assembly: -
@@ -3746,7 +3747,7 @@ class AssetManifestArtifact(
         display_name: typing.Optional[builtins.str] = None,
         environment: typing.Optional[builtins.str] = None,
         metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union[_MetadataEntry_13e1bf79, typing.Dict[builtins.str, typing.Any]]]]] = None,
-        properties: typing.Optional[typing.Union[typing.Union[_AwsCloudFormationStackProperties_50fb16af, typing.Dict[builtins.str, typing.Any]], typing.Union[_AssetManifestProperties_9084879a, typing.Dict[builtins.str, typing.Any]], typing.Union[_TreeArtifactProperties_4092757e, typing.Dict[builtins.str, typing.Any]], typing.Union[_NestedCloudAssemblyProperties_c2fa342d, typing.Dict[builtins.str, typing.Any]]]] = None,
+        properties: typing.Optional[typing.Union[typing.Union[_AwsCloudFormationStackProperties_50fb16af, typing.Dict[builtins.str, typing.Any]], typing.Union[_AssetManifestProperties_9084879a, typing.Dict[builtins.str, typing.Any]], typing.Union[_TreeArtifactProperties_4092757e, typing.Dict[builtins.str, typing.Any]], typing.Union[_NestedCloudAssemblyProperties_c2fa342d, typing.Dict[builtins.str, typing.Any]], typing.Union[_FeatureFlagReportProperties_2cfd3047, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''
         :param assembly: -
@@ -3879,7 +3880,7 @@ def _typecheckingstub__25d9df0767e898e3c7d2743835aa9ce65467ceb2a717a448ad988e9d7
     display_name: typing.Optional[builtins.str] = None,
     environment: typing.Optional[builtins.str] = None,
     metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union[_MetadataEntry_13e1bf79, typing.Dict[builtins.str, typing.Any]]]]] = None,
-    properties: typing.Optional[typing.Union[typing.Union[_AwsCloudFormationStackProperties_50fb16af, typing.Dict[builtins.str, typing.Any]], typing.Union[_AssetManifestProperties_9084879a, typing.Dict[builtins.str, typing.Any]], typing.Union[_TreeArtifactProperties_4092757e, typing.Dict[builtins.str, typing.Any]], typing.Union[_NestedCloudAssemblyProperties_c2fa342d, typing.Dict[builtins.str, typing.Any]]]] = None,
+    properties: typing.Optional[typing.Union[typing.Union[_AwsCloudFormationStackProperties_50fb16af, typing.Dict[builtins.str, typing.Any]], typing.Union[_AssetManifestProperties_9084879a, typing.Dict[builtins.str, typing.Any]], typing.Union[_TreeArtifactProperties_4092757e, typing.Dict[builtins.str, typing.Any]], typing.Union[_NestedCloudAssemblyProperties_c2fa342d, typing.Dict[builtins.str, typing.Any]], typing.Union[_FeatureFlagReportProperties_2cfd3047, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3893,7 +3894,7 @@ def _typecheckingstub__a43b33c096c23def76559e7ae04cbbfebe9400c25a9d7ec0ac79410d9
     display_name: typing.Optional[builtins.str] = None,
     environment: typing.Optional[builtins.str] = None,
     metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union[_MetadataEntry_13e1bf79, typing.Dict[builtins.str, typing.Any]]]]] = None,
-    properties: typing.Optional[typing.Union[typing.Union[_AwsCloudFormationStackProperties_50fb16af, typing.Dict[builtins.str, typing.Any]], typing.Union[_AssetManifestProperties_9084879a, typing.Dict[builtins.str, typing.Any]], typing.Union[_TreeArtifactProperties_4092757e, typing.Dict[builtins.str, typing.Any]], typing.Union[_NestedCloudAssemblyProperties_c2fa342d, typing.Dict[builtins.str, typing.Any]]]] = None,
+    properties: typing.Optional[typing.Union[typing.Union[_AwsCloudFormationStackProperties_50fb16af, typing.Dict[builtins.str, typing.Any]], typing.Union[_AssetManifestProperties_9084879a, typing.Dict[builtins.str, typing.Any]], typing.Union[_TreeArtifactProperties_4092757e, typing.Dict[builtins.str, typing.Any]], typing.Union[_NestedCloudAssemblyProperties_c2fa342d, typing.Dict[builtins.str, typing.Any]], typing.Union[_FeatureFlagReportProperties_2cfd3047, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3967,7 +3968,7 @@ def _typecheckingstub__261d018bdb1dc9a71bf2eedbb2cef096556840e4a312cda97d5254271
     display_name: typing.Optional[builtins.str] = None,
     environment: typing.Optional[builtins.str] = None,
     metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union[_MetadataEntry_13e1bf79, typing.Dict[builtins.str, typing.Any]]]]] = None,
-    properties: typing.Optional[typing.Union[typing.Union[_AwsCloudFormationStackProperties_50fb16af, typing.Dict[builtins.str, typing.Any]], typing.Union[_AssetManifestProperties_9084879a, typing.Dict[builtins.str, typing.Any]], typing.Union[_TreeArtifactProperties_4092757e, typing.Dict[builtins.str, typing.Any]], typing.Union[_NestedCloudAssemblyProperties_c2fa342d, typing.Dict[builtins.str, typing.Any]]]] = None,
+    properties: typing.Optional[typing.Union[typing.Union[_AwsCloudFormationStackProperties_50fb16af, typing.Dict[builtins.str, typing.Any]], typing.Union[_AssetManifestProperties_9084879a, typing.Dict[builtins.str, typing.Any]], typing.Union[_TreeArtifactProperties_4092757e, typing.Dict[builtins.str, typing.Any]], typing.Union[_NestedCloudAssemblyProperties_c2fa342d, typing.Dict[builtins.str, typing.Any]], typing.Union[_FeatureFlagReportProperties_2cfd3047, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3996,7 +3997,7 @@ def _typecheckingstub__efbcfecbcc773b1f90d568df2c82e4e67168ad418a9cd97880b975d21
     display_name: typing.Optional[builtins.str] = None,
     environment: typing.Optional[builtins.str] = None,
     metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union[_MetadataEntry_13e1bf79, typing.Dict[builtins.str, typing.Any]]]]] = None,
-    properties: typing.Optional[typing.Union[typing.Union[_AwsCloudFormationStackProperties_50fb16af, typing.Dict[builtins.str, typing.Any]], typing.Union[_AssetManifestProperties_9084879a, typing.Dict[builtins.str, typing.Any]], typing.Union[_TreeArtifactProperties_4092757e, typing.Dict[builtins.str, typing.Any]], typing.Union[_NestedCloudAssemblyProperties_c2fa342d, typing.Dict[builtins.str, typing.Any]]]] = None,
+    properties: typing.Optional[typing.Union[typing.Union[_AwsCloudFormationStackProperties_50fb16af, typing.Dict[builtins.str, typing.Any]], typing.Union[_AssetManifestProperties_9084879a, typing.Dict[builtins.str, typing.Any]], typing.Union[_TreeArtifactProperties_4092757e, typing.Dict[builtins.str, typing.Any]], typing.Union[_NestedCloudAssemblyProperties_c2fa342d, typing.Dict[builtins.str, typing.Any]], typing.Union[_FeatureFlagReportProperties_2cfd3047, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4118,7 +4119,7 @@ def _typecheckingstub__58cd751fc0676bdece56072cebc370619182e12e08433ef6415db29d4
     display_name: typing.Optional[builtins.str] = None,
     environment: typing.Optional[builtins.str] = None,
     metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union[_MetadataEntry_13e1bf79, typing.Dict[builtins.str, typing.Any]]]]] = None,
-    properties: typing.Optional[typing.Union[typing.Union[_AwsCloudFormationStackProperties_50fb16af, typing.Dict[builtins.str, typing.Any]], typing.Union[_AssetManifestProperties_9084879a, typing.Dict[builtins.str, typing.Any]], typing.Union[_TreeArtifactProperties_4092757e, typing.Dict[builtins.str, typing.Any]], typing.Union[_NestedCloudAssemblyProperties_c2fa342d, typing.Dict[builtins.str, typing.Any]]]] = None,
+    properties: typing.Optional[typing.Union[typing.Union[_AwsCloudFormationStackProperties_50fb16af, typing.Dict[builtins.str, typing.Any]], typing.Union[_AssetManifestProperties_9084879a, typing.Dict[builtins.str, typing.Any]], typing.Union[_TreeArtifactProperties_4092757e, typing.Dict[builtins.str, typing.Any]], typing.Union[_NestedCloudAssemblyProperties_c2fa342d, typing.Dict[builtins.str, typing.Any]], typing.Union[_FeatureFlagReportProperties_2cfd3047, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4155,7 +4156,7 @@ def _typecheckingstub__3ac926e1ee09e8dfca43023911e9514e33e19b8a91828eab4d450a48d
     display_name: typing.Optional[builtins.str] = None,
     environment: typing.Optional[builtins.str] = None,
     metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union[_MetadataEntry_13e1bf79, typing.Dict[builtins.str, typing.Any]]]]] = None,
-    properties: typing.Optional[typing.Union[typing.Union[_AwsCloudFormationStackProperties_50fb16af, typing.Dict[builtins.str, typing.Any]], typing.Union[_AssetManifestProperties_9084879a, typing.Dict[builtins.str, typing.Any]], typing.Union[_TreeArtifactProperties_4092757e, typing.Dict[builtins.str, typing.Any]], typing.Union[_NestedCloudAssemblyProperties_c2fa342d, typing.Dict[builtins.str, typing.Any]]]] = None,
+    properties: typing.Optional[typing.Union[typing.Union[_AwsCloudFormationStackProperties_50fb16af, typing.Dict[builtins.str, typing.Any]], typing.Union[_AssetManifestProperties_9084879a, typing.Dict[builtins.str, typing.Any]], typing.Union[_TreeArtifactProperties_4092757e, typing.Dict[builtins.str, typing.Any]], typing.Union[_NestedCloudAssemblyProperties_c2fa342d, typing.Dict[builtins.str, typing.Any]], typing.Union[_FeatureFlagReportProperties_2cfd3047, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4216,7 +4217,7 @@ def _typecheckingstub__4d3ca09f65f0b6d82995f24fb98a9330c17865775e1a04d254348d053
     display_name: typing.Optional[builtins.str] = None,
     environment: typing.Optional[builtins.str] = None,
     metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union[_MetadataEntry_13e1bf79, typing.Dict[builtins.str, typing.Any]]]]] = None,
-    properties: typing.Optional[typing.Union[typing.Union[_AwsCloudFormationStackProperties_50fb16af, typing.Dict[builtins.str, typing.Any]], typing.Union[_AssetManifestProperties_9084879a, typing.Dict[builtins.str, typing.Any]], typing.Union[_TreeArtifactProperties_4092757e, typing.Dict[builtins.str, typing.Any]], typing.Union[_NestedCloudAssemblyProperties_c2fa342d, typing.Dict[builtins.str, typing.Any]]]] = None,
+    properties: typing.Optional[typing.Union[typing.Union[_AwsCloudFormationStackProperties_50fb16af, typing.Dict[builtins.str, typing.Any]], typing.Union[_AssetManifestProperties_9084879a, typing.Dict[builtins.str, typing.Any]], typing.Union[_TreeArtifactProperties_4092757e, typing.Dict[builtins.str, typing.Any]], typing.Union[_NestedCloudAssemblyProperties_c2fa342d, typing.Dict[builtins.str, typing.Any]], typing.Union[_FeatureFlagReportProperties_2cfd3047, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

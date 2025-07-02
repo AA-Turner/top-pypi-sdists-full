@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: osam
-Version: 0.2.3
+Version: 0.2.4
 Summary: Get up and running vision foundational models locally.
 Project-URL: Homepage, https://github.com/wkentaro/osam
 Author-email: Kentaro Wada <www.kentaro.wada@gmail.com>

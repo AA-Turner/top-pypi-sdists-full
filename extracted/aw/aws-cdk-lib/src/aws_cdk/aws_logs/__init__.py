@@ -5449,6 +5449,13 @@ class CfnTransformer(
                 parse_route53=logs.CfnTransformer.ParseRoute53Property(
                     source="source"
                 ),
+                parse_to_ocsf=logs.CfnTransformer.ParseToOCSFProperty(
+                    event_source="eventSource",
+                    ocsf_version="ocsfVersion",
+        
+                    # the properties below are optional
+                    source="source"
+                ),
                 parse_vpc=logs.CfnTransformer.ParseVPCProperty(
                     source="source"
                 ),
@@ -7115,6 +7122,102 @@ class CfnTransformer(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_logs.CfnTransformer.ParseToOCSFProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "event_source": "eventSource",
+            "ocsf_version": "ocsfVersion",
+            "source": "source",
+        },
+    )
+    class ParseToOCSFProperty:
+        def __init__(
+            self,
+            *,
+            event_source: builtins.str,
+            ocsf_version: builtins.str,
+            source: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''This processor converts logs into `Open Cybersecurity Schema Framework (OCSF) <https://docs.aws.amazon.com/https://ocsf.io>`_ events.
+
+            For more information about this processor including examples, see `parseToOSCF <https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CloudWatch-Logs-Transformation.html#CloudWatch-Logs-Transformation-parseToOCSF>`_ in the *CloudWatch Logs User Guide* .
+
+            :param event_source: Specify the service or process that produces the log events that will be converted with this processor.
+            :param ocsf_version: Specify which version of the OCSF schema to use for the transformed log events.
+            :param source: The path to the field in the log event that you want to parse. If you omit this value, the whole log message is parsed.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-logs-transformer-parsetoocsf.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_logs as logs
+                
+                parse_to_oCSFProperty = logs.CfnTransformer.ParseToOCSFProperty(
+                    event_source="eventSource",
+                    ocsf_version="ocsfVersion",
+                
+                    # the properties below are optional
+                    source="source"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__6febe08cc73af735295ba9258de19bd6c4f1b389f2b1e4fd5e0d66977951c589)
+                check_type(argname="argument event_source", value=event_source, expected_type=type_hints["event_source"])
+                check_type(argname="argument ocsf_version", value=ocsf_version, expected_type=type_hints["ocsf_version"])
+                check_type(argname="argument source", value=source, expected_type=type_hints["source"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "event_source": event_source,
+                "ocsf_version": ocsf_version,
+            }
+            if source is not None:
+                self._values["source"] = source
+
+        @builtins.property
+        def event_source(self) -> builtins.str:
+            '''Specify the service or process that produces the log events that will be converted with this processor.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-logs-transformer-parsetoocsf.html#cfn-logs-transformer-parsetoocsf-eventsource
+            '''
+            result = self._values.get("event_source")
+            assert result is not None, "Required property 'event_source' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def ocsf_version(self) -> builtins.str:
+            '''Specify which version of the OCSF schema to use for the transformed log events.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-logs-transformer-parsetoocsf.html#cfn-logs-transformer-parsetoocsf-ocsfversion
+            '''
+            result = self._values.get("ocsf_version")
+            assert result is not None, "Required property 'ocsf_version' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def source(self) -> typing.Optional[builtins.str]:
+            '''The path to the field in the log event that you want to parse.
+
+            If you omit this value, the whole log message is parsed.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-logs-transformer-parsetoocsf.html#cfn-logs-transformer-parsetoocsf-source
+            '''
+            result = self._values.get("source")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ParseToOCSFProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_logs.CfnTransformer.ParseVPCProperty",
         jsii_struct_bases=[],
         name_mapping={"source": "source"},
@@ -7252,6 +7355,7 @@ class CfnTransformer(
             "parse_key_value": "parseKeyValue",
             "parse_postgres": "parsePostgres",
             "parse_route53": "parseRoute53",
+            "parse_to_ocsf": "parseToOcsf",
             "parse_vpc": "parseVpc",
             "parse_waf": "parseWaf",
             "rename_keys": "renameKeys",
@@ -7280,6 +7384,7 @@ class CfnTransformer(
             parse_key_value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTransformer.ParseKeyValueProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             parse_postgres: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTransformer.ParsePostgresProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             parse_route53: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTransformer.ParseRoute53Property", typing.Dict[builtins.str, typing.Any]]]] = None,
+            parse_to_ocsf: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTransformer.ParseToOCSFProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             parse_vpc: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTransformer.ParseVPCProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             parse_waf: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTransformer.ParseWAFProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             rename_keys: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTransformer.RenameKeysProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -7305,6 +7410,7 @@ class CfnTransformer(
             :param parse_key_value: Use this parameter to include the `parseKeyValue <https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CloudWatch-Logs-Transformation-Processors.html#CloudWatch-Logs-Transformation-parseKeyValue>`_ processor in your transformer.
             :param parse_postgres: Use this parameter to include the `parsePostGres <https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CloudWatch-Logs-Transformation.html#CloudWatch-Logs-Transformation-parsePostGres>`_ processor in your transformer. If you use this processor, it must be the first processor in your transformer.
             :param parse_route53: Use this parameter to include the `parseRoute53 <https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CloudWatch-Logs-Transformation-Processors.html#CloudWatch-Logs-Transformation-parseRoute53>`_ processor in your transformer. If you use this processor, it must be the first processor in your transformer.
+            :param parse_to_ocsf: Use this processor to convert logs into Open Cybersecurity Schema Framework (OCSF) format.
             :param parse_vpc: Use this parameter to include the `parseVPC <https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CloudWatch-Logs-Transformation-Processors.html#CloudWatch-Logs-Transformation-parseVPC>`_ processor in your transformer. If you use this processor, it must be the first processor in your transformer.
             :param parse_waf: Use this parameter to include the `parseWAF <https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CloudWatch-Logs-Transformation.html#CloudWatch-Logs-Transformation-parseWAF>`_ processor in your transformer. If you use this processor, it must be the first processor in your transformer.
             :param rename_keys: Use this parameter to include the `renameKeys <https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CloudWatch-Logs-Transformation.html#CloudWatch-Logs-Transformation-renameKeys>`_ processor in your transformer.
@@ -7412,6 +7518,13 @@ class CfnTransformer(
                     parse_route53=logs.CfnTransformer.ParseRoute53Property(
                         source="source"
                     ),
+                    parse_to_ocsf=logs.CfnTransformer.ParseToOCSFProperty(
+                        event_source="eventSource",
+                        ocsf_version="ocsfVersion",
+                
+                        # the properties below are optional
+                        source="source"
+                    ),
                     parse_vpc=logs.CfnTransformer.ParseVPCProperty(
                         source="source"
                     ),
@@ -7470,6 +7583,7 @@ class CfnTransformer(
                 check_type(argname="argument parse_key_value", value=parse_key_value, expected_type=type_hints["parse_key_value"])
                 check_type(argname="argument parse_postgres", value=parse_postgres, expected_type=type_hints["parse_postgres"])
                 check_type(argname="argument parse_route53", value=parse_route53, expected_type=type_hints["parse_route53"])
+                check_type(argname="argument parse_to_ocsf", value=parse_to_ocsf, expected_type=type_hints["parse_to_ocsf"])
                 check_type(argname="argument parse_vpc", value=parse_vpc, expected_type=type_hints["parse_vpc"])
                 check_type(argname="argument parse_waf", value=parse_waf, expected_type=type_hints["parse_waf"])
                 check_type(argname="argument rename_keys", value=rename_keys, expected_type=type_hints["rename_keys"])
@@ -7507,6 +7621,8 @@ class CfnTransformer(
                 self._values["parse_postgres"] = parse_postgres
             if parse_route53 is not None:
                 self._values["parse_route53"] = parse_route53
+            if parse_to_ocsf is not None:
+                self._values["parse_to_ocsf"] = parse_to_ocsf
             if parse_vpc is not None:
                 self._values["parse_vpc"] = parse_vpc
             if parse_waf is not None:
@@ -7683,6 +7799,17 @@ class CfnTransformer(
             '''
             result = self._values.get("parse_route53")
             return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTransformer.ParseRoute53Property"]], result)
+
+        @builtins.property
+        def parse_to_ocsf(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTransformer.ParseToOCSFProperty"]]:
+            '''Use this processor to convert logs into Open Cybersecurity Schema Framework (OCSF) format.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-logs-transformer-processor.html#cfn-logs-transformer-processor-parsetoocsf
+            '''
+            result = self._values.get("parse_to_ocsf")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTransformer.ParseToOCSFProperty"]], result)
 
         @builtins.property
         def parse_vpc(
@@ -8590,6 +8717,13 @@ class CfnTransformerProps:
                         source="source"
                     ),
                     parse_route53=logs.CfnTransformer.ParseRoute53Property(
+                        source="source"
+                    ),
+                    parse_to_ocsf=logs.CfnTransformer.ParseToOCSFProperty(
+                        event_source="eventSource",
+                        ocsf_version="ocsfVersion",
+            
+                        # the properties below are optional
                         source="source"
                     ),
                     parse_vpc=logs.CfnTransformer.ParseVPCProperty(
@@ -14983,6 +15117,15 @@ def _typecheckingstub__658801a998622d7af47eb8512eb68d2858ed8827da8b177c87996a73c
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__6febe08cc73af735295ba9258de19bd6c4f1b389f2b1e4fd5e0d66977951c589(
+    *,
+    event_source: builtins.str,
+    ocsf_version: builtins.str,
+    source: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__08e824a8839365028da24b6eaa3d4989ea1bda6be8234968a2991fd59b09e4d4(
     *,
     source: typing.Optional[builtins.str] = None,
@@ -15013,6 +15156,7 @@ def _typecheckingstub__e487fac0bac06039bca1700fdccd6ce85e8e1fbb80d54937d3dbfdb8f
     parse_key_value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.ParseKeyValueProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     parse_postgres: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.ParsePostgresProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     parse_route53: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.ParseRoute53Property, typing.Dict[builtins.str, typing.Any]]]] = None,
+    parse_to_ocsf: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.ParseToOCSFProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     parse_vpc: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.ParseVPCProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     parse_waf: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.ParseWAFProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     rename_keys: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.RenameKeysProperty, typing.Dict[builtins.str, typing.Any]]]] = None,

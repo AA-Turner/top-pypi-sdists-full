@@ -1,7 +1,7 @@
 r'''
-# CDKTF prebuilt bindings for hashicorp/google provider version 6.41.0
+# CDKTF prebuilt bindings for hashicorp/google provider version 6.42.0
 
-This repo builds and publishes the [Terraform google provider](https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
+This repo builds and publishes the [Terraform google provider](https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
 
 ## Available Packages
 
@@ -63,7 +63,7 @@ This project is explicitly not tracking the Terraform google provider version 1:
 These are the upstream dependencies:
 
 * [CDK for Terraform](https://cdk.tf)
-* [Terraform google provider](https://registry.terraform.io/providers/hashicorp/google/6.41.0)
+* [Terraform google provider](https://registry.terraform.io/providers/hashicorp/google/6.42.0)
 * [Terraform Engine](https://terraform.io)
 
 If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
@@ -186,6 +186,7 @@ __all__ = [
     "apihub_api_hub_instance",
     "apihub_curation",
     "apihub_host_project_registration",
+    "apihub_plugin",
     "apihub_plugin_instance",
     "apikeys_key",
     "app_engine_application",
@@ -1000,6 +1001,7 @@ __all__ = [
     "dialogflow_cx_entity_type",
     "dialogflow_cx_environment",
     "dialogflow_cx_flow",
+    "dialogflow_cx_generative_settings",
     "dialogflow_cx_intent",
     "dialogflow_cx_page",
     "dialogflow_cx_security_settings",
@@ -1619,6 +1621,7 @@ from . import apigee_target_server
 from . import apihub_api_hub_instance
 from . import apihub_curation
 from . import apihub_host_project_registration
+from . import apihub_plugin
 from . import apihub_plugin_instance
 from . import apikeys_key
 from . import app_engine_application
@@ -2433,6 +2436,7 @@ from . import dialogflow_cx_agent
 from . import dialogflow_cx_entity_type
 from . import dialogflow_cx_environment
 from . import dialogflow_cx_flow
+from . import dialogflow_cx_generative_settings
 from . import dialogflow_cx_intent
 from . import dialogflow_cx_page
 from . import dialogflow_cx_security_settings

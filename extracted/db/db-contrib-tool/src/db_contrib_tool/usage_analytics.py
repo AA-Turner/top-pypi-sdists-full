@@ -8,12 +8,6 @@ from typing import Any, Optional
 import click
 from pydantic import BaseModel
 
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.sdk.resources import SERVICE_NAME, Resource
-
-COLLECTOR_ENDPOINT = "otel-collector.prod.corp.mongodb.com:443"
-
 
 class CommandUsage(BaseModel):
     """
@@ -26,9 +20,13 @@ class CommandUsage(BaseModel):
 
 
 def _should_skip_grpc_tracing() -> bool:
-    """Check whether grpc tracing is enabled on the current machine's OS."""
-    return sys.platform.startswith("linux") and platform.machine().startswith(
-        ("ppc", "powerpc", "s390")
+    """Check whether grpc tracing is enabled"""
+    pyinstaller_bundled = getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS")
+
+    return (
+        sys.platform.startswith("linux")
+        and platform.machine().startswith(("ppc", "powerpc", "s390"))
+        or pyinstaller_bundled
     )
 
 
@@ -51,8 +49,13 @@ class CommandWithUsageTracking(click.Command):
             # We'll only track local usage we can actually follow back to real users.
             return super().invoke(ctx)
 
-        # Ths is only available on non 390x and non ppc hosts so we wait to import it.
+        # These are not included on s390x/PPC/Pyinstaller so only import them here.
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace.export import BatchSpanProcessor
+        from opentelemetry.sdk.resources import SERVICE_NAME, Resource
         from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+
+        COLLECTOR_ENDPOINT = "otel-collector.prod.corp.mongodb.com:443"
 
         resource = Resource(attributes={SERVICE_NAME: "db-contrib-tool"})
         provider = TracerProvider(resource=resource)

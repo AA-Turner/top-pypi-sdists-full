@@ -3,20 +3,15 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Iterator, Mapping, MutableMapping, Sequence
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    TypeVar,
-    Union,
-    get_args,
-)
+from functools import partial
+from typing import TYPE_CHECKING, Any, ClassVar, TypeVar, Union, get_args
 
 if TYPE_CHECKING:
+    from pydantic import GetCoreSchemaHandler, SerializationInfo
     from typing_extensions import Self
 
-from psygnal._group import SignalGroup
-from psygnal._signal import Signal
+from psygnal._group import EmissionInfo, PathStep, SignalGroup
+from psygnal._signal import Signal, SignalInstance
 
 _K = TypeVar("_K")
 _V = TypeVar("_V")
@@ -95,37 +90,71 @@ class TypedMutableMapping(MutableMapping[_K, _V]):
 
     @classmethod
     def __get_pydantic_core_schema__(
-        cls, source_type: Any, handler: Callable
+        cls, source_type: Any, handler: GetCoreSchemaHandler
     ) -> Mapping[str, Any]:
         """Return the Pydantic core schema for this object."""
         from pydantic_core import core_schema
 
-        args = get_args(source_type)
+        def _serialize(obj: EventedDict[_K, _V], info: SerializationInfo, /) -> Any:
+            if info.mode_is_json():
+                return obj._dict
+            return cls(obj._dict)
+
+        # get key/value types
+        key_type = val_type = Any
+        if args := get_args(source_type):
+            key_type = args[0]
+            if len(args) > 1:
+                val_type = args[1]
+
+        # get key/value schemas and validators
+        keys_schema = handler.generate_schema(key_type)
+        values_schema = handler.generate_schema(val_type)
+        dict_schema = core_schema.dict_schema(
+            keys_schema=keys_schema,
+            values_schema=values_schema,
+        )
         return core_schema.no_info_after_validator_function(
             function=cls,
-            schema=core_schema.dict_schema(
-                keys_schema=handler(args[0]) if args else None,
-                values_schema=handler(args[1]) if len(args) > 1 else None,
+            schema=dict_schema,
+            json_schema_input_schema=dict_schema,
+            serialization=core_schema.plain_serializer_function_ser_schema(
+                _serialize,
+                info_arg=True,
             ),
         )
+
+
+class DictSignalInstance(SignalInstance):
+    def _psygnal_relocate_info_(self, emission_info: EmissionInfo) -> EmissionInfo:
+        """Relocate the emission info to the key being modified.
+
+        (All signals on EventedDict have the key as the first argument.)
+        """
+        if args := emission_info.args:
+            return emission_info.insert_path(PathStep(key=args[0]))
+        return emission_info
+
+
+DictSignal = partial(Signal, signal_instance_class=DictSignalInstance)
 
 
 class DictEvents(SignalGroup):
     """Events available on [EventedDict][psygnal.containers.EventedDict]."""
 
-    adding = Signal(object)  # (key, )
+    adding = DictSignal(object)  # (key, )
     """`(key,)` emitted before an item is added at `key`"""
-    added = Signal(object, object)  # (key, value)
+    added = DictSignal(object, object)  # (key, value)
     """`(key, value)` emitted after a `value` is added at `key`"""
-    changing = Signal(object)  # (key, )
+    changing = DictSignal(object)  # (key, )
     """`(key, old_value, new_value)` emitted before `old_value` is replaced with
     `new_value` at `key`"""
-    changed = Signal(object, object, object)  # (key, old_value, value)
+    changed = DictSignal(object, object, object)  # (key, old_value, value)
     """`(key, old_value, new_value)` emitted before `old_value` is replaced with
     `new_value` at `key`"""
-    removing = Signal(object)  # (key, )
+    removing = DictSignal(object)  # (key, )
     """`(key,)` emitted before an item is removed at `key`"""
-    removed = Signal(object, object)  # (key, value)
+    removed = DictSignal(object, object)  # (key, value)
     """`(key, value)` emitted after `value` is removed at `key`"""
 
 
@@ -152,6 +181,7 @@ class EventedDict(TypedMutableMapping[_K, _V]):
     """
 
     events: DictEvents  # pragma: no cover
+    _psygnal_group_: ClassVar[str] = "events"
 
     def __init__(
         self,

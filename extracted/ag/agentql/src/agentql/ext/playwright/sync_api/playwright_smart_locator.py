@@ -1,6 +1,6 @@
 import logging
 import time
-from typing import Any, Literal, Optional, Tuple, Union
+from typing import Any, Literal, Optional, Union
 
 from playwright.sync_api import Page as _Page
 from playwright.sync_api import Response
@@ -45,9 +45,7 @@ log = logging.getLogger("agentql")
 
 
 class Page(_Page):
-    def __init__(
-        self, page: _Page, page_monitor: PageActivityMonitor
-    ):  # pylint: disable=super-init-not-called
+    def __init__(self, page: _Page, page_monitor: PageActivityMonitor):  # pylint: disable=super-init-not-called
         # We intentionally not calling super().__init__ since this is a composition pattern
         # we inherit from Playwright Page class to maintain the same interface. But in reality all calls are forwarded to the underlying page object.
         self._page = page
@@ -86,9 +84,7 @@ class Page(_Page):
         url: str,
         *,
         timeout: Optional[float] = None,
-        wait_until: Optional[
-            Literal["commit", "domcontentloaded", "load", "networkidle"]
-        ] = "domcontentloaded",
+        wait_until: Optional[Literal["commit", "domcontentloaded", "load", "networkidle"]] = "domcontentloaded",
         referer: Optional[str] = None,
     ) -> Optional[Response]:
         """
@@ -152,9 +148,7 @@ class Page(_Page):
 
         tf623_id = response_data.get("tf623_id")
         iframe_path = response_data.get("attributes", {}).get("iframe_path")
-        web_element = find_element_by_id(
-            page=self._page, tf623_id=tf623_id, iframe_path=iframe_path
-        )
+        web_element = find_element_by_id(page=self._page, tf623_id=tf623_id, iframe_path=iframe_path)
 
         return web_element  # type: ignore
 
@@ -281,9 +275,7 @@ class Page(_Page):
         )
         return response
 
-    def wait_for_page_ready_state(
-        self, wait_for_network_idle: bool = DEFAULT_WAIT_FOR_NETWORK_IDLE
-    ):
+    def wait_for_page_ready_state(self, wait_for_network_idle: bool = DEFAULT_WAIT_FOR_NETWORK_IDLE):
         """
         Waits for the page to reach the "Page Ready" state, i.e. page has entered a relatively stable state and most main content is loaded. Might be useful before triggering an AgentQL query or any other interaction for slowly rendering pages.
 
@@ -410,7 +402,7 @@ class Page(_Page):
         wait_for_network_idle: bool = DEFAULT_WAIT_FOR_NETWORK_IDLE,
         include_hidden: bool = DEFAULT_INCLUDE_HIDDEN_DATA,
         request_origin: Optional[str] = None,
-    ) -> Tuple[str, dict]:
+    ) -> tuple[str, dict]:
         log.debug(f"Generating query: {prompt}")
 
         self.wait_for_page_ready_state(wait_for_network_idle=wait_for_network_idle)
@@ -433,10 +425,8 @@ class Page(_Page):
         accessibility_tree: Optional[dict] = None,
         experimental_query_elements_enabled: bool = False,
         **kwargs,
-    ) -> Tuple[dict, ContainerNode]:
-        log.debug(
-            f"Querying {'data' if is_data_query else 'elements'}: {minify_query(query)} on {self._page}"
-        )
+    ) -> tuple[dict, ContainerNode]:
+        log.debug(f"Querying {'data' if is_data_query else 'elements'}: {minify_query(query)} on {self._page}")
 
         query_tree = QueryParser(query).parse()
 
@@ -461,9 +451,7 @@ class Page(_Page):
             **kwargs,
         )
 
-        self._set_debug_info(
-            last_query=query, last_response=response, last_accessibility_tree=accessibility_tree
-        )
+        self._set_debug_info(last_query=query, last_response=response, last_accessibility_tree=accessibility_tree)
 
         return response, query_tree
 

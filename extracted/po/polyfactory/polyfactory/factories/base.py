@@ -55,6 +55,8 @@ from polyfactory.constants import (
 from polyfactory.exceptions import ConfigurationException, MissingBuildKwargException, ParameterException
 from polyfactory.field_meta import Null
 from polyfactory.fields import Fixture, Ignore, PostGenerated, Require, Use
+from polyfactory.utils._internal import is_attribute_overridden
+from polyfactory.utils.deprecation import warn_deprecation
 from polyfactory.utils.helpers import (
     flatten_annotation,
     get_collection_type,
@@ -63,7 +65,14 @@ from polyfactory.utils.helpers import (
     unwrap_optional,
 )
 from polyfactory.utils.model_coverage import CoverageContainer, CoverageContainerCallable, resolve_kwargs_coverage
-from polyfactory.utils.predicates import get_type_origin, is_literal, is_optional, is_safe_subclass, is_union
+from polyfactory.utils.predicates import (
+    get_type_origin,
+    is_literal,
+    is_optional,
+    is_safe_subclass,
+    is_type_var,
+    is_union,
+)
 from polyfactory.utils.types import NoneType
 from polyfactory.value_generators.complex_types import handle_collection_type, handle_collection_type_coverage
 from polyfactory.value_generators.constrained_collections import (
@@ -230,6 +239,13 @@ class BaseFactory(ABC, Generic[T]):
                     raise ConfigurationException(
                         msg,
                     )
+            if is_attribute_overridden(BaseFactory, cls, "__check_model__"):
+                warn_deprecation(
+                    "v2.22.0",
+                    deprecated_name="__check_model__",
+                    kind="default",
+                    alternative="set to `False` explicitly to keep existing behaviour",
+                )
             if cls.__check_model__:
                 cls._check_declared_fields_exist_in_model()
         else:
@@ -251,7 +267,10 @@ class BaseFactory(ABC, Generic[T]):
         if build_context is None:
             return {"seen_models": set()}
 
-        return copy.deepcopy(build_context)
+        return {
+            **build_context,
+            "seen_models": copy.copy(build_context["seen_models"]),
+        }
 
     @classmethod
     def _infer_model_type(cls) -> type[T] | None:
@@ -268,7 +287,7 @@ class BaseFactory(ABC, Generic[T]):
             b for b in get_original_bases(cls) if get_origin(b) and issubclass(get_origin(b), BaseFactory)
         )
         generic_args: Sequence[type[T]] = [
-            arg for factory_base in factory_bases for arg in get_args(factory_base) if not isinstance(arg, TypeVar)
+            arg for factory_base in factory_bases for arg in get_args(factory_base) if not is_type_var(arg)
         ]
         if len(generic_args) != 1:
             return None
@@ -448,7 +467,7 @@ class BaseFactory(ABC, Generic[T]):
         :returns: Boolean dictating whether the annotation is a batch factory type
         """
         origin = get_type_origin(annotation) or annotation
-        if is_safe_subclass(origin, Sequence) and (args := unwrap_args(annotation, random=cls.__random__)):
+        if is_safe_subclass(origin, Sequence) and (args := unwrap_args(annotation)):
             return len(args) == 1 and BaseFactory.is_factory_type(annotation=args[0])
         return False
 
@@ -748,7 +767,7 @@ class BaseFactory(ABC, Generic[T]):
         if field_build_parameters is None and cls.should_set_none_value(field_meta=field_meta):
             return None
 
-        unwrapped_annotation = unwrap_annotation(field_meta.annotation, random=cls.__random__)
+        unwrapped_annotation = unwrap_annotation(field_meta.annotation)
 
         if is_literal(annotation=unwrapped_annotation) and (literal_args := get_args(unwrapped_annotation)):
             return cls.__random__.choice(literal_args)
@@ -764,7 +783,7 @@ class BaseFactory(ABC, Generic[T]):
                 build_context=build_context,
             )
 
-        if is_union(field_meta.annotation) and field_meta.children:
+        if (is_union(unwrapped_annotation) or is_union(field_meta.annotation)) and field_meta.children:
             seen_models = build_context["seen_models"]
             children = [child for child in field_meta.children if child.annotation not in seen_models]
 
@@ -839,7 +858,7 @@ class BaseFactory(ABC, Generic[T]):
         if provider := (provider_map.get(field_meta.annotation) or provider_map.get(unwrapped_annotation)):
             return provider()
 
-        if isinstance(unwrapped_annotation, TypeVar):
+        if is_type_var(unwrapped_annotation):
             return create_random_string(cls.__random__, min_length=1, max_length=10)
 
         if callable(unwrapped_annotation):
@@ -903,7 +922,7 @@ class BaseFactory(ABC, Generic[T]):
 
             elif (origin := get_type_origin(unwrapped_annotation)) and issubclass(origin, Collection):
                 if not field_meta.children:
-                    msg = "A subclass of Collection should always have children in it's field_meta"
+                    msg = "A subclass of Collection should always have children in its field_meta"
                     raise ParameterException(msg)
 
                 # We actually want to use the parent in cases where the collection is the parent
@@ -921,7 +940,7 @@ class BaseFactory(ABC, Generic[T]):
             ):
                 yield CoverageContainerCallable(provider)
 
-            elif isinstance(unwrapped_annotation, TypeVar):
+            elif is_type_var(unwrapped_annotation):
                 yield create_random_string(cls.__random__, min_length=1, max_length=10)
 
             elif callable(unwrapped_annotation):

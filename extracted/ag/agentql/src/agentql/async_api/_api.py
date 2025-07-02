@@ -2,7 +2,8 @@
 This module is an entrypoint to AgentQL service
 """
 
-from typing import Any, Coroutine, Union
+from collections.abc import Coroutine
+from typing import Any, Union
 
 from playwright.async_api import Page as PlaywrightPage
 
@@ -11,7 +12,7 @@ from agentql.ext.playwright.async_api import Page as AgentQLPage
 
 
 async def wrap_async(
-    page: Union[Coroutine[Any, Any, PlaywrightPage], PlaywrightPage]
+    page: Union[Coroutine[Any, Any, PlaywrightPage], PlaywrightPage],
 ) -> AgentQLPage:
     """
     Wraps a Playwright Async `Page` object with an AgentQL `Page` type to get access to the AgentQL's querying API.

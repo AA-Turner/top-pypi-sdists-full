@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: boto3-stubs
-Version: 1.39.0
-Summary: Type annotations for boto3 1.39.0 generated with mypy-boto3-builder 8.11.0
+Version: 1.39.1
+Summary: Type annotations for boto3 1.39.1 generated with mypy-boto3-builder 8.11.0
 Home-page: https://github.com/youtype/mypy_boto3_builder
 Author: Vlad Emelianov
 Author-email: vlad.emelianov.nz@gmail.com
@@ -36,7 +36,7 @@ Requires-Dist: typing-extensions>=4.1.0; python_version < "3.12"
 Provides-Extra: full
 Requires-Dist: boto3-stubs-full<1.40.0,>=1.39.0; extra == "full"
 Provides-Extra: boto3
-Requires-Dist: boto3==1.39.0; extra == "boto3"
+Requires-Dist: boto3==1.39.1; extra == "boto3"
 Provides-Extra: all
 Requires-Dist: mypy-boto3-accessanalyzer<1.40.0,>=1.39.0; extra == "all"
 Requires-Dist: mypy-boto3-account<1.40.0,>=1.39.0; extra == "all"
@@ -312,6 +312,7 @@ Requires-Dist: mypy-boto3-notifications<1.40.0,>=1.39.0; extra == "all"
 Requires-Dist: mypy-boto3-notificationscontacts<1.40.0,>=1.39.0; extra == "all"
 Requires-Dist: mypy-boto3-oam<1.40.0,>=1.39.0; extra == "all"
 Requires-Dist: mypy-boto3-observabilityadmin<1.40.0,>=1.39.0; extra == "all"
+Requires-Dist: mypy-boto3-odb<1.40.0,>=1.39.0; extra == "all"
 Requires-Dist: mypy-boto3-omics<1.40.0,>=1.39.0; extra == "all"
 Requires-Dist: mypy-boto3-opensearch<1.40.0,>=1.39.0; extra == "all"
 Requires-Dist: mypy-boto3-opensearchserverless<1.40.0,>=1.39.0; extra == "all"
@@ -1002,6 +1003,8 @@ Provides-Extra: oam
 Requires-Dist: mypy-boto3-oam<1.40.0,>=1.39.0; extra == "oam"
 Provides-Extra: observabilityadmin
 Requires-Dist: mypy-boto3-observabilityadmin<1.40.0,>=1.39.0; extra == "observabilityadmin"
+Provides-Extra: odb
+Requires-Dist: mypy-boto3-odb<1.40.0,>=1.39.0; extra == "odb"
 Provides-Extra: omics
 Requires-Dist: mypy-boto3-omics<1.40.0,>=1.39.0; extra == "omics"
 Provides-Extra: opensearch
@@ -1296,7 +1299,7 @@ Dynamic: summary
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 1.39.0](https://pypi.org/project/boto3/) compatible
+Type annotations for [boto3 1.39.1](https://pypi.org/project/boto3/) compatible
 with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -1355,7 +1358,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.39.0' mypy-boto3-builder`
+   `uvx --with 'boto3==1.39.1' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Select services you use in the current project.
 4. Use provided commands to install generated packages.
@@ -1707,9 +1710,9 @@ repository.
 
 ## Submodules
 
-- `boto3-stubs[full]` - Type annotations for all 408 services in one package
+- `boto3-stubs[full]` - Type annotations for all 409 services in one package
   (recommended).
-- `boto3-stubs[all]` - Type annotations for all 408 services in separate
+- `boto3-stubs[all]` - Type annotations for all 409 services in separate
   packages.
 - `boto3-stubs[essential]` - Type annotations for
   [CloudFormation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudformation/),
@@ -2518,6 +2521,8 @@ repository.
 - `boto3-stubs[observabilityadmin]` - Type annotations for
   [CloudWatchObservabilityAdminService](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_observabilityadmin/)
   service.
+- `boto3-stubs[odb]` - Type annotations for
+  [Odb](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/) service.
 - `boto3-stubs[omics]` - Type annotations for
   [Omics](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/)
   service.

@@ -1,4 +1,4 @@
-from typing import Callable, List, Optional, Union
+from typing import Callable, Optional, Union
 
 from agentql import QuerySyntaxError
 
@@ -53,9 +53,7 @@ class QueryParser:
             node = IdNode(name=name, description=description)
         return node
 
-    def _parse_list(
-        self, name: str, description: Optional[str]
-    ) -> Union[ContainerListNode, IdListNode]:
+    def _parse_list(self, name: str, description: Optional[str]) -> Union[ContainerListNode, IdListNode]:
         """Parses a list, represented by two brackets."""
         prev_token = self.lexer.token.prev
         if not prev_token:
@@ -76,16 +74,12 @@ class QueryParser:
 
         if self._peek(TokenKind.BRACE_L):
             container = self._parse_container(name=name, description=description)
-            node = ContainerListNode(
-                name=container.name, description=description, children=container.children
-            )
+            node = ContainerListNode(name=container.name, description=description, children=container.children)
         else:
             node = IdListNode(name=name, description=description)
         return node
 
-    def _many(
-        self, open_kind: TokenKind, parse_fn: Callable, close_kind: TokenKind, **kwargs
-    ) -> List[Node]:
+    def _many(self, open_kind: TokenKind, parse_fn: Callable, close_kind: TokenKind, **kwargs) -> list[Node]:
         """Parses zero or more tokens of the given kind by repeatedly calling the given
         parse function. Check whether the syntax is valid."""
         self._expect_token(open_kind)

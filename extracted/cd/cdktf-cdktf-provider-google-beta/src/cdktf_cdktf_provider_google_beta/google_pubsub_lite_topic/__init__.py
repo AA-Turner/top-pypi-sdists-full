@@ -1,7 +1,7 @@
 r'''
 # `google_pubsub_lite_topic`
 
-Refer to the Terraform Registry for docs: [`google_pubsub_lite_topic`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic).
+Refer to the Terraform Registry for docs: [`google_pubsub_lite_topic`](https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GooglePubsubLiteTopic(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googlePubsubLiteTopic.GooglePubsubLiteTopic",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic google_pubsub_lite_topic}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic google_pubsub_lite_topic}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class GooglePubsubLiteTopic(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic google_pubsub_lite_topic} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic google_pubsub_lite_topic} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Name of the topic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#name GooglePubsubLiteTopic#name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#id GooglePubsubLiteTopic#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param partition_config: partition_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#partition_config GooglePubsubLiteTopic#partition_config}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#project GooglePubsubLiteTopic#project}.
-        :param region: The region of the pubsub lite topic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#region GooglePubsubLiteTopic#region}
-        :param reservation_config: reservation_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#reservation_config GooglePubsubLiteTopic#reservation_config}
-        :param retention_config: retention_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#retention_config GooglePubsubLiteTopic#retention_config}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#timeouts GooglePubsubLiteTopic#timeouts}
-        :param zone: The zone of the pubsub lite topic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#zone GooglePubsubLiteTopic#zone}
+        :param name: Name of the topic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#name GooglePubsubLiteTopic#name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#id GooglePubsubLiteTopic#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param partition_config: partition_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#partition_config GooglePubsubLiteTopic#partition_config}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#project GooglePubsubLiteTopic#project}.
+        :param region: The region of the pubsub lite topic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#region GooglePubsubLiteTopic#region}
+        :param reservation_config: reservation_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#reservation_config GooglePubsubLiteTopic#reservation_config}
+        :param retention_config: retention_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#retention_config GooglePubsubLiteTopic#retention_config}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#timeouts GooglePubsubLiteTopic#timeouts}
+        :param zone: The zone of the pubsub lite topic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#zone GooglePubsubLiteTopic#zone}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class GooglePubsubLiteTopic(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GooglePubsubLiteTopic to import.
-        :param import_from_id: The id of the existing GooglePubsubLiteTopic that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GooglePubsubLiteTopic that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GooglePubsubLiteTopic to import is found.
         '''
         if __debug__:
@@ -146,8 +146,8 @@ class GooglePubsubLiteTopic(
         capacity: typing.Optional[typing.Union["GooglePubsubLiteTopicPartitionConfigCapacity", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param count: The number of partitions in the topic. Must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#count GooglePubsubLiteTopic#count}
-        :param capacity: capacity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#capacity GooglePubsubLiteTopic#capacity}
+        :param count: The number of partitions in the topic. Must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#count GooglePubsubLiteTopic#count}
+        :param capacity: capacity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#capacity GooglePubsubLiteTopic#capacity}
         '''
         value = GooglePubsubLiteTopicPartitionConfig(count=count, capacity=capacity)
 
@@ -160,7 +160,7 @@ class GooglePubsubLiteTopic(
         throughput_reservation: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param throughput_reservation: The Reservation to use for this topic's throughput capacity. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#throughput_reservation GooglePubsubLiteTopic#throughput_reservation}
+        :param throughput_reservation: The Reservation to use for this topic's throughput capacity. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#throughput_reservation GooglePubsubLiteTopic#throughput_reservation}
         '''
         value = GooglePubsubLiteTopicReservationConfig(
             throughput_reservation=throughput_reservation
@@ -176,8 +176,8 @@ class GooglePubsubLiteTopic(
         period: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param per_partition_bytes: The provisioned storage, in bytes, per partition. If the number of bytes stored in any of the topic's partitions grows beyond this value, older messages will be dropped to make room for newer ones, regardless of the value of period. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#per_partition_bytes GooglePubsubLiteTopic#per_partition_bytes}
-        :param period: How long a published message is retained. If unset, messages will be retained as long as the bytes retained for each partition is below perPartitionBytes. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#period GooglePubsubLiteTopic#period}
+        :param per_partition_bytes: The provisioned storage, in bytes, per partition. If the number of bytes stored in any of the topic's partitions grows beyond this value, older messages will be dropped to make room for newer ones, regardless of the value of period. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#per_partition_bytes GooglePubsubLiteTopic#per_partition_bytes}
+        :param period: How long a published message is retained. If unset, messages will be retained as long as the bytes retained for each partition is below perPartitionBytes. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#period GooglePubsubLiteTopic#period}
         '''
         value = GooglePubsubLiteTopicRetentionConfig(
             per_partition_bytes=per_partition_bytes, period=period
@@ -194,9 +194,9 @@ class GooglePubsubLiteTopic(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#create GooglePubsubLiteTopic#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#delete GooglePubsubLiteTopic#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#update GooglePubsubLiteTopic#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#create GooglePubsubLiteTopic#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#delete GooglePubsubLiteTopic#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#update GooglePubsubLiteTopic#update}.
         '''
         value = GooglePubsubLiteTopicTimeouts(
             create=create, delete=delete, update=update
@@ -436,15 +436,15 @@ class GooglePubsubLiteTopicConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Name of the topic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#name GooglePubsubLiteTopic#name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#id GooglePubsubLiteTopic#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param partition_config: partition_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#partition_config GooglePubsubLiteTopic#partition_config}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#project GooglePubsubLiteTopic#project}.
-        :param region: The region of the pubsub lite topic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#region GooglePubsubLiteTopic#region}
-        :param reservation_config: reservation_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#reservation_config GooglePubsubLiteTopic#reservation_config}
-        :param retention_config: retention_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#retention_config GooglePubsubLiteTopic#retention_config}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#timeouts GooglePubsubLiteTopic#timeouts}
-        :param zone: The zone of the pubsub lite topic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#zone GooglePubsubLiteTopic#zone}
+        :param name: Name of the topic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#name GooglePubsubLiteTopic#name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#id GooglePubsubLiteTopic#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param partition_config: partition_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#partition_config GooglePubsubLiteTopic#partition_config}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#project GooglePubsubLiteTopic#project}.
+        :param region: The region of the pubsub lite topic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#region GooglePubsubLiteTopic#region}
+        :param reservation_config: reservation_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#reservation_config GooglePubsubLiteTopic#reservation_config}
+        :param retention_config: retention_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#retention_config GooglePubsubLiteTopic#retention_config}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#timeouts GooglePubsubLiteTopic#timeouts}
+        :param zone: The zone of the pubsub lite topic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#zone GooglePubsubLiteTopic#zone}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -576,7 +576,7 @@ class GooglePubsubLiteTopicConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''Name of the topic.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#name GooglePubsubLiteTopic#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#name GooglePubsubLiteTopic#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -584,7 +584,7 @@ class GooglePubsubLiteTopicConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#id GooglePubsubLiteTopic#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#id GooglePubsubLiteTopic#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -598,14 +598,14 @@ class GooglePubsubLiteTopicConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GooglePubsubLiteTopicPartitionConfig"]:
         '''partition_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#partition_config GooglePubsubLiteTopic#partition_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#partition_config GooglePubsubLiteTopic#partition_config}
         '''
         result = self._values.get("partition_config")
         return typing.cast(typing.Optional["GooglePubsubLiteTopicPartitionConfig"], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#project GooglePubsubLiteTopic#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#project GooglePubsubLiteTopic#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -613,7 +613,7 @@ class GooglePubsubLiteTopicConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''The region of the pubsub lite topic.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#region GooglePubsubLiteTopic#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#region GooglePubsubLiteTopic#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -624,7 +624,7 @@ class GooglePubsubLiteTopicConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GooglePubsubLiteTopicReservationConfig"]:
         '''reservation_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#reservation_config GooglePubsubLiteTopic#reservation_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#reservation_config GooglePubsubLiteTopic#reservation_config}
         '''
         result = self._values.get("reservation_config")
         return typing.cast(typing.Optional["GooglePubsubLiteTopicReservationConfig"], result)
@@ -635,7 +635,7 @@ class GooglePubsubLiteTopicConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GooglePubsubLiteTopicRetentionConfig"]:
         '''retention_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#retention_config GooglePubsubLiteTopic#retention_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#retention_config GooglePubsubLiteTopic#retention_config}
         '''
         result = self._values.get("retention_config")
         return typing.cast(typing.Optional["GooglePubsubLiteTopicRetentionConfig"], result)
@@ -644,7 +644,7 @@ class GooglePubsubLiteTopicConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GooglePubsubLiteTopicTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#timeouts GooglePubsubLiteTopic#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#timeouts GooglePubsubLiteTopic#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GooglePubsubLiteTopicTimeouts"], result)
@@ -653,7 +653,7 @@ class GooglePubsubLiteTopicConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def zone(self) -> typing.Optional[builtins.str]:
         '''The zone of the pubsub lite topic.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#zone GooglePubsubLiteTopic#zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#zone GooglePubsubLiteTopic#zone}
         '''
         result = self._values.get("zone")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -683,8 +683,8 @@ class GooglePubsubLiteTopicPartitionConfig:
         capacity: typing.Optional[typing.Union["GooglePubsubLiteTopicPartitionConfigCapacity", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param count: The number of partitions in the topic. Must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#count GooglePubsubLiteTopic#count}
-        :param capacity: capacity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#capacity GooglePubsubLiteTopic#capacity}
+        :param count: The number of partitions in the topic. Must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#count GooglePubsubLiteTopic#count}
+        :param capacity: capacity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#capacity GooglePubsubLiteTopic#capacity}
         '''
         if isinstance(capacity, dict):
             capacity = GooglePubsubLiteTopicPartitionConfigCapacity(**capacity)
@@ -702,7 +702,7 @@ class GooglePubsubLiteTopicPartitionConfig:
     def count(self) -> jsii.Number:
         '''The number of partitions in the topic. Must be at least 1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#count GooglePubsubLiteTopic#count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#count GooglePubsubLiteTopic#count}
         '''
         result = self._values.get("count")
         assert result is not None, "Required property 'count' is missing"
@@ -714,7 +714,7 @@ class GooglePubsubLiteTopicPartitionConfig:
     ) -> typing.Optional["GooglePubsubLiteTopicPartitionConfigCapacity"]:
         '''capacity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#capacity GooglePubsubLiteTopic#capacity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#capacity GooglePubsubLiteTopic#capacity}
         '''
         result = self._values.get("capacity")
         return typing.cast(typing.Optional["GooglePubsubLiteTopicPartitionConfigCapacity"], result)
@@ -747,8 +747,8 @@ class GooglePubsubLiteTopicPartitionConfigCapacity:
         subscribe_mib_per_sec: jsii.Number,
     ) -> None:
         '''
-        :param publish_mib_per_sec: Subscribe throughput capacity per partition in MiB/s. Must be >= 4 and <= 16. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#publish_mib_per_sec GooglePubsubLiteTopic#publish_mib_per_sec}
-        :param subscribe_mib_per_sec: Publish throughput capacity per partition in MiB/s. Must be >= 4 and <= 16. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#subscribe_mib_per_sec GooglePubsubLiteTopic#subscribe_mib_per_sec}
+        :param publish_mib_per_sec: Subscribe throughput capacity per partition in MiB/s. Must be >= 4 and <= 16. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#publish_mib_per_sec GooglePubsubLiteTopic#publish_mib_per_sec}
+        :param subscribe_mib_per_sec: Publish throughput capacity per partition in MiB/s. Must be >= 4 and <= 16. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#subscribe_mib_per_sec GooglePubsubLiteTopic#subscribe_mib_per_sec}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__18638096eb2d202cb831ea1b0144e8941e38c73347783386843c068489da4bf2)
@@ -763,7 +763,7 @@ class GooglePubsubLiteTopicPartitionConfigCapacity:
     def publish_mib_per_sec(self) -> jsii.Number:
         '''Subscribe throughput capacity per partition in MiB/s. Must be >= 4 and <= 16.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#publish_mib_per_sec GooglePubsubLiteTopic#publish_mib_per_sec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#publish_mib_per_sec GooglePubsubLiteTopic#publish_mib_per_sec}
         '''
         result = self._values.get("publish_mib_per_sec")
         assert result is not None, "Required property 'publish_mib_per_sec' is missing"
@@ -773,7 +773,7 @@ class GooglePubsubLiteTopicPartitionConfigCapacity:
     def subscribe_mib_per_sec(self) -> jsii.Number:
         '''Publish throughput capacity per partition in MiB/s. Must be >= 4 and <= 16.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#subscribe_mib_per_sec GooglePubsubLiteTopic#subscribe_mib_per_sec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#subscribe_mib_per_sec GooglePubsubLiteTopic#subscribe_mib_per_sec}
         '''
         result = self._values.get("subscribe_mib_per_sec")
         assert result is not None, "Required property 'subscribe_mib_per_sec' is missing"
@@ -891,8 +891,8 @@ class GooglePubsubLiteTopicPartitionConfigOutputReference(
         subscribe_mib_per_sec: jsii.Number,
     ) -> None:
         '''
-        :param publish_mib_per_sec: Subscribe throughput capacity per partition in MiB/s. Must be >= 4 and <= 16. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#publish_mib_per_sec GooglePubsubLiteTopic#publish_mib_per_sec}
-        :param subscribe_mib_per_sec: Publish throughput capacity per partition in MiB/s. Must be >= 4 and <= 16. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#subscribe_mib_per_sec GooglePubsubLiteTopic#subscribe_mib_per_sec}
+        :param publish_mib_per_sec: Subscribe throughput capacity per partition in MiB/s. Must be >= 4 and <= 16. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#publish_mib_per_sec GooglePubsubLiteTopic#publish_mib_per_sec}
+        :param subscribe_mib_per_sec: Publish throughput capacity per partition in MiB/s. Must be >= 4 and <= 16. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#subscribe_mib_per_sec GooglePubsubLiteTopic#subscribe_mib_per_sec}
         '''
         value = GooglePubsubLiteTopicPartitionConfigCapacity(
             publish_mib_per_sec=publish_mib_per_sec,
@@ -962,7 +962,7 @@ class GooglePubsubLiteTopicReservationConfig:
         throughput_reservation: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param throughput_reservation: The Reservation to use for this topic's throughput capacity. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#throughput_reservation GooglePubsubLiteTopic#throughput_reservation}
+        :param throughput_reservation: The Reservation to use for this topic's throughput capacity. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#throughput_reservation GooglePubsubLiteTopic#throughput_reservation}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c04311c1f4d2959ba60659f9e3cdbeb44e4d8bdad85a7604d248381276aa8bd6)
@@ -975,7 +975,7 @@ class GooglePubsubLiteTopicReservationConfig:
     def throughput_reservation(self) -> typing.Optional[builtins.str]:
         '''The Reservation to use for this topic's throughput capacity.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#throughput_reservation GooglePubsubLiteTopic#throughput_reservation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#throughput_reservation GooglePubsubLiteTopic#throughput_reservation}
         '''
         result = self._values.get("throughput_reservation")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1062,8 +1062,8 @@ class GooglePubsubLiteTopicRetentionConfig:
         period: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param per_partition_bytes: The provisioned storage, in bytes, per partition. If the number of bytes stored in any of the topic's partitions grows beyond this value, older messages will be dropped to make room for newer ones, regardless of the value of period. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#per_partition_bytes GooglePubsubLiteTopic#per_partition_bytes}
-        :param period: How long a published message is retained. If unset, messages will be retained as long as the bytes retained for each partition is below perPartitionBytes. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#period GooglePubsubLiteTopic#period}
+        :param per_partition_bytes: The provisioned storage, in bytes, per partition. If the number of bytes stored in any of the topic's partitions grows beyond this value, older messages will be dropped to make room for newer ones, regardless of the value of period. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#per_partition_bytes GooglePubsubLiteTopic#per_partition_bytes}
+        :param period: How long a published message is retained. If unset, messages will be retained as long as the bytes retained for each partition is below perPartitionBytes. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#period GooglePubsubLiteTopic#period}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f025e712e2fd510bb59b0db04cf669084646321aed9930e812712ab68780003a)
@@ -1083,7 +1083,7 @@ class GooglePubsubLiteTopicRetentionConfig:
         in any of the topic's partitions grows beyond this value, older messages will be
         dropped to make room for newer ones, regardless of the value of period.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#per_partition_bytes GooglePubsubLiteTopic#per_partition_bytes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#per_partition_bytes GooglePubsubLiteTopic#per_partition_bytes}
         '''
         result = self._values.get("per_partition_bytes")
         assert result is not None, "Required property 'per_partition_bytes' is missing"
@@ -1098,7 +1098,7 @@ class GooglePubsubLiteTopicRetentionConfig:
         duration in seconds with up to nine fractional digits, terminated by 's'.
         Example: "3.5s".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#period GooglePubsubLiteTopic#period}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#period GooglePubsubLiteTopic#period}
         '''
         result = self._values.get("period")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1203,9 +1203,9 @@ class GooglePubsubLiteTopicTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#create GooglePubsubLiteTopic#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#delete GooglePubsubLiteTopic#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#update GooglePubsubLiteTopic#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#create GooglePubsubLiteTopic#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#delete GooglePubsubLiteTopic#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#update GooglePubsubLiteTopic#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b9d88ef640d97b1110efc89c48bb3a3baa473903afa21f31698beb98b2686b86)
@@ -1222,19 +1222,19 @@ class GooglePubsubLiteTopicTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#create GooglePubsubLiteTopic#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#create GooglePubsubLiteTopic#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#delete GooglePubsubLiteTopic#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#delete GooglePubsubLiteTopic#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_lite_topic#update GooglePubsubLiteTopic#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_lite_topic#update GooglePubsubLiteTopic#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

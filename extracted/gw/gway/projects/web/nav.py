@@ -9,7 +9,7 @@ def render(*, homes=None):
     Renders the sidebar navigation including search, home links, visited links, and a QR compass.
     """
     cookies_ok = gw.web.app.is_setup('web.cookies') and gw.web.cookies.check_consent()
-    gw.debug(f"Render nav with {homes=} {cookies_ok=}")
+    gw.verbose(f"Render nav with {homes=} {cookies_ok=}")
 
     visited = []
     if cookies_ok:
@@ -83,8 +83,7 @@ def render(*, homes=None):
         '''
     except Exception as e:
         gw.debug(f"Could not generate QR compass: {e}")
-
-    gw.debug(f"Visited cookie raw: {gw.web.cookies.get('visited')}")
+        
     return f"<aside>{search_box}<ul>{links}</ul><br>{compass}</aside>"
 
 def active_style():
@@ -273,14 +272,6 @@ def style_selector_form(all_styles, selected_style, cookies_enabled, cookies_acc
             <select id="css-style" name="css" class="style-selector" style="width:100%" onchange="styleSelectChanged(this)">
                 {''.join(options)}
             </select>
-            <script>
-                function styleSelectChanged(sel) {{
-                    var val = sel.value;
-                    var url = new URL(window.location.href);
-                    url.searchParams.set('css', val);
-                    window.location.href = url.toString();
-                }}
-            </script>
         """
 
 def list_styles(project=None):

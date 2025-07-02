@@ -205,7 +205,7 @@ def moignard15() -> AnnData:
     backup_url = "https://static-content.springer.com/esm/art%3A10.1038%2Fnbt.3154/MediaObjects/41587_2015_BFnbt3154_MOESM4_ESM.xlsx"
     adata = read(filename, sheet="dCt_values.txt", backup_url=backup_url)
     # filter out 4 genes as in Haghverdi et al. (2016)
-    gene_subset = ~np.in1d(adata.var_names, ["Eif2b1", "Mrpl19", "Polr2a", "Ubc"])
+    gene_subset = ~np.isin(adata.var_names, ["Eif2b1", "Mrpl19", "Polr2a", "Ubc"])
     adata = adata[:, gene_subset].copy()  # retain non-removed genes
     # choose root cell for DPT analysis as in Haghverdi et al. (2016)
     adata.uns["iroot"] = 532  # note that in Matlab/R, counting starts at 1
@@ -375,7 +375,7 @@ def pbmc3k() -> AnnData:
 
     .. note::
        This downloads 5.9 MB of data upon the first call of the function and stores it in
-       :attr:`~scanpy._settings.ScanpyConfig.datasetdir`\ `/pbmc3k_raw.h5ad`.
+       :attr:`~scanpy.settings.datasetdir`\ `/pbmc3k_raw.h5ad`.
 
     The following code was run to produce the file.
 

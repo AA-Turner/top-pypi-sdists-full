@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any, ClassVar
+from typing import Any, ClassVar, TypedDict
 
 from reflex.constants import EventTriggers
 from reflex.constants.colors import Color
@@ -247,7 +247,8 @@ class Brush(Recharts):
     # The stroke color of brush
     stroke: Var[str | Color]
 
-    def get_event_triggers(self) -> dict[str, Var | Any]:
+    @classmethod
+    def get_event_triggers(cls) -> dict[str, Var | Any]:
         """Get the event triggers that pass the component's value to the handler.
 
         Returns:
@@ -658,8 +659,12 @@ class Reference(Recharts):
     # If set a string or a number, default label will be drawn, and the option is content.
     label: Var[str | int]
 
-    # If set true, the line will be rendered in front of bars in BarChart, etc. Default: False
-    is_front: Var[bool]
+
+class Segment(TypedDict):
+    """A segment in a ReferenceLine or ReferenceArea."""
+
+    x: str | int
+    y: str | int
 
 
 class ReferenceLine(Reference):
@@ -685,7 +690,7 @@ class ReferenceLine(Reference):
     _valid_children: ClassVar[list[str]] = ["Label"]
 
     # Array of endpoints in { x, y } format. These endpoints would be used to draw the ReferenceLine.
-    segment: Sequence[Any] = []
+    segment: Var[Sequence[Segment]]
 
 
 class ReferenceDot(Reference):
@@ -774,9 +779,6 @@ class ReferenceArea(Recharts):
 
     # Defines how to draw the reference line if it falls partly outside the canvas. If set to 'discard', the reference line will not be drawn at all. If set to 'hidden', the reference line will be clipped to the canvas. If set to 'visible', the reference line will be drawn completely. If set to 'extendDomain', the domain of the overflown axis will be extended such that the reference line fits into the canvas. Default: "discard"
     if_overflow: Var[LiteralIfOverflow]
-
-    # If set true, the line will be rendered in front of bars in BarChart, etc. Default: False
-    is_front: Var[bool]
 
     # Valid children components
     _valid_children: ClassVar[list[str]] = ["Label"]

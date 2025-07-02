@@ -163,7 +163,7 @@ class CodersTest(unittest.TestCase):
         coders.BigEndianShortCoder,
         coders.SinglePrecisionFloatCoder,
         coders.ToBytesCoder,
-        coders.BigIntegerCoder, # tested in DecimalCoder
+        coders.BigIntegerCoder,  # tested in DecimalCoder
         coders.TimestampPrefixingOpaqueWindowCoder,
     ])
     cls.seen_nested -= set(
@@ -214,6 +214,13 @@ class CodersTest(unittest.TestCase):
   def test_pickle_coder(self):
     coder = coders.PickleCoder()
     self.check_coder(coder, *self.test_values)
+
+  def test_cloudpickle_pickle_coder(self):
+    cell_value = (lambda x: lambda: x)(0).__closure__[0]
+    self.check_coder(coders.CloudpickleCoder(), 'a', 1, cell_value)
+    self.check_coder(
+        coders.TupleCoder((coders.VarIntCoder(), coders.CloudpickleCoder())),
+        (1, cell_value))
 
   def test_memoizing_pickle_coder(self):
     coder = coders._MemoizingPickleCoder()
@@ -699,9 +706,14 @@ class CodersTest(unittest.TestCase):
 
   def test_map_coder(self):
     values = [
-        {1: "one", 300: "three hundred"}, # force yapf to be nice
+        {
+            1: "one", 300: "three hundred"
+        },  # force yapf to be nice
         {},
-        {i: str(i) for i in range(5000)}
+        {
+            i: str(i)
+            for i in range(5000)
+        }
     ]
     map_coder = coders.MapCoder(coders.VarIntCoder(), coders.StrUtf8Coder())
     self.check_coder(map_coder, *values)

@@ -1,7 +1,7 @@
 r'''
 # `data_google_firebase_web_app_config`
 
-Refer to the Terraform Registry for docs: [`data_google_firebase_web_app_config`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_firebase_web_app_config).
+Refer to the Terraform Registry for docs: [`data_google_firebase_web_app_config`](https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/data-sources/google_firebase_web_app_config).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataGoogleFirebaseWebAppConfigA(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.dataGoogleFirebaseWebAppConfig.DataGoogleFirebaseWebAppConfigA",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_firebase_web_app_config google_firebase_web_app_config}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/data-sources/google_firebase_web_app_config google_firebase_web_app_config}.'''
 
     def __init__(
         self,
@@ -61,12 +61,12 @@ class DataGoogleFirebaseWebAppConfigA(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_firebase_web_app_config google_firebase_web_app_config} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/data-sources/google_firebase_web_app_config google_firebase_web_app_config} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param web_app_id: The id of the Firebase web App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_firebase_web_app_config#web_app_id DataGoogleFirebaseWebAppConfigA#web_app_id}
-        :param project: The project id of the Firebase web App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_firebase_web_app_config#project DataGoogleFirebaseWebAppConfigA#project}
+        :param web_app_id: The id of the Firebase web App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/data-sources/google_firebase_web_app_config#web_app_id DataGoogleFirebaseWebAppConfigA#web_app_id}
+        :param project: The project id of the Firebase web App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/data-sources/google_firebase_web_app_config#project DataGoogleFirebaseWebAppConfigA#project}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -106,7 +106,7 @@ class DataGoogleFirebaseWebAppConfigA(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataGoogleFirebaseWebAppConfigA to import.
-        :param import_from_id: The id of the existing DataGoogleFirebaseWebAppConfigA that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_firebase_web_app_config#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataGoogleFirebaseWebAppConfigA that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/data-sources/google_firebase_web_app_config#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataGoogleFirebaseWebAppConfigA to import is found.
         '''
         if __debug__:
@@ -246,8 +246,8 @@ class DataGoogleFirebaseWebAppConfigAConfig(_cdktf_9a9027ec.TerraformMetaArgumen
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param web_app_id: The id of the Firebase web App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_firebase_web_app_config#web_app_id DataGoogleFirebaseWebAppConfigA#web_app_id}
-        :param project: The project id of the Firebase web App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_firebase_web_app_config#project DataGoogleFirebaseWebAppConfigA#project}
+        :param web_app_id: The id of the Firebase web App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/data-sources/google_firebase_web_app_config#web_app_id DataGoogleFirebaseWebAppConfigA#web_app_id}
+        :param project: The project id of the Firebase web App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/data-sources/google_firebase_web_app_config#project DataGoogleFirebaseWebAppConfigA#project}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -350,7 +350,7 @@ class DataGoogleFirebaseWebAppConfigAConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def web_app_id(self) -> builtins.str:
         '''The id of the Firebase web App.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_firebase_web_app_config#web_app_id DataGoogleFirebaseWebAppConfigA#web_app_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/data-sources/google_firebase_web_app_config#web_app_id DataGoogleFirebaseWebAppConfigA#web_app_id}
         '''
         result = self._values.get("web_app_id")
         assert result is not None, "Required property 'web_app_id' is missing"
@@ -360,7 +360,7 @@ class DataGoogleFirebaseWebAppConfigAConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def project(self) -> typing.Optional[builtins.str]:
         '''The project id of the Firebase web App.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_firebase_web_app_config#project DataGoogleFirebaseWebAppConfigA#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/data-sources/google_firebase_web_app_config#project DataGoogleFirebaseWebAppConfigA#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)

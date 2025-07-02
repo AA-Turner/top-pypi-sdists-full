@@ -2,9 +2,13 @@ import functools
 import sys
 import traceback
 from contextlib import contextmanager
+from types import TracebackType
 
 import pytest
 from pytestqt.utils import get_marker
+
+CapturedException = tuple[type[BaseException], BaseException, TracebackType]
+CapturedExceptions = list[CapturedException]
 
 
 @contextmanager

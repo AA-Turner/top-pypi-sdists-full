@@ -51,6 +51,9 @@ from .Autocomplete import Autocomplete
 from .MultiSelect import MultiSelect
 from .Select import Select
 from .TagsInput import TagsInput
+from .Drawer import Drawer
+from .DrawerStack import DrawerStack
+from .ManagedDrawer import ManagedDrawer
 from .Grid import Grid
 from .GridCol import GridCol
 from .HoverCard import HoverCard
@@ -77,6 +80,9 @@ from .SubMenu import SubMenu
 from .SubMenuDropdown import SubMenuDropdown
 from .SubMenuItem import SubMenuItem
 from .SubMenuTarget import SubMenuTarget
+from .ManagedModal import ManagedModal
+from .Modal import Modal
+from .ModalStack import ModalStack
 from .Popover import Popover
 from .PopoverDropdown import PopoverDropdown
 from .PopoverTarget import PopoverTarget
@@ -125,7 +131,6 @@ from .Code import Code
 from .Collapse import Collapse
 from .Container import Container
 from .Divider import Divider
-from .Drawer import Drawer
 from .Fieldset import Fieldset
 from .Flex import Flex
 from .Group import Group
@@ -135,7 +140,6 @@ from .Kbd import Kbd
 from .Loader import Loader
 from .LoadingOverlay import LoadingOverlay
 from .Mark import Mark
-from .Modal import Modal
 from .NavLink import NavLink
 from .NumberFormatter import NumberFormatter
 from .Overlay import Overlay
@@ -239,6 +243,9 @@ __all__ = [
     "MultiSelect",
     "Select",
     "TagsInput",
+    "Drawer",
+    "DrawerStack",
+    "ManagedDrawer",
     "Grid",
     "GridCol",
     "HoverCard",
@@ -265,6 +272,9 @@ __all__ = [
     "SubMenuDropdown",
     "SubMenuItem",
     "SubMenuTarget",
+    "ManagedModal",
+    "Modal",
+    "ModalStack",
     "Popover",
     "PopoverDropdown",
     "PopoverTarget",
@@ -313,7 +323,6 @@ __all__ = [
     "Collapse",
     "Container",
     "Divider",
-    "Drawer",
     "Fieldset",
     "Flex",
     "Group",
@@ -323,7 +332,6 @@ __all__ = [
     "Loader",
     "LoadingOverlay",
     "Mark",
-    "Modal",
     "NavLink",
     "NumberFormatter",
     "Overlay",

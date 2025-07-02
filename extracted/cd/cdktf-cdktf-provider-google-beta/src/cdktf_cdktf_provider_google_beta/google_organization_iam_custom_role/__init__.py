@@ -1,7 +1,7 @@
 r'''
 # `google_organization_iam_custom_role`
 
-Refer to the Terraform Registry for docs: [`google_organization_iam_custom_role`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_organization_iam_custom_role).
+Refer to the Terraform Registry for docs: [`google_organization_iam_custom_role`](https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_organization_iam_custom_role).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleOrganizationIamCustomRole(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleOrganizationIamCustomRole.GoogleOrganizationIamCustomRole",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_organization_iam_custom_role google_organization_iam_custom_role}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_organization_iam_custom_role google_organization_iam_custom_role}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class GoogleOrganizationIamCustomRole(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_organization_iam_custom_role google_organization_iam_custom_role} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_organization_iam_custom_role google_organization_iam_custom_role} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param org_id: The numeric ID of the organization in which you want to create a custom role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_organization_iam_custom_role#org_id GoogleOrganizationIamCustomRole#org_id}
-        :param permissions: The names of the permissions this role grants when bound in an IAM policy. At least one permission must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_organization_iam_custom_role#permissions GoogleOrganizationIamCustomRole#permissions}
-        :param role_id: The role id to use for this role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_organization_iam_custom_role#role_id GoogleOrganizationIamCustomRole#role_id}
-        :param title: A human-readable title for the role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_organization_iam_custom_role#title GoogleOrganizationIamCustomRole#title}
-        :param description: A human-readable description for the role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_organization_iam_custom_role#description GoogleOrganizationIamCustomRole#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_organization_iam_custom_role#id GoogleOrganizationIamCustomRole#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param stage: The current launch stage of the role. Defaults to GA. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_organization_iam_custom_role#stage GoogleOrganizationIamCustomRole#stage}
+        :param org_id: The numeric ID of the organization in which you want to create a custom role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_organization_iam_custom_role#org_id GoogleOrganizationIamCustomRole#org_id}
+        :param permissions: The names of the permissions this role grants when bound in an IAM policy. At least one permission must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_organization_iam_custom_role#permissions GoogleOrganizationIamCustomRole#permissions}
+        :param role_id: The role id to use for this role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_organization_iam_custom_role#role_id GoogleOrganizationIamCustomRole#role_id}
+        :param title: A human-readable title for the role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_organization_iam_custom_role#title GoogleOrganizationIamCustomRole#title}
+        :param description: A human-readable description for the role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_organization_iam_custom_role#description GoogleOrganizationIamCustomRole#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_organization_iam_custom_role#id GoogleOrganizationIamCustomRole#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param stage: The current launch stage of the role. Defaults to GA. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_organization_iam_custom_role#stage GoogleOrganizationIamCustomRole#stage}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class GoogleOrganizationIamCustomRole(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleOrganizationIamCustomRole to import.
-        :param import_from_id: The id of the existing GoogleOrganizationIamCustomRole that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_organization_iam_custom_role#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleOrganizationIamCustomRole that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_organization_iam_custom_role#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleOrganizationIamCustomRole to import is found.
         '''
         if __debug__:
@@ -334,13 +334,13 @@ class GoogleOrganizationIamCustomRoleConfig(_cdktf_9a9027ec.TerraformMetaArgumen
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param org_id: The numeric ID of the organization in which you want to create a custom role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_organization_iam_custom_role#org_id GoogleOrganizationIamCustomRole#org_id}
-        :param permissions: The names of the permissions this role grants when bound in an IAM policy. At least one permission must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_organization_iam_custom_role#permissions GoogleOrganizationIamCustomRole#permissions}
-        :param role_id: The role id to use for this role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_organization_iam_custom_role#role_id GoogleOrganizationIamCustomRole#role_id}
-        :param title: A human-readable title for the role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_organization_iam_custom_role#title GoogleOrganizationIamCustomRole#title}
-        :param description: A human-readable description for the role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_organization_iam_custom_role#description GoogleOrganizationIamCustomRole#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_organization_iam_custom_role#id GoogleOrganizationIamCustomRole#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param stage: The current launch stage of the role. Defaults to GA. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_organization_iam_custom_role#stage GoogleOrganizationIamCustomRole#stage}
+        :param org_id: The numeric ID of the organization in which you want to create a custom role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_organization_iam_custom_role#org_id GoogleOrganizationIamCustomRole#org_id}
+        :param permissions: The names of the permissions this role grants when bound in an IAM policy. At least one permission must be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_organization_iam_custom_role#permissions GoogleOrganizationIamCustomRole#permissions}
+        :param role_id: The role id to use for this role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_organization_iam_custom_role#role_id GoogleOrganizationIamCustomRole#role_id}
+        :param title: A human-readable title for the role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_organization_iam_custom_role#title GoogleOrganizationIamCustomRole#title}
+        :param description: A human-readable description for the role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_organization_iam_custom_role#description GoogleOrganizationIamCustomRole#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_organization_iam_custom_role#id GoogleOrganizationIamCustomRole#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param stage: The current launch stage of the role. Defaults to GA. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_organization_iam_custom_role#stage GoogleOrganizationIamCustomRole#stage}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -455,7 +455,7 @@ class GoogleOrganizationIamCustomRoleConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def org_id(self) -> builtins.str:
         '''The numeric ID of the organization in which you want to create a custom role.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_organization_iam_custom_role#org_id GoogleOrganizationIamCustomRole#org_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_organization_iam_custom_role#org_id GoogleOrganizationIamCustomRole#org_id}
         '''
         result = self._values.get("org_id")
         assert result is not None, "Required property 'org_id' is missing"
@@ -467,7 +467,7 @@ class GoogleOrganizationIamCustomRoleConfig(_cdktf_9a9027ec.TerraformMetaArgumen
 
         At least one permission must be specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_organization_iam_custom_role#permissions GoogleOrganizationIamCustomRole#permissions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_organization_iam_custom_role#permissions GoogleOrganizationIamCustomRole#permissions}
         '''
         result = self._values.get("permissions")
         assert result is not None, "Required property 'permissions' is missing"
@@ -477,7 +477,7 @@ class GoogleOrganizationIamCustomRoleConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def role_id(self) -> builtins.str:
         '''The role id to use for this role.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_organization_iam_custom_role#role_id GoogleOrganizationIamCustomRole#role_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_organization_iam_custom_role#role_id GoogleOrganizationIamCustomRole#role_id}
         '''
         result = self._values.get("role_id")
         assert result is not None, "Required property 'role_id' is missing"
@@ -487,7 +487,7 @@ class GoogleOrganizationIamCustomRoleConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def title(self) -> builtins.str:
         '''A human-readable title for the role.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_organization_iam_custom_role#title GoogleOrganizationIamCustomRole#title}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_organization_iam_custom_role#title GoogleOrganizationIamCustomRole#title}
         '''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
@@ -497,14 +497,14 @@ class GoogleOrganizationIamCustomRoleConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def description(self) -> typing.Optional[builtins.str]:
         '''A human-readable description for the role.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_organization_iam_custom_role#description GoogleOrganizationIamCustomRole#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_organization_iam_custom_role#description GoogleOrganizationIamCustomRole#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_organization_iam_custom_role#id GoogleOrganizationIamCustomRole#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_organization_iam_custom_role#id GoogleOrganizationIamCustomRole#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -516,7 +516,7 @@ class GoogleOrganizationIamCustomRoleConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def stage(self) -> typing.Optional[builtins.str]:
         '''The current launch stage of the role. Defaults to GA.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_organization_iam_custom_role#stage GoogleOrganizationIamCustomRole#stage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_organization_iam_custom_role#stage GoogleOrganizationIamCustomRole#stage}
         '''
         result = self._values.get("stage")
         return typing.cast(typing.Optional[builtins.str], result)

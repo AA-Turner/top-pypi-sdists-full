@@ -79,8 +79,9 @@ public:
     int init(PyObject*, PyObject*);
     static PyObject* New(PyTypeObject*, PyObject*, PyObject*);
 
-    friend class SortedDictViewIterType;
-    friend class SortedDictViewType;
+    friend struct SortedDictKeysType;
+    friend struct SortedDictViewIterType;
+    friend struct SortedDictViewType;
 };
 
 #endif

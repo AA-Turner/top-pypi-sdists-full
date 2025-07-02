@@ -1,7 +1,7 @@
 r'''
 # `google_bigquery_table`
 
-Refer to the Terraform Registry for docs: [`google_bigquery_table`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table).
+Refer to the Terraform Registry for docs: [`google_bigquery_table`](https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleBigqueryTable(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleBigqueryTable.GoogleBigqueryTable",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table google_bigquery_table}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table google_bigquery_table}.'''
 
     def __init__(
         self,
@@ -85,36 +85,36 @@ class GoogleBigqueryTable(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table google_bigquery_table} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table google_bigquery_table} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param dataset_id: The dataset ID to create the table in. Changing this forces a new resource to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#dataset_id GoogleBigqueryTable#dataset_id}
-        :param table_id: A unique ID for the resource. Changing this forces a new resource to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#table_id GoogleBigqueryTable#table_id}
-        :param biglake_configuration: biglake_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#biglake_configuration GoogleBigqueryTable#biglake_configuration}
-        :param clustering: Specifies column names to use for data clustering. Up to four top-level columns are allowed, and should be specified in descending priority order. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#clustering GoogleBigqueryTable#clustering}
-        :param deletion_protection: Whether Terraform will be prevented from destroying the instance. When the field is set to true or unset in Terraform state, a terraform apply or terraform destroy that would delete the table will fail. When the field is set to false, deleting the table is allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#deletion_protection GoogleBigqueryTable#deletion_protection}
-        :param description: The field description. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#description GoogleBigqueryTable#description}
-        :param encryption_configuration: encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#encryption_configuration GoogleBigqueryTable#encryption_configuration}
-        :param expiration_time: The time when this table expires, in milliseconds since the epoch. If not present, the table will persist indefinitely. Expired tables will be deleted and their storage reclaimed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#expiration_time GoogleBigqueryTable#expiration_time}
-        :param external_catalog_table_options: external_catalog_table_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#external_catalog_table_options GoogleBigqueryTable#external_catalog_table_options}
-        :param external_data_configuration: external_data_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#external_data_configuration GoogleBigqueryTable#external_data_configuration}
-        :param friendly_name: A descriptive name for the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#friendly_name GoogleBigqueryTable#friendly_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#id GoogleBigqueryTable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: A mapping of labels to assign to the resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#labels GoogleBigqueryTable#labels}
-        :param materialized_view: materialized_view block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#materialized_view GoogleBigqueryTable#materialized_view}
-        :param max_staleness: The maximum staleness of data that could be returned when the table (or stale MV) is queried. Staleness encoded as a string encoding of `SQL IntervalValue type <https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types#interval_type>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#max_staleness GoogleBigqueryTable#max_staleness}
-        :param project: The ID of the project in which the resource belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#project GoogleBigqueryTable#project}
-        :param range_partitioning: range_partitioning block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#range_partitioning GoogleBigqueryTable#range_partitioning}
-        :param require_partition_filter: If set to true, queries over this table require a partition filter that can be used for partition elimination to be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#require_partition_filter GoogleBigqueryTable#require_partition_filter}
-        :param resource_tags: The tags attached to this table. Tag keys are globally unique. Tag key is expected to be in the namespaced format, for example "123456789012/environment" where 123456789012 is the ID of the parent organization or project resource for this tag key. Tag value is expected to be the short name, for example "Production". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#resource_tags GoogleBigqueryTable#resource_tags}
-        :param schema: A JSON schema for the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#schema GoogleBigqueryTable#schema}
-        :param schema_foreign_type_info: schema_foreign_type_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#schema_foreign_type_info GoogleBigqueryTable#schema_foreign_type_info}
-        :param table_constraints: table_constraints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#table_constraints GoogleBigqueryTable#table_constraints}
-        :param table_metadata_view: View sets the optional parameter "view": Specifies the view that determines which table information is returned. By default, basic table information and storage statistics (STORAGE_STATS) are returned. Possible values: TABLE_METADATA_VIEW_UNSPECIFIED, BASIC, STORAGE_STATS, FULL Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#table_metadata_view GoogleBigqueryTable#table_metadata_view}
-        :param table_replication_info: table_replication_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#table_replication_info GoogleBigqueryTable#table_replication_info}
-        :param time_partitioning: time_partitioning block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#time_partitioning GoogleBigqueryTable#time_partitioning}
-        :param view: view block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#view GoogleBigqueryTable#view}
+        :param dataset_id: The dataset ID to create the table in. Changing this forces a new resource to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#dataset_id GoogleBigqueryTable#dataset_id}
+        :param table_id: A unique ID for the resource. Changing this forces a new resource to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#table_id GoogleBigqueryTable#table_id}
+        :param biglake_configuration: biglake_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#biglake_configuration GoogleBigqueryTable#biglake_configuration}
+        :param clustering: Specifies column names to use for data clustering. Up to four top-level columns are allowed, and should be specified in descending priority order. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#clustering GoogleBigqueryTable#clustering}
+        :param deletion_protection: Whether Terraform will be prevented from destroying the instance. When the field is set to true or unset in Terraform state, a terraform apply or terraform destroy that would delete the table will fail. When the field is set to false, deleting the table is allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#deletion_protection GoogleBigqueryTable#deletion_protection}
+        :param description: The field description. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#description GoogleBigqueryTable#description}
+        :param encryption_configuration: encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#encryption_configuration GoogleBigqueryTable#encryption_configuration}
+        :param expiration_time: The time when this table expires, in milliseconds since the epoch. If not present, the table will persist indefinitely. Expired tables will be deleted and their storage reclaimed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#expiration_time GoogleBigqueryTable#expiration_time}
+        :param external_catalog_table_options: external_catalog_table_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#external_catalog_table_options GoogleBigqueryTable#external_catalog_table_options}
+        :param external_data_configuration: external_data_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#external_data_configuration GoogleBigqueryTable#external_data_configuration}
+        :param friendly_name: A descriptive name for the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#friendly_name GoogleBigqueryTable#friendly_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#id GoogleBigqueryTable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: A mapping of labels to assign to the resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#labels GoogleBigqueryTable#labels}
+        :param materialized_view: materialized_view block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#materialized_view GoogleBigqueryTable#materialized_view}
+        :param max_staleness: The maximum staleness of data that could be returned when the table (or stale MV) is queried. Staleness encoded as a string encoding of `SQL IntervalValue type <https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types#interval_type>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#max_staleness GoogleBigqueryTable#max_staleness}
+        :param project: The ID of the project in which the resource belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#project GoogleBigqueryTable#project}
+        :param range_partitioning: range_partitioning block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#range_partitioning GoogleBigqueryTable#range_partitioning}
+        :param require_partition_filter: If set to true, queries over this table require a partition filter that can be used for partition elimination to be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#require_partition_filter GoogleBigqueryTable#require_partition_filter}
+        :param resource_tags: The tags attached to this table. Tag keys are globally unique. Tag key is expected to be in the namespaced format, for example "123456789012/environment" where 123456789012 is the ID of the parent organization or project resource for this tag key. Tag value is expected to be the short name, for example "Production". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#resource_tags GoogleBigqueryTable#resource_tags}
+        :param schema: A JSON schema for the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#schema GoogleBigqueryTable#schema}
+        :param schema_foreign_type_info: schema_foreign_type_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#schema_foreign_type_info GoogleBigqueryTable#schema_foreign_type_info}
+        :param table_constraints: table_constraints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#table_constraints GoogleBigqueryTable#table_constraints}
+        :param table_metadata_view: View sets the optional parameter "view": Specifies the view that determines which table information is returned. By default, basic table information and storage statistics (STORAGE_STATS) are returned. Possible values: TABLE_METADATA_VIEW_UNSPECIFIED, BASIC, STORAGE_STATS, FULL Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#table_metadata_view GoogleBigqueryTable#table_metadata_view}
+        :param table_replication_info: table_replication_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#table_replication_info GoogleBigqueryTable#table_replication_info}
+        :param time_partitioning: time_partitioning block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#time_partitioning GoogleBigqueryTable#time_partitioning}
+        :param view: view block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#view GoogleBigqueryTable#view}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -178,7 +178,7 @@ class GoogleBigqueryTable(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleBigqueryTable to import.
-        :param import_from_id: The id of the existing GoogleBigqueryTable that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleBigqueryTable that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleBigqueryTable to import is found.
         '''
         if __debug__:
@@ -199,10 +199,10 @@ class GoogleBigqueryTable(
         table_format: builtins.str,
     ) -> None:
         '''
-        :param connection_id: The connection specifying the credentials to be used to read and write to external storage, such as Cloud Storage. The connection_id can have the form "<project_id>.<location_id>.<connection_id>" or "projects/<project_id>/locations/<location_id>/connections/<connection_id>". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#connection_id GoogleBigqueryTable#connection_id}
-        :param file_format: The file format the data is stored in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#file_format GoogleBigqueryTable#file_format}
-        :param storage_uri: The fully qualified location prefix of the external folder where table data is stored. The '*' wildcard character is not allowed. The URI should be in the format "gs://bucket/path_to_table/" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#storage_uri GoogleBigqueryTable#storage_uri}
-        :param table_format: The table format the metadata only snapshots are stored in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#table_format GoogleBigqueryTable#table_format}
+        :param connection_id: The connection specifying the credentials to be used to read and write to external storage, such as Cloud Storage. The connection_id can have the form "<project_id>.<location_id>.<connection_id>" or "projects/<project_id>/locations/<location_id>/connections/<connection_id>". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#connection_id GoogleBigqueryTable#connection_id}
+        :param file_format: The file format the data is stored in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#file_format GoogleBigqueryTable#file_format}
+        :param storage_uri: The fully qualified location prefix of the external folder where table data is stored. The '*' wildcard character is not allowed. The URI should be in the format "gs://bucket/path_to_table/" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#storage_uri GoogleBigqueryTable#storage_uri}
+        :param table_format: The table format the metadata only snapshots are stored in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#table_format GoogleBigqueryTable#table_format}
         '''
         value = GoogleBigqueryTableBiglakeConfiguration(
             connection_id=connection_id,
@@ -216,7 +216,7 @@ class GoogleBigqueryTable(
     @jsii.member(jsii_name="putEncryptionConfiguration")
     def put_encryption_configuration(self, *, kms_key_name: builtins.str) -> None:
         '''
-        :param kms_key_name: The self link or full name of a key which should be used to encrypt this table. Note that the default bigquery service account will need to have encrypt/decrypt permissions on this key - you may want to see the google_bigquery_default_service_account datasource and the google_kms_crypto_key_iam_binding resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#kms_key_name GoogleBigqueryTable#kms_key_name}
+        :param kms_key_name: The self link or full name of a key which should be used to encrypt this table. Note that the default bigquery service account will need to have encrypt/decrypt permissions on this key - you may want to see the google_bigquery_default_service_account datasource and the google_kms_crypto_key_iam_binding resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#kms_key_name GoogleBigqueryTable#kms_key_name}
         '''
         value = GoogleBigqueryTableEncryptionConfiguration(kms_key_name=kms_key_name)
 
@@ -231,9 +231,9 @@ class GoogleBigqueryTable(
         storage_descriptor: typing.Optional[typing.Union["GoogleBigqueryTableExternalCatalogTableOptionsStorageDescriptor", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param connection_id: The connection specifying the credentials to be used to read external storage, such as Azure Blob, Cloud Storage, or S3. The connection is needed to read the open source table from BigQuery Engine. The connection_id can have the form <project_id>.<location_id>.<connection_id> or projects/<project_id>/locations/<location_id>/connections/<connection_id>. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#connection_id GoogleBigqueryTable#connection_id}
-        :param parameters: A map of key value pairs defining the parameters and properties of the open source table. Corresponds with hive meta store table parameters. Maximum size of 4Mib. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#parameters GoogleBigqueryTable#parameters}
-        :param storage_descriptor: storage_descriptor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#storage_descriptor GoogleBigqueryTable#storage_descriptor}
+        :param connection_id: The connection specifying the credentials to be used to read external storage, such as Azure Blob, Cloud Storage, or S3. The connection is needed to read the open source table from BigQuery Engine. The connection_id can have the form <project_id>.<location_id>.<connection_id> or projects/<project_id>/locations/<location_id>/connections/<connection_id>. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#connection_id GoogleBigqueryTable#connection_id}
+        :param parameters: A map of key value pairs defining the parameters and properties of the open source table. Corresponds with hive meta store table parameters. Maximum size of 4Mib. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#parameters GoogleBigqueryTable#parameters}
+        :param storage_descriptor: storage_descriptor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#storage_descriptor GoogleBigqueryTable#storage_descriptor}
         '''
         value = GoogleBigqueryTableExternalCatalogTableOptions(
             connection_id=connection_id,
@@ -269,26 +269,26 @@ class GoogleBigqueryTable(
         source_format: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param autodetect: Let BigQuery try to autodetect the schema and format of the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#autodetect GoogleBigqueryTable#autodetect}
-        :param source_uris: A list of the fully-qualified URIs that point to your data in Google Cloud. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#source_uris GoogleBigqueryTable#source_uris}
-        :param avro_options: avro_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#avro_options GoogleBigqueryTable#avro_options}
-        :param bigtable_options: bigtable_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#bigtable_options GoogleBigqueryTable#bigtable_options}
-        :param compression: The compression type of the data source. Valid values are "NONE" or "GZIP". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#compression GoogleBigqueryTable#compression}
-        :param connection_id: The connection specifying the credentials to be used to read external storage, such as Azure Blob, Cloud Storage, or S3. The connectionId can have the form "..<connection_id>" or "projects//locations//connections/<connection_id>". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#connection_id GoogleBigqueryTable#connection_id}
-        :param csv_options: csv_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#csv_options GoogleBigqueryTable#csv_options}
-        :param file_set_spec_type: Specifies how source URIs are interpreted for constructing the file set to load. By default source URIs are expanded against the underlying storage. Other options include specifying manifest files. Only applicable to object storage systems. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#file_set_spec_type GoogleBigqueryTable#file_set_spec_type}
-        :param google_sheets_options: google_sheets_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#google_sheets_options GoogleBigqueryTable#google_sheets_options}
-        :param hive_partitioning_options: hive_partitioning_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#hive_partitioning_options GoogleBigqueryTable#hive_partitioning_options}
-        :param ignore_unknown_values: Indicates if BigQuery should allow extra values that are not represented in the table schema. If true, the extra values are ignored. If false, records with extra columns are treated as bad records, and if there are too many bad records, an invalid error is returned in the job result. The default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#ignore_unknown_values GoogleBigqueryTable#ignore_unknown_values}
-        :param json_extension: Load option to be used together with sourceFormat newline-delimited JSON to indicate that a variant of JSON is being loaded. To load newline-delimited GeoJSON, specify GEOJSON (and sourceFormat must be set to NEWLINE_DELIMITED_JSON). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#json_extension GoogleBigqueryTable#json_extension}
-        :param json_options: json_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#json_options GoogleBigqueryTable#json_options}
-        :param max_bad_records: The maximum number of bad records that BigQuery can ignore when reading data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#max_bad_records GoogleBigqueryTable#max_bad_records}
-        :param metadata_cache_mode: Metadata Cache Mode for the table. Set this to enable caching of metadata from external data source. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#metadata_cache_mode GoogleBigqueryTable#metadata_cache_mode}
-        :param object_metadata: Object Metadata is used to create Object Tables. Object Tables contain a listing of objects (with their metadata) found at the sourceUris. If ObjectMetadata is set, sourceFormat should be omitted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#object_metadata GoogleBigqueryTable#object_metadata}
-        :param parquet_options: parquet_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#parquet_options GoogleBigqueryTable#parquet_options}
-        :param reference_file_schema_uri: When creating an external table, the user can provide a reference file with the table schema. This is enabled for the following formats: AVRO, PARQUET, ORC. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#reference_file_schema_uri GoogleBigqueryTable#reference_file_schema_uri}
-        :param schema: A JSON schema for the external table. Schema is required for CSV and JSON formats and is disallowed for Google Cloud Bigtable, Cloud Datastore backups, and Avro formats when using external tables. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#schema GoogleBigqueryTable#schema}
-        :param source_format: Please see sourceFormat under ExternalDataConfiguration in Bigquery's public API documentation (https://cloud.google.com/bigquery/docs/reference/rest/v2/tables#externaldataconfiguration) for supported formats. To use "GOOGLE_SHEETS" the scopes must include "googleapis.com/auth/drive.readonly". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#source_format GoogleBigqueryTable#source_format}
+        :param autodetect: Let BigQuery try to autodetect the schema and format of the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#autodetect GoogleBigqueryTable#autodetect}
+        :param source_uris: A list of the fully-qualified URIs that point to your data in Google Cloud. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#source_uris GoogleBigqueryTable#source_uris}
+        :param avro_options: avro_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#avro_options GoogleBigqueryTable#avro_options}
+        :param bigtable_options: bigtable_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#bigtable_options GoogleBigqueryTable#bigtable_options}
+        :param compression: The compression type of the data source. Valid values are "NONE" or "GZIP". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#compression GoogleBigqueryTable#compression}
+        :param connection_id: The connection specifying the credentials to be used to read external storage, such as Azure Blob, Cloud Storage, or S3. The connectionId can have the form "..<connection_id>" or "projects//locations//connections/<connection_id>". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#connection_id GoogleBigqueryTable#connection_id}
+        :param csv_options: csv_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#csv_options GoogleBigqueryTable#csv_options}
+        :param file_set_spec_type: Specifies how source URIs are interpreted for constructing the file set to load. By default source URIs are expanded against the underlying storage. Other options include specifying manifest files. Only applicable to object storage systems. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#file_set_spec_type GoogleBigqueryTable#file_set_spec_type}
+        :param google_sheets_options: google_sheets_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#google_sheets_options GoogleBigqueryTable#google_sheets_options}
+        :param hive_partitioning_options: hive_partitioning_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#hive_partitioning_options GoogleBigqueryTable#hive_partitioning_options}
+        :param ignore_unknown_values: Indicates if BigQuery should allow extra values that are not represented in the table schema. If true, the extra values are ignored. If false, records with extra columns are treated as bad records, and if there are too many bad records, an invalid error is returned in the job result. The default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#ignore_unknown_values GoogleBigqueryTable#ignore_unknown_values}
+        :param json_extension: Load option to be used together with sourceFormat newline-delimited JSON to indicate that a variant of JSON is being loaded. To load newline-delimited GeoJSON, specify GEOJSON (and sourceFormat must be set to NEWLINE_DELIMITED_JSON). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#json_extension GoogleBigqueryTable#json_extension}
+        :param json_options: json_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#json_options GoogleBigqueryTable#json_options}
+        :param max_bad_records: The maximum number of bad records that BigQuery can ignore when reading data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#max_bad_records GoogleBigqueryTable#max_bad_records}
+        :param metadata_cache_mode: Metadata Cache Mode for the table. Set this to enable caching of metadata from external data source. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#metadata_cache_mode GoogleBigqueryTable#metadata_cache_mode}
+        :param object_metadata: Object Metadata is used to create Object Tables. Object Tables contain a listing of objects (with their metadata) found at the sourceUris. If ObjectMetadata is set, sourceFormat should be omitted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#object_metadata GoogleBigqueryTable#object_metadata}
+        :param parquet_options: parquet_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#parquet_options GoogleBigqueryTable#parquet_options}
+        :param reference_file_schema_uri: When creating an external table, the user can provide a reference file with the table schema. This is enabled for the following formats: AVRO, PARQUET, ORC. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#reference_file_schema_uri GoogleBigqueryTable#reference_file_schema_uri}
+        :param schema: A JSON schema for the external table. Schema is required for CSV and JSON formats and is disallowed for Google Cloud Bigtable, Cloud Datastore backups, and Avro formats when using external tables. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#schema GoogleBigqueryTable#schema}
+        :param source_format: Please see sourceFormat under ExternalDataConfiguration in Bigquery's public API documentation (https://cloud.google.com/bigquery/docs/reference/rest/v2/tables#externaldataconfiguration) for supported formats. To use "GOOGLE_SHEETS" the scopes must include "googleapis.com/auth/drive.readonly". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#source_format GoogleBigqueryTable#source_format}
         '''
         value = GoogleBigqueryTableExternalDataConfiguration(
             autodetect=autodetect,
@@ -325,10 +325,10 @@ class GoogleBigqueryTable(
         refresh_interval_ms: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param query: A query whose result is persisted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#query GoogleBigqueryTable#query}
-        :param allow_non_incremental_definition: Allow non incremental materialized view definition. The default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#allow_non_incremental_definition GoogleBigqueryTable#allow_non_incremental_definition}
-        :param enable_refresh: Specifies if BigQuery should automatically refresh materialized view when the base table is updated. The default is true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#enable_refresh GoogleBigqueryTable#enable_refresh}
-        :param refresh_interval_ms: Specifies maximum frequency at which this materialized view will be refreshed. The default is 1800000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#refresh_interval_ms GoogleBigqueryTable#refresh_interval_ms}
+        :param query: A query whose result is persisted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#query GoogleBigqueryTable#query}
+        :param allow_non_incremental_definition: Allow non incremental materialized view definition. The default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#allow_non_incremental_definition GoogleBigqueryTable#allow_non_incremental_definition}
+        :param enable_refresh: Specifies if BigQuery should automatically refresh materialized view when the base table is updated. The default is true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#enable_refresh GoogleBigqueryTable#enable_refresh}
+        :param refresh_interval_ms: Specifies maximum frequency at which this materialized view will be refreshed. The default is 1800000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#refresh_interval_ms GoogleBigqueryTable#refresh_interval_ms}
         '''
         value = GoogleBigqueryTableMaterializedView(
             query=query,
@@ -347,8 +347,8 @@ class GoogleBigqueryTable(
         range: typing.Union["GoogleBigqueryTableRangePartitioningRange", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param field: The field used to determine how to create a range-based partition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#field GoogleBigqueryTable#field}
-        :param range: range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#range GoogleBigqueryTable#range}
+        :param field: The field used to determine how to create a range-based partition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#field GoogleBigqueryTable#field}
+        :param range: range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#range GoogleBigqueryTable#range}
         '''
         value = GoogleBigqueryTableRangePartitioning(field=field, range=range)
 
@@ -357,7 +357,7 @@ class GoogleBigqueryTable(
     @jsii.member(jsii_name="putSchemaForeignTypeInfo")
     def put_schema_foreign_type_info(self, *, type_system: builtins.str) -> None:
         '''
-        :param type_system: Specifies the system which defines the foreign data type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#type_system GoogleBigqueryTable#type_system}
+        :param type_system: Specifies the system which defines the foreign data type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#type_system GoogleBigqueryTable#type_system}
         '''
         value = GoogleBigqueryTableSchemaForeignTypeInfo(type_system=type_system)
 
@@ -371,8 +371,8 @@ class GoogleBigqueryTable(
         primary_key: typing.Optional[typing.Union["GoogleBigqueryTableTableConstraintsPrimaryKey", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param foreign_keys: foreign_keys block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#foreign_keys GoogleBigqueryTable#foreign_keys}
-        :param primary_key: primary_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#primary_key GoogleBigqueryTable#primary_key}
+        :param foreign_keys: foreign_keys block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#foreign_keys GoogleBigqueryTable#foreign_keys}
+        :param primary_key: primary_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#primary_key GoogleBigqueryTable#primary_key}
         '''
         value = GoogleBigqueryTableTableConstraints(
             foreign_keys=foreign_keys, primary_key=primary_key
@@ -390,10 +390,10 @@ class GoogleBigqueryTable(
         replication_interval_ms: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param source_dataset_id: The ID of the source dataset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#source_dataset_id GoogleBigqueryTable#source_dataset_id}
-        :param source_project_id: The ID of the source project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#source_project_id GoogleBigqueryTable#source_project_id}
-        :param source_table_id: The ID of the source materialized view. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#source_table_id GoogleBigqueryTable#source_table_id}
-        :param replication_interval_ms: The interval at which the source materialized view is polled for updates. The default is 300000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#replication_interval_ms GoogleBigqueryTable#replication_interval_ms}
+        :param source_dataset_id: The ID of the source dataset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#source_dataset_id GoogleBigqueryTable#source_dataset_id}
+        :param source_project_id: The ID of the source project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#source_project_id GoogleBigqueryTable#source_project_id}
+        :param source_table_id: The ID of the source materialized view. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#source_table_id GoogleBigqueryTable#source_table_id}
+        :param replication_interval_ms: The interval at which the source materialized view is polled for updates. The default is 300000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#replication_interval_ms GoogleBigqueryTable#replication_interval_ms}
         '''
         value = GoogleBigqueryTableTableReplicationInfo(
             source_dataset_id=source_dataset_id,
@@ -414,10 +414,10 @@ class GoogleBigqueryTable(
         require_partition_filter: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param type: The supported types are DAY, HOUR, MONTH, and YEAR, which will generate one partition per day, hour, month, and year, respectively. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#type GoogleBigqueryTable#type}
-        :param expiration_ms: Number of milliseconds for which to keep the storage for a partition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#expiration_ms GoogleBigqueryTable#expiration_ms}
-        :param field: The field used to determine how to create a time-based partition. If time-based partitioning is enabled without this value, the table is partitioned based on the load time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#field GoogleBigqueryTable#field}
-        :param require_partition_filter: If set to true, queries over this table require a partition filter that can be used for partition elimination to be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#require_partition_filter GoogleBigqueryTable#require_partition_filter}
+        :param type: The supported types are DAY, HOUR, MONTH, and YEAR, which will generate one partition per day, hour, month, and year, respectively. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#type GoogleBigqueryTable#type}
+        :param expiration_ms: Number of milliseconds for which to keep the storage for a partition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#expiration_ms GoogleBigqueryTable#expiration_ms}
+        :param field: The field used to determine how to create a time-based partition. If time-based partitioning is enabled without this value, the table is partitioned based on the load time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#field GoogleBigqueryTable#field}
+        :param require_partition_filter: If set to true, queries over this table require a partition filter that can be used for partition elimination to be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#require_partition_filter GoogleBigqueryTable#require_partition_filter}
         '''
         value = GoogleBigqueryTableTimePartitioning(
             type=type,
@@ -436,8 +436,8 @@ class GoogleBigqueryTable(
         use_legacy_sql: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param query: A query that BigQuery executes when the view is referenced. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#query GoogleBigqueryTable#query}
-        :param use_legacy_sql: Specifies whether to use BigQuery's legacy SQL for this view. The default value is true. If set to false, the view will use BigQuery's standard SQL Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#use_legacy_sql GoogleBigqueryTable#use_legacy_sql}
+        :param query: A query that BigQuery executes when the view is referenced. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#query GoogleBigqueryTable#query}
+        :param use_legacy_sql: Specifies whether to use BigQuery's legacy SQL for this view. The default value is true. If set to false, the view will use BigQuery's standard SQL Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#use_legacy_sql GoogleBigqueryTable#use_legacy_sql}
         '''
         value = GoogleBigqueryTableView(query=query, use_legacy_sql=use_legacy_sql)
 
@@ -1045,10 +1045,10 @@ class GoogleBigqueryTableBiglakeConfiguration:
         table_format: builtins.str,
     ) -> None:
         '''
-        :param connection_id: The connection specifying the credentials to be used to read and write to external storage, such as Cloud Storage. The connection_id can have the form "<project_id>.<location_id>.<connection_id>" or "projects/<project_id>/locations/<location_id>/connections/<connection_id>". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#connection_id GoogleBigqueryTable#connection_id}
-        :param file_format: The file format the data is stored in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#file_format GoogleBigqueryTable#file_format}
-        :param storage_uri: The fully qualified location prefix of the external folder where table data is stored. The '*' wildcard character is not allowed. The URI should be in the format "gs://bucket/path_to_table/" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#storage_uri GoogleBigqueryTable#storage_uri}
-        :param table_format: The table format the metadata only snapshots are stored in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#table_format GoogleBigqueryTable#table_format}
+        :param connection_id: The connection specifying the credentials to be used to read and write to external storage, such as Cloud Storage. The connection_id can have the form "<project_id>.<location_id>.<connection_id>" or "projects/<project_id>/locations/<location_id>/connections/<connection_id>". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#connection_id GoogleBigqueryTable#connection_id}
+        :param file_format: The file format the data is stored in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#file_format GoogleBigqueryTable#file_format}
+        :param storage_uri: The fully qualified location prefix of the external folder where table data is stored. The '*' wildcard character is not allowed. The URI should be in the format "gs://bucket/path_to_table/" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#storage_uri GoogleBigqueryTable#storage_uri}
+        :param table_format: The table format the metadata only snapshots are stored in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#table_format GoogleBigqueryTable#table_format}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6f54c2b187f521a2116388fee1e46ff9fbc304007c382e2fbd35d2a8f962c590)
@@ -1069,7 +1069,7 @@ class GoogleBigqueryTableBiglakeConfiguration:
 
         The connection_id can have the form "<project_id>.<location_id>.<connection_id>" or "projects/<project_id>/locations/<location_id>/connections/<connection_id>".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#connection_id GoogleBigqueryTable#connection_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#connection_id GoogleBigqueryTable#connection_id}
         '''
         result = self._values.get("connection_id")
         assert result is not None, "Required property 'connection_id' is missing"
@@ -1079,7 +1079,7 @@ class GoogleBigqueryTableBiglakeConfiguration:
     def file_format(self) -> builtins.str:
         '''The file format the data is stored in.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#file_format GoogleBigqueryTable#file_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#file_format GoogleBigqueryTable#file_format}
         '''
         result = self._values.get("file_format")
         assert result is not None, "Required property 'file_format' is missing"
@@ -1091,7 +1091,7 @@ class GoogleBigqueryTableBiglakeConfiguration:
 
         The '*' wildcard character is not allowed. The URI should be in the format "gs://bucket/path_to_table/"
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#storage_uri GoogleBigqueryTable#storage_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#storage_uri GoogleBigqueryTable#storage_uri}
         '''
         result = self._values.get("storage_uri")
         assert result is not None, "Required property 'storage_uri' is missing"
@@ -1101,7 +1101,7 @@ class GoogleBigqueryTableBiglakeConfiguration:
     def table_format(self) -> builtins.str:
         '''The table format the metadata only snapshots are stored in.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#table_format GoogleBigqueryTable#table_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#table_format GoogleBigqueryTable#table_format}
         '''
         result = self._values.get("table_format")
         assert result is not None, "Required property 'table_format' is missing"
@@ -1310,32 +1310,32 @@ class GoogleBigqueryTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param dataset_id: The dataset ID to create the table in. Changing this forces a new resource to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#dataset_id GoogleBigqueryTable#dataset_id}
-        :param table_id: A unique ID for the resource. Changing this forces a new resource to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#table_id GoogleBigqueryTable#table_id}
-        :param biglake_configuration: biglake_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#biglake_configuration GoogleBigqueryTable#biglake_configuration}
-        :param clustering: Specifies column names to use for data clustering. Up to four top-level columns are allowed, and should be specified in descending priority order. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#clustering GoogleBigqueryTable#clustering}
-        :param deletion_protection: Whether Terraform will be prevented from destroying the instance. When the field is set to true or unset in Terraform state, a terraform apply or terraform destroy that would delete the table will fail. When the field is set to false, deleting the table is allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#deletion_protection GoogleBigqueryTable#deletion_protection}
-        :param description: The field description. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#description GoogleBigqueryTable#description}
-        :param encryption_configuration: encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#encryption_configuration GoogleBigqueryTable#encryption_configuration}
-        :param expiration_time: The time when this table expires, in milliseconds since the epoch. If not present, the table will persist indefinitely. Expired tables will be deleted and their storage reclaimed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#expiration_time GoogleBigqueryTable#expiration_time}
-        :param external_catalog_table_options: external_catalog_table_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#external_catalog_table_options GoogleBigqueryTable#external_catalog_table_options}
-        :param external_data_configuration: external_data_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#external_data_configuration GoogleBigqueryTable#external_data_configuration}
-        :param friendly_name: A descriptive name for the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#friendly_name GoogleBigqueryTable#friendly_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#id GoogleBigqueryTable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: A mapping of labels to assign to the resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#labels GoogleBigqueryTable#labels}
-        :param materialized_view: materialized_view block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#materialized_view GoogleBigqueryTable#materialized_view}
-        :param max_staleness: The maximum staleness of data that could be returned when the table (or stale MV) is queried. Staleness encoded as a string encoding of `SQL IntervalValue type <https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types#interval_type>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#max_staleness GoogleBigqueryTable#max_staleness}
-        :param project: The ID of the project in which the resource belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#project GoogleBigqueryTable#project}
-        :param range_partitioning: range_partitioning block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#range_partitioning GoogleBigqueryTable#range_partitioning}
-        :param require_partition_filter: If set to true, queries over this table require a partition filter that can be used for partition elimination to be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#require_partition_filter GoogleBigqueryTable#require_partition_filter}
-        :param resource_tags: The tags attached to this table. Tag keys are globally unique. Tag key is expected to be in the namespaced format, for example "123456789012/environment" where 123456789012 is the ID of the parent organization or project resource for this tag key. Tag value is expected to be the short name, for example "Production". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#resource_tags GoogleBigqueryTable#resource_tags}
-        :param schema: A JSON schema for the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#schema GoogleBigqueryTable#schema}
-        :param schema_foreign_type_info: schema_foreign_type_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#schema_foreign_type_info GoogleBigqueryTable#schema_foreign_type_info}
-        :param table_constraints: table_constraints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#table_constraints GoogleBigqueryTable#table_constraints}
-        :param table_metadata_view: View sets the optional parameter "view": Specifies the view that determines which table information is returned. By default, basic table information and storage statistics (STORAGE_STATS) are returned. Possible values: TABLE_METADATA_VIEW_UNSPECIFIED, BASIC, STORAGE_STATS, FULL Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#table_metadata_view GoogleBigqueryTable#table_metadata_view}
-        :param table_replication_info: table_replication_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#table_replication_info GoogleBigqueryTable#table_replication_info}
-        :param time_partitioning: time_partitioning block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#time_partitioning GoogleBigqueryTable#time_partitioning}
-        :param view: view block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#view GoogleBigqueryTable#view}
+        :param dataset_id: The dataset ID to create the table in. Changing this forces a new resource to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#dataset_id GoogleBigqueryTable#dataset_id}
+        :param table_id: A unique ID for the resource. Changing this forces a new resource to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#table_id GoogleBigqueryTable#table_id}
+        :param biglake_configuration: biglake_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#biglake_configuration GoogleBigqueryTable#biglake_configuration}
+        :param clustering: Specifies column names to use for data clustering. Up to four top-level columns are allowed, and should be specified in descending priority order. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#clustering GoogleBigqueryTable#clustering}
+        :param deletion_protection: Whether Terraform will be prevented from destroying the instance. When the field is set to true or unset in Terraform state, a terraform apply or terraform destroy that would delete the table will fail. When the field is set to false, deleting the table is allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#deletion_protection GoogleBigqueryTable#deletion_protection}
+        :param description: The field description. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#description GoogleBigqueryTable#description}
+        :param encryption_configuration: encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#encryption_configuration GoogleBigqueryTable#encryption_configuration}
+        :param expiration_time: The time when this table expires, in milliseconds since the epoch. If not present, the table will persist indefinitely. Expired tables will be deleted and their storage reclaimed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#expiration_time GoogleBigqueryTable#expiration_time}
+        :param external_catalog_table_options: external_catalog_table_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#external_catalog_table_options GoogleBigqueryTable#external_catalog_table_options}
+        :param external_data_configuration: external_data_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#external_data_configuration GoogleBigqueryTable#external_data_configuration}
+        :param friendly_name: A descriptive name for the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#friendly_name GoogleBigqueryTable#friendly_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#id GoogleBigqueryTable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: A mapping of labels to assign to the resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#labels GoogleBigqueryTable#labels}
+        :param materialized_view: materialized_view block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#materialized_view GoogleBigqueryTable#materialized_view}
+        :param max_staleness: The maximum staleness of data that could be returned when the table (or stale MV) is queried. Staleness encoded as a string encoding of `SQL IntervalValue type <https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types#interval_type>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#max_staleness GoogleBigqueryTable#max_staleness}
+        :param project: The ID of the project in which the resource belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#project GoogleBigqueryTable#project}
+        :param range_partitioning: range_partitioning block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#range_partitioning GoogleBigqueryTable#range_partitioning}
+        :param require_partition_filter: If set to true, queries over this table require a partition filter that can be used for partition elimination to be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#require_partition_filter GoogleBigqueryTable#require_partition_filter}
+        :param resource_tags: The tags attached to this table. Tag keys are globally unique. Tag key is expected to be in the namespaced format, for example "123456789012/environment" where 123456789012 is the ID of the parent organization or project resource for this tag key. Tag value is expected to be the short name, for example "Production". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#resource_tags GoogleBigqueryTable#resource_tags}
+        :param schema: A JSON schema for the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#schema GoogleBigqueryTable#schema}
+        :param schema_foreign_type_info: schema_foreign_type_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#schema_foreign_type_info GoogleBigqueryTable#schema_foreign_type_info}
+        :param table_constraints: table_constraints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#table_constraints GoogleBigqueryTable#table_constraints}
+        :param table_metadata_view: View sets the optional parameter "view": Specifies the view that determines which table information is returned. By default, basic table information and storage statistics (STORAGE_STATS) are returned. Possible values: TABLE_METADATA_VIEW_UNSPECIFIED, BASIC, STORAGE_STATS, FULL Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#table_metadata_view GoogleBigqueryTable#table_metadata_view}
+        :param table_replication_info: table_replication_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#table_replication_info GoogleBigqueryTable#table_replication_info}
+        :param time_partitioning: time_partitioning block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#time_partitioning GoogleBigqueryTable#time_partitioning}
+        :param view: view block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#view GoogleBigqueryTable#view}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1531,7 +1531,7 @@ class GoogleBigqueryTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def dataset_id(self) -> builtins.str:
         '''The dataset ID to create the table in. Changing this forces a new resource to be created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#dataset_id GoogleBigqueryTable#dataset_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#dataset_id GoogleBigqueryTable#dataset_id}
         '''
         result = self._values.get("dataset_id")
         assert result is not None, "Required property 'dataset_id' is missing"
@@ -1541,7 +1541,7 @@ class GoogleBigqueryTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def table_id(self) -> builtins.str:
         '''A unique ID for the resource. Changing this forces a new resource to be created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#table_id GoogleBigqueryTable#table_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#table_id GoogleBigqueryTable#table_id}
         '''
         result = self._values.get("table_id")
         assert result is not None, "Required property 'table_id' is missing"
@@ -1553,7 +1553,7 @@ class GoogleBigqueryTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[GoogleBigqueryTableBiglakeConfiguration]:
         '''biglake_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#biglake_configuration GoogleBigqueryTable#biglake_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#biglake_configuration GoogleBigqueryTable#biglake_configuration}
         '''
         result = self._values.get("biglake_configuration")
         return typing.cast(typing.Optional[GoogleBigqueryTableBiglakeConfiguration], result)
@@ -1564,7 +1564,7 @@ class GoogleBigqueryTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Up to four top-level columns are allowed, and should be specified in descending priority order.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#clustering GoogleBigqueryTable#clustering}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#clustering GoogleBigqueryTable#clustering}
         '''
         result = self._values.get("clustering")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1577,7 +1577,7 @@ class GoogleBigqueryTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         When the field is set to true or unset in Terraform state, a terraform apply or terraform destroy that would delete the table will fail. When the field is set to false, deleting the table is allowed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#deletion_protection GoogleBigqueryTable#deletion_protection}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#deletion_protection GoogleBigqueryTable#deletion_protection}
         '''
         result = self._values.get("deletion_protection")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1586,7 +1586,7 @@ class GoogleBigqueryTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''The field description.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#description GoogleBigqueryTable#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#description GoogleBigqueryTable#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1597,7 +1597,7 @@ class GoogleBigqueryTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleBigqueryTableEncryptionConfiguration"]:
         '''encryption_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#encryption_configuration GoogleBigqueryTable#encryption_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#encryption_configuration GoogleBigqueryTable#encryption_configuration}
         '''
         result = self._values.get("encryption_configuration")
         return typing.cast(typing.Optional["GoogleBigqueryTableEncryptionConfiguration"], result)
@@ -1608,7 +1608,7 @@ class GoogleBigqueryTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If not present, the table will persist indefinitely. Expired tables will be deleted and their storage reclaimed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#expiration_time GoogleBigqueryTable#expiration_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#expiration_time GoogleBigqueryTable#expiration_time}
         '''
         result = self._values.get("expiration_time")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1619,7 +1619,7 @@ class GoogleBigqueryTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleBigqueryTableExternalCatalogTableOptions"]:
         '''external_catalog_table_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#external_catalog_table_options GoogleBigqueryTable#external_catalog_table_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#external_catalog_table_options GoogleBigqueryTable#external_catalog_table_options}
         '''
         result = self._values.get("external_catalog_table_options")
         return typing.cast(typing.Optional["GoogleBigqueryTableExternalCatalogTableOptions"], result)
@@ -1630,7 +1630,7 @@ class GoogleBigqueryTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleBigqueryTableExternalDataConfiguration"]:
         '''external_data_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#external_data_configuration GoogleBigqueryTable#external_data_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#external_data_configuration GoogleBigqueryTable#external_data_configuration}
         '''
         result = self._values.get("external_data_configuration")
         return typing.cast(typing.Optional["GoogleBigqueryTableExternalDataConfiguration"], result)
@@ -1639,14 +1639,14 @@ class GoogleBigqueryTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def friendly_name(self) -> typing.Optional[builtins.str]:
         '''A descriptive name for the table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#friendly_name GoogleBigqueryTable#friendly_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#friendly_name GoogleBigqueryTable#friendly_name}
         '''
         result = self._values.get("friendly_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#id GoogleBigqueryTable#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#id GoogleBigqueryTable#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1661,7 +1661,7 @@ class GoogleBigqueryTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#labels GoogleBigqueryTable#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#labels GoogleBigqueryTable#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1672,7 +1672,7 @@ class GoogleBigqueryTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleBigqueryTableMaterializedView"]:
         '''materialized_view block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#materialized_view GoogleBigqueryTable#materialized_view}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#materialized_view GoogleBigqueryTable#materialized_view}
         '''
         result = self._values.get("materialized_view")
         return typing.cast(typing.Optional["GoogleBigqueryTableMaterializedView"], result)
@@ -1683,7 +1683,7 @@ class GoogleBigqueryTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Staleness encoded as a string encoding of `SQL IntervalValue type <https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types#interval_type>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#max_staleness GoogleBigqueryTable#max_staleness}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#max_staleness GoogleBigqueryTable#max_staleness}
         '''
         result = self._values.get("max_staleness")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1692,7 +1692,7 @@ class GoogleBigqueryTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def project(self) -> typing.Optional[builtins.str]:
         '''The ID of the project in which the resource belongs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#project GoogleBigqueryTable#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#project GoogleBigqueryTable#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1703,7 +1703,7 @@ class GoogleBigqueryTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleBigqueryTableRangePartitioning"]:
         '''range_partitioning block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#range_partitioning GoogleBigqueryTable#range_partitioning}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#range_partitioning GoogleBigqueryTable#range_partitioning}
         '''
         result = self._values.get("range_partitioning")
         return typing.cast(typing.Optional["GoogleBigqueryTableRangePartitioning"], result)
@@ -1714,7 +1714,7 @@ class GoogleBigqueryTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If set to true, queries over this table require a partition filter that can be used for partition elimination to be specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#require_partition_filter GoogleBigqueryTable#require_partition_filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#require_partition_filter GoogleBigqueryTable#require_partition_filter}
         '''
         result = self._values.get("require_partition_filter")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1727,7 +1727,7 @@ class GoogleBigqueryTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Tag keys are globally unique. Tag key is expected to be in the namespaced format, for example "123456789012/environment" where 123456789012 is the ID of the parent organization or project resource for this tag key. Tag value is expected to be the short name, for example "Production".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#resource_tags GoogleBigqueryTable#resource_tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#resource_tags GoogleBigqueryTable#resource_tags}
         '''
         result = self._values.get("resource_tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1736,7 +1736,7 @@ class GoogleBigqueryTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def schema(self) -> typing.Optional[builtins.str]:
         '''A JSON schema for the table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#schema GoogleBigqueryTable#schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#schema GoogleBigqueryTable#schema}
         '''
         result = self._values.get("schema")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1747,7 +1747,7 @@ class GoogleBigqueryTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleBigqueryTableSchemaForeignTypeInfo"]:
         '''schema_foreign_type_info block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#schema_foreign_type_info GoogleBigqueryTable#schema_foreign_type_info}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#schema_foreign_type_info GoogleBigqueryTable#schema_foreign_type_info}
         '''
         result = self._values.get("schema_foreign_type_info")
         return typing.cast(typing.Optional["GoogleBigqueryTableSchemaForeignTypeInfo"], result)
@@ -1758,7 +1758,7 @@ class GoogleBigqueryTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleBigqueryTableTableConstraints"]:
         '''table_constraints block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#table_constraints GoogleBigqueryTable#table_constraints}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#table_constraints GoogleBigqueryTable#table_constraints}
         '''
         result = self._values.get("table_constraints")
         return typing.cast(typing.Optional["GoogleBigqueryTableTableConstraints"], result)
@@ -1769,7 +1769,7 @@ class GoogleBigqueryTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         By default, basic table information and storage statistics (STORAGE_STATS) are returned. Possible values: TABLE_METADATA_VIEW_UNSPECIFIED, BASIC, STORAGE_STATS, FULL
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#table_metadata_view GoogleBigqueryTable#table_metadata_view}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#table_metadata_view GoogleBigqueryTable#table_metadata_view}
         '''
         result = self._values.get("table_metadata_view")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1780,7 +1780,7 @@ class GoogleBigqueryTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleBigqueryTableTableReplicationInfo"]:
         '''table_replication_info block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#table_replication_info GoogleBigqueryTable#table_replication_info}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#table_replication_info GoogleBigqueryTable#table_replication_info}
         '''
         result = self._values.get("table_replication_info")
         return typing.cast(typing.Optional["GoogleBigqueryTableTableReplicationInfo"], result)
@@ -1791,7 +1791,7 @@ class GoogleBigqueryTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleBigqueryTableTimePartitioning"]:
         '''time_partitioning block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#time_partitioning GoogleBigqueryTable#time_partitioning}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#time_partitioning GoogleBigqueryTable#time_partitioning}
         '''
         result = self._values.get("time_partitioning")
         return typing.cast(typing.Optional["GoogleBigqueryTableTimePartitioning"], result)
@@ -1800,7 +1800,7 @@ class GoogleBigqueryTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def view(self) -> typing.Optional["GoogleBigqueryTableView"]:
         '''view block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#view GoogleBigqueryTable#view}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#view GoogleBigqueryTable#view}
         '''
         result = self._values.get("view")
         return typing.cast(typing.Optional["GoogleBigqueryTableView"], result)
@@ -1825,7 +1825,7 @@ class GoogleBigqueryTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class GoogleBigqueryTableEncryptionConfiguration:
     def __init__(self, *, kms_key_name: builtins.str) -> None:
         '''
-        :param kms_key_name: The self link or full name of a key which should be used to encrypt this table. Note that the default bigquery service account will need to have encrypt/decrypt permissions on this key - you may want to see the google_bigquery_default_service_account datasource and the google_kms_crypto_key_iam_binding resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#kms_key_name GoogleBigqueryTable#kms_key_name}
+        :param kms_key_name: The self link or full name of a key which should be used to encrypt this table. Note that the default bigquery service account will need to have encrypt/decrypt permissions on this key - you may want to see the google_bigquery_default_service_account datasource and the google_kms_crypto_key_iam_binding resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#kms_key_name GoogleBigqueryTable#kms_key_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0a9e5b9d2635380dd8876b4ead6886d33a3f196be172509019ee1c62e4b0cac4)
@@ -1840,7 +1840,7 @@ class GoogleBigqueryTableEncryptionConfiguration:
 
         Note that the default bigquery service account will need to have encrypt/decrypt permissions on this key - you may want to see the google_bigquery_default_service_account datasource and the google_kms_crypto_key_iam_binding resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#kms_key_name GoogleBigqueryTable#kms_key_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#kms_key_name GoogleBigqueryTable#kms_key_name}
         '''
         result = self._values.get("kms_key_name")
         assert result is not None, "Required property 'kms_key_name' is missing"
@@ -1936,9 +1936,9 @@ class GoogleBigqueryTableExternalCatalogTableOptions:
         storage_descriptor: typing.Optional[typing.Union["GoogleBigqueryTableExternalCatalogTableOptionsStorageDescriptor", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param connection_id: The connection specifying the credentials to be used to read external storage, such as Azure Blob, Cloud Storage, or S3. The connection is needed to read the open source table from BigQuery Engine. The connection_id can have the form <project_id>.<location_id>.<connection_id> or projects/<project_id>/locations/<location_id>/connections/<connection_id>. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#connection_id GoogleBigqueryTable#connection_id}
-        :param parameters: A map of key value pairs defining the parameters and properties of the open source table. Corresponds with hive meta store table parameters. Maximum size of 4Mib. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#parameters GoogleBigqueryTable#parameters}
-        :param storage_descriptor: storage_descriptor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#storage_descriptor GoogleBigqueryTable#storage_descriptor}
+        :param connection_id: The connection specifying the credentials to be used to read external storage, such as Azure Blob, Cloud Storage, or S3. The connection is needed to read the open source table from BigQuery Engine. The connection_id can have the form <project_id>.<location_id>.<connection_id> or projects/<project_id>/locations/<location_id>/connections/<connection_id>. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#connection_id GoogleBigqueryTable#connection_id}
+        :param parameters: A map of key value pairs defining the parameters and properties of the open source table. Corresponds with hive meta store table parameters. Maximum size of 4Mib. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#parameters GoogleBigqueryTable#parameters}
+        :param storage_descriptor: storage_descriptor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#storage_descriptor GoogleBigqueryTable#storage_descriptor}
         '''
         if isinstance(storage_descriptor, dict):
             storage_descriptor = GoogleBigqueryTableExternalCatalogTableOptionsStorageDescriptor(**storage_descriptor)
@@ -1961,7 +1961,7 @@ class GoogleBigqueryTableExternalCatalogTableOptions:
 
         The connection is needed to read the open source table from BigQuery Engine. The connection_id can have the form <project_id>.<location_id>.<connection_id> or projects/<project_id>/locations/<location_id>/connections/<connection_id>.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#connection_id GoogleBigqueryTable#connection_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#connection_id GoogleBigqueryTable#connection_id}
         '''
         result = self._values.get("connection_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1972,7 +1972,7 @@ class GoogleBigqueryTableExternalCatalogTableOptions:
 
         Corresponds with hive meta store table parameters. Maximum size of 4Mib.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#parameters GoogleBigqueryTable#parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#parameters GoogleBigqueryTable#parameters}
         '''
         result = self._values.get("parameters")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1983,7 +1983,7 @@ class GoogleBigqueryTableExternalCatalogTableOptions:
     ) -> typing.Optional["GoogleBigqueryTableExternalCatalogTableOptionsStorageDescriptor"]:
         '''storage_descriptor block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#storage_descriptor GoogleBigqueryTable#storage_descriptor}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#storage_descriptor GoogleBigqueryTable#storage_descriptor}
         '''
         result = self._values.get("storage_descriptor")
         return typing.cast(typing.Optional["GoogleBigqueryTableExternalCatalogTableOptionsStorageDescriptor"], result)
@@ -2030,10 +2030,10 @@ class GoogleBigqueryTableExternalCatalogTableOptionsOutputReference(
         serde_info: typing.Optional[typing.Union["GoogleBigqueryTableExternalCatalogTableOptionsStorageDescriptorSerdeInfo", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param input_format: Specifies the fully qualified class name of the InputFormat (e.g. "org.apache.hadoop.hive.ql.io.orc.OrcInputFormat"). The maximum length is 128 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#input_format GoogleBigqueryTable#input_format}
-        :param location_uri: The physical location of the table (e.g. 'gs://spark-dataproc-data/pangea-data/case_sensitive/' or 'gs://spark-dataproc-data/pangea-data/*'). The maximum length is 2056 bytes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#location_uri GoogleBigqueryTable#location_uri}
-        :param output_format: Specifies the fully qualified class name of the OutputFormat (e.g. "org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat"). The maximum length is 128 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#output_format GoogleBigqueryTable#output_format}
-        :param serde_info: serde_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#serde_info GoogleBigqueryTable#serde_info}
+        :param input_format: Specifies the fully qualified class name of the InputFormat (e.g. "org.apache.hadoop.hive.ql.io.orc.OrcInputFormat"). The maximum length is 128 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#input_format GoogleBigqueryTable#input_format}
+        :param location_uri: The physical location of the table (e.g. 'gs://spark-dataproc-data/pangea-data/case_sensitive/' or 'gs://spark-dataproc-data/pangea-data/*'). The maximum length is 2056 bytes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#location_uri GoogleBigqueryTable#location_uri}
+        :param output_format: Specifies the fully qualified class name of the OutputFormat (e.g. "org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat"). The maximum length is 128 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#output_format GoogleBigqueryTable#output_format}
+        :param serde_info: serde_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#serde_info GoogleBigqueryTable#serde_info}
         '''
         value = GoogleBigqueryTableExternalCatalogTableOptionsStorageDescriptor(
             input_format=input_format,
@@ -2144,10 +2144,10 @@ class GoogleBigqueryTableExternalCatalogTableOptionsStorageDescriptor:
         serde_info: typing.Optional[typing.Union["GoogleBigqueryTableExternalCatalogTableOptionsStorageDescriptorSerdeInfo", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param input_format: Specifies the fully qualified class name of the InputFormat (e.g. "org.apache.hadoop.hive.ql.io.orc.OrcInputFormat"). The maximum length is 128 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#input_format GoogleBigqueryTable#input_format}
-        :param location_uri: The physical location of the table (e.g. 'gs://spark-dataproc-data/pangea-data/case_sensitive/' or 'gs://spark-dataproc-data/pangea-data/*'). The maximum length is 2056 bytes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#location_uri GoogleBigqueryTable#location_uri}
-        :param output_format: Specifies the fully qualified class name of the OutputFormat (e.g. "org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat"). The maximum length is 128 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#output_format GoogleBigqueryTable#output_format}
-        :param serde_info: serde_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#serde_info GoogleBigqueryTable#serde_info}
+        :param input_format: Specifies the fully qualified class name of the InputFormat (e.g. "org.apache.hadoop.hive.ql.io.orc.OrcInputFormat"). The maximum length is 128 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#input_format GoogleBigqueryTable#input_format}
+        :param location_uri: The physical location of the table (e.g. 'gs://spark-dataproc-data/pangea-data/case_sensitive/' or 'gs://spark-dataproc-data/pangea-data/*'). The maximum length is 2056 bytes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#location_uri GoogleBigqueryTable#location_uri}
+        :param output_format: Specifies the fully qualified class name of the OutputFormat (e.g. "org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat"). The maximum length is 128 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#output_format GoogleBigqueryTable#output_format}
+        :param serde_info: serde_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#serde_info GoogleBigqueryTable#serde_info}
         '''
         if isinstance(serde_info, dict):
             serde_info = GoogleBigqueryTableExternalCatalogTableOptionsStorageDescriptorSerdeInfo(**serde_info)
@@ -2171,7 +2171,7 @@ class GoogleBigqueryTableExternalCatalogTableOptionsStorageDescriptor:
     def input_format(self) -> typing.Optional[builtins.str]:
         '''Specifies the fully qualified class name of the InputFormat (e.g. "org.apache.hadoop.hive.ql.io.orc.OrcInputFormat"). The maximum length is 128 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#input_format GoogleBigqueryTable#input_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#input_format GoogleBigqueryTable#input_format}
         '''
         result = self._values.get("input_format")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2180,7 +2180,7 @@ class GoogleBigqueryTableExternalCatalogTableOptionsStorageDescriptor:
     def location_uri(self) -> typing.Optional[builtins.str]:
         '''The physical location of the table (e.g. 'gs://spark-dataproc-data/pangea-data/case_sensitive/' or 'gs://spark-dataproc-data/pangea-data/*'). The maximum length is 2056 bytes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#location_uri GoogleBigqueryTable#location_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#location_uri GoogleBigqueryTable#location_uri}
         '''
         result = self._values.get("location_uri")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2189,7 +2189,7 @@ class GoogleBigqueryTableExternalCatalogTableOptionsStorageDescriptor:
     def output_format(self) -> typing.Optional[builtins.str]:
         '''Specifies the fully qualified class name of the OutputFormat (e.g. "org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat"). The maximum length is 128 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#output_format GoogleBigqueryTable#output_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#output_format GoogleBigqueryTable#output_format}
         '''
         result = self._values.get("output_format")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2200,7 +2200,7 @@ class GoogleBigqueryTableExternalCatalogTableOptionsStorageDescriptor:
     ) -> typing.Optional["GoogleBigqueryTableExternalCatalogTableOptionsStorageDescriptorSerdeInfo"]:
         '''serde_info block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#serde_info GoogleBigqueryTable#serde_info}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#serde_info GoogleBigqueryTable#serde_info}
         '''
         result = self._values.get("serde_info")
         return typing.cast(typing.Optional["GoogleBigqueryTableExternalCatalogTableOptionsStorageDescriptorSerdeInfo"], result)
@@ -2246,9 +2246,9 @@ class GoogleBigqueryTableExternalCatalogTableOptionsStorageDescriptorOutputRefer
         parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param serialization_library: Specifies a fully-qualified class name of the serialization library that is responsible for the translation of data between table representation and the underlying low-level input and output format structures. The maximum length is 256 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#serialization_library GoogleBigqueryTable#serialization_library}
-        :param name: Name of the SerDe. The maximum length is 256 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#name GoogleBigqueryTable#name}
-        :param parameters: Key-value pairs that define the initialization parameters for the serialization library. Maximum size 10 Kib. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#parameters GoogleBigqueryTable#parameters}
+        :param serialization_library: Specifies a fully-qualified class name of the serialization library that is responsible for the translation of data between table representation and the underlying low-level input and output format structures. The maximum length is 256 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#serialization_library GoogleBigqueryTable#serialization_library}
+        :param name: Name of the SerDe. The maximum length is 256 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#name GoogleBigqueryTable#name}
+        :param parameters: Key-value pairs that define the initialization parameters for the serialization library. Maximum size 10 Kib. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#parameters GoogleBigqueryTable#parameters}
         '''
         value = GoogleBigqueryTableExternalCatalogTableOptionsStorageDescriptorSerdeInfo(
             serialization_library=serialization_library,
@@ -2375,9 +2375,9 @@ class GoogleBigqueryTableExternalCatalogTableOptionsStorageDescriptorSerdeInfo:
         parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param serialization_library: Specifies a fully-qualified class name of the serialization library that is responsible for the translation of data between table representation and the underlying low-level input and output format structures. The maximum length is 256 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#serialization_library GoogleBigqueryTable#serialization_library}
-        :param name: Name of the SerDe. The maximum length is 256 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#name GoogleBigqueryTable#name}
-        :param parameters: Key-value pairs that define the initialization parameters for the serialization library. Maximum size 10 Kib. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#parameters GoogleBigqueryTable#parameters}
+        :param serialization_library: Specifies a fully-qualified class name of the serialization library that is responsible for the translation of data between table representation and the underlying low-level input and output format structures. The maximum length is 256 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#serialization_library GoogleBigqueryTable#serialization_library}
+        :param name: Name of the SerDe. The maximum length is 256 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#name GoogleBigqueryTable#name}
+        :param parameters: Key-value pairs that define the initialization parameters for the serialization library. Maximum size 10 Kib. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#parameters GoogleBigqueryTable#parameters}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f50065c7e7cd5fa7471cffa4829ac20316b6b1e94f6e0460cf72ac47cc655673)
@@ -2398,7 +2398,7 @@ class GoogleBigqueryTableExternalCatalogTableOptionsStorageDescriptorSerdeInfo:
 
         The maximum length is 256 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#serialization_library GoogleBigqueryTable#serialization_library}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#serialization_library GoogleBigqueryTable#serialization_library}
         '''
         result = self._values.get("serialization_library")
         assert result is not None, "Required property 'serialization_library' is missing"
@@ -2408,7 +2408,7 @@ class GoogleBigqueryTableExternalCatalogTableOptionsStorageDescriptorSerdeInfo:
     def name(self) -> typing.Optional[builtins.str]:
         '''Name of the SerDe. The maximum length is 256 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#name GoogleBigqueryTable#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#name GoogleBigqueryTable#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2417,7 +2417,7 @@ class GoogleBigqueryTableExternalCatalogTableOptionsStorageDescriptorSerdeInfo:
     def parameters(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''Key-value pairs that define the initialization parameters for the serialization library. Maximum size 10 Kib.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#parameters GoogleBigqueryTable#parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#parameters GoogleBigqueryTable#parameters}
         '''
         result = self._values.get("parameters")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -2585,26 +2585,26 @@ class GoogleBigqueryTableExternalDataConfiguration:
         source_format: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param autodetect: Let BigQuery try to autodetect the schema and format of the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#autodetect GoogleBigqueryTable#autodetect}
-        :param source_uris: A list of the fully-qualified URIs that point to your data in Google Cloud. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#source_uris GoogleBigqueryTable#source_uris}
-        :param avro_options: avro_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#avro_options GoogleBigqueryTable#avro_options}
-        :param bigtable_options: bigtable_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#bigtable_options GoogleBigqueryTable#bigtable_options}
-        :param compression: The compression type of the data source. Valid values are "NONE" or "GZIP". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#compression GoogleBigqueryTable#compression}
-        :param connection_id: The connection specifying the credentials to be used to read external storage, such as Azure Blob, Cloud Storage, or S3. The connectionId can have the form "..<connection_id>" or "projects//locations//connections/<connection_id>". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#connection_id GoogleBigqueryTable#connection_id}
-        :param csv_options: csv_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#csv_options GoogleBigqueryTable#csv_options}
-        :param file_set_spec_type: Specifies how source URIs are interpreted for constructing the file set to load. By default source URIs are expanded against the underlying storage. Other options include specifying manifest files. Only applicable to object storage systems. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#file_set_spec_type GoogleBigqueryTable#file_set_spec_type}
-        :param google_sheets_options: google_sheets_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#google_sheets_options GoogleBigqueryTable#google_sheets_options}
-        :param hive_partitioning_options: hive_partitioning_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#hive_partitioning_options GoogleBigqueryTable#hive_partitioning_options}
-        :param ignore_unknown_values: Indicates if BigQuery should allow extra values that are not represented in the table schema. If true, the extra values are ignored. If false, records with extra columns are treated as bad records, and if there are too many bad records, an invalid error is returned in the job result. The default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#ignore_unknown_values GoogleBigqueryTable#ignore_unknown_values}
-        :param json_extension: Load option to be used together with sourceFormat newline-delimited JSON to indicate that a variant of JSON is being loaded. To load newline-delimited GeoJSON, specify GEOJSON (and sourceFormat must be set to NEWLINE_DELIMITED_JSON). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#json_extension GoogleBigqueryTable#json_extension}
-        :param json_options: json_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#json_options GoogleBigqueryTable#json_options}
-        :param max_bad_records: The maximum number of bad records that BigQuery can ignore when reading data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#max_bad_records GoogleBigqueryTable#max_bad_records}
-        :param metadata_cache_mode: Metadata Cache Mode for the table. Set this to enable caching of metadata from external data source. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#metadata_cache_mode GoogleBigqueryTable#metadata_cache_mode}
-        :param object_metadata: Object Metadata is used to create Object Tables. Object Tables contain a listing of objects (with their metadata) found at the sourceUris. If ObjectMetadata is set, sourceFormat should be omitted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#object_metadata GoogleBigqueryTable#object_metadata}
-        :param parquet_options: parquet_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#parquet_options GoogleBigqueryTable#parquet_options}
-        :param reference_file_schema_uri: When creating an external table, the user can provide a reference file with the table schema. This is enabled for the following formats: AVRO, PARQUET, ORC. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#reference_file_schema_uri GoogleBigqueryTable#reference_file_schema_uri}
-        :param schema: A JSON schema for the external table. Schema is required for CSV and JSON formats and is disallowed for Google Cloud Bigtable, Cloud Datastore backups, and Avro formats when using external tables. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#schema GoogleBigqueryTable#schema}
-        :param source_format: Please see sourceFormat under ExternalDataConfiguration in Bigquery's public API documentation (https://cloud.google.com/bigquery/docs/reference/rest/v2/tables#externaldataconfiguration) for supported formats. To use "GOOGLE_SHEETS" the scopes must include "googleapis.com/auth/drive.readonly". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#source_format GoogleBigqueryTable#source_format}
+        :param autodetect: Let BigQuery try to autodetect the schema and format of the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#autodetect GoogleBigqueryTable#autodetect}
+        :param source_uris: A list of the fully-qualified URIs that point to your data in Google Cloud. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#source_uris GoogleBigqueryTable#source_uris}
+        :param avro_options: avro_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#avro_options GoogleBigqueryTable#avro_options}
+        :param bigtable_options: bigtable_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#bigtable_options GoogleBigqueryTable#bigtable_options}
+        :param compression: The compression type of the data source. Valid values are "NONE" or "GZIP". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#compression GoogleBigqueryTable#compression}
+        :param connection_id: The connection specifying the credentials to be used to read external storage, such as Azure Blob, Cloud Storage, or S3. The connectionId can have the form "..<connection_id>" or "projects//locations//connections/<connection_id>". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#connection_id GoogleBigqueryTable#connection_id}
+        :param csv_options: csv_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#csv_options GoogleBigqueryTable#csv_options}
+        :param file_set_spec_type: Specifies how source URIs are interpreted for constructing the file set to load. By default source URIs are expanded against the underlying storage. Other options include specifying manifest files. Only applicable to object storage systems. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#file_set_spec_type GoogleBigqueryTable#file_set_spec_type}
+        :param google_sheets_options: google_sheets_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#google_sheets_options GoogleBigqueryTable#google_sheets_options}
+        :param hive_partitioning_options: hive_partitioning_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#hive_partitioning_options GoogleBigqueryTable#hive_partitioning_options}
+        :param ignore_unknown_values: Indicates if BigQuery should allow extra values that are not represented in the table schema. If true, the extra values are ignored. If false, records with extra columns are treated as bad records, and if there are too many bad records, an invalid error is returned in the job result. The default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#ignore_unknown_values GoogleBigqueryTable#ignore_unknown_values}
+        :param json_extension: Load option to be used together with sourceFormat newline-delimited JSON to indicate that a variant of JSON is being loaded. To load newline-delimited GeoJSON, specify GEOJSON (and sourceFormat must be set to NEWLINE_DELIMITED_JSON). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#json_extension GoogleBigqueryTable#json_extension}
+        :param json_options: json_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#json_options GoogleBigqueryTable#json_options}
+        :param max_bad_records: The maximum number of bad records that BigQuery can ignore when reading data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#max_bad_records GoogleBigqueryTable#max_bad_records}
+        :param metadata_cache_mode: Metadata Cache Mode for the table. Set this to enable caching of metadata from external data source. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#metadata_cache_mode GoogleBigqueryTable#metadata_cache_mode}
+        :param object_metadata: Object Metadata is used to create Object Tables. Object Tables contain a listing of objects (with their metadata) found at the sourceUris. If ObjectMetadata is set, sourceFormat should be omitted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#object_metadata GoogleBigqueryTable#object_metadata}
+        :param parquet_options: parquet_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#parquet_options GoogleBigqueryTable#parquet_options}
+        :param reference_file_schema_uri: When creating an external table, the user can provide a reference file with the table schema. This is enabled for the following formats: AVRO, PARQUET, ORC. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#reference_file_schema_uri GoogleBigqueryTable#reference_file_schema_uri}
+        :param schema: A JSON schema for the external table. Schema is required for CSV and JSON formats and is disallowed for Google Cloud Bigtable, Cloud Datastore backups, and Avro formats when using external tables. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#schema GoogleBigqueryTable#schema}
+        :param source_format: Please see sourceFormat under ExternalDataConfiguration in Bigquery's public API documentation (https://cloud.google.com/bigquery/docs/reference/rest/v2/tables#externaldataconfiguration) for supported formats. To use "GOOGLE_SHEETS" the scopes must include "googleapis.com/auth/drive.readonly". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#source_format GoogleBigqueryTable#source_format}
         '''
         if isinstance(avro_options, dict):
             avro_options = GoogleBigqueryTableExternalDataConfigurationAvroOptions(**avro_options)
@@ -2687,7 +2687,7 @@ class GoogleBigqueryTableExternalDataConfiguration:
     def autodetect(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Let BigQuery try to autodetect the schema and format of the table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#autodetect GoogleBigqueryTable#autodetect}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#autodetect GoogleBigqueryTable#autodetect}
         '''
         result = self._values.get("autodetect")
         assert result is not None, "Required property 'autodetect' is missing"
@@ -2697,7 +2697,7 @@ class GoogleBigqueryTableExternalDataConfiguration:
     def source_uris(self) -> typing.List[builtins.str]:
         '''A list of the fully-qualified URIs that point to your data in Google Cloud.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#source_uris GoogleBigqueryTable#source_uris}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#source_uris GoogleBigqueryTable#source_uris}
         '''
         result = self._values.get("source_uris")
         assert result is not None, "Required property 'source_uris' is missing"
@@ -2709,7 +2709,7 @@ class GoogleBigqueryTableExternalDataConfiguration:
     ) -> typing.Optional["GoogleBigqueryTableExternalDataConfigurationAvroOptions"]:
         '''avro_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#avro_options GoogleBigqueryTable#avro_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#avro_options GoogleBigqueryTable#avro_options}
         '''
         result = self._values.get("avro_options")
         return typing.cast(typing.Optional["GoogleBigqueryTableExternalDataConfigurationAvroOptions"], result)
@@ -2720,7 +2720,7 @@ class GoogleBigqueryTableExternalDataConfiguration:
     ) -> typing.Optional["GoogleBigqueryTableExternalDataConfigurationBigtableOptions"]:
         '''bigtable_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#bigtable_options GoogleBigqueryTable#bigtable_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#bigtable_options GoogleBigqueryTable#bigtable_options}
         '''
         result = self._values.get("bigtable_options")
         return typing.cast(typing.Optional["GoogleBigqueryTableExternalDataConfigurationBigtableOptions"], result)
@@ -2729,7 +2729,7 @@ class GoogleBigqueryTableExternalDataConfiguration:
     def compression(self) -> typing.Optional[builtins.str]:
         '''The compression type of the data source. Valid values are "NONE" or "GZIP".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#compression GoogleBigqueryTable#compression}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#compression GoogleBigqueryTable#compression}
         '''
         result = self._values.get("compression")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2740,7 +2740,7 @@ class GoogleBigqueryTableExternalDataConfiguration:
 
         The connectionId can have the form "..<connection_id>" or "projects//locations//connections/<connection_id>".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#connection_id GoogleBigqueryTable#connection_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#connection_id GoogleBigqueryTable#connection_id}
         '''
         result = self._values.get("connection_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2751,7 +2751,7 @@ class GoogleBigqueryTableExternalDataConfiguration:
     ) -> typing.Optional["GoogleBigqueryTableExternalDataConfigurationCsvOptions"]:
         '''csv_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#csv_options GoogleBigqueryTable#csv_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#csv_options GoogleBigqueryTable#csv_options}
         '''
         result = self._values.get("csv_options")
         return typing.cast(typing.Optional["GoogleBigqueryTableExternalDataConfigurationCsvOptions"], result)
@@ -2762,7 +2762,7 @@ class GoogleBigqueryTableExternalDataConfiguration:
 
         By default source URIs are expanded against the underlying storage.  Other options include specifying manifest files. Only applicable to object storage systems.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#file_set_spec_type GoogleBigqueryTable#file_set_spec_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#file_set_spec_type GoogleBigqueryTable#file_set_spec_type}
         '''
         result = self._values.get("file_set_spec_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2773,7 +2773,7 @@ class GoogleBigqueryTableExternalDataConfiguration:
     ) -> typing.Optional["GoogleBigqueryTableExternalDataConfigurationGoogleSheetsOptions"]:
         '''google_sheets_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#google_sheets_options GoogleBigqueryTable#google_sheets_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#google_sheets_options GoogleBigqueryTable#google_sheets_options}
         '''
         result = self._values.get("google_sheets_options")
         return typing.cast(typing.Optional["GoogleBigqueryTableExternalDataConfigurationGoogleSheetsOptions"], result)
@@ -2784,7 +2784,7 @@ class GoogleBigqueryTableExternalDataConfiguration:
     ) -> typing.Optional["GoogleBigqueryTableExternalDataConfigurationHivePartitioningOptions"]:
         '''hive_partitioning_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#hive_partitioning_options GoogleBigqueryTable#hive_partitioning_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#hive_partitioning_options GoogleBigqueryTable#hive_partitioning_options}
         '''
         result = self._values.get("hive_partitioning_options")
         return typing.cast(typing.Optional["GoogleBigqueryTableExternalDataConfigurationHivePartitioningOptions"], result)
@@ -2797,7 +2797,7 @@ class GoogleBigqueryTableExternalDataConfiguration:
 
         If true, the extra values are ignored. If false, records with extra columns are treated as bad records, and if there are too many bad records, an invalid error is returned in the job result. The default value is false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#ignore_unknown_values GoogleBigqueryTable#ignore_unknown_values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#ignore_unknown_values GoogleBigqueryTable#ignore_unknown_values}
         '''
         result = self._values.get("ignore_unknown_values")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2808,7 +2808,7 @@ class GoogleBigqueryTableExternalDataConfiguration:
 
         To load newline-delimited GeoJSON, specify GEOJSON (and sourceFormat must be set to NEWLINE_DELIMITED_JSON).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#json_extension GoogleBigqueryTable#json_extension}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#json_extension GoogleBigqueryTable#json_extension}
         '''
         result = self._values.get("json_extension")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2819,7 +2819,7 @@ class GoogleBigqueryTableExternalDataConfiguration:
     ) -> typing.Optional["GoogleBigqueryTableExternalDataConfigurationJsonOptions"]:
         '''json_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#json_options GoogleBigqueryTable#json_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#json_options GoogleBigqueryTable#json_options}
         '''
         result = self._values.get("json_options")
         return typing.cast(typing.Optional["GoogleBigqueryTableExternalDataConfigurationJsonOptions"], result)
@@ -2828,7 +2828,7 @@ class GoogleBigqueryTableExternalDataConfiguration:
     def max_bad_records(self) -> typing.Optional[jsii.Number]:
         '''The maximum number of bad records that BigQuery can ignore when reading data.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#max_bad_records GoogleBigqueryTable#max_bad_records}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#max_bad_records GoogleBigqueryTable#max_bad_records}
         '''
         result = self._values.get("max_bad_records")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2837,7 +2837,7 @@ class GoogleBigqueryTableExternalDataConfiguration:
     def metadata_cache_mode(self) -> typing.Optional[builtins.str]:
         '''Metadata Cache Mode for the table. Set this to enable caching of metadata from external data source.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#metadata_cache_mode GoogleBigqueryTable#metadata_cache_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#metadata_cache_mode GoogleBigqueryTable#metadata_cache_mode}
         '''
         result = self._values.get("metadata_cache_mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2848,7 +2848,7 @@ class GoogleBigqueryTableExternalDataConfiguration:
 
         Object Tables contain a listing of objects (with their metadata) found at the sourceUris. If ObjectMetadata is set, sourceFormat should be omitted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#object_metadata GoogleBigqueryTable#object_metadata}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#object_metadata GoogleBigqueryTable#object_metadata}
         '''
         result = self._values.get("object_metadata")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2859,7 +2859,7 @@ class GoogleBigqueryTableExternalDataConfiguration:
     ) -> typing.Optional["GoogleBigqueryTableExternalDataConfigurationParquetOptions"]:
         '''parquet_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#parquet_options GoogleBigqueryTable#parquet_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#parquet_options GoogleBigqueryTable#parquet_options}
         '''
         result = self._values.get("parquet_options")
         return typing.cast(typing.Optional["GoogleBigqueryTableExternalDataConfigurationParquetOptions"], result)
@@ -2870,7 +2870,7 @@ class GoogleBigqueryTableExternalDataConfiguration:
 
         This is enabled for the following formats: AVRO, PARQUET, ORC.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#reference_file_schema_uri GoogleBigqueryTable#reference_file_schema_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#reference_file_schema_uri GoogleBigqueryTable#reference_file_schema_uri}
         '''
         result = self._values.get("reference_file_schema_uri")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2881,7 +2881,7 @@ class GoogleBigqueryTableExternalDataConfiguration:
 
         Schema is required for CSV and JSON formats and is disallowed for Google Cloud Bigtable, Cloud Datastore backups, and Avro formats when using external tables.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#schema GoogleBigqueryTable#schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#schema GoogleBigqueryTable#schema}
         '''
         result = self._values.get("schema")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2890,7 +2890,7 @@ class GoogleBigqueryTableExternalDataConfiguration:
     def source_format(self) -> typing.Optional[builtins.str]:
         '''Please see sourceFormat under ExternalDataConfiguration in Bigquery's public API documentation (https://cloud.google.com/bigquery/docs/reference/rest/v2/tables#externaldataconfiguration) for supported formats. To use "GOOGLE_SHEETS" the scopes must include "googleapis.com/auth/drive.readonly".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#source_format GoogleBigqueryTable#source_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#source_format GoogleBigqueryTable#source_format}
         '''
         result = self._values.get("source_format")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2919,7 +2919,7 @@ class GoogleBigqueryTableExternalDataConfigurationAvroOptions:
         use_avro_logical_types: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param use_avro_logical_types: If sourceFormat is set to "AVRO", indicates whether to interpret logical types as the corresponding BigQuery data type (for example, TIMESTAMP), instead of using the raw type (for example, INTEGER). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#use_avro_logical_types GoogleBigqueryTable#use_avro_logical_types}
+        :param use_avro_logical_types: If sourceFormat is set to "AVRO", indicates whether to interpret logical types as the corresponding BigQuery data type (for example, TIMESTAMP), instead of using the raw type (for example, INTEGER). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#use_avro_logical_types GoogleBigqueryTable#use_avro_logical_types}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e056d587d279501e907787fbdde8bcd72c0bbc0a0b7ebf5a1966e26a43c6d82e)
@@ -2934,7 +2934,7 @@ class GoogleBigqueryTableExternalDataConfigurationAvroOptions:
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''If sourceFormat is set to "AVRO", indicates whether to interpret logical types as the corresponding BigQuery data type (for example, TIMESTAMP), instead of using the raw type (for example, INTEGER).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#use_avro_logical_types GoogleBigqueryTable#use_avro_logical_types}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#use_avro_logical_types GoogleBigqueryTable#use_avro_logical_types}
         '''
         result = self._values.get("use_avro_logical_types")
         assert result is not None, "Required property 'use_avro_logical_types' is missing"
@@ -3034,10 +3034,10 @@ class GoogleBigqueryTableExternalDataConfigurationBigtableOptions:
         read_rowkey_as_string: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param column_family: column_family block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#column_family GoogleBigqueryTable#column_family}
-        :param ignore_unspecified_column_families: If field is true, then the column families that are not specified in columnFamilies list are not exposed in the table schema. Otherwise, they are read with BYTES type values. The default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#ignore_unspecified_column_families GoogleBigqueryTable#ignore_unspecified_column_families}
-        :param output_column_families_as_json: If field is true, then each column family will be read as a single JSON column. Otherwise they are read as a repeated cell structure containing timestamp/value tuples. The default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#output_column_families_as_json GoogleBigqueryTable#output_column_families_as_json}
-        :param read_rowkey_as_string: If field is true, then the rowkey column families will be read and converted to string. Otherwise they are read with BYTES type values and users need to manually cast them with CAST if necessary. The default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#read_rowkey_as_string GoogleBigqueryTable#read_rowkey_as_string}
+        :param column_family: column_family block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#column_family GoogleBigqueryTable#column_family}
+        :param ignore_unspecified_column_families: If field is true, then the column families that are not specified in columnFamilies list are not exposed in the table schema. Otherwise, they are read with BYTES type values. The default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#ignore_unspecified_column_families GoogleBigqueryTable#ignore_unspecified_column_families}
+        :param output_column_families_as_json: If field is true, then each column family will be read as a single JSON column. Otherwise they are read as a repeated cell structure containing timestamp/value tuples. The default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#output_column_families_as_json GoogleBigqueryTable#output_column_families_as_json}
+        :param read_rowkey_as_string: If field is true, then the rowkey column families will be read and converted to string. Otherwise they are read with BYTES type values and users need to manually cast them with CAST if necessary. The default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#read_rowkey_as_string GoogleBigqueryTable#read_rowkey_as_string}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d6805953507a95c067057d943b9a6e4c38aaa52afb1f84ba1807519261310340)
@@ -3061,7 +3061,7 @@ class GoogleBigqueryTableExternalDataConfigurationBigtableOptions:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleBigqueryTableExternalDataConfigurationBigtableOptionsColumnFamily"]]]:
         '''column_family block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#column_family GoogleBigqueryTable#column_family}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#column_family GoogleBigqueryTable#column_family}
         '''
         result = self._values.get("column_family")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleBigqueryTableExternalDataConfigurationBigtableOptionsColumnFamily"]]], result)
@@ -3074,7 +3074,7 @@ class GoogleBigqueryTableExternalDataConfigurationBigtableOptions:
 
         Otherwise, they are read with BYTES type values. The default value is false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#ignore_unspecified_column_families GoogleBigqueryTable#ignore_unspecified_column_families}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#ignore_unspecified_column_families GoogleBigqueryTable#ignore_unspecified_column_families}
         '''
         result = self._values.get("ignore_unspecified_column_families")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3087,7 +3087,7 @@ class GoogleBigqueryTableExternalDataConfigurationBigtableOptions:
 
         Otherwise they are read as a repeated cell structure containing timestamp/value tuples. The default value is false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#output_column_families_as_json GoogleBigqueryTable#output_column_families_as_json}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#output_column_families_as_json GoogleBigqueryTable#output_column_families_as_json}
         '''
         result = self._values.get("output_column_families_as_json")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3100,7 +3100,7 @@ class GoogleBigqueryTableExternalDataConfigurationBigtableOptions:
 
         Otherwise they are read with BYTES type values and users need to manually cast them with CAST if necessary. The default value is false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#read_rowkey_as_string GoogleBigqueryTable#read_rowkey_as_string}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#read_rowkey_as_string GoogleBigqueryTable#read_rowkey_as_string}
         '''
         result = self._values.get("read_rowkey_as_string")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3139,11 +3139,11 @@ class GoogleBigqueryTableExternalDataConfigurationBigtableOptionsColumnFamily:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param column: column block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#column GoogleBigqueryTable#column}
-        :param encoding: The encoding of the values when the type is not STRING. Acceptable encoding values are: TEXT - indicates values are alphanumeric text strings. BINARY - indicates values are encoded using HBase Bytes.toBytes family of functions. This can be overridden for a specific column by listing that column in 'columns' and specifying an encoding for it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#encoding GoogleBigqueryTable#encoding}
-        :param family_id: Identifier of the column family. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#family_id GoogleBigqueryTable#family_id}
-        :param only_read_latest: If this is set only the latest version of value are exposed for all columns in this column family. This can be overridden for a specific column by listing that column in 'columns' and specifying a different setting for that column. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#only_read_latest GoogleBigqueryTable#only_read_latest}
-        :param type: The type to convert the value in cells of this column family. The values are expected to be encoded using HBase Bytes.toBytes function when using the BINARY encoding value. Following BigQuery types are allowed (case-sensitive): "BYTES", "STRING", "INTEGER", "FLOAT", "BOOLEAN", "JSON". Default type is BYTES. This can be overridden for a specific column by listing that column in 'columns' and specifying a type for it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#type GoogleBigqueryTable#type}
+        :param column: column block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#column GoogleBigqueryTable#column}
+        :param encoding: The encoding of the values when the type is not STRING. Acceptable encoding values are: TEXT - indicates values are alphanumeric text strings. BINARY - indicates values are encoded using HBase Bytes.toBytes family of functions. This can be overridden for a specific column by listing that column in 'columns' and specifying an encoding for it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#encoding GoogleBigqueryTable#encoding}
+        :param family_id: Identifier of the column family. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#family_id GoogleBigqueryTable#family_id}
+        :param only_read_latest: If this is set only the latest version of value are exposed for all columns in this column family. This can be overridden for a specific column by listing that column in 'columns' and specifying a different setting for that column. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#only_read_latest GoogleBigqueryTable#only_read_latest}
+        :param type: The type to convert the value in cells of this column family. The values are expected to be encoded using HBase Bytes.toBytes function when using the BINARY encoding value. Following BigQuery types are allowed (case-sensitive): "BYTES", "STRING", "INTEGER", "FLOAT", "BOOLEAN", "JSON". Default type is BYTES. This can be overridden for a specific column by listing that column in 'columns' and specifying a type for it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#type GoogleBigqueryTable#type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b7ceeb30f204ab51367bf49f0cd3270e4f6fa0bafd07248e6980523243440af0)
@@ -3170,7 +3170,7 @@ class GoogleBigqueryTableExternalDataConfigurationBigtableOptionsColumnFamily:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleBigqueryTableExternalDataConfigurationBigtableOptionsColumnFamilyColumn"]]]:
         '''column block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#column GoogleBigqueryTable#column}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#column GoogleBigqueryTable#column}
         '''
         result = self._values.get("column")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleBigqueryTableExternalDataConfigurationBigtableOptionsColumnFamilyColumn"]]], result)
@@ -3181,7 +3181,7 @@ class GoogleBigqueryTableExternalDataConfigurationBigtableOptionsColumnFamily:
 
         Acceptable encoding values are: TEXT - indicates values are alphanumeric text strings. BINARY - indicates values are encoded using HBase Bytes.toBytes family of functions. This can be overridden for a specific column by listing that column in 'columns' and specifying an encoding for it.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#encoding GoogleBigqueryTable#encoding}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#encoding GoogleBigqueryTable#encoding}
         '''
         result = self._values.get("encoding")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3190,7 +3190,7 @@ class GoogleBigqueryTableExternalDataConfigurationBigtableOptionsColumnFamily:
     def family_id(self) -> typing.Optional[builtins.str]:
         '''Identifier of the column family.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#family_id GoogleBigqueryTable#family_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#family_id GoogleBigqueryTable#family_id}
         '''
         result = self._values.get("family_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3203,7 +3203,7 @@ class GoogleBigqueryTableExternalDataConfigurationBigtableOptionsColumnFamily:
 
         This can be overridden for a specific column by listing that column in 'columns' and specifying a different setting for that column.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#only_read_latest GoogleBigqueryTable#only_read_latest}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#only_read_latest GoogleBigqueryTable#only_read_latest}
         '''
         result = self._values.get("only_read_latest")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3214,7 +3214,7 @@ class GoogleBigqueryTableExternalDataConfigurationBigtableOptionsColumnFamily:
 
         The values are expected to be encoded using HBase Bytes.toBytes function when using the BINARY encoding value. Following BigQuery types are allowed (case-sensitive): "BYTES", "STRING", "INTEGER", "FLOAT", "BOOLEAN", "JSON". Default type is BYTES. This can be overridden for a specific column by listing that column in 'columns' and specifying a type for it.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#type GoogleBigqueryTable#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#type GoogleBigqueryTable#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3255,12 +3255,12 @@ class GoogleBigqueryTableExternalDataConfigurationBigtableOptionsColumnFamilyCol
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param encoding: The encoding of the values when the type is not STRING. Acceptable encoding values are: TEXT - indicates values are alphanumeric text strings. BINARY - indicates values are encoded using HBase Bytes.toBytes family of functions. 'encoding' can also be set at the column family level. However, the setting at this level takes precedence if 'encoding' is set at both levels. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#encoding GoogleBigqueryTable#encoding}
-        :param field_name: If the qualifier is not a valid BigQuery field identifier i.e. does not match [a-zA-Z][a-zA-Z0-9_]*, a valid identifier must be provided as the column field name and is used as field name in queries. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#field_name GoogleBigqueryTable#field_name}
-        :param only_read_latest: If this is set, only the latest version of value in this column are exposed. 'onlyReadLatest' can also be set at the column family level. However, the setting at this level takes precedence if 'onlyReadLatest' is set at both levels. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#only_read_latest GoogleBigqueryTable#only_read_latest}
-        :param qualifier_encoded: Qualifier of the column. Columns in the parent column family that has this exact qualifier are exposed as . field. If the qualifier is valid UTF-8 string, it can be specified in the qualifierString field. Otherwise, a base-64 encoded value must be set to qualifierEncoded. The column field name is the same as the column qualifier. However, if the qualifier is not a valid BigQuery field identifier i.e. does not match [a-zA-Z][a-zA-Z0-9_]*, a valid identifier must be provided as fieldName. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#qualifier_encoded GoogleBigqueryTable#qualifier_encoded}
-        :param qualifier_string: Qualifier string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#qualifier_string GoogleBigqueryTable#qualifier_string}
-        :param type: The type to convert the value in cells of this column. The values are expected to be encoded using HBase Bytes.toBytes function when using the BINARY encoding value. Following BigQuery types are allowed (case-sensitive): "BYTES", "STRING", "INTEGER", "FLOAT", "BOOLEAN", "JSON", Default type is "BYTES". 'type' can also be set at the column family level. However, the setting at this level takes precedence if 'type' is set at both levels. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#type GoogleBigqueryTable#type}
+        :param encoding: The encoding of the values when the type is not STRING. Acceptable encoding values are: TEXT - indicates values are alphanumeric text strings. BINARY - indicates values are encoded using HBase Bytes.toBytes family of functions. 'encoding' can also be set at the column family level. However, the setting at this level takes precedence if 'encoding' is set at both levels. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#encoding GoogleBigqueryTable#encoding}
+        :param field_name: If the qualifier is not a valid BigQuery field identifier i.e. does not match [a-zA-Z][a-zA-Z0-9_]*, a valid identifier must be provided as the column field name and is used as field name in queries. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#field_name GoogleBigqueryTable#field_name}
+        :param only_read_latest: If this is set, only the latest version of value in this column are exposed. 'onlyReadLatest' can also be set at the column family level. However, the setting at this level takes precedence if 'onlyReadLatest' is set at both levels. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#only_read_latest GoogleBigqueryTable#only_read_latest}
+        :param qualifier_encoded: Qualifier of the column. Columns in the parent column family that has this exact qualifier are exposed as . field. If the qualifier is valid UTF-8 string, it can be specified in the qualifierString field. Otherwise, a base-64 encoded value must be set to qualifierEncoded. The column field name is the same as the column qualifier. However, if the qualifier is not a valid BigQuery field identifier i.e. does not match [a-zA-Z][a-zA-Z0-9_]*, a valid identifier must be provided as fieldName. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#qualifier_encoded GoogleBigqueryTable#qualifier_encoded}
+        :param qualifier_string: Qualifier string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#qualifier_string GoogleBigqueryTable#qualifier_string}
+        :param type: The type to convert the value in cells of this column. The values are expected to be encoded using HBase Bytes.toBytes function when using the BINARY encoding value. Following BigQuery types are allowed (case-sensitive): "BYTES", "STRING", "INTEGER", "FLOAT", "BOOLEAN", "JSON", Default type is "BYTES". 'type' can also be set at the column family level. However, the setting at this level takes precedence if 'type' is set at both levels. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#type GoogleBigqueryTable#type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__11936208860f88ef9d83c884f4d0ad746c97e701f55525e74b19e46d8352d8eb)
@@ -3290,7 +3290,7 @@ class GoogleBigqueryTableExternalDataConfigurationBigtableOptionsColumnFamilyCol
 
         Acceptable encoding values are: TEXT - indicates values are alphanumeric text strings. BINARY - indicates values are encoded using HBase Bytes.toBytes family of functions. 'encoding' can also be set at the column family level. However, the setting at this level takes precedence if 'encoding' is set at both levels.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#encoding GoogleBigqueryTable#encoding}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#encoding GoogleBigqueryTable#encoding}
         '''
         result = self._values.get("encoding")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3299,7 +3299,7 @@ class GoogleBigqueryTableExternalDataConfigurationBigtableOptionsColumnFamilyCol
     def field_name(self) -> typing.Optional[builtins.str]:
         '''If the qualifier is not a valid BigQuery field identifier i.e. does not match [a-zA-Z][a-zA-Z0-9_]*, a valid identifier must be provided as the column field name and is used as field name in queries.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#field_name GoogleBigqueryTable#field_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#field_name GoogleBigqueryTable#field_name}
         '''
         result = self._values.get("field_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3312,7 +3312,7 @@ class GoogleBigqueryTableExternalDataConfigurationBigtableOptionsColumnFamilyCol
 
         'onlyReadLatest' can also be set at the column family level. However, the setting at this level takes precedence if 'onlyReadLatest' is set at both levels.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#only_read_latest GoogleBigqueryTable#only_read_latest}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#only_read_latest GoogleBigqueryTable#only_read_latest}
         '''
         result = self._values.get("only_read_latest")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3323,7 +3323,7 @@ class GoogleBigqueryTableExternalDataConfigurationBigtableOptionsColumnFamilyCol
 
         Columns in the parent column family that has this exact qualifier are exposed as . field. If the qualifier is valid UTF-8 string, it can be specified in the qualifierString field. Otherwise, a base-64 encoded value must be set to qualifierEncoded. The column field name is the same as the column qualifier. However, if the qualifier is not a valid BigQuery field identifier i.e. does not match [a-zA-Z][a-zA-Z0-9_]*, a valid identifier must be provided as fieldName.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#qualifier_encoded GoogleBigqueryTable#qualifier_encoded}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#qualifier_encoded GoogleBigqueryTable#qualifier_encoded}
         '''
         result = self._values.get("qualifier_encoded")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3332,7 +3332,7 @@ class GoogleBigqueryTableExternalDataConfigurationBigtableOptionsColumnFamilyCol
     def qualifier_string(self) -> typing.Optional[builtins.str]:
         '''Qualifier string.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#qualifier_string GoogleBigqueryTable#qualifier_string}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#qualifier_string GoogleBigqueryTable#qualifier_string}
         '''
         result = self._values.get("qualifier_string")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3343,7 +3343,7 @@ class GoogleBigqueryTableExternalDataConfigurationBigtableOptionsColumnFamilyCol
 
         The values are expected to be encoded using HBase Bytes.toBytes function when using the BINARY encoding value. Following BigQuery types are allowed (case-sensitive): "BYTES", "STRING", "INTEGER", "FLOAT", "BOOLEAN", "JSON", Default type is "BYTES". 'type' can also be set at the column family level. However, the setting at this level takes precedence if 'type' is set at both levels.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#type GoogleBigqueryTable#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#type GoogleBigqueryTable#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4066,12 +4066,12 @@ class GoogleBigqueryTableExternalDataConfigurationCsvOptions:
         skip_leading_rows: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param quote: The value that is used to quote data sections in a CSV file. If your data does not contain quoted sections, set the property value to an empty string. If your data contains quoted newline characters, you must also set the allow_quoted_newlines property to true. The API-side default is ", specified in Terraform escaped as ". Due to limitations with Terraform default values, this value is required to be explicitly set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#quote GoogleBigqueryTable#quote}
-        :param allow_jagged_rows: Indicates if BigQuery should accept rows that are missing trailing optional columns. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#allow_jagged_rows GoogleBigqueryTable#allow_jagged_rows}
-        :param allow_quoted_newlines: Indicates if BigQuery should allow quoted data sections that contain newline characters in a CSV file. The default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#allow_quoted_newlines GoogleBigqueryTable#allow_quoted_newlines}
-        :param encoding: The character encoding of the data. The supported values are UTF-8 or ISO-8859-1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#encoding GoogleBigqueryTable#encoding}
-        :param field_delimiter: The separator for fields in a CSV file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#field_delimiter GoogleBigqueryTable#field_delimiter}
-        :param skip_leading_rows: The number of rows at the top of a CSV file that BigQuery will skip when reading the data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#skip_leading_rows GoogleBigqueryTable#skip_leading_rows}
+        :param quote: The value that is used to quote data sections in a CSV file. If your data does not contain quoted sections, set the property value to an empty string. If your data contains quoted newline characters, you must also set the allow_quoted_newlines property to true. The API-side default is ", specified in Terraform escaped as ". Due to limitations with Terraform default values, this value is required to be explicitly set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#quote GoogleBigqueryTable#quote}
+        :param allow_jagged_rows: Indicates if BigQuery should accept rows that are missing trailing optional columns. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#allow_jagged_rows GoogleBigqueryTable#allow_jagged_rows}
+        :param allow_quoted_newlines: Indicates if BigQuery should allow quoted data sections that contain newline characters in a CSV file. The default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#allow_quoted_newlines GoogleBigqueryTable#allow_quoted_newlines}
+        :param encoding: The character encoding of the data. The supported values are UTF-8 or ISO-8859-1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#encoding GoogleBigqueryTable#encoding}
+        :param field_delimiter: The separator for fields in a CSV file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#field_delimiter GoogleBigqueryTable#field_delimiter}
+        :param skip_leading_rows: The number of rows at the top of a CSV file that BigQuery will skip when reading the data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#skip_leading_rows GoogleBigqueryTable#skip_leading_rows}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__12886bff655293afef73b291df9192fb56405e7c329c57e8a0de15ce78a5a687)
@@ -4101,7 +4101,7 @@ class GoogleBigqueryTableExternalDataConfigurationCsvOptions:
 
         If your data does not contain quoted sections, set the property value to an empty string. If your data contains quoted newline characters, you must also set the allow_quoted_newlines property to true. The API-side default is ", specified in Terraform escaped as ". Due to limitations with Terraform default values, this value is required to be explicitly set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#quote GoogleBigqueryTable#quote}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#quote GoogleBigqueryTable#quote}
         '''
         result = self._values.get("quote")
         assert result is not None, "Required property 'quote' is missing"
@@ -4113,7 +4113,7 @@ class GoogleBigqueryTableExternalDataConfigurationCsvOptions:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Indicates if BigQuery should accept rows that are missing trailing optional columns.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#allow_jagged_rows GoogleBigqueryTable#allow_jagged_rows}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#allow_jagged_rows GoogleBigqueryTable#allow_jagged_rows}
         '''
         result = self._values.get("allow_jagged_rows")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4126,7 +4126,7 @@ class GoogleBigqueryTableExternalDataConfigurationCsvOptions:
 
         The default value is false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#allow_quoted_newlines GoogleBigqueryTable#allow_quoted_newlines}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#allow_quoted_newlines GoogleBigqueryTable#allow_quoted_newlines}
         '''
         result = self._values.get("allow_quoted_newlines")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4135,7 +4135,7 @@ class GoogleBigqueryTableExternalDataConfigurationCsvOptions:
     def encoding(self) -> typing.Optional[builtins.str]:
         '''The character encoding of the data. The supported values are UTF-8 or ISO-8859-1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#encoding GoogleBigqueryTable#encoding}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#encoding GoogleBigqueryTable#encoding}
         '''
         result = self._values.get("encoding")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4144,7 +4144,7 @@ class GoogleBigqueryTableExternalDataConfigurationCsvOptions:
     def field_delimiter(self) -> typing.Optional[builtins.str]:
         '''The separator for fields in a CSV file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#field_delimiter GoogleBigqueryTable#field_delimiter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#field_delimiter GoogleBigqueryTable#field_delimiter}
         '''
         result = self._values.get("field_delimiter")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4153,7 +4153,7 @@ class GoogleBigqueryTableExternalDataConfigurationCsvOptions:
     def skip_leading_rows(self) -> typing.Optional[jsii.Number]:
         '''The number of rows at the top of a CSV file that BigQuery will skip when reading the data.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#skip_leading_rows GoogleBigqueryTable#skip_leading_rows}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#skip_leading_rows GoogleBigqueryTable#skip_leading_rows}
         '''
         result = self._values.get("skip_leading_rows")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4357,8 +4357,8 @@ class GoogleBigqueryTableExternalDataConfigurationGoogleSheetsOptions:
         skip_leading_rows: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param range: Range of a sheet to query from. Only used when non-empty. At least one of range or skip_leading_rows must be set. Typical format: "sheet_name!top_left_cell_id:bottom_right_cell_id" For example: "sheet1!A1:B20 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#range GoogleBigqueryTable#range}
-        :param skip_leading_rows: The number of rows at the top of the sheet that BigQuery will skip when reading the data. At least one of range or skip_leading_rows must be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#skip_leading_rows GoogleBigqueryTable#skip_leading_rows}
+        :param range: Range of a sheet to query from. Only used when non-empty. At least one of range or skip_leading_rows must be set. Typical format: "sheet_name!top_left_cell_id:bottom_right_cell_id" For example: "sheet1!A1:B20 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#range GoogleBigqueryTable#range}
+        :param skip_leading_rows: The number of rows at the top of the sheet that BigQuery will skip when reading the data. At least one of range or skip_leading_rows must be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#skip_leading_rows GoogleBigqueryTable#skip_leading_rows}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f0c5c07c152a25c24c896eba15ec4821802c924adb0a35c5578737eed3ec2699)
@@ -4376,7 +4376,7 @@ class GoogleBigqueryTableExternalDataConfigurationGoogleSheetsOptions:
 
         Only used when non-empty. At least one of range or skip_leading_rows must be set. Typical format: "sheet_name!top_left_cell_id:bottom_right_cell_id" For example: "sheet1!A1:B20
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#range GoogleBigqueryTable#range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#range GoogleBigqueryTable#range}
         '''
         result = self._values.get("range")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4387,7 +4387,7 @@ class GoogleBigqueryTableExternalDataConfigurationGoogleSheetsOptions:
 
         At least one of range or skip_leading_rows must be set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#skip_leading_rows GoogleBigqueryTable#skip_leading_rows}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#skip_leading_rows GoogleBigqueryTable#skip_leading_rows}
         '''
         result = self._values.get("skip_leading_rows")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4502,9 +4502,9 @@ class GoogleBigqueryTableExternalDataConfigurationHivePartitioningOptions:
         source_uri_prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param mode: When set, what mode of hive partitioning to use when reading data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#mode GoogleBigqueryTable#mode}
-        :param require_partition_filter: If set to true, queries over this table require a partition filter that can be used for partition elimination to be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#require_partition_filter GoogleBigqueryTable#require_partition_filter}
-        :param source_uri_prefix: When hive partition detection is requested, a common for all source uris must be required. The prefix must end immediately before the partition key encoding begins. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#source_uri_prefix GoogleBigqueryTable#source_uri_prefix}
+        :param mode: When set, what mode of hive partitioning to use when reading data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#mode GoogleBigqueryTable#mode}
+        :param require_partition_filter: If set to true, queries over this table require a partition filter that can be used for partition elimination to be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#require_partition_filter GoogleBigqueryTable#require_partition_filter}
+        :param source_uri_prefix: When hive partition detection is requested, a common for all source uris must be required. The prefix must end immediately before the partition key encoding begins. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#source_uri_prefix GoogleBigqueryTable#source_uri_prefix}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b7ad8f75d82703f801eb14e586fe0669594ed903d631d67a19cbfef1ba2ef922)
@@ -4523,7 +4523,7 @@ class GoogleBigqueryTableExternalDataConfigurationHivePartitioningOptions:
     def mode(self) -> typing.Optional[builtins.str]:
         '''When set, what mode of hive partitioning to use when reading data.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#mode GoogleBigqueryTable#mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#mode GoogleBigqueryTable#mode}
         '''
         result = self._values.get("mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4534,7 +4534,7 @@ class GoogleBigqueryTableExternalDataConfigurationHivePartitioningOptions:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If set to true, queries over this table require a partition filter that can be used for partition elimination to be specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#require_partition_filter GoogleBigqueryTable#require_partition_filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#require_partition_filter GoogleBigqueryTable#require_partition_filter}
         '''
         result = self._values.get("require_partition_filter")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4545,7 +4545,7 @@ class GoogleBigqueryTableExternalDataConfigurationHivePartitioningOptions:
 
         The prefix must end immediately before the partition key encoding begins.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#source_uri_prefix GoogleBigqueryTable#source_uri_prefix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#source_uri_prefix GoogleBigqueryTable#source_uri_prefix}
         '''
         result = self._values.get("source_uri_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4678,7 +4678,7 @@ class GoogleBigqueryTableExternalDataConfigurationHivePartitioningOptionsOutputR
 class GoogleBigqueryTableExternalDataConfigurationJsonOptions:
     def __init__(self, *, encoding: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param encoding: The character encoding of the data. The supported values are UTF-8, UTF-16BE, UTF-16LE, UTF-32BE, and UTF-32LE. The default value is UTF-8. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#encoding GoogleBigqueryTable#encoding}
+        :param encoding: The character encoding of the data. The supported values are UTF-8, UTF-16BE, UTF-16LE, UTF-32BE, and UTF-32LE. The default value is UTF-8. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#encoding GoogleBigqueryTable#encoding}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4107b273f8e893e0eacacf07eb6c23c076cca6c323ab5e6fe3e564e281e5835f)
@@ -4693,7 +4693,7 @@ class GoogleBigqueryTableExternalDataConfigurationJsonOptions:
 
         The supported values are UTF-8, UTF-16BE, UTF-16LE, UTF-32BE, and UTF-32LE. The default value is UTF-8.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#encoding GoogleBigqueryTable#encoding}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#encoding GoogleBigqueryTable#encoding}
         '''
         result = self._values.get("encoding")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4796,7 +4796,7 @@ class GoogleBigqueryTableExternalDataConfigurationOutputReference(
         use_avro_logical_types: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param use_avro_logical_types: If sourceFormat is set to "AVRO", indicates whether to interpret logical types as the corresponding BigQuery data type (for example, TIMESTAMP), instead of using the raw type (for example, INTEGER). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#use_avro_logical_types GoogleBigqueryTable#use_avro_logical_types}
+        :param use_avro_logical_types: If sourceFormat is set to "AVRO", indicates whether to interpret logical types as the corresponding BigQuery data type (for example, TIMESTAMP), instead of using the raw type (for example, INTEGER). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#use_avro_logical_types GoogleBigqueryTable#use_avro_logical_types}
         '''
         value = GoogleBigqueryTableExternalDataConfigurationAvroOptions(
             use_avro_logical_types=use_avro_logical_types
@@ -4814,10 +4814,10 @@ class GoogleBigqueryTableExternalDataConfigurationOutputReference(
         read_rowkey_as_string: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param column_family: column_family block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#column_family GoogleBigqueryTable#column_family}
-        :param ignore_unspecified_column_families: If field is true, then the column families that are not specified in columnFamilies list are not exposed in the table schema. Otherwise, they are read with BYTES type values. The default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#ignore_unspecified_column_families GoogleBigqueryTable#ignore_unspecified_column_families}
-        :param output_column_families_as_json: If field is true, then each column family will be read as a single JSON column. Otherwise they are read as a repeated cell structure containing timestamp/value tuples. The default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#output_column_families_as_json GoogleBigqueryTable#output_column_families_as_json}
-        :param read_rowkey_as_string: If field is true, then the rowkey column families will be read and converted to string. Otherwise they are read with BYTES type values and users need to manually cast them with CAST if necessary. The default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#read_rowkey_as_string GoogleBigqueryTable#read_rowkey_as_string}
+        :param column_family: column_family block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#column_family GoogleBigqueryTable#column_family}
+        :param ignore_unspecified_column_families: If field is true, then the column families that are not specified in columnFamilies list are not exposed in the table schema. Otherwise, they are read with BYTES type values. The default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#ignore_unspecified_column_families GoogleBigqueryTable#ignore_unspecified_column_families}
+        :param output_column_families_as_json: If field is true, then each column family will be read as a single JSON column. Otherwise they are read as a repeated cell structure containing timestamp/value tuples. The default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#output_column_families_as_json GoogleBigqueryTable#output_column_families_as_json}
+        :param read_rowkey_as_string: If field is true, then the rowkey column families will be read and converted to string. Otherwise they are read with BYTES type values and users need to manually cast them with CAST if necessary. The default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#read_rowkey_as_string GoogleBigqueryTable#read_rowkey_as_string}
         '''
         value = GoogleBigqueryTableExternalDataConfigurationBigtableOptions(
             column_family=column_family,
@@ -4840,12 +4840,12 @@ class GoogleBigqueryTableExternalDataConfigurationOutputReference(
         skip_leading_rows: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param quote: The value that is used to quote data sections in a CSV file. If your data does not contain quoted sections, set the property value to an empty string. If your data contains quoted newline characters, you must also set the allow_quoted_newlines property to true. The API-side default is ", specified in Terraform escaped as ". Due to limitations with Terraform default values, this value is required to be explicitly set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#quote GoogleBigqueryTable#quote}
-        :param allow_jagged_rows: Indicates if BigQuery should accept rows that are missing trailing optional columns. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#allow_jagged_rows GoogleBigqueryTable#allow_jagged_rows}
-        :param allow_quoted_newlines: Indicates if BigQuery should allow quoted data sections that contain newline characters in a CSV file. The default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#allow_quoted_newlines GoogleBigqueryTable#allow_quoted_newlines}
-        :param encoding: The character encoding of the data. The supported values are UTF-8 or ISO-8859-1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#encoding GoogleBigqueryTable#encoding}
-        :param field_delimiter: The separator for fields in a CSV file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#field_delimiter GoogleBigqueryTable#field_delimiter}
-        :param skip_leading_rows: The number of rows at the top of a CSV file that BigQuery will skip when reading the data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#skip_leading_rows GoogleBigqueryTable#skip_leading_rows}
+        :param quote: The value that is used to quote data sections in a CSV file. If your data does not contain quoted sections, set the property value to an empty string. If your data contains quoted newline characters, you must also set the allow_quoted_newlines property to true. The API-side default is ", specified in Terraform escaped as ". Due to limitations with Terraform default values, this value is required to be explicitly set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#quote GoogleBigqueryTable#quote}
+        :param allow_jagged_rows: Indicates if BigQuery should accept rows that are missing trailing optional columns. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#allow_jagged_rows GoogleBigqueryTable#allow_jagged_rows}
+        :param allow_quoted_newlines: Indicates if BigQuery should allow quoted data sections that contain newline characters in a CSV file. The default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#allow_quoted_newlines GoogleBigqueryTable#allow_quoted_newlines}
+        :param encoding: The character encoding of the data. The supported values are UTF-8 or ISO-8859-1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#encoding GoogleBigqueryTable#encoding}
+        :param field_delimiter: The separator for fields in a CSV file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#field_delimiter GoogleBigqueryTable#field_delimiter}
+        :param skip_leading_rows: The number of rows at the top of a CSV file that BigQuery will skip when reading the data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#skip_leading_rows GoogleBigqueryTable#skip_leading_rows}
         '''
         value = GoogleBigqueryTableExternalDataConfigurationCsvOptions(
             quote=quote,
@@ -4866,8 +4866,8 @@ class GoogleBigqueryTableExternalDataConfigurationOutputReference(
         skip_leading_rows: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param range: Range of a sheet to query from. Only used when non-empty. At least one of range or skip_leading_rows must be set. Typical format: "sheet_name!top_left_cell_id:bottom_right_cell_id" For example: "sheet1!A1:B20 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#range GoogleBigqueryTable#range}
-        :param skip_leading_rows: The number of rows at the top of the sheet that BigQuery will skip when reading the data. At least one of range or skip_leading_rows must be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#skip_leading_rows GoogleBigqueryTable#skip_leading_rows}
+        :param range: Range of a sheet to query from. Only used when non-empty. At least one of range or skip_leading_rows must be set. Typical format: "sheet_name!top_left_cell_id:bottom_right_cell_id" For example: "sheet1!A1:B20 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#range GoogleBigqueryTable#range}
+        :param skip_leading_rows: The number of rows at the top of the sheet that BigQuery will skip when reading the data. At least one of range or skip_leading_rows must be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#skip_leading_rows GoogleBigqueryTable#skip_leading_rows}
         '''
         value = GoogleBigqueryTableExternalDataConfigurationGoogleSheetsOptions(
             range=range, skip_leading_rows=skip_leading_rows
@@ -4884,9 +4884,9 @@ class GoogleBigqueryTableExternalDataConfigurationOutputReference(
         source_uri_prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param mode: When set, what mode of hive partitioning to use when reading data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#mode GoogleBigqueryTable#mode}
-        :param require_partition_filter: If set to true, queries over this table require a partition filter that can be used for partition elimination to be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#require_partition_filter GoogleBigqueryTable#require_partition_filter}
-        :param source_uri_prefix: When hive partition detection is requested, a common for all source uris must be required. The prefix must end immediately before the partition key encoding begins. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#source_uri_prefix GoogleBigqueryTable#source_uri_prefix}
+        :param mode: When set, what mode of hive partitioning to use when reading data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#mode GoogleBigqueryTable#mode}
+        :param require_partition_filter: If set to true, queries over this table require a partition filter that can be used for partition elimination to be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#require_partition_filter GoogleBigqueryTable#require_partition_filter}
+        :param source_uri_prefix: When hive partition detection is requested, a common for all source uris must be required. The prefix must end immediately before the partition key encoding begins. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#source_uri_prefix GoogleBigqueryTable#source_uri_prefix}
         '''
         value = GoogleBigqueryTableExternalDataConfigurationHivePartitioningOptions(
             mode=mode,
@@ -4903,7 +4903,7 @@ class GoogleBigqueryTableExternalDataConfigurationOutputReference(
         encoding: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param encoding: The character encoding of the data. The supported values are UTF-8, UTF-16BE, UTF-16LE, UTF-32BE, and UTF-32LE. The default value is UTF-8. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#encoding GoogleBigqueryTable#encoding}
+        :param encoding: The character encoding of the data. The supported values are UTF-8, UTF-16BE, UTF-16LE, UTF-32BE, and UTF-32LE. The default value is UTF-8. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#encoding GoogleBigqueryTable#encoding}
         '''
         value = GoogleBigqueryTableExternalDataConfigurationJsonOptions(
             encoding=encoding
@@ -4919,8 +4919,8 @@ class GoogleBigqueryTableExternalDataConfigurationOutputReference(
         enum_as_string: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enable_list_inference: Indicates whether to use schema inference specifically for Parquet LIST logical type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#enable_list_inference GoogleBigqueryTable#enable_list_inference}
-        :param enum_as_string: Indicates whether to infer Parquet ENUM logical type as STRING instead of BYTES by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#enum_as_string GoogleBigqueryTable#enum_as_string}
+        :param enable_list_inference: Indicates whether to use schema inference specifically for Parquet LIST logical type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#enable_list_inference GoogleBigqueryTable#enable_list_inference}
+        :param enum_as_string: Indicates whether to infer Parquet ENUM logical type as STRING instead of BYTES by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#enum_as_string GoogleBigqueryTable#enum_as_string}
         '''
         value = GoogleBigqueryTableExternalDataConfigurationParquetOptions(
             enable_list_inference=enable_list_inference, enum_as_string=enum_as_string
@@ -5365,8 +5365,8 @@ class GoogleBigqueryTableExternalDataConfigurationParquetOptions:
         enum_as_string: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enable_list_inference: Indicates whether to use schema inference specifically for Parquet LIST logical type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#enable_list_inference GoogleBigqueryTable#enable_list_inference}
-        :param enum_as_string: Indicates whether to infer Parquet ENUM logical type as STRING instead of BYTES by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#enum_as_string GoogleBigqueryTable#enum_as_string}
+        :param enable_list_inference: Indicates whether to use schema inference specifically for Parquet LIST logical type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#enable_list_inference GoogleBigqueryTable#enable_list_inference}
+        :param enum_as_string: Indicates whether to infer Parquet ENUM logical type as STRING instead of BYTES by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#enum_as_string GoogleBigqueryTable#enum_as_string}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a80e45df433f5a95b4103694f0064452da3152f728ba9b6eab20e711eb31afc5)
@@ -5384,7 +5384,7 @@ class GoogleBigqueryTableExternalDataConfigurationParquetOptions:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Indicates whether to use schema inference specifically for Parquet LIST logical type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#enable_list_inference GoogleBigqueryTable#enable_list_inference}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#enable_list_inference GoogleBigqueryTable#enable_list_inference}
         '''
         result = self._values.get("enable_list_inference")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -5395,7 +5395,7 @@ class GoogleBigqueryTableExternalDataConfigurationParquetOptions:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Indicates whether to infer Parquet ENUM logical type as STRING instead of BYTES by default.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#enum_as_string GoogleBigqueryTable#enum_as_string}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#enum_as_string GoogleBigqueryTable#enum_as_string}
         '''
         result = self._values.get("enum_as_string")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -5526,10 +5526,10 @@ class GoogleBigqueryTableMaterializedView:
         refresh_interval_ms: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param query: A query whose result is persisted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#query GoogleBigqueryTable#query}
-        :param allow_non_incremental_definition: Allow non incremental materialized view definition. The default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#allow_non_incremental_definition GoogleBigqueryTable#allow_non_incremental_definition}
-        :param enable_refresh: Specifies if BigQuery should automatically refresh materialized view when the base table is updated. The default is true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#enable_refresh GoogleBigqueryTable#enable_refresh}
-        :param refresh_interval_ms: Specifies maximum frequency at which this materialized view will be refreshed. The default is 1800000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#refresh_interval_ms GoogleBigqueryTable#refresh_interval_ms}
+        :param query: A query whose result is persisted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#query GoogleBigqueryTable#query}
+        :param allow_non_incremental_definition: Allow non incremental materialized view definition. The default value is false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#allow_non_incremental_definition GoogleBigqueryTable#allow_non_incremental_definition}
+        :param enable_refresh: Specifies if BigQuery should automatically refresh materialized view when the base table is updated. The default is true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#enable_refresh GoogleBigqueryTable#enable_refresh}
+        :param refresh_interval_ms: Specifies maximum frequency at which this materialized view will be refreshed. The default is 1800000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#refresh_interval_ms GoogleBigqueryTable#refresh_interval_ms}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__67c9007c097b1868a28cde3dcb6414c32a0dd5bde75bd8cb579b6f16f6952558)
@@ -5551,7 +5551,7 @@ class GoogleBigqueryTableMaterializedView:
     def query(self) -> builtins.str:
         '''A query whose result is persisted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#query GoogleBigqueryTable#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#query GoogleBigqueryTable#query}
         '''
         result = self._values.get("query")
         assert result is not None, "Required property 'query' is missing"
@@ -5563,7 +5563,7 @@ class GoogleBigqueryTableMaterializedView:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Allow non incremental materialized view definition. The default value is false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#allow_non_incremental_definition GoogleBigqueryTable#allow_non_incremental_definition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#allow_non_incremental_definition GoogleBigqueryTable#allow_non_incremental_definition}
         '''
         result = self._values.get("allow_non_incremental_definition")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -5574,7 +5574,7 @@ class GoogleBigqueryTableMaterializedView:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Specifies if BigQuery should automatically refresh materialized view when the base table is updated. The default is true.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#enable_refresh GoogleBigqueryTable#enable_refresh}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#enable_refresh GoogleBigqueryTable#enable_refresh}
         '''
         result = self._values.get("enable_refresh")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -5583,7 +5583,7 @@ class GoogleBigqueryTableMaterializedView:
     def refresh_interval_ms(self) -> typing.Optional[jsii.Number]:
         '''Specifies maximum frequency at which this materialized view will be refreshed. The default is 1800000.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#refresh_interval_ms GoogleBigqueryTable#refresh_interval_ms}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#refresh_interval_ms GoogleBigqueryTable#refresh_interval_ms}
         '''
         result = self._values.get("refresh_interval_ms")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5743,8 +5743,8 @@ class GoogleBigqueryTableRangePartitioning:
         range: typing.Union["GoogleBigqueryTableRangePartitioningRange", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param field: The field used to determine how to create a range-based partition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#field GoogleBigqueryTable#field}
-        :param range: range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#range GoogleBigqueryTable#range}
+        :param field: The field used to determine how to create a range-based partition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#field GoogleBigqueryTable#field}
+        :param range: range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#range GoogleBigqueryTable#range}
         '''
         if isinstance(range, dict):
             range = GoogleBigqueryTableRangePartitioningRange(**range)
@@ -5761,7 +5761,7 @@ class GoogleBigqueryTableRangePartitioning:
     def field(self) -> builtins.str:
         '''The field used to determine how to create a range-based partition.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#field GoogleBigqueryTable#field}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#field GoogleBigqueryTable#field}
         '''
         result = self._values.get("field")
         assert result is not None, "Required property 'field' is missing"
@@ -5771,7 +5771,7 @@ class GoogleBigqueryTableRangePartitioning:
     def range(self) -> "GoogleBigqueryTableRangePartitioningRange":
         '''range block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#range GoogleBigqueryTable#range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#range GoogleBigqueryTable#range}
         '''
         result = self._values.get("range")
         assert result is not None, "Required property 'range' is missing"
@@ -5818,9 +5818,9 @@ class GoogleBigqueryTableRangePartitioningOutputReference(
         start: jsii.Number,
     ) -> None:
         '''
-        :param end: End of the range partitioning, exclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#end GoogleBigqueryTable#end}
-        :param interval: The width of each range within the partition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#interval GoogleBigqueryTable#interval}
-        :param start: Start of the range partitioning, inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#start GoogleBigqueryTable#start}
+        :param end: End of the range partitioning, exclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#end GoogleBigqueryTable#end}
+        :param interval: The width of each range within the partition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#interval GoogleBigqueryTable#interval}
+        :param start: Start of the range partitioning, inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#start GoogleBigqueryTable#start}
         '''
         value = GoogleBigqueryTableRangePartitioningRange(
             end=end, interval=interval, start=start
@@ -5887,9 +5887,9 @@ class GoogleBigqueryTableRangePartitioningRange:
         start: jsii.Number,
     ) -> None:
         '''
-        :param end: End of the range partitioning, exclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#end GoogleBigqueryTable#end}
-        :param interval: The width of each range within the partition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#interval GoogleBigqueryTable#interval}
-        :param start: Start of the range partitioning, inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#start GoogleBigqueryTable#start}
+        :param end: End of the range partitioning, exclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#end GoogleBigqueryTable#end}
+        :param interval: The width of each range within the partition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#interval GoogleBigqueryTable#interval}
+        :param start: Start of the range partitioning, inclusive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#start GoogleBigqueryTable#start}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d750860c0abe8bd5c3c946f56ada1355e0e94088874e25c9b1c55ffcabf7f295)
@@ -5906,7 +5906,7 @@ class GoogleBigqueryTableRangePartitioningRange:
     def end(self) -> jsii.Number:
         '''End of the range partitioning, exclusive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#end GoogleBigqueryTable#end}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#end GoogleBigqueryTable#end}
         '''
         result = self._values.get("end")
         assert result is not None, "Required property 'end' is missing"
@@ -5916,7 +5916,7 @@ class GoogleBigqueryTableRangePartitioningRange:
     def interval(self) -> jsii.Number:
         '''The width of each range within the partition.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#interval GoogleBigqueryTable#interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#interval GoogleBigqueryTable#interval}
         '''
         result = self._values.get("interval")
         assert result is not None, "Required property 'interval' is missing"
@@ -5926,7 +5926,7 @@ class GoogleBigqueryTableRangePartitioningRange:
     def start(self) -> jsii.Number:
         '''Start of the range partitioning, inclusive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#start GoogleBigqueryTable#start}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#start GoogleBigqueryTable#start}
         '''
         result = self._values.get("start")
         assert result is not None, "Required property 'start' is missing"
@@ -6041,7 +6041,7 @@ class GoogleBigqueryTableRangePartitioningRangeOutputReference(
 class GoogleBigqueryTableSchemaForeignTypeInfo:
     def __init__(self, *, type_system: builtins.str) -> None:
         '''
-        :param type_system: Specifies the system which defines the foreign data type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#type_system GoogleBigqueryTable#type_system}
+        :param type_system: Specifies the system which defines the foreign data type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#type_system GoogleBigqueryTable#type_system}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b058d2049e6f6e5a0fbf54479ba5165730ac3523f5b0f954e14d1eb18244b740)
@@ -6054,7 +6054,7 @@ class GoogleBigqueryTableSchemaForeignTypeInfo:
     def type_system(self) -> builtins.str:
         '''Specifies the system which defines the foreign data type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#type_system GoogleBigqueryTable#type_system}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#type_system GoogleBigqueryTable#type_system}
         '''
         result = self._values.get("type_system")
         assert result is not None, "Required property 'type_system' is missing"
@@ -6140,8 +6140,8 @@ class GoogleBigqueryTableTableConstraints:
         primary_key: typing.Optional[typing.Union["GoogleBigqueryTableTableConstraintsPrimaryKey", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param foreign_keys: foreign_keys block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#foreign_keys GoogleBigqueryTable#foreign_keys}
-        :param primary_key: primary_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#primary_key GoogleBigqueryTable#primary_key}
+        :param foreign_keys: foreign_keys block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#foreign_keys GoogleBigqueryTable#foreign_keys}
+        :param primary_key: primary_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#primary_key GoogleBigqueryTable#primary_key}
         '''
         if isinstance(primary_key, dict):
             primary_key = GoogleBigqueryTableTableConstraintsPrimaryKey(**primary_key)
@@ -6161,7 +6161,7 @@ class GoogleBigqueryTableTableConstraints:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleBigqueryTableTableConstraintsForeignKeys"]]]:
         '''foreign_keys block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#foreign_keys GoogleBigqueryTable#foreign_keys}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#foreign_keys GoogleBigqueryTable#foreign_keys}
         '''
         result = self._values.get("foreign_keys")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleBigqueryTableTableConstraintsForeignKeys"]]], result)
@@ -6172,7 +6172,7 @@ class GoogleBigqueryTableTableConstraints:
     ) -> typing.Optional["GoogleBigqueryTableTableConstraintsPrimaryKey"]:
         '''primary_key block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#primary_key GoogleBigqueryTable#primary_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#primary_key GoogleBigqueryTable#primary_key}
         '''
         result = self._values.get("primary_key")
         return typing.cast(typing.Optional["GoogleBigqueryTableTableConstraintsPrimaryKey"], result)
@@ -6207,9 +6207,9 @@ class GoogleBigqueryTableTableConstraintsForeignKeys:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param column_references: column_references block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#column_references GoogleBigqueryTable#column_references}
-        :param referenced_table: referenced_table block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#referenced_table GoogleBigqueryTable#referenced_table}
-        :param name: Set only if the foreign key constraint is named. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#name GoogleBigqueryTable#name}
+        :param column_references: column_references block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#column_references GoogleBigqueryTable#column_references}
+        :param referenced_table: referenced_table block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#referenced_table GoogleBigqueryTable#referenced_table}
+        :param name: Set only if the foreign key constraint is named. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#name GoogleBigqueryTable#name}
         '''
         if isinstance(column_references, dict):
             column_references = GoogleBigqueryTableTableConstraintsForeignKeysColumnReferences(**column_references)
@@ -6233,7 +6233,7 @@ class GoogleBigqueryTableTableConstraintsForeignKeys:
     ) -> "GoogleBigqueryTableTableConstraintsForeignKeysColumnReferences":
         '''column_references block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#column_references GoogleBigqueryTable#column_references}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#column_references GoogleBigqueryTable#column_references}
         '''
         result = self._values.get("column_references")
         assert result is not None, "Required property 'column_references' is missing"
@@ -6245,7 +6245,7 @@ class GoogleBigqueryTableTableConstraintsForeignKeys:
     ) -> "GoogleBigqueryTableTableConstraintsForeignKeysReferencedTable":
         '''referenced_table block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#referenced_table GoogleBigqueryTable#referenced_table}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#referenced_table GoogleBigqueryTable#referenced_table}
         '''
         result = self._values.get("referenced_table")
         assert result is not None, "Required property 'referenced_table' is missing"
@@ -6255,7 +6255,7 @@ class GoogleBigqueryTableTableConstraintsForeignKeys:
     def name(self) -> typing.Optional[builtins.str]:
         '''Set only if the foreign key constraint is named.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#name GoogleBigqueryTable#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#name GoogleBigqueryTable#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6288,8 +6288,8 @@ class GoogleBigqueryTableTableConstraintsForeignKeysColumnReferences:
         referencing_column: builtins.str,
     ) -> None:
         '''
-        :param referenced_column: The column in the primary key that are referenced by the referencingColumn. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#referenced_column GoogleBigqueryTable#referenced_column}
-        :param referencing_column: The column that composes the foreign key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#referencing_column GoogleBigqueryTable#referencing_column}
+        :param referenced_column: The column in the primary key that are referenced by the referencingColumn. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#referenced_column GoogleBigqueryTable#referenced_column}
+        :param referencing_column: The column that composes the foreign key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#referencing_column GoogleBigqueryTable#referencing_column}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__24d1b7a0ae52e500449afb4993b7e95bf0b9f1cf57b2bfb14c1f75503293f2e0)
@@ -6304,7 +6304,7 @@ class GoogleBigqueryTableTableConstraintsForeignKeysColumnReferences:
     def referenced_column(self) -> builtins.str:
         '''The column in the primary key that are referenced by the referencingColumn.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#referenced_column GoogleBigqueryTable#referenced_column}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#referenced_column GoogleBigqueryTable#referenced_column}
         '''
         result = self._values.get("referenced_column")
         assert result is not None, "Required property 'referenced_column' is missing"
@@ -6314,7 +6314,7 @@ class GoogleBigqueryTableTableConstraintsForeignKeysColumnReferences:
     def referencing_column(self) -> builtins.str:
         '''The column that composes the foreign key.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#referencing_column GoogleBigqueryTable#referencing_column}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#referencing_column GoogleBigqueryTable#referencing_column}
         '''
         result = self._values.get("referencing_column")
         assert result is not None, "Required property 'referencing_column' is missing"
@@ -6531,8 +6531,8 @@ class GoogleBigqueryTableTableConstraintsForeignKeysOutputReference(
         referencing_column: builtins.str,
     ) -> None:
         '''
-        :param referenced_column: The column in the primary key that are referenced by the referencingColumn. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#referenced_column GoogleBigqueryTable#referenced_column}
-        :param referencing_column: The column that composes the foreign key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#referencing_column GoogleBigqueryTable#referencing_column}
+        :param referenced_column: The column in the primary key that are referenced by the referencingColumn. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#referenced_column GoogleBigqueryTable#referenced_column}
+        :param referencing_column: The column that composes the foreign key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#referencing_column GoogleBigqueryTable#referencing_column}
         '''
         value = GoogleBigqueryTableTableConstraintsForeignKeysColumnReferences(
             referenced_column=referenced_column, referencing_column=referencing_column
@@ -6549,9 +6549,9 @@ class GoogleBigqueryTableTableConstraintsForeignKeysOutputReference(
         table_id: builtins.str,
     ) -> None:
         '''
-        :param dataset_id: The ID of the dataset containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#dataset_id GoogleBigqueryTable#dataset_id}
-        :param project_id: The ID of the project containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#project_id GoogleBigqueryTable#project_id}
-        :param table_id: The ID of the table. The ID must contain only letters (a-z, A-Z), numbers (0-9), or underscores (_). The maximum length is 1,024 characters. Certain operations allow suffixing of the table ID with a partition decorator, such as sample_table$20190123. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#table_id GoogleBigqueryTable#table_id}
+        :param dataset_id: The ID of the dataset containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#dataset_id GoogleBigqueryTable#dataset_id}
+        :param project_id: The ID of the project containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#project_id GoogleBigqueryTable#project_id}
+        :param table_id: The ID of the table. The ID must contain only letters (a-z, A-Z), numbers (0-9), or underscores (_). The maximum length is 1,024 characters. Certain operations allow suffixing of the table ID with a partition decorator, such as sample_table$20190123. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#table_id GoogleBigqueryTable#table_id}
         '''
         value = GoogleBigqueryTableTableConstraintsForeignKeysReferencedTable(
             dataset_id=dataset_id, project_id=project_id, table_id=table_id
@@ -6644,9 +6644,9 @@ class GoogleBigqueryTableTableConstraintsForeignKeysReferencedTable:
         table_id: builtins.str,
     ) -> None:
         '''
-        :param dataset_id: The ID of the dataset containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#dataset_id GoogleBigqueryTable#dataset_id}
-        :param project_id: The ID of the project containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#project_id GoogleBigqueryTable#project_id}
-        :param table_id: The ID of the table. The ID must contain only letters (a-z, A-Z), numbers (0-9), or underscores (_). The maximum length is 1,024 characters. Certain operations allow suffixing of the table ID with a partition decorator, such as sample_table$20190123. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#table_id GoogleBigqueryTable#table_id}
+        :param dataset_id: The ID of the dataset containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#dataset_id GoogleBigqueryTable#dataset_id}
+        :param project_id: The ID of the project containing this table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#project_id GoogleBigqueryTable#project_id}
+        :param table_id: The ID of the table. The ID must contain only letters (a-z, A-Z), numbers (0-9), or underscores (_). The maximum length is 1,024 characters. Certain operations allow suffixing of the table ID with a partition decorator, such as sample_table$20190123. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#table_id GoogleBigqueryTable#table_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dabaa08d6b9445ed09c1fe2122a795b3df4b32db90ef82f20ba5260070a81b0b)
@@ -6663,7 +6663,7 @@ class GoogleBigqueryTableTableConstraintsForeignKeysReferencedTable:
     def dataset_id(self) -> builtins.str:
         '''The ID of the dataset containing this table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#dataset_id GoogleBigqueryTable#dataset_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#dataset_id GoogleBigqueryTable#dataset_id}
         '''
         result = self._values.get("dataset_id")
         assert result is not None, "Required property 'dataset_id' is missing"
@@ -6673,7 +6673,7 @@ class GoogleBigqueryTableTableConstraintsForeignKeysReferencedTable:
     def project_id(self) -> builtins.str:
         '''The ID of the project containing this table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#project_id GoogleBigqueryTable#project_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#project_id GoogleBigqueryTable#project_id}
         '''
         result = self._values.get("project_id")
         assert result is not None, "Required property 'project_id' is missing"
@@ -6685,7 +6685,7 @@ class GoogleBigqueryTableTableConstraintsForeignKeysReferencedTable:
 
         The ID must contain only letters (a-z, A-Z), numbers (0-9), or underscores (_). The maximum length is 1,024 characters. Certain operations allow suffixing of the table ID with a partition decorator, such as sample_table$20190123.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#table_id GoogleBigqueryTable#table_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#table_id GoogleBigqueryTable#table_id}
         '''
         result = self._values.get("table_id")
         assert result is not None, "Required property 'table_id' is missing"
@@ -6828,7 +6828,7 @@ class GoogleBigqueryTableTableConstraintsOutputReference(
     @jsii.member(jsii_name="putPrimaryKey")
     def put_primary_key(self, *, columns: typing.Sequence[builtins.str]) -> None:
         '''
-        :param columns: The columns that are composed of the primary key constraint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#columns GoogleBigqueryTable#columns}
+        :param columns: The columns that are composed of the primary key constraint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#columns GoogleBigqueryTable#columns}
         '''
         value = GoogleBigqueryTableTableConstraintsPrimaryKey(columns=columns)
 
@@ -6892,7 +6892,7 @@ class GoogleBigqueryTableTableConstraintsOutputReference(
 class GoogleBigqueryTableTableConstraintsPrimaryKey:
     def __init__(self, *, columns: typing.Sequence[builtins.str]) -> None:
         '''
-        :param columns: The columns that are composed of the primary key constraint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#columns GoogleBigqueryTable#columns}
+        :param columns: The columns that are composed of the primary key constraint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#columns GoogleBigqueryTable#columns}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c9b8a7927e0f726a7e13ed2d5ea330114e2b8f308e2ccbda7565681b99dbf0df)
@@ -6905,7 +6905,7 @@ class GoogleBigqueryTableTableConstraintsPrimaryKey:
     def columns(self) -> typing.List[builtins.str]:
         '''The columns that are composed of the primary key constraint.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#columns GoogleBigqueryTable#columns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#columns GoogleBigqueryTable#columns}
         '''
         result = self._values.get("columns")
         assert result is not None, "Required property 'columns' is missing"
@@ -6998,10 +6998,10 @@ class GoogleBigqueryTableTableReplicationInfo:
         replication_interval_ms: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param source_dataset_id: The ID of the source dataset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#source_dataset_id GoogleBigqueryTable#source_dataset_id}
-        :param source_project_id: The ID of the source project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#source_project_id GoogleBigqueryTable#source_project_id}
-        :param source_table_id: The ID of the source materialized view. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#source_table_id GoogleBigqueryTable#source_table_id}
-        :param replication_interval_ms: The interval at which the source materialized view is polled for updates. The default is 300000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#replication_interval_ms GoogleBigqueryTable#replication_interval_ms}
+        :param source_dataset_id: The ID of the source dataset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#source_dataset_id GoogleBigqueryTable#source_dataset_id}
+        :param source_project_id: The ID of the source project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#source_project_id GoogleBigqueryTable#source_project_id}
+        :param source_table_id: The ID of the source materialized view. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#source_table_id GoogleBigqueryTable#source_table_id}
+        :param replication_interval_ms: The interval at which the source materialized view is polled for updates. The default is 300000. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#replication_interval_ms GoogleBigqueryTable#replication_interval_ms}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__84bd36017a02b353fb1b062d8d8470796dbae88096175f677b97b6cfc54e9498)
@@ -7021,7 +7021,7 @@ class GoogleBigqueryTableTableReplicationInfo:
     def source_dataset_id(self) -> builtins.str:
         '''The ID of the source dataset.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#source_dataset_id GoogleBigqueryTable#source_dataset_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#source_dataset_id GoogleBigqueryTable#source_dataset_id}
         '''
         result = self._values.get("source_dataset_id")
         assert result is not None, "Required property 'source_dataset_id' is missing"
@@ -7031,7 +7031,7 @@ class GoogleBigqueryTableTableReplicationInfo:
     def source_project_id(self) -> builtins.str:
         '''The ID of the source project.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#source_project_id GoogleBigqueryTable#source_project_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#source_project_id GoogleBigqueryTable#source_project_id}
         '''
         result = self._values.get("source_project_id")
         assert result is not None, "Required property 'source_project_id' is missing"
@@ -7041,7 +7041,7 @@ class GoogleBigqueryTableTableReplicationInfo:
     def source_table_id(self) -> builtins.str:
         '''The ID of the source materialized view.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#source_table_id GoogleBigqueryTable#source_table_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#source_table_id GoogleBigqueryTable#source_table_id}
         '''
         result = self._values.get("source_table_id")
         assert result is not None, "Required property 'source_table_id' is missing"
@@ -7051,7 +7051,7 @@ class GoogleBigqueryTableTableReplicationInfo:
     def replication_interval_ms(self) -> typing.Optional[jsii.Number]:
         '''The interval at which the source materialized view is polled for updates. The default is 300000.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#replication_interval_ms GoogleBigqueryTable#replication_interval_ms}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#replication_interval_ms GoogleBigqueryTable#replication_interval_ms}
         '''
         result = self._values.get("replication_interval_ms")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -7198,10 +7198,10 @@ class GoogleBigqueryTableTimePartitioning:
         require_partition_filter: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param type: The supported types are DAY, HOUR, MONTH, and YEAR, which will generate one partition per day, hour, month, and year, respectively. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#type GoogleBigqueryTable#type}
-        :param expiration_ms: Number of milliseconds for which to keep the storage for a partition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#expiration_ms GoogleBigqueryTable#expiration_ms}
-        :param field: The field used to determine how to create a time-based partition. If time-based partitioning is enabled without this value, the table is partitioned based on the load time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#field GoogleBigqueryTable#field}
-        :param require_partition_filter: If set to true, queries over this table require a partition filter that can be used for partition elimination to be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#require_partition_filter GoogleBigqueryTable#require_partition_filter}
+        :param type: The supported types are DAY, HOUR, MONTH, and YEAR, which will generate one partition per day, hour, month, and year, respectively. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#type GoogleBigqueryTable#type}
+        :param expiration_ms: Number of milliseconds for which to keep the storage for a partition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#expiration_ms GoogleBigqueryTable#expiration_ms}
+        :param field: The field used to determine how to create a time-based partition. If time-based partitioning is enabled without this value, the table is partitioned based on the load time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#field GoogleBigqueryTable#field}
+        :param require_partition_filter: If set to true, queries over this table require a partition filter that can be used for partition elimination to be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#require_partition_filter GoogleBigqueryTable#require_partition_filter}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1df0ab0e8806c224128b1c51c326d81d95cd4271fa5aceff72cec126fb7e4ee2)
@@ -7223,7 +7223,7 @@ class GoogleBigqueryTableTimePartitioning:
     def type(self) -> builtins.str:
         '''The supported types are DAY, HOUR, MONTH, and YEAR, which will generate one partition per day, hour, month, and year, respectively.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#type GoogleBigqueryTable#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#type GoogleBigqueryTable#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -7233,7 +7233,7 @@ class GoogleBigqueryTableTimePartitioning:
     def expiration_ms(self) -> typing.Optional[jsii.Number]:
         '''Number of milliseconds for which to keep the storage for a partition.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#expiration_ms GoogleBigqueryTable#expiration_ms}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#expiration_ms GoogleBigqueryTable#expiration_ms}
         '''
         result = self._values.get("expiration_ms")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -7244,7 +7244,7 @@ class GoogleBigqueryTableTimePartitioning:
 
         If time-based partitioning is enabled without this value, the table is partitioned based on the load time.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#field GoogleBigqueryTable#field}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#field GoogleBigqueryTable#field}
         '''
         result = self._values.get("field")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7255,7 +7255,7 @@ class GoogleBigqueryTableTimePartitioning:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If set to true, queries over this table require a partition filter that can be used for partition elimination to be specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#require_partition_filter GoogleBigqueryTable#require_partition_filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#require_partition_filter GoogleBigqueryTable#require_partition_filter}
         '''
         result = self._values.get("require_partition_filter")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -7408,8 +7408,8 @@ class GoogleBigqueryTableView:
         use_legacy_sql: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param query: A query that BigQuery executes when the view is referenced. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#query GoogleBigqueryTable#query}
-        :param use_legacy_sql: Specifies whether to use BigQuery's legacy SQL for this view. The default value is true. If set to false, the view will use BigQuery's standard SQL Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#use_legacy_sql GoogleBigqueryTable#use_legacy_sql}
+        :param query: A query that BigQuery executes when the view is referenced. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#query GoogleBigqueryTable#query}
+        :param use_legacy_sql: Specifies whether to use BigQuery's legacy SQL for this view. The default value is true. If set to false, the view will use BigQuery's standard SQL Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#use_legacy_sql GoogleBigqueryTable#use_legacy_sql}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1705b8378ab7fd3fd81f26efcd434d2da641203732353a1873ef4ffb48f595cc)
@@ -7425,7 +7425,7 @@ class GoogleBigqueryTableView:
     def query(self) -> builtins.str:
         '''A query that BigQuery executes when the view is referenced.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#query GoogleBigqueryTable#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#query GoogleBigqueryTable#query}
         '''
         result = self._values.get("query")
         assert result is not None, "Required property 'query' is missing"
@@ -7439,7 +7439,7 @@ class GoogleBigqueryTableView:
 
         The default value is true. If set to false, the view will use BigQuery's standard SQL
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_bigquery_table#use_legacy_sql GoogleBigqueryTable#use_legacy_sql}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_bigquery_table#use_legacy_sql GoogleBigqueryTable#use_legacy_sql}
         '''
         result = self._values.get("use_legacy_sql")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)

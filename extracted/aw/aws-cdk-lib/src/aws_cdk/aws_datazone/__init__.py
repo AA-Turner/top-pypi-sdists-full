@@ -9898,7 +9898,8 @@ class CfnProjectProfile(
                         is_editable=False,
                         name="name",
                         value="value"
-                    )]
+                    )],
+                    ssm_path="ssmPath"
                 ),
                 deployment_mode="deploymentMode",
                 deployment_order=123,
@@ -10262,6 +10263,7 @@ class CfnProjectProfile(
         name_mapping={
             "parameter_overrides": "parameterOverrides",
             "resolved_parameters": "resolvedParameters",
+            "ssm_path": "ssmPath",
         },
     )
     class EnvironmentConfigurationParametersDetailsProperty:
@@ -10270,10 +10272,12 @@ class CfnProjectProfile(
             *,
             parameter_overrides: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnProjectProfile.EnvironmentConfigurationParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             resolved_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnProjectProfile.EnvironmentConfigurationParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            ssm_path: typing.Optional[builtins.str] = None,
         ) -> None:
             '''
             :param parameter_overrides: 
             :param resolved_parameters: 
+            :param ssm_path: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-projectprofile-environmentconfigurationparametersdetails.html
             :exampleMetadata: fixture=_generated
@@ -10294,18 +10298,22 @@ class CfnProjectProfile(
                         is_editable=False,
                         name="name",
                         value="value"
-                    )]
+                    )],
+                    ssm_path="ssmPath"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__fab90e5736f5e6f3ffb1d2c481eba6fcd8f1f870000719d3c6a3852737b46e0b)
                 check_type(argname="argument parameter_overrides", value=parameter_overrides, expected_type=type_hints["parameter_overrides"])
                 check_type(argname="argument resolved_parameters", value=resolved_parameters, expected_type=type_hints["resolved_parameters"])
+                check_type(argname="argument ssm_path", value=ssm_path, expected_type=type_hints["ssm_path"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if parameter_overrides is not None:
                 self._values["parameter_overrides"] = parameter_overrides
             if resolved_parameters is not None:
                 self._values["resolved_parameters"] = resolved_parameters
+            if ssm_path is not None:
+                self._values["ssm_path"] = ssm_path
 
         @builtins.property
         def parameter_overrides(
@@ -10326,6 +10334,14 @@ class CfnProjectProfile(
             '''
             result = self._values.get("resolved_parameters")
             return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnProjectProfile.EnvironmentConfigurationParameterProperty"]]]], result)
+
+        @builtins.property
+        def ssm_path(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-projectprofile-environmentconfigurationparametersdetails.html#cfn-datazone-projectprofile-environmentconfigurationparametersdetails-ssmpath
+            '''
+            result = self._values.get("ssm_path")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -10408,7 +10424,8 @@ class CfnProjectProfile(
                             is_editable=False,
                             name="name",
                             value="value"
-                        )]
+                        )],
+                        ssm_path="ssmPath"
                     ),
                     deployment_mode="deploymentMode",
                     deployment_order=123,
@@ -10657,7 +10674,8 @@ class CfnProjectProfileProps:
                             is_editable=False,
                             name="name",
                             value="value"
-                        )]
+                        )],
+                        ssm_path="ssmPath"
                     ),
                     deployment_mode="deploymentMode",
                     deployment_order=123,
@@ -13528,6 +13546,7 @@ def _typecheckingstub__fab90e5736f5e6f3ffb1d2c481eba6fcd8f1f870000719d3c6a385273
     *,
     parameter_overrides: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProjectProfile.EnvironmentConfigurationParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     resolved_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProjectProfile.EnvironmentConfigurationParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ssm_path: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

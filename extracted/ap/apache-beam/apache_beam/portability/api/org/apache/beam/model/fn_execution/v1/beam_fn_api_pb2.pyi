@@ -1487,6 +1487,19 @@ class Elements(google.protobuf.message.Message):
         def ClearField(self, field_name: typing_extensions.Literal["data", b"data", "instruction_id", b"instruction_id", "is_last", b"is_last", "transform_id", b"transform_id"]) -> None: ...
 
     @typing_extensions.final
+    class ElementMetadata(google.protobuf.message.Message):
+        """Element metadata passed as part of WindowedValue to make WindowedValue
+        extensible and backward compatible
+        empty message - add drain, kind, tracing metadata in the future
+        """
+
+        DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+        def __init__(
+            self,
+        ) -> None: ...
+
+    @typing_extensions.final
     class Timers(google.protobuf.message.Message):
         """Represent the encoded user timer for a given instruction, transform and
         timer id.

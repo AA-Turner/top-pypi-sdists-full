@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-protos
-Version: 1.0.330
+Version: 1.0.335
 Summary: Public proto bindings for dbt
 Home-page: https://github.com/dbt-labs/proto-python-public
 Author: dbt Labs, Inc.

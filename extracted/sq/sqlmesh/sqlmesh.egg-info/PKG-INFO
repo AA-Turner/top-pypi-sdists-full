@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlmesh
-Version: 0.197.0
+Version: 0.198.0
 Summary: Next-generation data transformation framework
 Author-email: "TobikoData Inc." <engineering@tobikodata.com>
 License:                                  Apache License
@@ -234,7 +234,7 @@ Requires-Dist: python-dotenv
 Requires-Dist: requests
 Requires-Dist: rich[jupyter]
 Requires-Dist: ruamel.yaml
-Requires-Dist: sqlglot[rs]~=26.31.0
+Requires-Dist: sqlglot[rs]~=26.33.0
 Requires-Dist: tenacity
 Requires-Dist: time-machine
 Requires-Dist: json-stream
@@ -267,7 +267,6 @@ Requires-Dist: dbt-athena-community; extra == "dev"
 Requires-Dist: dbt-clickhouse; extra == "dev"
 Requires-Dist: dbt-databricks; extra == "dev"
 Requires-Dist: dbt-redshift; extra == "dev"
-Requires-Dist: dbt-sqlserver>=1.7.0; python_version < "3.13" and extra == "dev"
 Requires-Dist: dbt-trino; extra == "dev"
 Requires-Dist: Faker; extra == "dev"
 Requires-Dist: google-auth; extra == "dev"
@@ -315,6 +314,7 @@ Provides-Extra: llm
 Requires-Dist: langchain; extra == "llm"
 Requires-Dist: openai; extra == "llm"
 Provides-Extra: motherduck
+Requires-Dist: duckdb>=1.2.0; extra == "motherduck"
 Provides-Extra: mssql
 Requires-Dist: pymssql; extra == "mssql"
 Provides-Extra: mssql-odbc

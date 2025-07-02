@@ -4,17 +4,18 @@ from __future__ import annotations
 
 import collections
 import contextlib
-import importlib.metadata
 import os
 import signal
+import socket
 import subprocess
 from collections.abc import Callable, Generator, Sequence
 from concurrent import futures
+from contextlib import closing
 from pathlib import Path
 from typing import Any, Literal, overload
 
 import click
-import psutil
+import rich.markup
 from redis.exceptions import RedisError
 from rich.progress import Progress
 
@@ -52,29 +53,6 @@ def get_num_workers() -> int:
     return (os.cpu_count() or 1) * 2 + 1
 
 
-def get_process_on_port(port: int) -> psutil.Process | None:
-    """Get the process on the given port.
-
-    Args:
-        port: The port.
-
-    Returns:
-        The process on the given port.
-    """
-    for proc in psutil.process_iter(["pid", "name", "cmdline"]):
-        with contextlib.suppress(
-            psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess
-        ):
-            if importlib.metadata.version("psutil") >= "6.0.0":
-                conns = proc.net_connections(kind="inet")
-            else:
-                conns = proc.connections(kind="inet")
-            for conn in conns:
-                if conn.laddr.port == int(port):
-                    return proc
-    return None
-
-
 def is_process_on_port(port: int) -> bool:
     """Check if a process is running on the given port.
 
@@ -84,18 +62,16 @@ def is_process_on_port(port: int) -> bool:
     Returns:
         Whether a process is running on the given port.
     """
-    return get_process_on_port(port) is not None
+    # Test IPv4 localhost (127.0.0.1)
+    with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as sock:
+        ipv4_result = sock.connect_ex(("127.0.0.1", port)) == 0
 
+    # Test IPv6 localhost (::1)
+    with closing(socket.socket(socket.AF_INET6, socket.SOCK_STREAM)) as sock:
+        ipv6_result = sock.connect_ex(("::1", port)) == 0
 
-def kill_process_on_port(port: int):
-    """Kill the process on the given port.
-
-    Args:
-        port: The port.
-    """
-    if get_process_on_port(port) is not None:
-        with contextlib.suppress(psutil.AccessDenied):
-            get_process_on_port(port).kill()  # pyright: ignore [reportOptionalMemberAccess]
+    # Port is in use if either IPv4 or IPv6 is listening
+    return ipv4_result or ipv6_result
 
 
 def change_port(port: int, _type: str) -> int:
@@ -133,13 +109,13 @@ def handle_port(service_name: str, port: int, auto_increment: bool) -> int:
     Raises:
         Exit:when the port is in use.
     """
-    if (process := get_process_on_port(port)) is None:
+    console.debug(f"Checking if {service_name.capitalize()} port: {port} is in use.")
+    if not is_process_on_port(port):
+        console.debug(f"{service_name.capitalize()} port: {port} is not in use.")
         return port
     if auto_increment:
         return change_port(port, service_name)
-    console.error(
-        f"{service_name.capitalize()} port: {port} is already in use by PID: {process.pid}."
-    )
+    console.error(f"{service_name.capitalize()} port: {port} is already in use.")
     raise click.exceptions.Exit
 
 
@@ -306,7 +282,7 @@ def stream_logs(
             return
         try:
             for line in process.stdout:
-                console.debug(line, end="", progress=progress)
+                console.debug(rich.markup.escape(line), end="", progress=progress)
                 logs.append(line)
                 yield line
         except ValueError:
@@ -320,7 +296,8 @@ def stream_logs(
 
     # Windows uvicorn bug
     # https://github.com/reflex-dev/reflex/issues/2335
-    accepted_return_codes = [0, -2, 15] if constants.IS_WINDOWS else [0, -2]
+    # 130 is the exit code that react router returns when it is interrupted by a signal.
+    accepted_return_codes = [0, -2, 15, 130] if constants.IS_WINDOWS else [0, -2, 130]
     if process.returncode not in accepted_return_codes and not suppress_errors:
         console.error(f"{message} failed with exit code {process.returncode}")
         if "".join(logs).count("CERT_HAS_EXPIRED") > 0:
@@ -412,12 +389,12 @@ def show_progress(message: str, process: subprocess.Popen, checkpoints: list[str
         task = progress.add_task(f"{message}: ", total=len(checkpoints))
         for line in stream_logs(message, process, progress=progress):
             # Check for special strings and update the progress bar.
-            for special_string in checkpoints:
-                if special_string in line:
-                    progress.update(task, advance=1)
-                    if special_string == checkpoints[-1]:
-                        progress.update(task, completed=len(checkpoints))
-                    break
+            special_string = checkpoints[0]
+            if special_string in line:
+                progress.update(task, advance=1)
+                checkpoints.pop(0)
+            if not checkpoints:
+                break
 
 
 def atexit_handler():

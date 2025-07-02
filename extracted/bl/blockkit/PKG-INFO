@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: blockkit
-Version: 2.0.3
+Version: 2.0.4
 Summary: A fast way to build Block Kit interfaces in Python
 Project-URL: Homepage, https://github.com/imryche/blockkit
 Project-URL: Issues, https://github.com/imryche/blockkit/issues
@@ -18,7 +18,7 @@ Description-Content-Type: text/markdown
   </picture>
 </p>
 
-![Build status](https://github.com/imryche/blockkit/actions/workflows/python-app.yml/badge.svg)
+![Build status](https://github.com/imryche/blockkit/actions/workflows/ci.yml/badge.svg)
 [![PyPI version](https://badge.fury.io/py/blockkit.svg)](https://badge.fury.io/py/blockkit)
 [![Downloads](https://static.pepy.tech/badge/blockkit)](https://pepy.tech/project/blockkit)
 

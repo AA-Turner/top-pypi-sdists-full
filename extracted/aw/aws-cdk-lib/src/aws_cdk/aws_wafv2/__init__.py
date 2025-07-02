@@ -2780,9 +2780,12 @@ class CfnRuleGroup(
             asn_list: typing.Optional[typing.Union[typing.Sequence[jsii.Number], _IResolvable_da3f097b]] = None,
             forwarded_ip_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.ForwardedIPConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
-            '''
-            :param asn_list: 
-            :param forwarded_ip_config: 
+            '''A rule statement that inspects web traffic based on the Autonomous System Number (ASN) associated with the request's IP address.
+
+            For additional details, see `ASN match rule statement <https://docs.aws.amazon.com/waf/latest/developerguide/waf-rule-statement-type-asn-match.html>`_ in the `AWS WAF Developer Guide <https://docs.aws.amazon.com/waf/latest/developerguide/waf-chapter.html>`_ .
+
+            :param asn_list: Contains one or more Autonomous System Numbers (ASNs). ASNs are unique identifiers assigned to large internet networks managed by organizations such as internet service providers, enterprises, universities, or government agencies.
+            :param forwarded_ip_config: The configuration for inspecting IP addresses to match against an ASN in an HTTP header that you specify, instead of using the IP address that's reported by the web request origin. Commonly, this is the X-Forwarded-For (XFF) header, but you can specify any header name.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-asnmatchstatement.html
             :exampleMetadata: fixture=_generated
@@ -2815,7 +2818,10 @@ class CfnRuleGroup(
         def asn_list(
             self,
         ) -> typing.Optional[typing.Union[typing.List[jsii.Number], _IResolvable_da3f097b]]:
-            '''
+            '''Contains one or more Autonomous System Numbers (ASNs).
+
+            ASNs are unique identifiers assigned to large internet networks managed by organizations such as internet service providers, enterprises, universities, or government agencies.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-asnmatchstatement.html#cfn-wafv2-rulegroup-asnmatchstatement-asnlist
             '''
             result = self._values.get("asn_list")
@@ -2825,7 +2831,10 @@ class CfnRuleGroup(
         def forwarded_ip_config(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.ForwardedIPConfigurationProperty"]]:
-            '''
+            '''The configuration for inspecting IP addresses to match against an ASN in an HTTP header that you specify, instead of using the IP address that's reported by the web request origin.
+
+            Commonly, this is the X-Forwarded-For (XFF) header, but you can specify any header name.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-asnmatchstatement.html#cfn-wafv2-rulegroup-asnmatchstatement-forwardedipconfig
             '''
             result = self._values.get("forwarded_ip_config")
@@ -6742,7 +6751,7 @@ class CfnRuleGroup(
 
                Web requests that are missing any of the components specified in the aggregation keys are omitted from the rate-based rule evaluation and handling.
 
-            :param asn: Specifies the request's ASN as an aggregate key for a rate-based rule.
+            :param asn: Use an Autonomous System Number (ASN) derived from the request's originating or forwarded IP address as an aggregate key. Each distinct ASN contributes to the aggregation instance.
             :param cookie: Use the value of a cookie in the request as an aggregate key. Each distinct value in the cookie contributes to the aggregation instance. If you use a single cookie as your custom key, then each value fully defines an aggregation instance.
             :param forwarded_ip: Use the first IP address in an HTTP header as an aggregate key. Each distinct forwarded IP address contributes to the aggregation instance. When you specify an IP or forwarded IP in the custom key settings, you must also specify at least one other key to use. You can aggregate on only the forwarded IP address by specifying ``FORWARDED_IP`` in your rate-based statement's ``AggregateKeyType`` . With this option, you must specify the header to use in the rate-based rule's ``ForwardedIPConfig`` property.
             :param header: Use the value of a header in the request as an aggregate key. Each distinct value in the header contributes to the aggregation instance. If you use a single header as your custom key, then each value fully defines an aggregation instance.
@@ -6860,7 +6869,9 @@ class CfnRuleGroup(
 
         @builtins.property
         def asn(self) -> typing.Any:
-            '''Specifies the request's ASN as an aggregate key for a rate-based rule.
+            '''Use an Autonomous System Number (ASN) derived from the request's originating or forwarded IP address as an aggregate key.
+
+            Each distinct ASN contributes to the aggregation instance.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-ratebasedstatementcustomkey.html#cfn-wafv2-rulegroup-ratebasedstatementcustomkey-asn
             '''
@@ -9897,7 +9908,7 @@ class CfnRuleGroup(
             '''The processing guidance for a rule, used by AWS WAF to determine whether a web request matches the rule.
 
             :param and_statement: A logical rule statement used to combine other rule statements with AND logic. You provide more than one ``Statement`` within the ``AndStatement`` .
-            :param asn_match_statement: 
+            :param asn_match_statement: A rule statement that inspects web traffic based on the Autonomous System Number (ASN) associated with the request's IP address. For additional details, see `ASN match rule statement <https://docs.aws.amazon.com/waf/latest/developerguide/waf-rule-statement-type-asn-match.html>`_ in the `AWS WAF Developer Guide <https://docs.aws.amazon.com/waf/latest/developerguide/waf-chapter.html>`_ .
             :param byte_match_statement: A rule statement that defines a string match search for AWS WAF to apply to web requests. The byte match statement provides the bytes to search for, the location in requests that you want AWS WAF to search, and other settings. The bytes to search for are typically a string that corresponds with ASCII characters. In the AWS WAF console and the developer guide, this is called a string match statement.
             :param geo_match_statement: A rule statement that labels web requests by country and region and that matches against web requests based on country code. A geo match rule labels every request that it inspects regardless of whether it finds a match. - To manage requests only by country, you can use this statement by itself and specify the countries that you want to match against in the ``CountryCodes`` array. - Otherwise, configure your geo match rule with Count action so that it only labels requests. Then, add one or more label match rules to run after the geo match rule and configure them to match against the geographic labels and handle the requests as needed. AWS WAF labels requests using the alpha-2 country and region codes from the International Organization for Standardization (ISO) 3166 standard. AWS WAF determines the codes using either the IP address in the web request origin or, if you specify it, the address in the geo match ``ForwardedIPConfig`` . If you use the web request origin, the label formats are ``awswaf:clientip:geo:region:<ISO country code>-<ISO region code>`` and ``awswaf:clientip:geo:country:<ISO country code>`` . If you use a forwarded IP address, the label formats are ``awswaf:forwardedip:geo:region:<ISO country code>-<ISO region code>`` and ``awswaf:forwardedip:geo:country:<ISO country code>`` . For additional details, see `Geographic match rule statement <https://docs.aws.amazon.com/waf/latest/developerguide/waf-rule-statement-type-geo-match.html>`_ in the `AWS WAF Developer Guide <https://docs.aws.amazon.com/waf/latest/developerguide/waf-chapter.html>`_ .
             :param ip_set_reference_statement: A rule statement used to detect web requests coming from particular IP addresses or address ranges. To use this, create an ``IPSet`` that specifies the addresses you want to detect, then use the ARN of that set in this statement. Each IP set rule statement references an IP set. You create and maintain the set independent of your rules. This allows you to use the single set in multiple rules. When you update the referenced set, AWS WAF automatically updates all rules that reference it.
@@ -10438,7 +10449,10 @@ class CfnRuleGroup(
         def asn_match_statement(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.AsnMatchStatementProperty"]]:
-            '''
+            '''A rule statement that inspects web traffic based on the Autonomous System Number (ASN) associated with the request's IP address.
+
+            For additional details, see `ASN match rule statement <https://docs.aws.amazon.com/waf/latest/developerguide/waf-rule-statement-type-asn-match.html>`_ in the `AWS WAF Developer Guide <https://docs.aws.amazon.com/waf/latest/developerguide/waf-chapter.html>`_ .
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-statement.html#cfn-wafv2-rulegroup-statement-asnmatchstatement
             '''
             result = self._values.get("asn_match_statement")
@@ -11337,7 +11351,7 @@ class CfnWebACL(
         data_protection_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.DataProtectionConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        on_source_d_do_s_protection_config: typing.Any = None,
+        on_source_d_do_s_protection_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.OnSourceDDoSProtectionConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.RuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
         token_domains: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -11635,12 +11649,17 @@ class CfnWebACL(
 
     @builtins.property
     @jsii.member(jsii_name="onSourceDDoSProtectionConfig")
-    def on_source_d_do_s_protection_config(self) -> typing.Any:
+    def on_source_d_do_s_protection_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.OnSourceDDoSProtectionConfigProperty"]]:
         '''Configures the level of DDoS protection that applies to web ACLs associated with Application Load Balancers.'''
-        return typing.cast(typing.Any, jsii.get(self, "onSourceDDoSProtectionConfig"))
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.OnSourceDDoSProtectionConfigProperty"]], jsii.get(self, "onSourceDDoSProtectionConfig"))
 
     @on_source_d_do_s_protection_config.setter
-    def on_source_d_do_s_protection_config(self, value: typing.Any) -> None:
+    def on_source_d_do_s_protection_config(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.OnSourceDDoSProtectionConfigProperty"]],
+    ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1180464a1661a74085b880efee37841284ce892adac9d3cda8cb5c117c625ba2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -12049,10 +12068,14 @@ class CfnWebACL(
             client_side_action_config: typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.ClientSideActionConfigProperty", typing.Dict[builtins.str, typing.Any]]],
             sensitivity_to_block: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''Configures how to use the AntiDDOS AWS managed rule group in the web ACL.
+            '''Configures the use of the anti-DDoS managed rule group, ``AWSManagedRulesAntiDDoSRuleSet`` . This configuration is used in ``ManagedRuleGroupConfig`` .
 
-            :param client_side_action_config: Client side action config for AntiDDOS AMR.
-            :param sensitivity_to_block: 
+            The configuration that you provide here determines whether and how the rules in the rule group are used.
+
+            For additional information about this and the other intelligent threat mitigation rule groups, see `Intelligent threat mitigation in AWS WAF <https://docs.aws.amazon.com/waf/latest/developerguide/waf-managed-protections>`_ and `AWS Managed Rules rule groups list <https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-list>`_ in the *AWS WAF Developer Guide* .
+
+            :param client_side_action_config: Configures the request handling that's applied by the managed rule group rules ``ChallengeAllDuringEvent`` and ``ChallengeDDoSRequests`` during a distributed denial of service (DDoS) attack.
+            :param sensitivity_to_block: The sensitivity that the rule group rule ``DDoSRequests`` uses when matching against the DDoS suspicion labeling on a request. The managed rule group adds the labeling during DDoS events, before the ``DDoSRequests`` rule runs. The higher the sensitivity, the more levels of labeling that the rule matches: - Low sensitivity is less sensitive, causing the rule to match only on the most likely participants in an attack, which are the requests with the high suspicion label ``awswaf:managed:aws:anti-ddos:high-suspicion-ddos-request`` . - Medium sensitivity causes the rule to match on the medium and high suspicion labels. - High sensitivity causes the rule to match on all of the suspicion labels: low, medium, and high. Default: ``LOW``
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-awsmanagedrulesantiddosruleset.html
             :exampleMetadata: fixture=_generated
@@ -12094,7 +12117,7 @@ class CfnWebACL(
         def client_side_action_config(
             self,
         ) -> typing.Union[_IResolvable_da3f097b, "CfnWebACL.ClientSideActionConfigProperty"]:
-            '''Client side action config for AntiDDOS AMR.
+            '''Configures the request handling that's applied by the managed rule group rules ``ChallengeAllDuringEvent`` and ``ChallengeDDoSRequests`` during a distributed denial of service (DDoS) attack.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-awsmanagedrulesantiddosruleset.html#cfn-wafv2-webacl-awsmanagedrulesantiddosruleset-clientsideactionconfig
             '''
@@ -12104,7 +12127,18 @@ class CfnWebACL(
 
         @builtins.property
         def sensitivity_to_block(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The sensitivity that the rule group rule ``DDoSRequests`` uses when matching against the DDoS suspicion labeling on a request.
+
+            The managed rule group adds the labeling during DDoS events, before the ``DDoSRequests`` rule runs.
+
+            The higher the sensitivity, the more levels of labeling that the rule matches:
+
+            - Low sensitivity is less sensitive, causing the rule to match only on the most likely participants in an attack, which are the requests with the high suspicion label ``awswaf:managed:aws:anti-ddos:high-suspicion-ddos-request`` .
+            - Medium sensitivity causes the rule to match on the medium and high suspicion labels.
+            - High sensitivity causes the rule to match on all of the suspicion labels: low, medium, and high.
+
+            Default: ``LOW``
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-awsmanagedrulesantiddosruleset.html#cfn-wafv2-webacl-awsmanagedrulesantiddosruleset-sensitivitytoblock
             '''
             result = self._values.get("sensitivity_to_block")
@@ -12349,9 +12383,12 @@ class CfnWebACL(
             asn_list: typing.Optional[typing.Union[typing.Sequence[jsii.Number], _IResolvable_da3f097b]] = None,
             forwarded_ip_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.ForwardedIPConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
-            '''
-            :param asn_list: 
-            :param forwarded_ip_config: 
+            '''A rule statement that inspects web traffic based on the Autonomous System Number (ASN) associated with the request's IP address.
+
+            For additional details, see `ASN match rule statement <https://docs.aws.amazon.com/waf/latest/developerguide/waf-rule-statement-type-asn-match.html>`_ in the `AWS WAF Developer Guide <https://docs.aws.amazon.com/waf/latest/developerguide/waf-chapter.html>`_ .
+
+            :param asn_list: Contains one or more Autonomous System Numbers (ASNs). ASNs are unique identifiers assigned to large internet networks managed by organizations such as internet service providers, enterprises, universities, or government agencies.
+            :param forwarded_ip_config: The configuration for inspecting IP addresses to match against an ASN in an HTTP header that you specify, instead of using the IP address that's reported by the web request origin. Commonly, this is the X-Forwarded-For (XFF) header, but you can specify any header name.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-asnmatchstatement.html
             :exampleMetadata: fixture=_generated
@@ -12384,7 +12421,10 @@ class CfnWebACL(
         def asn_list(
             self,
         ) -> typing.Optional[typing.Union[typing.List[jsii.Number], _IResolvable_da3f097b]]:
-            '''
+            '''Contains one or more Autonomous System Numbers (ASNs).
+
+            ASNs are unique identifiers assigned to large internet networks managed by organizations such as internet service providers, enterprises, universities, or government agencies.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-asnmatchstatement.html#cfn-wafv2-webacl-asnmatchstatement-asnlist
             '''
             result = self._values.get("asn_list")
@@ -12394,7 +12434,10 @@ class CfnWebACL(
         def forwarded_ip_config(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.ForwardedIPConfigurationProperty"]]:
-            '''
+            '''The configuration for inspecting IP addresses to match against an ASN in an HTTP header that you specify, instead of using the IP address that's reported by the web request origin.
+
+            Commonly, this is the X-Forwarded-For (XFF) header, but you can specify any header name.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-asnmatchstatement.html#cfn-wafv2-webacl-asnmatchstatement-forwardedipconfig
             '''
             result = self._values.get("forwarded_ip_config")
@@ -13151,9 +13194,9 @@ class CfnWebACL(
             *,
             challenge: typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.ClientSideActionProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
-            '''Client side action config for AntiDDOS AMR.
+            '''This is part of the configuration for the managed rules ``AWSManagedRulesAntiDDoSRuleSet`` in ``ManagedRuleGroupConfig`` .
 
-            :param challenge: Client side action config for AntiDDOS AMR.
+            :param challenge: Configuration for the use of the ``AWSManagedRulesAntiDDoSRuleSet`` rules ``ChallengeAllDuringEvent`` and ``ChallengeDDoSRequests`` . .. epigraph:: This setting isn't related to the configuration of the ``Challenge`` action itself. It only configures the use of the two anti-DDoS rules named here. You can enable or disable the use of these rules, and you can configure how to use them when they are enabled.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-clientsideactionconfig.html
             :exampleMetadata: fixture=_generated
@@ -13187,7 +13230,13 @@ class CfnWebACL(
         def challenge(
             self,
         ) -> typing.Union[_IResolvable_da3f097b, "CfnWebACL.ClientSideActionProperty"]:
-            '''Client side action config for AntiDDOS AMR.
+            '''Configuration for the use of the ``AWSManagedRulesAntiDDoSRuleSet`` rules ``ChallengeAllDuringEvent`` and ``ChallengeDDoSRequests`` .
+
+            .. epigraph::
+
+               This setting isn't related to the configuration of the ``Challenge`` action itself. It only configures the use of the two anti-DDoS rules named here.
+
+            You can enable or disable the use of these rules, and you can configure how to use them when they are enabled.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-clientsideactionconfig.html#cfn-wafv2-webacl-clientsideactionconfig-challenge
             '''
@@ -13223,11 +13272,11 @@ class CfnWebACL(
             exempt_uri_regular_expressions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.RegexProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             sensitivity: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''Client side action config for AntiDDOS AMR.
+            '''This is part of the ``AWSManagedRulesAntiDDoSRuleSet`` ``ClientSideActionConfig`` configuration in ``ManagedRuleGroupConfig`` .
 
-            :param usage_of_action: 
-            :param exempt_uri_regular_expressions: 
-            :param sensitivity: 
+            :param usage_of_action: Determines whether to use the ``AWSManagedRulesAntiDDoSRuleSet`` rules ``ChallengeAllDuringEvent`` and ``ChallengeDDoSRequests`` in the rule group evaluation and the related label ``awswaf:managed:aws:anti-ddos:challengeable-request`` . - If usage is enabled: - The managed rule group adds the label ``awswaf:managed:aws:anti-ddos:challengeable-request`` to any web request whose URL does *NOT* match the regular expressions provided in the ``ClientSideAction`` setting ``ExemptUriRegularExpressions`` . - The two rules are evaluated against web requests for protected resources that are experiencing a DDoS attack. The two rules only apply their action to matching requests that have the label ``awswaf:managed:aws:anti-ddos:challengeable-request`` . - If usage is disabled: - The managed rule group doesn't add the label ``awswaf:managed:aws:anti-ddos:challengeable-request`` to any web requests. - The two rules are not evaluated. - None of the other ``ClientSideAction`` settings have any effect. .. epigraph:: This setting only enables or disables the use of the two anti-DDOS rules ``ChallengeAllDuringEvent`` and ``ChallengeDDoSRequests`` in the anti-DDoS managed rule group. This setting doesn't alter the action setting in the two rules. To override the actions used by the rules ``ChallengeAllDuringEvent`` and ``ChallengeDDoSRequests`` , enable this setting, and then override the rule actions in the usual way, in your managed rule group configuration.
+            :param exempt_uri_regular_expressions: The regular expression to match against the web request URI, used to identify requests that can't handle a silent browser challenge. When the ``ClientSideAction`` setting ``UsageOfAction`` is enabled, the managed rule group uses this setting to determine which requests to label with ``awswaf:managed:aws:anti-ddos:challengeable-request`` . If ``UsageOfAction`` is disabled, this setting has no effect and the managed rule group doesn't add the label to any requests. The anti-DDoS managed rule group doesn't evaluate the rules ``ChallengeDDoSRequests`` or ``ChallengeAllDuringEvent`` for web requests whose URIs match this regex. This is true regardless of whether you override the rule action for either of the rules in your web ACL configuration. AWS recommends using a regular expression. This setting is required if ``UsageOfAction`` is set to ``ENABLED`` . If required, you can provide between 1 and 5 regex objects in the array of settings. AWS recommends starting with the following setting. Review and update it for your application's needs: ``\\/api\\/|\\.(acc|avi|css|gif|jpe?g|js|mp[34]|ogg|otf|pdf|png|tiff?|ttf|webm|webp|woff2?)$``
+            :param sensitivity: The sensitivity that the rule group rule ``ChallengeDDoSRequests`` uses when matching against the DDoS suspicion labeling on a request. The managed rule group adds the labeling during DDoS events, before the ``ChallengeDDoSRequests`` rule runs. The higher the sensitivity, the more levels of labeling that the rule matches: - Low sensitivity is less sensitive, causing the rule to match only on the most likely participants in an attack, which are the requests with the high suspicion label ``awswaf:managed:aws:anti-ddos:high-suspicion-ddos-request`` . - Medium sensitivity causes the rule to match on the medium and high suspicion labels. - High sensitivity causes the rule to match on all of the suspicion labels: low, medium, and high. Default: ``HIGH``
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-clientsideaction.html
             :exampleMetadata: fixture=_generated
@@ -13263,7 +13312,22 @@ class CfnWebACL(
 
         @builtins.property
         def usage_of_action(self) -> builtins.str:
-            '''
+            '''Determines whether to use the ``AWSManagedRulesAntiDDoSRuleSet`` rules ``ChallengeAllDuringEvent`` and ``ChallengeDDoSRequests`` in the rule group evaluation and the related label ``awswaf:managed:aws:anti-ddos:challengeable-request`` .
+
+            - If usage is enabled:
+            - The managed rule group adds the label ``awswaf:managed:aws:anti-ddos:challengeable-request`` to any web request whose URL does *NOT* match the regular expressions provided in the ``ClientSideAction`` setting ``ExemptUriRegularExpressions`` .
+            - The two rules are evaluated against web requests for protected resources that are experiencing a DDoS attack. The two rules only apply their action to matching requests that have the label ``awswaf:managed:aws:anti-ddos:challengeable-request`` .
+            - If usage is disabled:
+            - The managed rule group doesn't add the label ``awswaf:managed:aws:anti-ddos:challengeable-request`` to any web requests.
+            - The two rules are not evaluated.
+            - None of the other ``ClientSideAction`` settings have any effect.
+
+            .. epigraph::
+
+               This setting only enables or disables the use of the two anti-DDOS rules ``ChallengeAllDuringEvent`` and ``ChallengeDDoSRequests`` in the anti-DDoS managed rule group.
+
+               This setting doesn't alter the action setting in the two rules. To override the actions used by the rules ``ChallengeAllDuringEvent`` and ``ChallengeDDoSRequests`` , enable this setting, and then override the rule actions in the usual way, in your managed rule group configuration.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-clientsideaction.html#cfn-wafv2-webacl-clientsideaction-usageofaction
             '''
             result = self._values.get("usage_of_action")
@@ -13274,7 +13338,20 @@ class CfnWebACL(
         def exempt_uri_regular_expressions(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.RegexProperty"]]]]:
-            '''
+            '''The regular expression to match against the web request URI, used to identify requests that can't handle a silent browser challenge.
+
+            When the ``ClientSideAction`` setting ``UsageOfAction`` is enabled, the managed rule group uses this setting to determine which requests to label with ``awswaf:managed:aws:anti-ddos:challengeable-request`` . If ``UsageOfAction`` is disabled, this setting has no effect and the managed rule group doesn't add the label to any requests.
+
+            The anti-DDoS managed rule group doesn't evaluate the rules ``ChallengeDDoSRequests`` or ``ChallengeAllDuringEvent`` for web requests whose URIs match this regex. This is true regardless of whether you override the rule action for either of the rules in your web ACL configuration.
+
+            AWS recommends using a regular expression.
+
+            This setting is required if ``UsageOfAction`` is set to ``ENABLED`` . If required, you can provide between 1 and 5 regex objects in the array of settings.
+
+            AWS recommends starting with the following setting. Review and update it for your application's needs:
+
+            ``\\/api\\/|\\.(acc|avi|css|gif|jpe?g|js|mp[34]|ogg|otf|pdf|png|tiff?|ttf|webm|webp|woff2?)$``
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-clientsideaction.html#cfn-wafv2-webacl-clientsideaction-exempturiregularexpressions
             '''
             result = self._values.get("exempt_uri_regular_expressions")
@@ -13282,7 +13359,18 @@ class CfnWebACL(
 
         @builtins.property
         def sensitivity(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The sensitivity that the rule group rule ``ChallengeDDoSRequests`` uses when matching against the DDoS suspicion labeling on a request.
+
+            The managed rule group adds the labeling during DDoS events, before the ``ChallengeDDoSRequests`` rule runs.
+
+            The higher the sensitivity, the more levels of labeling that the rule matches:
+
+            - Low sensitivity is less sensitive, causing the rule to match only on the most likely participants in an attack, which are the requests with the high suspicion label ``awswaf:managed:aws:anti-ddos:high-suspicion-ddos-request`` .
+            - Medium sensitivity causes the rule to match on the medium and high suspicion labels.
+            - High sensitivity causes the rule to match on all of the suspicion labels: low, medium, and high.
+
+            Default: ``HIGH``
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-clientsideaction.html#cfn-wafv2-webacl-clientsideaction-sensitivity
             '''
             result = self._values.get("sensitivity")
@@ -15981,7 +16069,7 @@ class CfnWebACL(
             - Use the ``AWSManagedRulesBotControlRuleSet`` configuration object to configure the protection level that you want the Bot Control rule group to use.
 
             :param aws_managed_rules_acfp_rule_set: Additional configuration for using the account creation fraud prevention (ACFP) managed rule group, ``AWSManagedRulesACFPRuleSet`` . Use this to provide account creation request information to the rule group. For web ACLs that protect CloudFront distributions, use this to also provide the information about how your distribution responds to account creation requests. For information about using the ACFP managed rule group, see `AWS WAF Fraud Control account creation fraud prevention (ACFP) rule group <https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-acfp.html>`_ and `AWS WAF Fraud Control account creation fraud prevention (ACFP) <https://docs.aws.amazon.com/waf/latest/developerguide/waf-acfp.html>`_ in the *AWS WAF Developer Guide* .
-            :param aws_managed_rules_anti_d_do_s_rule_set: Configures how to use the AntiDDOS AWS managed rule group in the web ACL.
+            :param aws_managed_rules_anti_d_do_s_rule_set: Additional configuration for using the anti-DDoS managed rule group, ``AWSManagedRulesAntiDDoSRuleSet`` . Use this to configure anti-DDoS behavior for the rule group. For information about using the anti-DDoS managed rule group, see `AWS WAF Anti-DDoS rule group <https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-anti-ddos.html>`_ and `Distributed Denial of Service (DDoS) prevention <https://docs.aws.amazon.com/waf/latest/developerguide/waf-anti-ddos.html>`_ in the *AWS WAF Developer Guide* .
             :param aws_managed_rules_atp_rule_set: Additional configuration for using the account takeover prevention (ATP) managed rule group, ``AWSManagedRulesATPRuleSet`` . Use this to provide login request information to the rule group. For web ACLs that protect CloudFront distributions, use this to also provide the information about how your distribution responds to login requests. This configuration replaces the individual configuration fields in ``ManagedRuleGroupConfig`` and provides additional feature configuration. For information about using the ATP managed rule group, see `AWS WAF Fraud Control account takeover prevention (ATP) rule group <https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-atp.html>`_ and `AWS WAF Fraud Control account takeover prevention (ATP) <https://docs.aws.amazon.com/waf/latest/developerguide/waf-atp.html>`_ in the *AWS WAF Developer Guide* .
             :param aws_managed_rules_bot_control_rule_set: Additional configuration for using the Bot Control managed rule group. Use this to specify the inspection level that you want to use. For information about using the Bot Control managed rule group, see `AWS WAF Bot Control rule group <https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-bot.html>`_ and `AWS WAF Bot Control <https://docs.aws.amazon.com/waf/latest/developerguide/waf-bot-control.html>`_ in the *AWS WAF Developer Guide* .
             :param login_path: .. epigraph:: Instead of this setting, provide your configuration under ``AWSManagedRulesATPRuleSet`` .
@@ -16160,7 +16248,11 @@ class CfnWebACL(
         def aws_managed_rules_anti_d_do_s_rule_set(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.AWSManagedRulesAntiDDoSRuleSetProperty"]]:
-            '''Configures how to use the AntiDDOS AWS managed rule group in the web ACL.
+            '''Additional configuration for using the anti-DDoS managed rule group, ``AWSManagedRulesAntiDDoSRuleSet`` .
+
+            Use this to configure anti-DDoS behavior for the rule group.
+
+            For information about using the anti-DDoS managed rule group, see `AWS WAF Anti-DDoS rule group <https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-anti-ddos.html>`_ and `Distributed Denial of Service (DDoS) prevention <https://docs.aws.amazon.com/waf/latest/developerguide/waf-anti-ddos.html>`_ in the *AWS WAF Developer Guide* .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-managedrulegroupconfig.html#cfn-wafv2-webacl-managedrulegroupconfig-awsmanagedrulesantiddosruleset
             '''
@@ -16502,9 +16594,9 @@ class CfnWebACL(
     )
     class OnSourceDDoSProtectionConfigProperty:
         def __init__(self, *, alb_low_reputation_mode: builtins.str) -> None:
-            '''Configures the options for on-source DDoS protection provided by supported resource type.
+            '''Configures the level of DDoS protection that applies to web ACLs associated with Application Load Balancers.
 
-            :param alb_low_reputation_mode: 
+            :param alb_low_reputation_mode: The level of DDoS protection that applies to web ACLs associated with Application Load Balancers. ``ACTIVE_UNDER_DDOS`` protection is enabled by default whenever a web ACL is associated with an Application Load Balancer. In the event that an Application Load Balancer experiences high-load conditions or suspected DDoS attacks, the ``ACTIVE_UNDER_DDOS`` protection automatically rate limits traffic from known low reputation sources without disrupting Application Load Balancer availability. ``ALWAYS_ON`` protection provides constant, always-on monitoring of known low reputation sources for suspected DDoS attacks. While this provides a higher level of protection, there may be potential impacts on legitimate traffic.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-onsourceddosprotectionconfig.html
             :exampleMetadata: fixture=_generated
@@ -16528,7 +16620,10 @@ class CfnWebACL(
 
         @builtins.property
         def alb_low_reputation_mode(self) -> builtins.str:
-            '''
+            '''The level of DDoS protection that applies to web ACLs associated with Application Load Balancers.
+
+            ``ACTIVE_UNDER_DDOS`` protection is enabled by default whenever a web ACL is associated with an Application Load Balancer. In the event that an Application Load Balancer experiences high-load conditions or suspected DDoS attacks, the ``ACTIVE_UNDER_DDOS`` protection automatically rate limits traffic from known low reputation sources without disrupting Application Load Balancer availability. ``ALWAYS_ON`` protection provides constant, always-on monitoring of known low reputation sources for suspected DDoS attacks. While this provides a higher level of protection, there may be potential impacts on legitimate traffic.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-onsourceddosprotectionconfig.html#cfn-wafv2-webacl-onsourceddosprotectionconfig-alblowreputationmode
             '''
             result = self._values.get("alb_low_reputation_mode")
@@ -16729,7 +16824,7 @@ class CfnWebACL(
 
                Web requests that are missing any of the components specified in the aggregation keys are omitted from the rate-based rule evaluation and handling.
 
-            :param asn: Specifies the request's ASN as an aggregate key for a rate-based rule.
+            :param asn: Use an Autonomous System Number (ASN) derived from the request's originating or forwarded IP address as an aggregate key. Each distinct ASN contributes to the aggregation instance.
             :param cookie: Use the value of a cookie in the request as an aggregate key. Each distinct value in the cookie contributes to the aggregation instance. If you use a single cookie as your custom key, then each value fully defines an aggregation instance.
             :param forwarded_ip: Use the first IP address in an HTTP header as an aggregate key. Each distinct forwarded IP address contributes to the aggregation instance. When you specify an IP or forwarded IP in the custom key settings, you must also specify at least one other key to use. You can aggregate on only the forwarded IP address by specifying ``FORWARDED_IP`` in your rate-based statement's ``AggregateKeyType`` . With this option, you must specify the header to use in the rate-based rule's ``ForwardedIPConfig`` property.
             :param header: Use the value of a header in the request as an aggregate key. Each distinct value in the header contributes to the aggregation instance. If you use a single header as your custom key, then each value fully defines an aggregation instance.
@@ -16847,7 +16942,9 @@ class CfnWebACL(
 
         @builtins.property
         def asn(self) -> typing.Any:
-            '''Specifies the request's ASN as an aggregate key for a rate-based rule.
+            '''Use an Autonomous System Number (ASN) derived from the request's originating or forwarded IP address as an aggregate key.
+
+            Each distinct ASN contributes to the aggregation instance.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-ratebasedstatementcustomkey.html#cfn-wafv2-webacl-ratebasedstatementcustomkey-asn
             '''
@@ -18101,9 +18198,11 @@ class CfnWebACL(
             *,
             regex_string: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''Regex.
+            '''A single regular expression.
 
-            :param regex_string: 
+            This is used in a ``RegexPatternSet`` and also in the configuration for the AWS Managed Rules rule group ``AWSManagedRulesAntiDDoSRuleSet`` .
+
+            :param regex_string: The string representing the regular expression.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-regex.html
             :exampleMetadata: fixture=_generated
@@ -18127,7 +18226,8 @@ class CfnWebACL(
 
         @builtins.property
         def regex_string(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The string representing the regular expression.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-regex.html#cfn-wafv2-webacl-regex-regexstring
             '''
             result = self._values.get("regex_string")
@@ -20286,7 +20386,7 @@ class CfnWebACL(
             '''The processing guidance for a rule, used by AWS WAF to determine whether a web request matches the rule.
 
             :param and_statement: A logical rule statement used to combine other rule statements with AND logic. You provide more than one ``Statement`` within the ``AndStatement`` .
-            :param asn_match_statement: 
+            :param asn_match_statement: A rule statement that inspects web traffic based on the Autonomous System Number (ASN) associated with the request's IP address. For additional details, see `ASN match rule statement <https://docs.aws.amazon.com/waf/latest/developerguide/waf-rule-statement-type-asn-match.html>`_ in the `AWS WAF Developer Guide <https://docs.aws.amazon.com/waf/latest/developerguide/waf-chapter.html>`_ .
             :param byte_match_statement: A rule statement that defines a string match search for AWS WAF to apply to web requests. The byte match statement provides the bytes to search for, the location in requests that you want AWS WAF to search, and other settings. The bytes to search for are typically a string that corresponds with ASCII characters. In the AWS WAF console and the developer guide, this is called a string match statement.
             :param geo_match_statement: A rule statement that labels web requests by country and region and that matches against web requests based on country code. A geo match rule labels every request that it inspects regardless of whether it finds a match. - To manage requests only by country, you can use this statement by itself and specify the countries that you want to match against in the ``CountryCodes`` array. - Otherwise, configure your geo match rule with Count action so that it only labels requests. Then, add one or more label match rules to run after the geo match rule and configure them to match against the geographic labels and handle the requests as needed. AWS WAF labels requests using the alpha-2 country and region codes from the International Organization for Standardization (ISO) 3166 standard. AWS WAF determines the codes using either the IP address in the web request origin or, if you specify it, the address in the geo match ``ForwardedIPConfig`` . If you use the web request origin, the label formats are ``awswaf:clientip:geo:region:<ISO country code>-<ISO region code>`` and ``awswaf:clientip:geo:country:<ISO country code>`` . If you use a forwarded IP address, the label formats are ``awswaf:forwardedip:geo:region:<ISO country code>-<ISO region code>`` and ``awswaf:forwardedip:geo:country:<ISO country code>`` . For additional details, see `Geographic match rule statement <https://docs.aws.amazon.com/waf/latest/developerguide/waf-rule-statement-type-geo-match.html>`_ in the `AWS WAF Developer Guide <https://docs.aws.amazon.com/waf/latest/developerguide/waf-chapter.html>`_ .
             :param ip_set_reference_statement: A rule statement used to detect web requests coming from particular IP addresses or address ranges. To use this, create an ``IPSet`` that specifies the addresses you want to detect, then use the ARN of that set in this statement. Each IP set rule statement references an IP set. You create and maintain the set independent of your rules. This allows you to use the single set in multiple rules. When you update the referenced set, AWS WAF automatically updates all rules that reference it.
@@ -20378,7 +20478,10 @@ class CfnWebACL(
         def asn_match_statement(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.AsnMatchStatementProperty"]]:
-            '''
+            '''A rule statement that inspects web traffic based on the Autonomous System Number (ASN) associated with the request's IP address.
+
+            For additional details, see `ASN match rule statement <https://docs.aws.amazon.com/waf/latest/developerguide/waf-rule-statement-type-asn-match.html>`_ in the `AWS WAF Developer Guide <https://docs.aws.amazon.com/waf/latest/developerguide/waf-chapter.html>`_ .
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-statement.html#cfn-wafv2-webacl-statement-asnmatchstatement
             '''
             result = self._values.get("asn_match_statement")
@@ -21281,7 +21384,7 @@ class CfnWebACLProps:
         data_protection_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.DataProtectionConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        on_source_d_do_s_protection_config: typing.Any = None,
+        on_source_d_do_s_protection_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.OnSourceDDoSProtectionConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
         rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.RuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
         token_domains: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -21492,13 +21595,15 @@ class CfnWebACLProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def on_source_d_do_s_protection_config(self) -> typing.Any:
+    def on_source_d_do_s_protection_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWebACL.OnSourceDDoSProtectionConfigProperty]]:
         '''Configures the level of DDoS protection that applies to web ACLs associated with Application Load Balancers.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-webacl.html#cfn-wafv2-webacl-onsourceddosprotectionconfig
         '''
         result = self._values.get("on_source_d_do_s_protection_config")
-        return typing.cast(typing.Any, result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWebACL.OnSourceDDoSProtectionConfigProperty]], result)
 
     @builtins.property
     def rules(
@@ -22453,7 +22558,7 @@ def _typecheckingstub__03030a65c492e95a1d1ae5ddafd6acbb9efdfa7e18b6367ac7e03eb8f
     data_protection_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.DataProtectionConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
-    on_source_d_do_s_protection_config: typing.Any = None,
+    on_source_d_do_s_protection_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.OnSourceDDoSProtectionConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.RuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     token_domains: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -22534,7 +22639,7 @@ def _typecheckingstub__191460374393c7b9829682ab4faa571596cd3c2090e46352a427930a2
     pass
 
 def _typecheckingstub__1180464a1661a74085b880efee37841284ce892adac9d3cda8cb5c117c625ba2(
-    value: typing.Any,
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWebACL.OnSourceDDoSProtectionConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23346,7 +23451,7 @@ def _typecheckingstub__6e738df983d65d43590c0a02c03e6e0daa3a2097ae335371d22711838
     data_protection_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.DataProtectionConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
-    on_source_d_do_s_protection_config: typing.Any = None,
+    on_source_d_do_s_protection_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.OnSourceDDoSProtectionConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.RuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     token_domains: typing.Optional[typing.Sequence[builtins.str]] = None,

@@ -7,12 +7,7 @@ from opentelemetry.trace import SpanKind
 
 from instana.log import logger
 from instana.span.base_span import BaseSpan
-from instana.span.kind import (
-    ENTRY_SPANS,
-    EXIT_SPANS,
-    HTTP_SPANS,
-    LOCAL_SPANS,
-)
+from instana.span.kind import ENTRY_SPANS, EXIT_SPANS, HTTP_SPANS, LOCAL_SPANS
 
 if TYPE_CHECKING:
     from instana.span.span import InstanaSpan
@@ -54,6 +49,14 @@ class RegisteredSpan(BaseSpan):
         if "kafka" in span.name:
             self.n = "kafka"
 
+        # unify the span name for aioamqp-producer and aioamqp-consumer
+        if "amqp" in span.name:
+            self.n = "amqp"
+
+        # unify the span name for httpx (and future exit HTTP spans)
+        if "httpx" in span.name:
+            self.n = "http"
+
         # Logic to store custom attributes for registered spans (not used yet)
         if len(span.attributes) > 0:
             self.data["sdk"]["custom"]["tags"] = self._validate_attributes(
@@ -63,6 +66,16 @@ class RegisteredSpan(BaseSpan):
     def _populate_entry_span_data(self, span: "InstanaSpan") -> None:
         if span.name in HTTP_SPANS:
             self._collect_http_attributes(span)
+
+        elif span.name == "aioamqp-consumer":
+            self.data["amqp"]["command"] = span.attributes.pop("amqp.command", None)
+            self.data["amqp"]["routingkey"] = span.attributes.pop(
+                "amqp.routing_key", None
+            )
+            self.data["amqp"]["connection"] = span.attributes.pop(
+                "amqp.connection", None
+            )
+            self.data["amqp"]["error"] = span.attributes.pop("amqp.error", None)
 
         elif span.name == "aws.lambda.entry":
             self.data["lambda"]["arn"] = span.attributes.pop("lambda.arn", "Unknown")
@@ -166,6 +179,16 @@ class RegisteredSpan(BaseSpan):
     def _populate_exit_span_data(self, span: "InstanaSpan") -> None:
         if span.name in HTTP_SPANS:
             self._collect_http_attributes(span)
+
+        elif span.name == "aioamqp-publisher":
+            self.data["amqp"]["command"] = span.attributes.pop("amqp.command", None)
+            self.data["amqp"]["routingkey"] = span.attributes.pop(
+                "amqp.routing_key", None
+            )
+            self.data["amqp"]["connection"] = span.attributes.pop(
+                "amqp.connection", None
+            )
+            self.data["amqp"]["error"] = span.attributes.pop("amqp.error", None)
 
         elif span.name == "boto3":
             # boto3 also sends http attributes

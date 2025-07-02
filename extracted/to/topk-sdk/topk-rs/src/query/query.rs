@@ -1,7 +1,7 @@
 use super::Stage;
 use crate::expr::{filter::FilterExpr, logical::LogicalExpr, select::SelectExpr};
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Query {
     stages: Vec<Stage>,
 }
@@ -68,7 +68,7 @@ impl Query {
     }
 }
 
-impl From<Query> for topk_protos::v1::data::Query {
+impl From<Query> for crate::proto::v1::data::Query {
     fn from(query: Query) -> Self {
         Self {
             stages: query.stages.into_iter().map(|s| s.into()).collect(),

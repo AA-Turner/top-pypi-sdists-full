@@ -67,14 +67,14 @@ pub fn not(expr: impl Into<LogicalExpr>) -> LogicalExpr {
 }
 
 pub mod fns {
-    use crate::data::Vector;
     use crate::expr::function::FunctionExpr;
+    use crate::proto::v1::data::QueryVector;
 
     pub fn bm25_score() -> FunctionExpr {
         FunctionExpr::KeywordScore {}
     }
 
-    pub fn vector_distance(field: &str, query: impl Into<Vector>) -> FunctionExpr {
+    pub fn vector_distance(field: &str, query: impl Into<QueryVector>) -> FunctionExpr {
         FunctionExpr::VectorScore {
             field: field.to_string(),
             query: query.into(),

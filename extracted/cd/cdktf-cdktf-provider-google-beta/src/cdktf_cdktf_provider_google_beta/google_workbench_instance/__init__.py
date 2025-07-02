@@ -1,7 +1,7 @@
 r'''
 # `google_workbench_instance`
 
-Refer to the Terraform Registry for docs: [`google_workbench_instance`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance).
+Refer to the Terraform Registry for docs: [`google_workbench_instance`](https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleWorkbenchInstance(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleWorkbenchInstance.GoogleWorkbenchInstance",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance google_workbench_instance}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance google_workbench_instance}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class GoogleWorkbenchInstance(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance google_workbench_instance} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance google_workbench_instance} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: Part of 'parent'. See documentation of 'projectsId'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#location GoogleWorkbenchInstance#location}
-        :param name: The name of this workbench instance. Format: 'projects/{project_id}/locations/{location}/instances/{instance_id}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#name GoogleWorkbenchInstance#name}
-        :param desired_state: Desired state of the Workbench Instance. Set this field to 'ACTIVE' to start the Instance, and 'STOPPED' to stop the Instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#desired_state GoogleWorkbenchInstance#desired_state}
-        :param disable_proxy_access: Optional. If true, the workbench instance will not register with the proxy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#disable_proxy_access GoogleWorkbenchInstance#disable_proxy_access}
-        :param enable_third_party_identity: Flag that specifies that a notebook can be accessed with third party identity provider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#enable_third_party_identity GoogleWorkbenchInstance#enable_third_party_identity}
-        :param gce_setup: gce_setup block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#gce_setup GoogleWorkbenchInstance#gce_setup}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#id GoogleWorkbenchInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param instance_id: Required. User-defined unique ID of this instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#instance_id GoogleWorkbenchInstance#instance_id}
-        :param instance_owners: 'Optional. Input only. The owner of this instance after creation. Format: 'alias@example.com' Currently supports one owner only. If not specified, all of the service account users of your VM instance''s service account can use the instance. If specified, sets the access mode to 'Single user'. For more details, see https://cloud.google.com/vertex-ai/docs/workbench/instances/manage-access-jupyterlab' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#instance_owners GoogleWorkbenchInstance#instance_owners}
-        :param labels: Optional. Labels to apply to this instance. These can be later modified by the UpdateInstance method. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#labels GoogleWorkbenchInstance#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#project GoogleWorkbenchInstance#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#timeouts GoogleWorkbenchInstance#timeouts}
+        :param location: Part of 'parent'. See documentation of 'projectsId'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#location GoogleWorkbenchInstance#location}
+        :param name: The name of this workbench instance. Format: 'projects/{project_id}/locations/{location}/instances/{instance_id}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#name GoogleWorkbenchInstance#name}
+        :param desired_state: Desired state of the Workbench Instance. Set this field to 'ACTIVE' to start the Instance, and 'STOPPED' to stop the Instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#desired_state GoogleWorkbenchInstance#desired_state}
+        :param disable_proxy_access: Optional. If true, the workbench instance will not register with the proxy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#disable_proxy_access GoogleWorkbenchInstance#disable_proxy_access}
+        :param enable_third_party_identity: Flag that specifies that a notebook can be accessed with third party identity provider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#enable_third_party_identity GoogleWorkbenchInstance#enable_third_party_identity}
+        :param gce_setup: gce_setup block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#gce_setup GoogleWorkbenchInstance#gce_setup}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#id GoogleWorkbenchInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instance_id: Required. User-defined unique ID of this instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#instance_id GoogleWorkbenchInstance#instance_id}
+        :param instance_owners: 'Optional. Input only. The owner of this instance after creation. Format: 'alias@example.com' Currently supports one owner only. If not specified, all of the service account users of your VM instance''s service account can use the instance. If specified, sets the access mode to 'Single user'. For more details, see https://cloud.google.com/vertex-ai/docs/workbench/instances/manage-access-jupyterlab' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#instance_owners GoogleWorkbenchInstance#instance_owners}
+        :param labels: Optional. Labels to apply to this instance. These can be later modified by the UpdateInstance method. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#labels GoogleWorkbenchInstance#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#project GoogleWorkbenchInstance#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#timeouts GoogleWorkbenchInstance#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class GoogleWorkbenchInstance(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleWorkbenchInstance to import.
-        :param import_from_id: The id of the existing GoogleWorkbenchInstance that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleWorkbenchInstance that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleWorkbenchInstance to import is found.
         '''
         if __debug__:
@@ -167,20 +167,20 @@ class GoogleWorkbenchInstance(
         vm_image: typing.Optional[typing.Union["GoogleWorkbenchInstanceGceSetupVmImage", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param accelerator_configs: accelerator_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#accelerator_configs GoogleWorkbenchInstance#accelerator_configs}
-        :param boot_disk: boot_disk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#boot_disk GoogleWorkbenchInstance#boot_disk}
-        :param confidential_instance_config: confidential_instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#confidential_instance_config GoogleWorkbenchInstance#confidential_instance_config}
-        :param container_image: container_image block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#container_image GoogleWorkbenchInstance#container_image}
-        :param data_disks: data_disks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#data_disks GoogleWorkbenchInstance#data_disks}
-        :param disable_public_ip: Optional. If true, no external IP will be assigned to this VM instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#disable_public_ip GoogleWorkbenchInstance#disable_public_ip}
-        :param enable_ip_forwarding: Optional. Flag to enable ip forwarding or not, default false/off. https://cloud.google.com/vpc/docs/using-routes#canipforward. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#enable_ip_forwarding GoogleWorkbenchInstance#enable_ip_forwarding}
-        :param machine_type: Optional. The machine type of the VM instance. https://cloud.google.com/compute/docs/machine-resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#machine_type GoogleWorkbenchInstance#machine_type}
-        :param metadata: Optional. Custom metadata to apply to this instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#metadata GoogleWorkbenchInstance#metadata}
-        :param network_interfaces: network_interfaces block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#network_interfaces GoogleWorkbenchInstance#network_interfaces}
-        :param service_accounts: service_accounts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#service_accounts GoogleWorkbenchInstance#service_accounts}
-        :param shielded_instance_config: shielded_instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#shielded_instance_config GoogleWorkbenchInstance#shielded_instance_config}
-        :param tags: Optional. The Compute Engine tags to add to instance (see `Tagging instances <https://cloud.google.com/compute/docs/label-or-tag-resources#tags>`_). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#tags GoogleWorkbenchInstance#tags}
-        :param vm_image: vm_image block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#vm_image GoogleWorkbenchInstance#vm_image}
+        :param accelerator_configs: accelerator_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#accelerator_configs GoogleWorkbenchInstance#accelerator_configs}
+        :param boot_disk: boot_disk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#boot_disk GoogleWorkbenchInstance#boot_disk}
+        :param confidential_instance_config: confidential_instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#confidential_instance_config GoogleWorkbenchInstance#confidential_instance_config}
+        :param container_image: container_image block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#container_image GoogleWorkbenchInstance#container_image}
+        :param data_disks: data_disks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#data_disks GoogleWorkbenchInstance#data_disks}
+        :param disable_public_ip: Optional. If true, no external IP will be assigned to this VM instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#disable_public_ip GoogleWorkbenchInstance#disable_public_ip}
+        :param enable_ip_forwarding: Optional. Flag to enable ip forwarding or not, default false/off. https://cloud.google.com/vpc/docs/using-routes#canipforward. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#enable_ip_forwarding GoogleWorkbenchInstance#enable_ip_forwarding}
+        :param machine_type: Optional. The machine type of the VM instance. https://cloud.google.com/compute/docs/machine-resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#machine_type GoogleWorkbenchInstance#machine_type}
+        :param metadata: Optional. Custom metadata to apply to this instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#metadata GoogleWorkbenchInstance#metadata}
+        :param network_interfaces: network_interfaces block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#network_interfaces GoogleWorkbenchInstance#network_interfaces}
+        :param service_accounts: service_accounts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#service_accounts GoogleWorkbenchInstance#service_accounts}
+        :param shielded_instance_config: shielded_instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#shielded_instance_config GoogleWorkbenchInstance#shielded_instance_config}
+        :param tags: Optional. The Compute Engine tags to add to instance (see `Tagging instances <https://cloud.google.com/compute/docs/label-or-tag-resources#tags>`_). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#tags GoogleWorkbenchInstance#tags}
+        :param vm_image: vm_image block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#vm_image GoogleWorkbenchInstance#vm_image}
         '''
         value = GoogleWorkbenchInstanceGceSetup(
             accelerator_configs=accelerator_configs,
@@ -210,9 +210,9 @@ class GoogleWorkbenchInstance(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#create GoogleWorkbenchInstance#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#delete GoogleWorkbenchInstance#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#update GoogleWorkbenchInstance#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#create GoogleWorkbenchInstance#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#delete GoogleWorkbenchInstance#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#update GoogleWorkbenchInstance#update}.
         '''
         value = GoogleWorkbenchInstanceTimeouts(
             create=create, delete=delete, update=update
@@ -589,18 +589,18 @@ class GoogleWorkbenchInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: Part of 'parent'. See documentation of 'projectsId'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#location GoogleWorkbenchInstance#location}
-        :param name: The name of this workbench instance. Format: 'projects/{project_id}/locations/{location}/instances/{instance_id}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#name GoogleWorkbenchInstance#name}
-        :param desired_state: Desired state of the Workbench Instance. Set this field to 'ACTIVE' to start the Instance, and 'STOPPED' to stop the Instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#desired_state GoogleWorkbenchInstance#desired_state}
-        :param disable_proxy_access: Optional. If true, the workbench instance will not register with the proxy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#disable_proxy_access GoogleWorkbenchInstance#disable_proxy_access}
-        :param enable_third_party_identity: Flag that specifies that a notebook can be accessed with third party identity provider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#enable_third_party_identity GoogleWorkbenchInstance#enable_third_party_identity}
-        :param gce_setup: gce_setup block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#gce_setup GoogleWorkbenchInstance#gce_setup}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#id GoogleWorkbenchInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param instance_id: Required. User-defined unique ID of this instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#instance_id GoogleWorkbenchInstance#instance_id}
-        :param instance_owners: 'Optional. Input only. The owner of this instance after creation. Format: 'alias@example.com' Currently supports one owner only. If not specified, all of the service account users of your VM instance''s service account can use the instance. If specified, sets the access mode to 'Single user'. For more details, see https://cloud.google.com/vertex-ai/docs/workbench/instances/manage-access-jupyterlab' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#instance_owners GoogleWorkbenchInstance#instance_owners}
-        :param labels: Optional. Labels to apply to this instance. These can be later modified by the UpdateInstance method. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#labels GoogleWorkbenchInstance#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#project GoogleWorkbenchInstance#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#timeouts GoogleWorkbenchInstance#timeouts}
+        :param location: Part of 'parent'. See documentation of 'projectsId'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#location GoogleWorkbenchInstance#location}
+        :param name: The name of this workbench instance. Format: 'projects/{project_id}/locations/{location}/instances/{instance_id}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#name GoogleWorkbenchInstance#name}
+        :param desired_state: Desired state of the Workbench Instance. Set this field to 'ACTIVE' to start the Instance, and 'STOPPED' to stop the Instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#desired_state GoogleWorkbenchInstance#desired_state}
+        :param disable_proxy_access: Optional. If true, the workbench instance will not register with the proxy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#disable_proxy_access GoogleWorkbenchInstance#disable_proxy_access}
+        :param enable_third_party_identity: Flag that specifies that a notebook can be accessed with third party identity provider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#enable_third_party_identity GoogleWorkbenchInstance#enable_third_party_identity}
+        :param gce_setup: gce_setup block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#gce_setup GoogleWorkbenchInstance#gce_setup}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#id GoogleWorkbenchInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instance_id: Required. User-defined unique ID of this instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#instance_id GoogleWorkbenchInstance#instance_id}
+        :param instance_owners: 'Optional. Input only. The owner of this instance after creation. Format: 'alias@example.com' Currently supports one owner only. If not specified, all of the service account users of your VM instance''s service account can use the instance. If specified, sets the access mode to 'Single user'. For more details, see https://cloud.google.com/vertex-ai/docs/workbench/instances/manage-access-jupyterlab' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#instance_owners GoogleWorkbenchInstance#instance_owners}
+        :param labels: Optional. Labels to apply to this instance. These can be later modified by the UpdateInstance method. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#labels GoogleWorkbenchInstance#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#project GoogleWorkbenchInstance#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#timeouts GoogleWorkbenchInstance#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -736,7 +736,7 @@ class GoogleWorkbenchInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''Part of 'parent'. See documentation of 'projectsId'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#location GoogleWorkbenchInstance#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#location GoogleWorkbenchInstance#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -746,7 +746,7 @@ class GoogleWorkbenchInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of this workbench instance. Format: 'projects/{project_id}/locations/{location}/instances/{instance_id}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#name GoogleWorkbenchInstance#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#name GoogleWorkbenchInstance#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -758,7 +758,7 @@ class GoogleWorkbenchInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Set this field to 'ACTIVE' to start the Instance, and 'STOPPED' to stop the Instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#desired_state GoogleWorkbenchInstance#desired_state}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#desired_state GoogleWorkbenchInstance#desired_state}
         '''
         result = self._values.get("desired_state")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -769,7 +769,7 @@ class GoogleWorkbenchInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Optional. If true, the workbench instance will not register with the proxy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#disable_proxy_access GoogleWorkbenchInstance#disable_proxy_access}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#disable_proxy_access GoogleWorkbenchInstance#disable_proxy_access}
         '''
         result = self._values.get("disable_proxy_access")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -780,7 +780,7 @@ class GoogleWorkbenchInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Flag that specifies that a notebook can be accessed with third party identity provider.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#enable_third_party_identity GoogleWorkbenchInstance#enable_third_party_identity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#enable_third_party_identity GoogleWorkbenchInstance#enable_third_party_identity}
         '''
         result = self._values.get("enable_third_party_identity")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -789,14 +789,14 @@ class GoogleWorkbenchInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def gce_setup(self) -> typing.Optional["GoogleWorkbenchInstanceGceSetup"]:
         '''gce_setup block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#gce_setup GoogleWorkbenchInstance#gce_setup}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#gce_setup GoogleWorkbenchInstance#gce_setup}
         '''
         result = self._values.get("gce_setup")
         return typing.cast(typing.Optional["GoogleWorkbenchInstanceGceSetup"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#id GoogleWorkbenchInstance#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#id GoogleWorkbenchInstance#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -808,7 +808,7 @@ class GoogleWorkbenchInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def instance_id(self) -> typing.Optional[builtins.str]:
         '''Required. User-defined unique ID of this instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#instance_id GoogleWorkbenchInstance#instance_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#instance_id GoogleWorkbenchInstance#instance_id}
         '''
         result = self._values.get("instance_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -823,7 +823,7 @@ class GoogleWorkbenchInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         If specified, sets the access mode to 'Single user'. For more details, see
         https://cloud.google.com/vertex-ai/docs/workbench/instances/manage-access-jupyterlab'
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#instance_owners GoogleWorkbenchInstance#instance_owners}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#instance_owners GoogleWorkbenchInstance#instance_owners}
         '''
         result = self._values.get("instance_owners")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -835,14 +835,14 @@ class GoogleWorkbenchInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#labels GoogleWorkbenchInstance#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#labels GoogleWorkbenchInstance#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#project GoogleWorkbenchInstance#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#project GoogleWorkbenchInstance#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -850,7 +850,7 @@ class GoogleWorkbenchInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleWorkbenchInstanceTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#timeouts GoogleWorkbenchInstance#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#timeouts GoogleWorkbenchInstance#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleWorkbenchInstanceTimeouts"], result)
@@ -907,20 +907,20 @@ class GoogleWorkbenchInstanceGceSetup:
         vm_image: typing.Optional[typing.Union["GoogleWorkbenchInstanceGceSetupVmImage", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param accelerator_configs: accelerator_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#accelerator_configs GoogleWorkbenchInstance#accelerator_configs}
-        :param boot_disk: boot_disk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#boot_disk GoogleWorkbenchInstance#boot_disk}
-        :param confidential_instance_config: confidential_instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#confidential_instance_config GoogleWorkbenchInstance#confidential_instance_config}
-        :param container_image: container_image block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#container_image GoogleWorkbenchInstance#container_image}
-        :param data_disks: data_disks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#data_disks GoogleWorkbenchInstance#data_disks}
-        :param disable_public_ip: Optional. If true, no external IP will be assigned to this VM instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#disable_public_ip GoogleWorkbenchInstance#disable_public_ip}
-        :param enable_ip_forwarding: Optional. Flag to enable ip forwarding or not, default false/off. https://cloud.google.com/vpc/docs/using-routes#canipforward. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#enable_ip_forwarding GoogleWorkbenchInstance#enable_ip_forwarding}
-        :param machine_type: Optional. The machine type of the VM instance. https://cloud.google.com/compute/docs/machine-resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#machine_type GoogleWorkbenchInstance#machine_type}
-        :param metadata: Optional. Custom metadata to apply to this instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#metadata GoogleWorkbenchInstance#metadata}
-        :param network_interfaces: network_interfaces block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#network_interfaces GoogleWorkbenchInstance#network_interfaces}
-        :param service_accounts: service_accounts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#service_accounts GoogleWorkbenchInstance#service_accounts}
-        :param shielded_instance_config: shielded_instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#shielded_instance_config GoogleWorkbenchInstance#shielded_instance_config}
-        :param tags: Optional. The Compute Engine tags to add to instance (see `Tagging instances <https://cloud.google.com/compute/docs/label-or-tag-resources#tags>`_). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#tags GoogleWorkbenchInstance#tags}
-        :param vm_image: vm_image block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#vm_image GoogleWorkbenchInstance#vm_image}
+        :param accelerator_configs: accelerator_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#accelerator_configs GoogleWorkbenchInstance#accelerator_configs}
+        :param boot_disk: boot_disk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#boot_disk GoogleWorkbenchInstance#boot_disk}
+        :param confidential_instance_config: confidential_instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#confidential_instance_config GoogleWorkbenchInstance#confidential_instance_config}
+        :param container_image: container_image block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#container_image GoogleWorkbenchInstance#container_image}
+        :param data_disks: data_disks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#data_disks GoogleWorkbenchInstance#data_disks}
+        :param disable_public_ip: Optional. If true, no external IP will be assigned to this VM instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#disable_public_ip GoogleWorkbenchInstance#disable_public_ip}
+        :param enable_ip_forwarding: Optional. Flag to enable ip forwarding or not, default false/off. https://cloud.google.com/vpc/docs/using-routes#canipforward. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#enable_ip_forwarding GoogleWorkbenchInstance#enable_ip_forwarding}
+        :param machine_type: Optional. The machine type of the VM instance. https://cloud.google.com/compute/docs/machine-resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#machine_type GoogleWorkbenchInstance#machine_type}
+        :param metadata: Optional. Custom metadata to apply to this instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#metadata GoogleWorkbenchInstance#metadata}
+        :param network_interfaces: network_interfaces block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#network_interfaces GoogleWorkbenchInstance#network_interfaces}
+        :param service_accounts: service_accounts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#service_accounts GoogleWorkbenchInstance#service_accounts}
+        :param shielded_instance_config: shielded_instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#shielded_instance_config GoogleWorkbenchInstance#shielded_instance_config}
+        :param tags: Optional. The Compute Engine tags to add to instance (see `Tagging instances <https://cloud.google.com/compute/docs/label-or-tag-resources#tags>`_). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#tags GoogleWorkbenchInstance#tags}
+        :param vm_image: vm_image block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#vm_image GoogleWorkbenchInstance#vm_image}
         '''
         if isinstance(boot_disk, dict):
             boot_disk = GoogleWorkbenchInstanceGceSetupBootDisk(**boot_disk)
@@ -986,7 +986,7 @@ class GoogleWorkbenchInstanceGceSetup:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleWorkbenchInstanceGceSetupAcceleratorConfigs"]]]:
         '''accelerator_configs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#accelerator_configs GoogleWorkbenchInstance#accelerator_configs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#accelerator_configs GoogleWorkbenchInstance#accelerator_configs}
         '''
         result = self._values.get("accelerator_configs")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleWorkbenchInstanceGceSetupAcceleratorConfigs"]]], result)
@@ -995,7 +995,7 @@ class GoogleWorkbenchInstanceGceSetup:
     def boot_disk(self) -> typing.Optional["GoogleWorkbenchInstanceGceSetupBootDisk"]:
         '''boot_disk block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#boot_disk GoogleWorkbenchInstance#boot_disk}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#boot_disk GoogleWorkbenchInstance#boot_disk}
         '''
         result = self._values.get("boot_disk")
         return typing.cast(typing.Optional["GoogleWorkbenchInstanceGceSetupBootDisk"], result)
@@ -1006,7 +1006,7 @@ class GoogleWorkbenchInstanceGceSetup:
     ) -> typing.Optional["GoogleWorkbenchInstanceGceSetupConfidentialInstanceConfig"]:
         '''confidential_instance_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#confidential_instance_config GoogleWorkbenchInstance#confidential_instance_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#confidential_instance_config GoogleWorkbenchInstance#confidential_instance_config}
         '''
         result = self._values.get("confidential_instance_config")
         return typing.cast(typing.Optional["GoogleWorkbenchInstanceGceSetupConfidentialInstanceConfig"], result)
@@ -1017,7 +1017,7 @@ class GoogleWorkbenchInstanceGceSetup:
     ) -> typing.Optional["GoogleWorkbenchInstanceGceSetupContainerImage"]:
         '''container_image block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#container_image GoogleWorkbenchInstance#container_image}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#container_image GoogleWorkbenchInstance#container_image}
         '''
         result = self._values.get("container_image")
         return typing.cast(typing.Optional["GoogleWorkbenchInstanceGceSetupContainerImage"], result)
@@ -1026,7 +1026,7 @@ class GoogleWorkbenchInstanceGceSetup:
     def data_disks(self) -> typing.Optional["GoogleWorkbenchInstanceGceSetupDataDisks"]:
         '''data_disks block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#data_disks GoogleWorkbenchInstance#data_disks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#data_disks GoogleWorkbenchInstance#data_disks}
         '''
         result = self._values.get("data_disks")
         return typing.cast(typing.Optional["GoogleWorkbenchInstanceGceSetupDataDisks"], result)
@@ -1037,7 +1037,7 @@ class GoogleWorkbenchInstanceGceSetup:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Optional. If true, no external IP will be assigned to this VM instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#disable_public_ip GoogleWorkbenchInstance#disable_public_ip}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#disable_public_ip GoogleWorkbenchInstance#disable_public_ip}
         '''
         result = self._values.get("disable_public_ip")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1048,7 +1048,7 @@ class GoogleWorkbenchInstanceGceSetup:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Optional. Flag to enable ip forwarding or not, default false/off. https://cloud.google.com/vpc/docs/using-routes#canipforward.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#enable_ip_forwarding GoogleWorkbenchInstance#enable_ip_forwarding}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#enable_ip_forwarding GoogleWorkbenchInstance#enable_ip_forwarding}
         '''
         result = self._values.get("enable_ip_forwarding")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1057,7 +1057,7 @@ class GoogleWorkbenchInstanceGceSetup:
     def machine_type(self) -> typing.Optional[builtins.str]:
         '''Optional. The machine type of the VM instance. https://cloud.google.com/compute/docs/machine-resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#machine_type GoogleWorkbenchInstance#machine_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#machine_type GoogleWorkbenchInstance#machine_type}
         '''
         result = self._values.get("machine_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1066,7 +1066,7 @@ class GoogleWorkbenchInstanceGceSetup:
     def metadata(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''Optional. Custom metadata to apply to this instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#metadata GoogleWorkbenchInstance#metadata}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#metadata GoogleWorkbenchInstance#metadata}
         '''
         result = self._values.get("metadata")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1077,7 +1077,7 @@ class GoogleWorkbenchInstanceGceSetup:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleWorkbenchInstanceGceSetupNetworkInterfaces"]]]:
         '''network_interfaces block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#network_interfaces GoogleWorkbenchInstance#network_interfaces}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#network_interfaces GoogleWorkbenchInstance#network_interfaces}
         '''
         result = self._values.get("network_interfaces")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleWorkbenchInstanceGceSetupNetworkInterfaces"]]], result)
@@ -1088,7 +1088,7 @@ class GoogleWorkbenchInstanceGceSetup:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleWorkbenchInstanceGceSetupServiceAccounts"]]]:
         '''service_accounts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#service_accounts GoogleWorkbenchInstance#service_accounts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#service_accounts GoogleWorkbenchInstance#service_accounts}
         '''
         result = self._values.get("service_accounts")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleWorkbenchInstanceGceSetupServiceAccounts"]]], result)
@@ -1099,7 +1099,7 @@ class GoogleWorkbenchInstanceGceSetup:
     ) -> typing.Optional["GoogleWorkbenchInstanceGceSetupShieldedInstanceConfig"]:
         '''shielded_instance_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#shielded_instance_config GoogleWorkbenchInstance#shielded_instance_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#shielded_instance_config GoogleWorkbenchInstance#shielded_instance_config}
         '''
         result = self._values.get("shielded_instance_config")
         return typing.cast(typing.Optional["GoogleWorkbenchInstanceGceSetupShieldedInstanceConfig"], result)
@@ -1108,7 +1108,7 @@ class GoogleWorkbenchInstanceGceSetup:
     def tags(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Optional. The Compute Engine tags to add to instance (see `Tagging instances <https://cloud.google.com/compute/docs/label-or-tag-resources#tags>`_).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#tags GoogleWorkbenchInstance#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#tags GoogleWorkbenchInstance#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1117,7 +1117,7 @@ class GoogleWorkbenchInstanceGceSetup:
     def vm_image(self) -> typing.Optional["GoogleWorkbenchInstanceGceSetupVmImage"]:
         '''vm_image block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#vm_image GoogleWorkbenchInstance#vm_image}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#vm_image GoogleWorkbenchInstance#vm_image}
         '''
         result = self._values.get("vm_image")
         return typing.cast(typing.Optional["GoogleWorkbenchInstanceGceSetupVmImage"], result)
@@ -1147,8 +1147,8 @@ class GoogleWorkbenchInstanceGceSetupAcceleratorConfigs:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param core_count: Optional. Count of cores of this accelerator. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#core_count GoogleWorkbenchInstance#core_count}
-        :param type: Optional. Type of this accelerator. Possible values: ["NVIDIA_TESLA_P100", "NVIDIA_TESLA_V100", "NVIDIA_TESLA_P4", "NVIDIA_TESLA_T4", "NVIDIA_TESLA_A100", "NVIDIA_A100_80GB", "NVIDIA_L4", "NVIDIA_TESLA_T4_VWS", "NVIDIA_TESLA_P100_VWS", "NVIDIA_TESLA_P4_VWS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#type GoogleWorkbenchInstance#type}
+        :param core_count: Optional. Count of cores of this accelerator. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#core_count GoogleWorkbenchInstance#core_count}
+        :param type: Optional. Type of this accelerator. Possible values: ["NVIDIA_TESLA_P100", "NVIDIA_TESLA_V100", "NVIDIA_TESLA_P4", "NVIDIA_TESLA_T4", "NVIDIA_TESLA_A100", "NVIDIA_A100_80GB", "NVIDIA_L4", "NVIDIA_TESLA_T4_VWS", "NVIDIA_TESLA_P100_VWS", "NVIDIA_TESLA_P4_VWS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#type GoogleWorkbenchInstance#type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__785ac42bb12283ef184ded10f5f5e4149ae6cb42f6ea6e0fdd77f75dace5ac12)
@@ -1164,7 +1164,7 @@ class GoogleWorkbenchInstanceGceSetupAcceleratorConfigs:
     def core_count(self) -> typing.Optional[builtins.str]:
         '''Optional. Count of cores of this accelerator.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#core_count GoogleWorkbenchInstance#core_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#core_count GoogleWorkbenchInstance#core_count}
         '''
         result = self._values.get("core_count")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1173,7 +1173,7 @@ class GoogleWorkbenchInstanceGceSetupAcceleratorConfigs:
     def type(self) -> typing.Optional[builtins.str]:
         '''Optional. Type of this accelerator. Possible values: ["NVIDIA_TESLA_P100", "NVIDIA_TESLA_V100", "NVIDIA_TESLA_P4", "NVIDIA_TESLA_T4", "NVIDIA_TESLA_A100", "NVIDIA_A100_80GB", "NVIDIA_L4", "NVIDIA_TESLA_T4_VWS", "NVIDIA_TESLA_P100_VWS", "NVIDIA_TESLA_P4_VWS"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#type GoogleWorkbenchInstance#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#type GoogleWorkbenchInstance#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1389,10 +1389,10 @@ class GoogleWorkbenchInstanceGceSetupBootDisk:
         kms_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param disk_encryption: Optional. Input only. Disk encryption method used on the boot and data disks, defaults to GMEK. Possible values: ["GMEK", "CMEK"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#disk_encryption GoogleWorkbenchInstance#disk_encryption}
-        :param disk_size_gb: Optional. The size of the boot disk in GB attached to this instance, up to a maximum of 64000 GB (64 TB). If not specified, this defaults to the recommended value of 150GB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#disk_size_gb GoogleWorkbenchInstance#disk_size_gb}
-        :param disk_type: Optional. Indicates the type of the disk. Possible values: ["PD_STANDARD", "PD_SSD", "PD_BALANCED", "PD_EXTREME"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#disk_type GoogleWorkbenchInstance#disk_type}
-        :param kms_key: 'Optional. The KMS key used to encrypt the disks, only applicable if disk_encryption is CMEK. Format: 'projects/{project_id}/locations/{location}/keyRings/{key_ring_id}/cryptoKeys/{key_id}' Learn more about using your own encryption keys.' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#kms_key GoogleWorkbenchInstance#kms_key}
+        :param disk_encryption: Optional. Input only. Disk encryption method used on the boot and data disks, defaults to GMEK. Possible values: ["GMEK", "CMEK"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#disk_encryption GoogleWorkbenchInstance#disk_encryption}
+        :param disk_size_gb: Optional. The size of the boot disk in GB attached to this instance, up to a maximum of 64000 GB (64 TB). If not specified, this defaults to the recommended value of 150GB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#disk_size_gb GoogleWorkbenchInstance#disk_size_gb}
+        :param disk_type: Optional. Indicates the type of the disk. Possible values: ["PD_STANDARD", "PD_SSD", "PD_BALANCED", "PD_EXTREME"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#disk_type GoogleWorkbenchInstance#disk_type}
+        :param kms_key: 'Optional. The KMS key used to encrypt the disks, only applicable if disk_encryption is CMEK. Format: 'projects/{project_id}/locations/{location}/keyRings/{key_ring_id}/cryptoKeys/{key_id}' Learn more about using your own encryption keys.' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#kms_key GoogleWorkbenchInstance#kms_key}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3bb726a73ab5bc37e4b46e18e8b8cb837f3b0d93772d4f9d490cf6017c1afab0)
@@ -1414,7 +1414,7 @@ class GoogleWorkbenchInstanceGceSetupBootDisk:
     def disk_encryption(self) -> typing.Optional[builtins.str]:
         '''Optional. Input only. Disk encryption method used on the boot and data disks, defaults to GMEK. Possible values: ["GMEK", "CMEK"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#disk_encryption GoogleWorkbenchInstance#disk_encryption}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#disk_encryption GoogleWorkbenchInstance#disk_encryption}
         '''
         result = self._values.get("disk_encryption")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1427,7 +1427,7 @@ class GoogleWorkbenchInstanceGceSetupBootDisk:
         up to a maximum of 64000 GB (64 TB). If not specified, this defaults to the
         recommended value of 150GB.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#disk_size_gb GoogleWorkbenchInstance#disk_size_gb}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#disk_size_gb GoogleWorkbenchInstance#disk_size_gb}
         '''
         result = self._values.get("disk_size_gb")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1436,7 +1436,7 @@ class GoogleWorkbenchInstanceGceSetupBootDisk:
     def disk_type(self) -> typing.Optional[builtins.str]:
         '''Optional. Indicates the type of the disk. Possible values: ["PD_STANDARD", "PD_SSD", "PD_BALANCED", "PD_EXTREME"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#disk_type GoogleWorkbenchInstance#disk_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#disk_type GoogleWorkbenchInstance#disk_type}
         '''
         result = self._values.get("disk_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1449,7 +1449,7 @@ class GoogleWorkbenchInstanceGceSetupBootDisk:
         applicable if disk_encryption is CMEK. Format: 'projects/{project_id}/locations/{location}/keyRings/{key_ring_id}/cryptoKeys/{key_id}'
         Learn more about using your own encryption keys.'
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#kms_key GoogleWorkbenchInstance#kms_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#kms_key GoogleWorkbenchInstance#kms_key}
         '''
         result = self._values.get("kms_key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1600,7 +1600,7 @@ class GoogleWorkbenchInstanceGceSetupConfidentialInstanceConfig:
         confidential_instance_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param confidential_instance_type: Defines the type of technology used by the confidential instance. Possible values: ["SEV"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#confidential_instance_type GoogleWorkbenchInstance#confidential_instance_type}
+        :param confidential_instance_type: Defines the type of technology used by the confidential instance. Possible values: ["SEV"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#confidential_instance_type GoogleWorkbenchInstance#confidential_instance_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9a3cec256939313e4c4bb3dc9d88df50a8d0eedb7926e434c101567e3c33f957)
@@ -1613,7 +1613,7 @@ class GoogleWorkbenchInstanceGceSetupConfidentialInstanceConfig:
     def confidential_instance_type(self) -> typing.Optional[builtins.str]:
         '''Defines the type of technology used by the confidential instance. Possible values: ["SEV"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#confidential_instance_type GoogleWorkbenchInstance#confidential_instance_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#confidential_instance_type GoogleWorkbenchInstance#confidential_instance_type}
         '''
         result = self._values.get("confidential_instance_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1702,8 +1702,8 @@ class GoogleWorkbenchInstanceGceSetupContainerImage:
         tag: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param repository: The path to the container image repository. For example: gcr.io/{project_id}/{imageName}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#repository GoogleWorkbenchInstance#repository}
-        :param tag: The tag of the container image. If not specified, this defaults to the latest tag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#tag GoogleWorkbenchInstance#tag}
+        :param repository: The path to the container image repository. For example: gcr.io/{project_id}/{imageName}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#repository GoogleWorkbenchInstance#repository}
+        :param tag: The tag of the container image. If not specified, this defaults to the latest tag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#tag GoogleWorkbenchInstance#tag}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9ba12d30c6e173ef027fa5507ad93ee12779209ebf8410df3149849ed4b73e02)
@@ -1719,7 +1719,7 @@ class GoogleWorkbenchInstanceGceSetupContainerImage:
     def repository(self) -> builtins.str:
         '''The path to the container image repository. For example: gcr.io/{project_id}/{imageName}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#repository GoogleWorkbenchInstance#repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#repository GoogleWorkbenchInstance#repository}
         '''
         result = self._values.get("repository")
         assert result is not None, "Required property 'repository' is missing"
@@ -1729,7 +1729,7 @@ class GoogleWorkbenchInstanceGceSetupContainerImage:
     def tag(self) -> typing.Optional[builtins.str]:
         '''The tag of the container image. If not specified, this defaults to the latest tag.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#tag GoogleWorkbenchInstance#tag}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#tag GoogleWorkbenchInstance#tag}
         '''
         result = self._values.get("tag")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1842,10 +1842,10 @@ class GoogleWorkbenchInstanceGceSetupDataDisks:
         kms_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param disk_encryption: Optional. Input only. Disk encryption method used on the boot and data disks, defaults to GMEK. Possible values: ["GMEK", "CMEK"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#disk_encryption GoogleWorkbenchInstance#disk_encryption}
-        :param disk_size_gb: Optional. The size of the disk in GB attached to this VM instance, up to a maximum of 64000 GB (64 TB). If not specified, this defaults to 100. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#disk_size_gb GoogleWorkbenchInstance#disk_size_gb}
-        :param disk_type: Optional. Input only. Indicates the type of the disk. Possible values: ["PD_STANDARD", "PD_SSD", "PD_BALANCED", "PD_EXTREME"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#disk_type GoogleWorkbenchInstance#disk_type}
-        :param kms_key: 'Optional. The KMS key used to encrypt the disks, only applicable if disk_encryption is CMEK. Format: 'projects/{project_id}/locations/{location}/keyRings/{key_ring_id}/cryptoKeys/{key_id}' Learn more about using your own encryption keys.' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#kms_key GoogleWorkbenchInstance#kms_key}
+        :param disk_encryption: Optional. Input only. Disk encryption method used on the boot and data disks, defaults to GMEK. Possible values: ["GMEK", "CMEK"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#disk_encryption GoogleWorkbenchInstance#disk_encryption}
+        :param disk_size_gb: Optional. The size of the disk in GB attached to this VM instance, up to a maximum of 64000 GB (64 TB). If not specified, this defaults to 100. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#disk_size_gb GoogleWorkbenchInstance#disk_size_gb}
+        :param disk_type: Optional. Input only. Indicates the type of the disk. Possible values: ["PD_STANDARD", "PD_SSD", "PD_BALANCED", "PD_EXTREME"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#disk_type GoogleWorkbenchInstance#disk_type}
+        :param kms_key: 'Optional. The KMS key used to encrypt the disks, only applicable if disk_encryption is CMEK. Format: 'projects/{project_id}/locations/{location}/keyRings/{key_ring_id}/cryptoKeys/{key_id}' Learn more about using your own encryption keys.' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#kms_key GoogleWorkbenchInstance#kms_key}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a25a1ba2035e45b5c56b74d67595a9e30f56f5d5da0ab7b40f8fe71b7fc48298)
@@ -1867,7 +1867,7 @@ class GoogleWorkbenchInstanceGceSetupDataDisks:
     def disk_encryption(self) -> typing.Optional[builtins.str]:
         '''Optional. Input only. Disk encryption method used on the boot and data disks, defaults to GMEK. Possible values: ["GMEK", "CMEK"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#disk_encryption GoogleWorkbenchInstance#disk_encryption}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#disk_encryption GoogleWorkbenchInstance#disk_encryption}
         '''
         result = self._values.get("disk_encryption")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1880,7 +1880,7 @@ class GoogleWorkbenchInstanceGceSetupDataDisks:
         up to a maximum of 64000 GB (64 TB). If not specified, this defaults to
         100.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#disk_size_gb GoogleWorkbenchInstance#disk_size_gb}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#disk_size_gb GoogleWorkbenchInstance#disk_size_gb}
         '''
         result = self._values.get("disk_size_gb")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1889,7 +1889,7 @@ class GoogleWorkbenchInstanceGceSetupDataDisks:
     def disk_type(self) -> typing.Optional[builtins.str]:
         '''Optional. Input only. Indicates the type of the disk. Possible values: ["PD_STANDARD", "PD_SSD", "PD_BALANCED", "PD_EXTREME"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#disk_type GoogleWorkbenchInstance#disk_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#disk_type GoogleWorkbenchInstance#disk_type}
         '''
         result = self._values.get("disk_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1902,7 +1902,7 @@ class GoogleWorkbenchInstanceGceSetupDataDisks:
         only applicable if disk_encryption is CMEK. Format: 'projects/{project_id}/locations/{location}/keyRings/{key_ring_id}/cryptoKeys/{key_id}'
         Learn more about using your own encryption keys.'
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#kms_key GoogleWorkbenchInstance#kms_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#kms_key GoogleWorkbenchInstance#kms_key}
         '''
         result = self._values.get("kms_key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2061,10 +2061,10 @@ class GoogleWorkbenchInstanceGceSetupNetworkInterfaces:
         subnet: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param access_configs: access_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#access_configs GoogleWorkbenchInstance#access_configs}
-        :param network: Optional. The name of the VPC that this VM instance is in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#network GoogleWorkbenchInstance#network}
-        :param nic_type: Optional. The type of vNIC to be used on this interface. This may be gVNIC or VirtioNet. Possible values: ["VIRTIO_NET", "GVNIC"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#nic_type GoogleWorkbenchInstance#nic_type}
-        :param subnet: Optional. The name of the subnet that this VM instance is in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#subnet GoogleWorkbenchInstance#subnet}
+        :param access_configs: access_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#access_configs GoogleWorkbenchInstance#access_configs}
+        :param network: Optional. The name of the VPC that this VM instance is in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#network GoogleWorkbenchInstance#network}
+        :param nic_type: Optional. The type of vNIC to be used on this interface. This may be gVNIC or VirtioNet. Possible values: ["VIRTIO_NET", "GVNIC"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#nic_type GoogleWorkbenchInstance#nic_type}
+        :param subnet: Optional. The name of the subnet that this VM instance is in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#subnet GoogleWorkbenchInstance#subnet}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c1a75cd02a1564f1f6a51d387b54d7cfbbf3ed5b0fd5a3176fc153345415d19b)
@@ -2088,7 +2088,7 @@ class GoogleWorkbenchInstanceGceSetupNetworkInterfaces:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleWorkbenchInstanceGceSetupNetworkInterfacesAccessConfigs"]]]:
         '''access_configs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#access_configs GoogleWorkbenchInstance#access_configs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#access_configs GoogleWorkbenchInstance#access_configs}
         '''
         result = self._values.get("access_configs")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleWorkbenchInstanceGceSetupNetworkInterfacesAccessConfigs"]]], result)
@@ -2097,7 +2097,7 @@ class GoogleWorkbenchInstanceGceSetupNetworkInterfaces:
     def network(self) -> typing.Optional[builtins.str]:
         '''Optional. The name of the VPC that this VM instance is in.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#network GoogleWorkbenchInstance#network}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#network GoogleWorkbenchInstance#network}
         '''
         result = self._values.get("network")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2109,7 +2109,7 @@ class GoogleWorkbenchInstanceGceSetupNetworkInterfaces:
         The type of vNIC to be used on this interface. This
         may be gVNIC or VirtioNet. Possible values: ["VIRTIO_NET", "GVNIC"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#nic_type GoogleWorkbenchInstance#nic_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#nic_type GoogleWorkbenchInstance#nic_type}
         '''
         result = self._values.get("nic_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2118,7 +2118,7 @@ class GoogleWorkbenchInstanceGceSetupNetworkInterfaces:
     def subnet(self) -> typing.Optional[builtins.str]:
         '''Optional. The name of the subnet that this VM instance is in.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#subnet GoogleWorkbenchInstance#subnet}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#subnet GoogleWorkbenchInstance#subnet}
         '''
         result = self._values.get("subnet")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2143,7 +2143,7 @@ class GoogleWorkbenchInstanceGceSetupNetworkInterfaces:
 class GoogleWorkbenchInstanceGceSetupNetworkInterfacesAccessConfigs:
     def __init__(self, *, external_ip: builtins.str) -> None:
         '''
-        :param external_ip: An external IP address associated with this instance. Specify an unused static external IP address available to the project or leave this field undefined to use an IP from a shared ephemeral IP address pool. If you specify a static external IP address, it must live in the same region as the zone of the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#external_ip GoogleWorkbenchInstance#external_ip}
+        :param external_ip: An external IP address associated with this instance. Specify an unused static external IP address available to the project or leave this field undefined to use an IP from a shared ephemeral IP address pool. If you specify a static external IP address, it must live in the same region as the zone of the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#external_ip GoogleWorkbenchInstance#external_ip}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c776f4d1e00259fe5c54c99a7a364dcc2374e3caaacdc37e2b9bd6fe66cf87d3)
@@ -2162,7 +2162,7 @@ class GoogleWorkbenchInstanceGceSetupNetworkInterfacesAccessConfigs:
         specify a static external IP address, it must live in the same region as
         the zone of the instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#external_ip GoogleWorkbenchInstance#external_ip}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#external_ip GoogleWorkbenchInstance#external_ip}
         '''
         result = self._values.get("external_ip")
         assert result is not None, "Required property 'external_ip' is missing"
@@ -2608,10 +2608,10 @@ class GoogleWorkbenchInstanceGceSetupOutputReference(
         kms_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param disk_encryption: Optional. Input only. Disk encryption method used on the boot and data disks, defaults to GMEK. Possible values: ["GMEK", "CMEK"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#disk_encryption GoogleWorkbenchInstance#disk_encryption}
-        :param disk_size_gb: Optional. The size of the boot disk in GB attached to this instance, up to a maximum of 64000 GB (64 TB). If not specified, this defaults to the recommended value of 150GB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#disk_size_gb GoogleWorkbenchInstance#disk_size_gb}
-        :param disk_type: Optional. Indicates the type of the disk. Possible values: ["PD_STANDARD", "PD_SSD", "PD_BALANCED", "PD_EXTREME"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#disk_type GoogleWorkbenchInstance#disk_type}
-        :param kms_key: 'Optional. The KMS key used to encrypt the disks, only applicable if disk_encryption is CMEK. Format: 'projects/{project_id}/locations/{location}/keyRings/{key_ring_id}/cryptoKeys/{key_id}' Learn more about using your own encryption keys.' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#kms_key GoogleWorkbenchInstance#kms_key}
+        :param disk_encryption: Optional. Input only. Disk encryption method used on the boot and data disks, defaults to GMEK. Possible values: ["GMEK", "CMEK"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#disk_encryption GoogleWorkbenchInstance#disk_encryption}
+        :param disk_size_gb: Optional. The size of the boot disk in GB attached to this instance, up to a maximum of 64000 GB (64 TB). If not specified, this defaults to the recommended value of 150GB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#disk_size_gb GoogleWorkbenchInstance#disk_size_gb}
+        :param disk_type: Optional. Indicates the type of the disk. Possible values: ["PD_STANDARD", "PD_SSD", "PD_BALANCED", "PD_EXTREME"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#disk_type GoogleWorkbenchInstance#disk_type}
+        :param kms_key: 'Optional. The KMS key used to encrypt the disks, only applicable if disk_encryption is CMEK. Format: 'projects/{project_id}/locations/{location}/keyRings/{key_ring_id}/cryptoKeys/{key_id}' Learn more about using your own encryption keys.' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#kms_key GoogleWorkbenchInstance#kms_key}
         '''
         value = GoogleWorkbenchInstanceGceSetupBootDisk(
             disk_encryption=disk_encryption,
@@ -2629,7 +2629,7 @@ class GoogleWorkbenchInstanceGceSetupOutputReference(
         confidential_instance_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param confidential_instance_type: Defines the type of technology used by the confidential instance. Possible values: ["SEV"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#confidential_instance_type GoogleWorkbenchInstance#confidential_instance_type}
+        :param confidential_instance_type: Defines the type of technology used by the confidential instance. Possible values: ["SEV"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#confidential_instance_type GoogleWorkbenchInstance#confidential_instance_type}
         '''
         value = GoogleWorkbenchInstanceGceSetupConfidentialInstanceConfig(
             confidential_instance_type=confidential_instance_type
@@ -2645,8 +2645,8 @@ class GoogleWorkbenchInstanceGceSetupOutputReference(
         tag: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param repository: The path to the container image repository. For example: gcr.io/{project_id}/{imageName}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#repository GoogleWorkbenchInstance#repository}
-        :param tag: The tag of the container image. If not specified, this defaults to the latest tag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#tag GoogleWorkbenchInstance#tag}
+        :param repository: The path to the container image repository. For example: gcr.io/{project_id}/{imageName}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#repository GoogleWorkbenchInstance#repository}
+        :param tag: The tag of the container image. If not specified, this defaults to the latest tag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#tag GoogleWorkbenchInstance#tag}
         '''
         value = GoogleWorkbenchInstanceGceSetupContainerImage(
             repository=repository, tag=tag
@@ -2664,10 +2664,10 @@ class GoogleWorkbenchInstanceGceSetupOutputReference(
         kms_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param disk_encryption: Optional. Input only. Disk encryption method used on the boot and data disks, defaults to GMEK. Possible values: ["GMEK", "CMEK"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#disk_encryption GoogleWorkbenchInstance#disk_encryption}
-        :param disk_size_gb: Optional. The size of the disk in GB attached to this VM instance, up to a maximum of 64000 GB (64 TB). If not specified, this defaults to 100. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#disk_size_gb GoogleWorkbenchInstance#disk_size_gb}
-        :param disk_type: Optional. Input only. Indicates the type of the disk. Possible values: ["PD_STANDARD", "PD_SSD", "PD_BALANCED", "PD_EXTREME"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#disk_type GoogleWorkbenchInstance#disk_type}
-        :param kms_key: 'Optional. The KMS key used to encrypt the disks, only applicable if disk_encryption is CMEK. Format: 'projects/{project_id}/locations/{location}/keyRings/{key_ring_id}/cryptoKeys/{key_id}' Learn more about using your own encryption keys.' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#kms_key GoogleWorkbenchInstance#kms_key}
+        :param disk_encryption: Optional. Input only. Disk encryption method used on the boot and data disks, defaults to GMEK. Possible values: ["GMEK", "CMEK"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#disk_encryption GoogleWorkbenchInstance#disk_encryption}
+        :param disk_size_gb: Optional. The size of the disk in GB attached to this VM instance, up to a maximum of 64000 GB (64 TB). If not specified, this defaults to 100. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#disk_size_gb GoogleWorkbenchInstance#disk_size_gb}
+        :param disk_type: Optional. Input only. Indicates the type of the disk. Possible values: ["PD_STANDARD", "PD_SSD", "PD_BALANCED", "PD_EXTREME"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#disk_type GoogleWorkbenchInstance#disk_type}
+        :param kms_key: 'Optional. The KMS key used to encrypt the disks, only applicable if disk_encryption is CMEK. Format: 'projects/{project_id}/locations/{location}/keyRings/{key_ring_id}/cryptoKeys/{key_id}' Learn more about using your own encryption keys.' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#kms_key GoogleWorkbenchInstance#kms_key}
         '''
         value = GoogleWorkbenchInstanceGceSetupDataDisks(
             disk_encryption=disk_encryption,
@@ -2713,9 +2713,9 @@ class GoogleWorkbenchInstanceGceSetupOutputReference(
         enable_vtpm: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enable_integrity_monitoring: Optional. Defines whether the VM instance has integrity monitoring enabled. Enables monitoring and attestation of the boot integrity of the VM instance. The attestation is performed against the integrity policy baseline. This baseline is initially derived from the implicitly trusted boot image when the VM instance is created. Enabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#enable_integrity_monitoring GoogleWorkbenchInstance#enable_integrity_monitoring}
-        :param enable_secure_boot: Optional. Defines whether the VM instance has Secure Boot enabled. Secure Boot helps ensure that the system only runs authentic software by verifying the digital signature of all boot components, and halting the boot process if signature verification fails. Disabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#enable_secure_boot GoogleWorkbenchInstance#enable_secure_boot}
-        :param enable_vtpm: Optional. Defines whether the VM instance has the vTPM enabled. Enabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#enable_vtpm GoogleWorkbenchInstance#enable_vtpm}
+        :param enable_integrity_monitoring: Optional. Defines whether the VM instance has integrity monitoring enabled. Enables monitoring and attestation of the boot integrity of the VM instance. The attestation is performed against the integrity policy baseline. This baseline is initially derived from the implicitly trusted boot image when the VM instance is created. Enabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#enable_integrity_monitoring GoogleWorkbenchInstance#enable_integrity_monitoring}
+        :param enable_secure_boot: Optional. Defines whether the VM instance has Secure Boot enabled. Secure Boot helps ensure that the system only runs authentic software by verifying the digital signature of all boot components, and halting the boot process if signature verification fails. Disabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#enable_secure_boot GoogleWorkbenchInstance#enable_secure_boot}
+        :param enable_vtpm: Optional. Defines whether the VM instance has the vTPM enabled. Enabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#enable_vtpm GoogleWorkbenchInstance#enable_vtpm}
         '''
         value = GoogleWorkbenchInstanceGceSetupShieldedInstanceConfig(
             enable_integrity_monitoring=enable_integrity_monitoring,
@@ -2734,9 +2734,9 @@ class GoogleWorkbenchInstanceGceSetupOutputReference(
         project: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param family: Optional. Use this VM image family to find the image; the newest image in this family will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#family GoogleWorkbenchInstance#family}
-        :param name: Optional. Use VM image name to find the image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#name GoogleWorkbenchInstance#name}
-        :param project: The name of the Google Cloud project that this VM image belongs to. Format: {project_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#project GoogleWorkbenchInstance#project}
+        :param family: Optional. Use this VM image family to find the image; the newest image in this family will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#family GoogleWorkbenchInstance#family}
+        :param name: Optional. Use VM image name to find the image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#name GoogleWorkbenchInstance#name}
+        :param project: The name of the Google Cloud project that this VM image belongs to. Format: {project_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#project GoogleWorkbenchInstance#project}
         '''
         value = GoogleWorkbenchInstanceGceSetupVmImage(
             family=family, name=name, project=project
@@ -3043,7 +3043,7 @@ class GoogleWorkbenchInstanceGceSetupOutputReference(
 class GoogleWorkbenchInstanceGceSetupServiceAccounts:
     def __init__(self, *, email: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param email: Optional. Email address of the service account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#email GoogleWorkbenchInstance#email}
+        :param email: Optional. Email address of the service account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#email GoogleWorkbenchInstance#email}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b2ea30d841b6f6bb447b13855d305c3881fdcb49042983f66b5351e693739ba4)
@@ -3056,7 +3056,7 @@ class GoogleWorkbenchInstanceGceSetupServiceAccounts:
     def email(self) -> typing.Optional[builtins.str]:
         '''Optional. Email address of the service account.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#email GoogleWorkbenchInstance#email}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#email GoogleWorkbenchInstance#email}
         '''
         result = self._values.get("email")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3254,9 +3254,9 @@ class GoogleWorkbenchInstanceGceSetupShieldedInstanceConfig:
         enable_vtpm: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enable_integrity_monitoring: Optional. Defines whether the VM instance has integrity monitoring enabled. Enables monitoring and attestation of the boot integrity of the VM instance. The attestation is performed against the integrity policy baseline. This baseline is initially derived from the implicitly trusted boot image when the VM instance is created. Enabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#enable_integrity_monitoring GoogleWorkbenchInstance#enable_integrity_monitoring}
-        :param enable_secure_boot: Optional. Defines whether the VM instance has Secure Boot enabled. Secure Boot helps ensure that the system only runs authentic software by verifying the digital signature of all boot components, and halting the boot process if signature verification fails. Disabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#enable_secure_boot GoogleWorkbenchInstance#enable_secure_boot}
-        :param enable_vtpm: Optional. Defines whether the VM instance has the vTPM enabled. Enabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#enable_vtpm GoogleWorkbenchInstance#enable_vtpm}
+        :param enable_integrity_monitoring: Optional. Defines whether the VM instance has integrity monitoring enabled. Enables monitoring and attestation of the boot integrity of the VM instance. The attestation is performed against the integrity policy baseline. This baseline is initially derived from the implicitly trusted boot image when the VM instance is created. Enabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#enable_integrity_monitoring GoogleWorkbenchInstance#enable_integrity_monitoring}
+        :param enable_secure_boot: Optional. Defines whether the VM instance has Secure Boot enabled. Secure Boot helps ensure that the system only runs authentic software by verifying the digital signature of all boot components, and halting the boot process if signature verification fails. Disabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#enable_secure_boot GoogleWorkbenchInstance#enable_secure_boot}
+        :param enable_vtpm: Optional. Defines whether the VM instance has the vTPM enabled. Enabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#enable_vtpm GoogleWorkbenchInstance#enable_vtpm}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d6efd1022656f651f0bca9c44fbb902f25d5fb1c1e276079200c261510d2e940)
@@ -3283,7 +3283,7 @@ class GoogleWorkbenchInstanceGceSetupShieldedInstanceConfig:
         This baseline is initially derived from the implicitly trusted boot image
         when the VM instance is created. Enabled by default.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#enable_integrity_monitoring GoogleWorkbenchInstance#enable_integrity_monitoring}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#enable_integrity_monitoring GoogleWorkbenchInstance#enable_integrity_monitoring}
         '''
         result = self._values.get("enable_integrity_monitoring")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3299,7 +3299,7 @@ class GoogleWorkbenchInstanceGceSetupShieldedInstanceConfig:
         the digital signature of all boot components, and halting the boot process
         if signature verification fails. Disabled by default.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#enable_secure_boot GoogleWorkbenchInstance#enable_secure_boot}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#enable_secure_boot GoogleWorkbenchInstance#enable_secure_boot}
         '''
         result = self._values.get("enable_secure_boot")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3310,7 +3310,7 @@ class GoogleWorkbenchInstanceGceSetupShieldedInstanceConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Optional. Defines whether the VM instance has the vTPM enabled. Enabled by default.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#enable_vtpm GoogleWorkbenchInstance#enable_vtpm}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#enable_vtpm GoogleWorkbenchInstance#enable_vtpm}
         '''
         result = self._values.get("enable_vtpm")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3461,9 +3461,9 @@ class GoogleWorkbenchInstanceGceSetupVmImage:
         project: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param family: Optional. Use this VM image family to find the image; the newest image in this family will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#family GoogleWorkbenchInstance#family}
-        :param name: Optional. Use VM image name to find the image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#name GoogleWorkbenchInstance#name}
-        :param project: The name of the Google Cloud project that this VM image belongs to. Format: {project_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#project GoogleWorkbenchInstance#project}
+        :param family: Optional. Use this VM image family to find the image; the newest image in this family will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#family GoogleWorkbenchInstance#family}
+        :param name: Optional. Use VM image name to find the image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#name GoogleWorkbenchInstance#name}
+        :param project: The name of the Google Cloud project that this VM image belongs to. Format: {project_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#project GoogleWorkbenchInstance#project}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1fcba216d11582878fb284f6941c5a241070cf1276d14d071dc0a54802e365d7)
@@ -3482,7 +3482,7 @@ class GoogleWorkbenchInstanceGceSetupVmImage:
     def family(self) -> typing.Optional[builtins.str]:
         '''Optional. Use this VM image family to find the image; the newest image in this family will be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#family GoogleWorkbenchInstance#family}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#family GoogleWorkbenchInstance#family}
         '''
         result = self._values.get("family")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3491,7 +3491,7 @@ class GoogleWorkbenchInstanceGceSetupVmImage:
     def name(self) -> typing.Optional[builtins.str]:
         '''Optional. Use VM image name to find the image.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#name GoogleWorkbenchInstance#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#name GoogleWorkbenchInstance#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3500,7 +3500,7 @@ class GoogleWorkbenchInstanceGceSetupVmImage:
     def project(self) -> typing.Optional[builtins.str]:
         '''The name of the Google Cloud project that this VM image belongs to. Format: {project_id}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#project GoogleWorkbenchInstance#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#project GoogleWorkbenchInstance#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3769,9 +3769,9 @@ class GoogleWorkbenchInstanceTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#create GoogleWorkbenchInstance#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#delete GoogleWorkbenchInstance#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#update GoogleWorkbenchInstance#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#create GoogleWorkbenchInstance#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#delete GoogleWorkbenchInstance#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#update GoogleWorkbenchInstance#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__56747ba5e6a2904199aa9c0e55c8698136304de9c94c04cdf7708a48b555f5d3)
@@ -3788,19 +3788,19 @@ class GoogleWorkbenchInstanceTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#create GoogleWorkbenchInstance#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#create GoogleWorkbenchInstance#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#delete GoogleWorkbenchInstance#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#delete GoogleWorkbenchInstance#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_workbench_instance#update GoogleWorkbenchInstance#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_workbench_instance#update GoogleWorkbenchInstance#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

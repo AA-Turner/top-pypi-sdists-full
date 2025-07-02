@@ -122,10 +122,7 @@ def gcs_client_mock():
             return f'https://storage.googleapis.com/{self.bucket_name}/{self.key}'
 
         def download_as_bytes(self):
-            data = f'test_blob_{self.key}'
-            if self.is_json:
-                return json.dumps(self.sample_json_contents)
-            return data
+            return self.download_as_string().encode('utf-8')
 
     class DummyGCSBucket:
         def __init__(self, bucket_name, is_json, is_multitask):
@@ -191,6 +188,9 @@ def azure_client_mock(sample_json_contents=None, sample_blob_names=None):
 
         def content_as_text(self):
             return json.dumps(sample_json_contents)
+
+        def content_as_bytes(self):
+            return json.dumps(sample_json_contents).encode('utf-8')
 
     class DummyAzureContainer:
         def __init__(self, container_name, **kwargs):

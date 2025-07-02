@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.15.18.1+obcheckpoint(0.2.1);ob(v1)                                                   #
-# Generated on 2025-06-26T22:38:03.097318                                                            #
+# MF version: 2.15.18.1+obcheckpoint(0.2.4);ob(v1)                                                   #
+# Generated on 2025-07-01T15:21:03.537924                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,8 +9,8 @@ from __future__ import annotations
 import metaflow
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.hf_hub.decorator
     import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.decorator
+    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.hf_hub.decorator
 
 from ..checkpoints.decorator import CheckpointDecorator as CheckpointDecorator
 from ..checkpoints.decorator import CurrentCheckpointer as CurrentCheckpointer
@@ -30,16 +30,17 @@ def download_model_from_huggingface(**kwargs):
 
 class HuggingfaceRegistry(object, metaclass=type):
     """
-    This object provides syntactic sugar
-    over [huggingface_hub](https://github.com/huggingface/huggingface_hub)'s
-    [snapshot_download](https://huggingface.co/docs/huggingface_hub/main/en/package_reference/file_download#huggingface_hub.snapshot_download) function.
-    The `current.huggingface_hub.snapshot_download` function downloads objects from huggingface hub and saves them to the Metaflow's datastore under the
-    `<repo_type>/<repo_id>` name. The `repo_type` is by default `model` and can be overriden by passing the `repo_type` parameter to the `snapshot_download` function.
+    This object provides syntactic sugar over [huggingface_hub](https://github.com/huggingface/huggingface_hub)'s [snapshot_download](https://huggingface.co/docs/huggingface_hub/main/en/package_reference/file_download#huggingface_hub.snapshot_download) function.
+    
+    The `current.huggingface_hub.snapshot_download` function downloads objects from huggingface hub and saves them to the Metaflow's datastore under the `<repo_type>/<repo_id>` name. The `repo_type` is by default `model` and can be overriden by passing the `repo_type` parameter to the `snapshot_download` function.
     """
     def __init__(self, logger):
         ...
     @property
-    def loaded(self):
+    def loaded(self) -> HuggingfaceLoadedModels:
+        """
+        This property provides a dictionary-like interface to access the local paths of the huggingface repos specified in the `load` argument of the `@huggingface_hub` decorator.
+        """
         ...
     def snapshot_download(self, **kwargs) -> dict:
         """
@@ -56,13 +57,12 @@ class HuggingfaceRegistry(object, metaclass=type):
 
 class HuggingfaceLoadedModels(object, metaclass=type):
     """
-    Manages loaded Hugging Face models and provides access to their local paths.
+    Manages loaded HuggingFace models/datasets and provides access to their local paths.
     
-    This class is accessed through `current.huggingface_hub.loaded` and provides a dictionary-like
-    interface to access the local paths of the huggingface repos specified in the `load` argument of the `@huggingface_hub` decorator.
+    `current.huggingface_hub.loaded` provides a dictionary-like interface to access the local paths of the huggingface repos specified in the `load` argument of the `@huggingface_hub` decorator.
     
-    Usage:
-    ------
+    Examples
+    --------
     ```python
     # Basic loading and access
     @huggingface_hub(load=["mistralai/Mistral-7B-Instruct-v0.1"])
@@ -98,6 +98,14 @@ class HuggingfaceLoadedModels(object, metaclass=type):
         ...
     @property
     def info(self):
+        """
+        Returns metadata information about all loaded models from Hugging Face Hub.
+        This property provides access to the metadata of models that have been loaded
+        via the `@huggingface_hub(load=...)` decorator. The metadata includes information
+        such as model repository details, storage location, and any cached information
+        from the datastore. Returns a dictionary where keys are model repository IDs and values are metadata
+        dictionaries containing information about each loaded model.
+        """
         ...
     def cleanup(self):
         ...
@@ -106,6 +114,61 @@ class HuggingfaceLoadedModels(object, metaclass=type):
 class HuggingfaceHubDecorator(metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.decorator.CheckpointDecorator, metaclass=type):
     """
     Decorator that helps cache, version and store models/datasets from huggingface hub.
+    
+    > Examples
+    
+    **Usage: creating references of models from huggingface that may be loaded in downstream steps**
+    ```python
+        @huggingface_hub
+        @step
+        def pull_model_from_huggingface(self):
+            # `current.huggingface_hub.snapshot_download` downloads the model from the Hugging Face Hub
+            # and saves it in the backend storage based on the model's `repo_id`. If there exists a model
+            # with the same `repo_id` in the backend storage, it will not download the model again. The return
+            # value of the function is a reference to the model in the backend storage.
+            # This reference can be used to load the model in the subsequent steps via `@model(load=["llama_model"])`
+    
+            self.model_id = "mistralai/Mistral-7B-Instruct-v0.1"
+            self.llama_model = current.huggingface_hub.snapshot_download(
+                repo_id=self.model_id,
+                allow_patterns=["*.safetensors", "*.json", "tokenizer.*"],
+            )
+            self.next(self.train)
+    ```
+    
+    **Usage: loading models directly from huggingface hub or from cache (from metaflow's datastore)**
+    ```python
+        @huggingface_hub(load=["mistralai/Mistral-7B-Instruct-v0.1"])
+        @step
+        def pull_model_from_huggingface(self):
+            path_to_model = current.huggingface_hub.loaded["mistralai/Mistral-7B-Instruct-v0.1"]
+    ```
+    
+    ```python
+        @huggingface_hub(load=[("mistralai/Mistral-7B-Instruct-v0.1", "/my-directory"), ("myorg/mistral-lora, "/my-lora-directory")])
+        @step
+        def finetune_model(self):
+            path_to_model = current.huggingface_hub.loaded["mistralai/Mistral-7B-Instruct-v0.1"]
+            # path_to_model will be /my-directory
+    ```
+    
+    ```python
+        # Takes all the arguments passed to `snapshot_download`
+        # except for `local_dir`
+        @huggingface_hub(load=[
+            {
+                "repo_id": "mistralai/Mistral-7B-Instruct-v0.1",
+            },
+            {
+                "repo_id": "myorg/mistral-lora",
+                "repo_type": "model",
+            },
+        ])
+        @step
+        def finetune_model(self):
+            path_to_model = current.huggingface_hub.loaded["mistralai/Mistral-7B-Instruct-v0.1"]
+            # path_to_model will be /my-directory
+    ```
     
     Parameters
     ----------
@@ -129,68 +192,8 @@ class HuggingfaceHubDecorator(metaflow.mf_extensions.obcheckpoint.plugins.machin
     MF Add To Current
     -----------------
     huggingface_hub -> metaflow_extensions.obcheckpoint.plugins.machine_learning_utilities.hf_hub.decorator.HuggingfaceRegistry
-        The `@huggingface_hub` injects a `huggingface_hub` object into the `current` object. This object provides syntactic sugar
-        over [huggingface_hub](https://github.com/huggingface/huggingface_hub)'s
-        [snapshot_download](https://huggingface.co/docs/huggingface_hub/main/en/package_reference/file_download#huggingface_hub.snapshot_download) function.
-        The `current.huggingface_hub.snapshot_download` function downloads objects from huggingface hub and saves them to the Metaflow's datastore under the
-        `<repo_type>/<repo_id>` name. The `repo_type` is by default `model` and can be overriden by passing the `repo_type` parameter to the `snapshot_download` function.
     
-    
-        Usage:
-        ------
-    
-        **Usage: creating references of models from huggingface that may be loaded in downstream steps**
-        ```python
-            @huggingface_hub
-            @step
-            def pull_model_from_huggingface(self):
-                # `current.huggingface_hub.snapshot_download` downloads the model from the Hugging Face Hub
-                # and saves it in the backend storage based on the model's `repo_id`. If there exists a model
-                # with the same `repo_id` in the backend storage, it will not download the model again. The return
-                # value of the function is a reference to the model in the backend storage.
-                # This reference can be used to load the model in the subsequent steps via `@model(load=["llama_model"])`
-    
-                self.model_id = "mistralai/Mistral-7B-Instruct-v0.1"
-                self.llama_model = current.huggingface_hub.snapshot_download(
-                    repo_id=self.model_id,
-                    allow_patterns=["*.safetensors", "*.json", "tokenizer.*"],
-                )
-                self.next(self.train)
-        ```
-    
-        **Usage: loading models directly from huggingface hub or from cache (from metaflow's datastore)**
-        ```python
-            @huggingface_hub(load=["mistralai/Mistral-7B-Instruct-v0.1"])
-            @step
-            def pull_model_from_huggingface(self):
-                path_to_model = current.huggingface_hub.loaded["mistralai/Mistral-7B-Instruct-v0.1"]
-        ```
-    
-        ```python
-            @huggingface_hub(load=[("mistralai/Mistral-7B-Instruct-v0.1", "/my-directory"), ("myorg/mistral-lora, "/my-lora-directory")])
-            @step
-            def finetune_model(self):
-                path_to_model = current.huggingface_hub.loaded["mistralai/Mistral-7B-Instruct-v0.1"]
-                # path_to_model will be /my-directory
-        ```
-    
-        ```python
-            # Takes all the arguments passed to `snapshot_download`
-            # except for `local_dir`
-            @huggingface_hub(load=[
-                {
-                    "repo_id": "mistralai/Mistral-7B-Instruct-v0.1",
-                },
-                {
-                    "repo_id": "myorg/mistral-lora",
-                    "repo_type": "model",
-                },
-            ])
-            @step
-            def finetune_model(self):
-                path_to_model = current.huggingface_hub.loaded["mistralai/Mistral-7B-Instruct-v0.1"]
-                # path_to_model will be /my-directory
-        ```
+        The `@huggingface_hub` injects a `huggingface_hub` object into the `current` object. This object provides syntactic sugar over [huggingface_hub](https://github.com/huggingface/huggingface_hub)'s [snapshot_download](https://huggingface.co/docs/huggingface_hub/main/en/package_reference/file_download#huggingface_hub.snapshot_download) function. The `current.huggingface_hub.snapshot_download` function downloads objects from huggingface hub and saves them to the Metaflow's datastore under the `<repo_type>/<repo_id>` name. The `repo_type` is by default `model` and can be overriden by passing the `repo_type` parameter to the `snapshot_download` function.
     """
     def step_init(self, flow, graph, step_name, decorators, environment, flow_datastore, logger):
         ...

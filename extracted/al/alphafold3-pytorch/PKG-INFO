@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: alphafold3-pytorch
-Version: 0.7.8
+Version: 0.7.11
 Summary: Alphafold 3 - Pytorch
 Project-URL: Homepage, https://pypi.org/project/alphafold3-pytorch/
 Project-URL: Repository, https://github.com/lucidrains/alphafold3-pytorch
@@ -58,7 +58,7 @@ Requires-Dist: joblib
 Requires-Dist: lightning>=2.2.5
 Requires-Dist: lion-pytorch>=0.2.2
 Requires-Dist: loguru
-Requires-Dist: multimolecule
+Requires-Dist: multimolecule==0.0.5
 Requires-Dist: nimporter
 Requires-Dist: numpy>=1.23.5
 Requires-Dist: pdbeccdutils>=0.8.5
@@ -104,6 +104,8 @@ You can chat with other researchers about this work [here](https://discord.gg/Xs
 A fork with full Lightning + Hydra support is being maintained by <a href="https://github.com/amorehead">Alex</a> at <a href="https://github.com/amorehead/alphafold3-pytorch-lightning-hydra">this repository</a>
 
 A visualization of the molecules of life used in the repository can be seen and interacted with <a href="https://colab.research.google.com/drive/1S9TD8WmS1Gjgwjo9xyEYTbdxgMVVZcQe?usp=sharing">here</a>
+
+An optimized version leveraging Triton kernels is available in [MegaFold](https://github.com/Supercomputing-System-AI-Lab/MegaFold/), from Hoa La and Ahan Gupta
 
 ## Appreciation
 

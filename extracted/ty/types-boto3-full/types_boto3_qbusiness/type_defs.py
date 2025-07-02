@@ -34,6 +34,7 @@ from .literals import (
     AutoSubscriptionStatusType,
     BrowserExtensionType,
     ChatModeType,
+    ChatResponseConfigurationStatusType,
     ContentTypeType,
     CreatorModeControlType,
     DataAccessorAuthenticationTypeType,
@@ -154,6 +155,8 @@ __all__ = (
     "ChatModeConfigurationTypeDef",
     "ChatOutputStreamTypeDef",
     "ChatOutputTypeDef",
+    "ChatResponseConfigurationDetailTypeDef",
+    "ChatResponseConfigurationTypeDef",
     "ChatSyncInputTypeDef",
     "ChatSyncOutputTypeDef",
     "CheckDocumentAccessRequestTypeDef",
@@ -171,6 +174,8 @@ __all__ = (
     "CreateAnonymousWebExperienceUrlResponseTypeDef",
     "CreateApplicationRequestTypeDef",
     "CreateApplicationResponseTypeDef",
+    "CreateChatResponseConfigurationRequestTypeDef",
+    "CreateChatResponseConfigurationResponseTypeDef",
     "CreateDataAccessorRequestTypeDef",
     "CreateDataAccessorResponseTypeDef",
     "CreateDataSourceRequestTypeDef",
@@ -205,6 +210,7 @@ __all__ = (
     "DeleteApplicationRequestTypeDef",
     "DeleteAttachmentRequestTypeDef",
     "DeleteChatControlsConfigurationRequestTypeDef",
+    "DeleteChatResponseConfigurationRequestTypeDef",
     "DeleteConversationRequestTypeDef",
     "DeleteDataAccessorRequestTypeDef",
     "DeleteDataSourceRequestTypeDef",
@@ -253,6 +259,8 @@ __all__ = (
     "GetChatControlsConfigurationRequestPaginateTypeDef",
     "GetChatControlsConfigurationRequestTypeDef",
     "GetChatControlsConfigurationResponseTypeDef",
+    "GetChatResponseConfigurationRequestTypeDef",
+    "GetChatResponseConfigurationResponseTypeDef",
     "GetDataAccessorRequestTypeDef",
     "GetDataAccessorResponseTypeDef",
     "GetDataSourceRequestTypeDef",
@@ -290,6 +298,7 @@ __all__ = (
     "InlineDocumentEnrichmentConfigurationOutputTypeDef",
     "InlineDocumentEnrichmentConfigurationTypeDef",
     "InlineDocumentEnrichmentConfigurationUnionTypeDef",
+    "InstructionCollectionTypeDef",
     "KendraIndexConfigurationTypeDef",
     "ListApplicationsRequestPaginateTypeDef",
     "ListApplicationsRequestTypeDef",
@@ -297,6 +306,9 @@ __all__ = (
     "ListAttachmentsRequestPaginateTypeDef",
     "ListAttachmentsRequestTypeDef",
     "ListAttachmentsResponseTypeDef",
+    "ListChatResponseConfigurationsRequestPaginateTypeDef",
+    "ListChatResponseConfigurationsRequestTypeDef",
+    "ListChatResponseConfigurationsResponseTypeDef",
     "ListConversationsRequestPaginateTypeDef",
     "ListConversationsRequestTypeDef",
     "ListConversationsResponseTypeDef",
@@ -373,6 +385,7 @@ __all__ = (
     "QAppsConfigurationTypeDef",
     "QuickSightConfigurationTypeDef",
     "RelevantContentTypeDef",
+    "ResponseConfigurationTypeDef",
     "ResponseMetadataTypeDef",
     "RetrieverConfigurationOutputTypeDef",
     "RetrieverConfigurationTypeDef",
@@ -417,6 +430,7 @@ __all__ = (
     "UntagResourceRequestTypeDef",
     "UpdateApplicationRequestTypeDef",
     "UpdateChatControlsConfigurationRequestTypeDef",
+    "UpdateChatResponseConfigurationRequestTypeDef",
     "UpdateDataAccessorRequestTypeDef",
     "UpdateDataSourceRequestTypeDef",
     "UpdateIndexRequestTypeDef",
@@ -609,6 +623,16 @@ class TextOutputEventTypeDef(TypedDict):
     systemMessage: NotRequired[str]
 
 
+class ChatResponseConfigurationTypeDef(TypedDict):
+    chatResponseConfigurationId: str
+    chatResponseConfigurationArn: str
+    displayName: str
+    status: ChatResponseConfigurationStatusType
+    responseConfigurationSummary: NotRequired[str]
+    createdAt: NotRequired[datetime]
+    updatedAt: NotRequired[datetime]
+
+
 class CheckDocumentAccessRequestTypeDef(TypedDict):
     applicationId: str
     indexId: str
@@ -745,6 +769,11 @@ class DeleteChatControlsConfigurationRequestTypeDef(TypedDict):
     applicationId: str
 
 
+class DeleteChatResponseConfigurationRequestTypeDef(TypedDict):
+    applicationId: str
+    chatResponseConfigurationId: str
+
+
 class DeleteConversationRequestTypeDef(TypedDict):
     conversationId: str
     applicationId: str
@@ -872,6 +901,11 @@ class HallucinationReductionConfigurationTypeDef(TypedDict):
     hallucinationReductionControl: NotRequired[HallucinationReductionControlType]
 
 
+class GetChatResponseConfigurationRequestTypeDef(TypedDict):
+    applicationId: str
+    chatResponseConfigurationId: str
+
+
 class GetDataAccessorRequestTypeDef(TypedDict):
     applicationId: str
     dataAccessorId: str
@@ -982,6 +1016,17 @@ class IndexTypeDef(TypedDict):
     status: NotRequired[IndexStatusType]
 
 
+class InstructionCollectionTypeDef(TypedDict):
+    responseLength: NotRequired[str]
+    targetAudience: NotRequired[str]
+    perspective: NotRequired[str]
+    outputStyle: NotRequired[str]
+    identity: NotRequired[str]
+    tone: NotRequired[str]
+    customInstructions: NotRequired[str]
+    examples: NotRequired[str]
+
+
 class KendraIndexConfigurationTypeDef(TypedDict):
     indexId: str
 
@@ -997,6 +1042,12 @@ class ListAttachmentsRequestTypeDef(TypedDict):
     userId: NotRequired[str]
     nextToken: NotRequired[str]
     maxResults: NotRequired[int]
+
+
+class ListChatResponseConfigurationsRequestTypeDef(TypedDict):
+    applicationId: str
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
 
 
 class ListConversationsRequestTypeDef(TypedDict):
@@ -1295,6 +1346,12 @@ class CreateApplicationResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class CreateChatResponseConfigurationResponseTypeDef(TypedDict):
+    chatResponseConfigurationId: str
+    chatResponseConfigurationArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class CreateDataAccessorResponseTypeDef(TypedDict):
     dataAccessorId: str
     idcApplicationArn: str
@@ -1438,6 +1495,12 @@ class UpdateSubscriptionResponseTypeDef(TypedDict):
 
 class ChatModeConfigurationTypeDef(TypedDict):
     pluginConfiguration: NotRequired[PluginConfigurationTypeDef]
+
+
+class ListChatResponseConfigurationsResponseTypeDef(TypedDict):
+    chatResponseConfigurations: List[ChatResponseConfigurationTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 
 class ContentRetrievalRuleOutputTypeDef(TypedDict):
@@ -1708,6 +1771,11 @@ class ListAttachmentsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class ListChatResponseConfigurationsRequestPaginateTypeDef(TypedDict):
+    applicationId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListConversationsRequestPaginateTypeDef(TypedDict):
     applicationId: str
     userId: NotRequired[str]
@@ -1824,6 +1892,10 @@ class ListIndicesResponseTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+class ResponseConfigurationTypeDef(TypedDict):
+    instructionCollection: NotRequired[InstructionCollectionTypeDef]
+
+
 class ListPluginTypeMetadataResponseTypeDef(TypedDict):
     items: List[PluginTypeMetadataSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1889,7 +1961,7 @@ UsersAndGroupsUnionTypeDef = Union[UsersAndGroupsTypeDef, UsersAndGroupsOutputTy
 class CustomPluginConfigurationTypeDef(TypedDict):
     description: str
     apiSchemaType: Literal["OPEN_API_V3"]
-    apiSchema: APISchemaTypeDef
+    apiSchema: NotRequired[APISchemaTypeDef]
 
 
 class ActionExecutionEventTypeDef(TypedDict):
@@ -2013,11 +2085,13 @@ class DocumentAclMembershipTypeDef(TypedDict):
 
 class NativeIndexConfigurationOutputTypeDef(TypedDict):
     indexId: str
+    version: NotRequired[int]
     boostingOverride: NotRequired[Dict[str, DocumentAttributeBoostingConfigurationOutputTypeDef]]
 
 
 class NativeIndexConfigurationTypeDef(TypedDict):
     indexId: str
+    version: NotRequired[int]
     boostingOverride: NotRequired[Mapping[str, DocumentAttributeBoostingConfigurationTypeDef]]
 
 
@@ -2118,6 +2192,32 @@ GetIndexResponseTypeDef = TypedDict(
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
+
+
+class ChatResponseConfigurationDetailTypeDef(TypedDict):
+    responseConfigurations: NotRequired[Dict[Literal["ALL"], ResponseConfigurationTypeDef]]
+    responseConfigurationSummary: NotRequired[str]
+    status: NotRequired[ChatResponseConfigurationStatusType]
+    error: NotRequired[ErrorDetailTypeDef]
+    updatedAt: NotRequired[datetime]
+
+
+class CreateChatResponseConfigurationRequestTypeDef(TypedDict):
+    applicationId: str
+    displayName: str
+    responseConfigurations: Mapping[Literal["ALL"], ResponseConfigurationTypeDef]
+    clientToken: NotRequired[str]
+    tags: NotRequired[Sequence[TagTypeDef]]
+
+
+class UpdateChatResponseConfigurationRequestTypeDef(TypedDict):
+    applicationId: str
+    chatResponseConfigurationId: str
+    responseConfigurations: Mapping[Literal["ALL"], ResponseConfigurationTypeDef]
+    displayName: NotRequired[str]
+    clientToken: NotRequired[str]
+
+
 PluginAuthConfigurationUnionTypeDef = Union[
     PluginAuthConfigurationTypeDef, PluginAuthConfigurationOutputTypeDef
 ]
@@ -2282,6 +2382,16 @@ class DocumentAttributeTargetTypeDef(TypedDict):
 class DocumentAttributeTypeDef(TypedDict):
     name: str
     value: DocumentAttributeValueUnionTypeDef
+
+
+class GetChatResponseConfigurationResponseTypeDef(TypedDict):
+    chatResponseConfigurationId: str
+    chatResponseConfigurationArn: str
+    displayName: str
+    createdAt: datetime
+    inUseConfiguration: ChatResponseConfigurationDetailTypeDef
+    lastUpdateConfiguration: ChatResponseConfigurationDetailTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 CreatePluginRequestTypeDef = TypedDict(

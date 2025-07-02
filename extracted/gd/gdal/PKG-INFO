@@ -1,13 +1,13 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: GDAL
-Version: 3.11.0
+Version: 3.11.1
 Summary: GDAL: Geospatial Data Abstraction Library
 Home-page: http://www.gdal.org
 Author: Frank Warmerdam, Howard Butler, Even Rouault
 Author-email: warmerdam@pobox.com
 Maintainer: GDAL contributors
 Maintainer-email: GDAL contributors <gdal-dev@lists.osgeo.org>
-License: MIT
+License-Expression: MIT
 Project-URL: Homepage, https://gdal.org
 Project-URL: Documentation, https://gdal.org
 Project-URL: Repository, https://github.com/OSGeo/GDAL.git
@@ -17,7 +17,6 @@ Keywords: gis,raster,vector
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: C
@@ -28,6 +27,10 @@ Requires-Python: >=3.8.0
 Description-Content-Type: text/x-rst
 Provides-Extra: numpy
 Requires-Dist: numpy>1.0.0; extra == "numpy"
+Dynamic: author-email
+Dynamic: home-page
+Dynamic: maintainer
+Dynamic: requires-python
 
 
 GDAL/OGR in Python
@@ -60,7 +63,7 @@ special about gdal.)
 
  * SWIG (4 or greater).
 
- * libgdal (3.11.0 or greater).
+ * libgdal (3.11.1 or greater).
 
  * numpy (1.0.0 or greater).  This is not force-required by the build,
    but many examples and utilities will not work without it.  At least

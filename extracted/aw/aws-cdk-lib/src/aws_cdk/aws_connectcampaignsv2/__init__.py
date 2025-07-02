@@ -172,7 +172,8 @@ class CfnCampaign(
                         max_count_per_recipient=123,
                         unit="unit"
                     )]
-                )
+                ),
+                instance_limits_handling="instanceLimitsHandling"
             ),
             communication_time_config=connectcampaignsv2.CfnCampaign.CommunicationTimeConfigProperty(
                 local_time_zone_config=connectcampaignsv2.CfnCampaign.LocalTimeZoneConfigProperty(
@@ -824,17 +825,22 @@ class CfnCampaign(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_connectcampaignsv2.CfnCampaign.CommunicationLimitsConfigProperty",
         jsii_struct_bases=[],
-        name_mapping={"all_channels_subtypes": "allChannelsSubtypes"},
+        name_mapping={
+            "all_channels_subtypes": "allChannelsSubtypes",
+            "instance_limits_handling": "instanceLimitsHandling",
+        },
     )
     class CommunicationLimitsConfigProperty:
         def __init__(
             self,
             *,
             all_channels_subtypes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCampaign.CommunicationLimitsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            instance_limits_handling: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Contains the communication limits configuration for an outbound campaign.
 
             :param all_channels_subtypes: The CommunicationLimits that apply to all channel subtypes defined in an outbound campaign.
+            :param instance_limits_handling: Opt-in or Opt-out from instance-level limits.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connectcampaignsv2-campaign-communicationlimitsconfig.html
             :exampleMetadata: fixture=_generated
@@ -852,15 +858,19 @@ class CfnCampaign(
                             max_count_per_recipient=123,
                             unit="unit"
                         )]
-                    )
+                    ),
+                    instance_limits_handling="instanceLimitsHandling"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__5a5ca8627addc85a64908de980e86012a2ad9d04257fa86e81c4873e7a7d93be)
                 check_type(argname="argument all_channels_subtypes", value=all_channels_subtypes, expected_type=type_hints["all_channels_subtypes"])
+                check_type(argname="argument instance_limits_handling", value=instance_limits_handling, expected_type=type_hints["instance_limits_handling"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if all_channels_subtypes is not None:
                 self._values["all_channels_subtypes"] = all_channels_subtypes
+            if instance_limits_handling is not None:
+                self._values["instance_limits_handling"] = instance_limits_handling
 
         @builtins.property
         def all_channels_subtypes(
@@ -872,6 +882,15 @@ class CfnCampaign(
             '''
             result = self._values.get("all_channels_subtypes")
             return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCampaign.CommunicationLimitsProperty"]], result)
+
+        @builtins.property
+        def instance_limits_handling(self) -> typing.Optional[builtins.str]:
+            '''Opt-in or Opt-out from instance-level limits.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connectcampaignsv2-campaign-communicationlimitsconfig.html#cfn-connectcampaignsv2-campaign-communicationlimitsconfig-instancelimitshandling
+            '''
+            result = self._values.get("instance_limits_handling")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2920,7 +2939,8 @@ class CfnCampaignProps:
                             max_count_per_recipient=123,
                             unit="unit"
                         )]
-                    )
+                    ),
+                    instance_limits_handling="instanceLimitsHandling"
                 ),
                 communication_time_config=connectcampaignsv2.CfnCampaign.CommunicationTimeConfigProperty(
                     local_time_zone_config=connectcampaignsv2.CfnCampaign.LocalTimeZoneConfigProperty(
@@ -3274,6 +3294,7 @@ def _typecheckingstub__7a4b2b207bce63b0696bef9d14a808bcf3bd9ae2746f645e72a803481
 def _typecheckingstub__5a5ca8627addc85a64908de980e86012a2ad9d04257fa86e81c4873e7a7d93be(
     *,
     all_channels_subtypes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.CommunicationLimitsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    instance_limits_handling: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

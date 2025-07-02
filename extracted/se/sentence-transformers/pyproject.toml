@@ -1,6 +1,6 @@
 [project]
 name = "sentence-transformers"
-version = "4.1.0"
+version = "5.0.0"
 description = "Embeddings, Retrieval, and Reranking"
 license = { text = "Apache 2.0" }
 readme = "README.md"
@@ -97,7 +97,8 @@ required-imports = ["from __future__ import annotations"]
 testpaths = [
     "tests"
 ]
-addopts = "--strict-markers -m 'not slow'"
+addopts = "--strict-markers -m 'not slow and not custom'"
 markers = [
-    "slow: marks tests as slow"
+    "slow: marks tests as slow",
+    "custom: marks tests for third-party models with custom modules"
 ]

@@ -39,9 +39,8 @@ from reflex.compiler import templates
 from reflex.config import Config, get_config
 from reflex.environment import environment
 from reflex.utils import console, net, path_ops, processes, redir
-from reflex.utils.decorator import once
 from reflex.utils.exceptions import SystemPackageMissingError
-from reflex.utils.format import format_library_name
+from reflex.utils.misc import get_module_path
 from reflex.utils.registry import get_npm_registry
 
 if typing.TYPE_CHECKING:
@@ -74,7 +73,7 @@ class CpuInfo:
 
 
 def get_web_dir() -> Path:
-    """Get the working directory for the next.js commands.
+    """Get the working directory for the frontend.
 
     Can be overridden with REFLEX_WEB_WORKDIR.
 
@@ -117,7 +116,7 @@ def check_latest_package_version(package_name: str):
         # Get the latest version from PyPI
         current_version = importlib.metadata.version(package_name)
         url = f"https://pypi.org/pypi/{package_name}/json"
-        response = net.get(url)
+        response = net.get(url, timeout=2)
         latest_version = response.json()["info"]["version"]
         console.debug(f"Latest version of {package_name}: {latest_version}")
         if get_or_set_last_reflex_version_check_datetime():
@@ -334,13 +333,14 @@ def npm_escape_hatch() -> bool:
 
 
 def _check_app_name(config: Config):
-    """Check if the app name is set in the config.
+    """Check if the app name is valid and matches the folder structure.
 
     Args:
         config: The config object.
 
     Raises:
-        RuntimeError: If the app name is not set in the config.
+        RuntimeError: If the app name is not set, folder doesn't exist, or doesn't match config.
+        ModuleNotFoundError: If the app_name is not importable (i.e., not a valid Python package, folder structure being wrong).
     """
     if not config.app_name:
         msg = (
@@ -348,6 +348,18 @@ def _check_app_name(config: Config):
             "If this error occurs in a reflex test case, ensure that `get_app` is mocked."
         )
         raise RuntimeError(msg)
+
+    from reflex.utils.misc import get_module_path, with_cwd_in_syspath
+
+    with with_cwd_in_syspath():
+        module_path = get_module_path(config.module)
+        if module_path is None:
+            msg = f"Module {config.module} not found. "
+            if config.app_module_import is not None:
+                msg += f"Ensure app_module_import='{config.app_module_import}' in rxconfig.py matches your folder structure."
+            else:
+                msg += f"Ensure app_name='{config.app_name}' in rxconfig.py matches your folder structure."
+            raise ModuleNotFoundError(msg)
 
 
 def get_app(reload: bool = False) -> ModuleType:
@@ -439,7 +451,7 @@ def validate_app(
 
 def get_compiled_app(
     reload: bool = False,
-    export: bool = False,
+    prerender_routes: bool = False,
     dry_run: bool = False,
     check_if_schema_up_to_date: bool = False,
 ) -> ModuleType:
@@ -447,7 +459,7 @@ def get_compiled_app(
 
     Args:
         reload: Re-import the app module from disk
-        export: Compile the app for export
+        prerender_routes: Whether to prerender routes.
         dry_run: If True, do not write the compiled app to disk.
         check_if_schema_up_to_date: If True, check if the schema is up to date.
 
@@ -460,13 +472,13 @@ def get_compiled_app(
     # For py3.9 compatibility when redis is used, we MUST add any decorator pages
     # before compiling the app in a thread to avoid event loop error (REF-2172).
     app._apply_decorated_pages()
-    app._compile(export=export, dry_run=dry_run)
+    app._compile(prerender_routes=prerender_routes, dry_run=dry_run)
     return app_module
 
 
 def compile_app(
     reload: bool = False,
-    export: bool = False,
+    prerender_routes: bool = False,
     dry_run: bool = False,
     check_if_schema_up_to_date: bool = False,
 ) -> None:
@@ -474,13 +486,13 @@ def compile_app(
 
     Args:
         reload: Re-import the app module from disk
-        export: Compile the app for export
+        prerender_routes: Whether to prerender routes.
         dry_run: If True, do not write the compiled app to disk.
         check_if_schema_up_to_date: If True, check if the schema is up to date.
     """
     get_compiled_app(
         reload=reload,
-        export=export,
+        prerender_routes=prerender_routes,
         dry_run=dry_run,
         check_if_schema_up_to_date=check_if_schema_up_to_date,
     )
@@ -529,20 +541,26 @@ def _can_colorize() -> bool:
 
 
 def compile_or_validate_app(
-    compile: bool = False, check_if_schema_up_to_date: bool = False
+    compile: bool = False,
+    check_if_schema_up_to_date: bool = False,
+    prerender_routes: bool = False,
 ) -> bool:
     """Compile or validate the app module based on the default config.
 
     Args:
         compile: Whether to compile the app.
         check_if_schema_up_to_date: If True, check if the schema is up to date.
+        prerender_routes: Whether to prerender routes.
 
     Returns:
         If the app is compiled successfully.
     """
     try:
         if compile:
-            compile_app(check_if_schema_up_to_date=check_if_schema_up_to_date)
+            compile_app(
+                check_if_schema_up_to_date=check_if_schema_up_to_date,
+                prerender_routes=prerender_routes,
+            )
         else:
             validate_app(check_if_schema_up_to_date=check_if_schema_up_to_date)
     except Exception as e:
@@ -591,19 +609,19 @@ def get_redis_sync() -> RedisSync | None:
 
 
 def parse_redis_url() -> str | None:
-    """Parse the REDIS_URL in config if applicable.
+    """Parse the REFLEX_REDIS_URL in config if applicable.
 
     Returns:
         If url is non-empty, return the URL as it is.
 
     Raises:
-        ValueError: If the REDIS_URL is not a supported scheme.
+        ValueError: If the REFLEX_REDIS_URL is not a supported scheme.
     """
     config = get_config()
     if not config.redis_url:
         return None
     if not config.redis_url.startswith(("redis://", "rediss://", "unix://")):
-        msg = "REDIS_URL must start with 'redis://', 'rediss://', or 'unix://'."
+        msg = "REFLEX_REDIS_URL must start with 'redis://', 'rediss://', or 'unix://'."
         raise ValueError(msg)
     return config.redis_url
 
@@ -720,14 +738,11 @@ def rename_app(new_app_name: str, loglevel: constants.LogLevel):
     sys.path.insert(0, str(Path.cwd()))
 
     config = get_config()
-    module_path = importlib.util.find_spec(config.module)
+    module_path = get_module_path(config.module)
     if module_path is None:
         console.error(f"Could not find module {config.module}.")
         raise click.exceptions.Exit(1)
 
-    if not module_path.origin:
-        console.error(f"Could not find origin for module {config.module}.")
-        raise click.exceptions.Exit(1)
     console.info(f"Renaming app directory to {new_app_name}.")
     process_directory(
         Path.cwd(),
@@ -736,7 +751,7 @@ def rename_app(new_app_name: str, loglevel: constants.LogLevel):
         exclude_dirs=[constants.Dirs.WEB, constants.Dirs.APP_ASSETS],
     )
 
-    rename_path_up_tree(Path(module_path.origin), config.app_name, new_app_name)
+    rename_path_up_tree(module_path, config.app_name, new_app_name)
 
     console.success(f"App directory renamed to [bold]{new_app_name}[/bold].")
 
@@ -1017,29 +1032,19 @@ def initialize_web_directory():
     console.debug("Initializing the public directory.")
     path_ops.mkdir(get_web_dir() / constants.Dirs.PUBLIC)
 
-    console.debug("Initializing the next.config.js file.")
-    update_next_config()
+    console.debug("Initializing the react-router.config.js file.")
+    update_react_router_config()
 
     console.debug("Initializing the reflex.json file.")
     # Initialize the reflex json file.
     init_reflex_json(project_hash=project_hash)
 
 
-@once
-def _turbopack_flag() -> str:
-    return " --turbopack" if environment.REFLEX_USE_TURBOPACK.get() else ""
-
-
 def _compile_package_json():
     return templates.PACKAGE_JSON.render(
         scripts={
-            "dev": constants.PackageJson.Commands.DEV.format(flags=_turbopack_flag()),
-            "export": constants.PackageJson.Commands.EXPORT.format(
-                flags=_turbopack_flag()
-            ),
-            "export_sitemap": constants.PackageJson.Commands.EXPORT_SITEMAP.format(
-                flags=_turbopack_flag()
-            ),
+            "dev": constants.PackageJson.Commands.DEV,
+            "export": constants.PackageJson.Commands.EXPORT,
             "prod": constants.PackageJson.Commands.PROD,
         },
         dependencies=constants.PackageJson.DEPENDENCIES,
@@ -1107,50 +1112,43 @@ def init_reflex_json(project_hash: int | None):
     path_ops.update_json_file(get_web_dir() / constants.Reflex.JSON, reflex_json)
 
 
-def update_next_config(
-    export: bool = False, transpile_packages: list[str] | None = None
-):
-    """Update Next.js config from Reflex config.
+def update_react_router_config(prerender_routes: bool = False):
+    """Update react-router.config.js config from Reflex config.
 
     Args:
-        export: if the method run during reflex export.
-        transpile_packages: list of packages to transpile via next.config.js.
+        prerender_routes: Whether to enable prerendering of routes.
     """
-    next_config_file = get_web_dir() / constants.Next.CONFIG_FILE
+    react_router_config_file_path = get_web_dir() / constants.ReactRouter.CONFIG_FILE
 
-    next_config = _update_next_config(
-        get_config(), export=export, transpile_packages=transpile_packages
+    new_react_router_config = _update_react_router_config(
+        get_config(), prerender_routes=prerender_routes
     )
 
-    # Overwriting the next.config.js triggers a full server reload, so make sure
+    # Overwriting the config file triggers a full server reload, so make sure
     # there is actually a diff.
-    orig_next_config = next_config_file.read_text() if next_config_file.exists() else ""
-    if orig_next_config != next_config:
-        next_config_file.write_text(next_config)
+    old_react_router_config = (
+        react_router_config_file_path.read_text()
+        if react_router_config_file_path.exists()
+        else ""
+    )
+    if old_react_router_config != new_react_router_config:
+        react_router_config_file_path.write_text(new_react_router_config)
 
 
-def _update_next_config(
-    config: Config, export: bool = False, transpile_packages: list[str] | None = None
-):
-    next_config = {
-        "basePath": config.frontend_path or "",
-        "compress": config.next_compression,
-        "trailingSlash": True,
-        "staticPageGenerationTimeout": config.static_page_generation_timeout,
+def _update_react_router_config(config: Config, prerender_routes: bool = False):
+    react_router_config = {
+        "basename": "/" + (config.frontend_path or "").removeprefix("/"),
+        "future": {
+            "unstable_optimizeDeps": True,
+        },
+        "ssr": False,
     }
-    if not config.next_dev_indicators:
-        next_config["devIndicators"] = False
 
-    if transpile_packages:
-        next_config["transpilePackages"] = list(
-            dict.fromkeys([format_library_name(p) for p in transpile_packages])
-        )
-    if export:
-        next_config["output"] = "export"
-        next_config["distDir"] = constants.Dirs.STATIC
+    if prerender_routes:
+        react_router_config["prerender"] = True
+        react_router_config["build"] = constants.Dirs.BUILD_DIR
 
-    next_config_json = re.sub(r'"([^"]+)"(?=:)', r"\1", json.dumps(next_config))
-    return f"module.exports = {next_config_json};"
+    return f"export default {json.dumps(react_router_config)};"
 
 
 def remove_existing_bun_installation():

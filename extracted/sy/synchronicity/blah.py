@@ -1,11 +1,12 @@
-import gc
+def top():
+    test()
 
-import time
+def test():
+    raise Exception("foo")
 
-from synchronicity import Synchronizer
 
-def foo():
-    Synchronizer()
-
-foo()
-time.sleep(0.1)
+try:
+    top()
+except Exception as exc:
+    raise exc#.with_traceback()# exc.__traceback__.tb_next)
+    raise

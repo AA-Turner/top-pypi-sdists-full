@@ -1,21 +1,21 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.15.18.1+obcheckpoint(0.2.1);ob(v1)                                                   #
-# Generated on 2025-06-26T22:38:03.209576                                                            #
+# MF version: 2.15.18.1+obcheckpoint(0.2.4);ob(v1)                                                   #
+# Generated on 2025-07-01T15:21:03.640941                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.hf_hub.decorator
-    import metaflow
-    import metaflow.events
-    import metaflow.plugins.cards.component_serializer
     import metaflow.metaflow_current
+    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.hf_hub.decorator
+    import metaflow.events
     import typing
     import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.core
+    import metaflow
     import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.decorator
+    import metaflow.plugins.cards.component_serializer
 
 
 TYPE_CHECKING: bool
@@ -228,125 +228,21 @@ class Current(object, metaclass=type):
     def graph(self):
         ...
     @property
-    def model(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.core.ModelSerializer":
+    def card(self) -> "metaflow.plugins.cards.component_serializer.CardComponentCollector":
         """
-        (only in the presence of the @model decorator)
+        (only in the presence of the @card decorator)
         
-        The object used for loading / saving models.
-        `current.model` exposes a `save` method to save models and a `load` method to load models.
-        `current.model.loaded` exposes the paths to the models loaded via the `load` argument in the @model decorator
-        or models loaded via `current.model.load`.
+        The `@card` decorator makes the cards available through the `current.card`
+        object. If multiple `@card` decorators are present, you can add an `ID` to
+        distinguish between them using `@card(id=ID)` as the decorator. You will then
+        be able to access that specific card using `current.card[ID].
         
-        Usage (Saving a model):
-        -------
-        
-        ```
-        @model
-        @step
-        def train(self):
-            # current.model.save returns a dictionary reference to the model saved
-            self.my_model = current.model.save(
-                path_to_my_model,
-                label="my_model",
-                metadata={
-                    "epochs": 10,
-                    "batch-size": 32,
-                    "learning-rate": 0.001,
-                }
-            )
-            self.next(self.test)
-        
-        @model(load="my_model")
-        @step
-        def test(self):
-            # `current.model.loaded` returns a dictionary of the loaded models
-            # where the key is the name of the artifact and the value is the path to the model
-            print(os.listdir(current.model.loaded["my_model"]))
-            self.next(self.end)
-        ```
-        
-        Usage (Loading models):
-        -------
-        
-        ```
-        @step
-        def train(self):
-            # current.model.load returns the path to the model loaded
-            checkpoint_path = current.model.load(
-                self.checkpoint_key,
-            )
-            model_path = current.model.load(
-                self.model,
-            )
-            self.next(self.test)
-        ```
-        
+        Methods available are `append` and `extend`
         
         Returns
         -------
-        ModelSerializer
-            The object used for loading / saving models.
-        """
-        ...
-    @property
-    def checkpoint(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.decorator.CurrentCheckpointer":
-        """
-        (only in the presence of the @checkpoint decorator)
-        
-        The `@checkpoint` decorator makes saving/loading checkpoints available through the `current.checkpoint`.
-        The object exposes `save`/`load`/`list` methods for saving/loading checkpoints.
-        
-        You can check if a checkpoint is loaded by `current.checkpoint.is_loaded` and get the checkpoint information
-        by using `current.checkpoint.info`. The `current.checkpoint.directory` returns the path to the checkpoint directory
-        where the checkpoint maybe loaded or saved.
-        
-        Usage (Saving Checkpoints):
-        -------
-        ```
-        @checkpoint
-        @step
-        def train(self):
-            model = create_model(self.parameters, checkpoint_path = None)
-            for i in range(self.epochs):
-                # some training logic
-                loss = model.train(self.dataset)
-                if i % 10 == 0:
-                    model.save(
-                        current.checkpoint.directory,
-                    )
-                    # saves the contents of the `current.checkpoint.directory` as a checkpoint
-                    # and returns a reference dictionary to the checkpoint saved in the datastore
-                    self.latest_checkpoint = current.checkpoint.save(
-                        name="epoch_checkpoint",
-                        metadata={
-                            "epoch": i,
-                            "loss": loss,
-                        }
-                    )
-        ```
-        Usage (Using Loaded Checkpoints):
-        -------
-        ```
-        @retry(times=3)
-        @checkpoint
-        @step
-        def train(self):
-            # Assume that the task has restarted and the previous attempt of the task
-            # saved a checkpoint
-            checkpoint_path = None
-            if current.checkpoint.is_loaded: # Check if a checkpoint is loaded
-                print("Loaded checkpoint from the previous attempt")
-                checkpoint_path = current.checkpoint.directory
-        
-            model = create_model(self.parameters, checkpoint_path = checkpoint_path)
-            for i in range(self.epochs):
-                ...
-        ```
-        
-        Returns
-        -------
-        CurrentCheckpointer
-            The object for handling checkpointing within a step.
+        CardComponentCollector
+            The or one of the cards attached to this step.
         """
         ...
     @property
@@ -379,90 +275,59 @@ class Current(object, metaclass=type):
         """
         ...
     @property
+    def checkpoint(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.decorator.CurrentCheckpointer":
+        """
+        (only in the presence of the @checkpoint decorator)
+        
+        The `@checkpoint` decorator makes saving/loading checkpoints available through the `current.checkpoint`.
+        The object exposes `save`/`load`/`list` methods for saving/loading checkpoints.
+        
+        You can check if a checkpoint is loaded by `current.checkpoint.is_loaded` and get the checkpoint information
+        by using `current.checkpoint.info`. The `current.checkpoint.directory` returns the path to the checkpoint directory
+        where the checkpoint maybe loaded or saved.
+        
+        Returns
+        ----------
+        CurrentCheckpointer
+            The object for handling checkpointing within a step.
+        """
+        ...
+    @property
+    def model(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.core.ModelSerializer":
+        """
+        (only in the presence of the @model decorator)
+        
+        The object used for loading / saving models.
+        `current.model` exposes a `save` method to save models and a `load` method to load models.
+        `current.model.loaded` exposes the paths to the models loaded via the `load` argument in the @model decorator
+        or models loaded via `current.model.load`.
+        
+        Returns
+        ----------
+        ModelSerializer
+            The object used for loading / saving models.
+        """
+        ...
+    @property
     def huggingface_hub(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.hf_hub.decorator.HuggingfaceRegistry":
         """
         (only in the presence of the @huggingface_hub decorator)
         
-        The `@huggingface_hub` injects a `huggingface_hub` object into the `current` object. This object provides syntactic sugar
-        over [huggingface_hub](https://github.com/huggingface/huggingface_hub)'s
-        [snapshot_download](https://huggingface.co/docs/huggingface_hub/main/en/package_reference/file_download#huggingface_hub.snapshot_download) function.
-        The `current.huggingface_hub.snapshot_download` function downloads objects from huggingface hub and saves them to the Metaflow's datastore under the
-        `<repo_type>/<repo_id>` name. The `repo_type` is by default `model` and can be overriden by passing the `repo_type` parameter to the `snapshot_download` function.
         
-        
-        Usage:
-        ------
-        
-        **Usage: creating references of models from huggingface that may be loaded in downstream steps**
-        ```python
-            @huggingface_hub
-            @step
-            def pull_model_from_huggingface(self):
-                # `current.huggingface_hub.snapshot_download` downloads the model from the Hugging Face Hub
-                # and saves it in the backend storage based on the model's `repo_id`. If there exists a model
-                # with the same `repo_id` in the backend storage, it will not download the model again. The return
-                # value of the function is a reference to the model in the backend storage.
-                # This reference can be used to load the model in the subsequent steps via `@model(load=["llama_model"])`
-        
-                self.model_id = "mistralai/Mistral-7B-Instruct-v0.1"
-                self.llama_model = current.huggingface_hub.snapshot_download(
-                    repo_id=self.model_id,
-                    allow_patterns=["*.safetensors", "*.json", "tokenizer.*"],
-                )
-                self.next(self.train)
-        ```
-        
-        **Usage: loading models directly from huggingface hub or from cache (from metaflow's datastore)**
-        ```python
-            @huggingface_hub(load=["mistralai/Mistral-7B-Instruct-v0.1"])
-            @step
-            def pull_model_from_huggingface(self):
-                path_to_model = current.huggingface_hub.loaded["mistralai/Mistral-7B-Instruct-v0.1"]
-        ```
-        
-        ```python
-            @huggingface_hub(load=[("mistralai/Mistral-7B-Instruct-v0.1", "/my-directory"), ("myorg/mistral-lora, "/my-lora-directory")])
-            @step
-            def finetune_model(self):
-                path_to_model = current.huggingface_hub.loaded["mistralai/Mistral-7B-Instruct-v0.1"]
-                # path_to_model will be /my-directory
-        ```
-        
-        ```python
-            # Takes all the arguments passed to `snapshot_download`
-            # except for `local_dir`
-            @huggingface_hub(load=[
-                {
-                    "repo_id": "mistralai/Mistral-7B-Instruct-v0.1",
-                },
-                {
-                    "repo_id": "myorg/mistral-lora",
-                    "repo_type": "model",
-                },
-            ])
-            @step
-            def finetune_model(self):
-                path_to_model = current.huggingface_hub.loaded["mistralai/Mistral-7B-Instruct-v0.1"]
-                # path_to_model will be /my-directory
-        ```
+        The `@huggingface_hub` injects a `huggingface_hub` object into the `current` object. This object provides syntactic sugar over [huggingface_hub](https://github.com/huggingface/huggingface_hub)'s [snapshot_download](https://huggingface.co/docs/huggingface_hub/main/en/package_reference/file_download#huggingface_hub.snapshot_download) function. The `current.huggingface_hub.snapshot_download` function downloads objects from huggingface hub and saves them to the Metaflow's datastore under the `<repo_type>/<repo_id>` name. The `repo_type` is by default `model` and can be overriden by passing the `repo_type` parameter to the `snapshot_download` function.
         """
         ...
     @property
-    def card(self) -> "metaflow.plugins.cards.component_serializer.CardComponentCollector":
+    def trigger(self) -> "metaflow.events.Trigger":
         """
-        (only in the presence of the @card decorator)
+        (only in the presence of the @trigger, or @trigger_on_finish decorators)
         
-        The `@card` decorator makes the cards available through the `current.card`
-        object. If multiple `@card` decorators are present, you can add an `ID` to
-        distinguish between them using `@card(id=ID)` as the decorator. You will then
-        be able to access that specific card using `current.card[ID].
-        
-        Methods available are `append` and `extend`
+        Returns `Trigger` if the current run is triggered by an event
         
         Returns
         -------
-        CardComponentCollector
-            The or one of the cards attached to this step.
+        Trigger
+            `Trigger` if triggered by an event
         """
         ...
     @property
@@ -530,19 +395,6 @@ class Current(object, metaclass=type):
         -------
         bool
             True if the flow is deployed with `--production`.
-        """
-        ...
-    @property
-    def trigger(self) -> "metaflow.events.Trigger":
-        """
-        (only in the presence of the @trigger_on_finish, or @trigger decorators)
-        
-        Returns `Trigger` if the current run is triggered by an event
-        
-        Returns
-        -------
-        Trigger
-            `Trigger` if triggered by an event
         """
         ...
     ...

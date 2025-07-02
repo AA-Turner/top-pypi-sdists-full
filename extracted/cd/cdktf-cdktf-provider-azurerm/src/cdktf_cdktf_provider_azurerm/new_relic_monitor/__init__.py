@@ -1,7 +1,7 @@
 r'''
 # `azurerm_new_relic_monitor`
 
-Refer to the Terraform Registry for docs: [`azurerm_new_relic_monitor`](https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor).
+Refer to the Terraform Registry for docs: [`azurerm_new_relic_monitor`](https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class NewRelicMonitor(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.newRelicMonitor.NewRelicMonitor",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor azurerm_new_relic_monitor}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor azurerm_new_relic_monitor}.'''
 
     def __init__(
         self,
@@ -73,24 +73,24 @@ class NewRelicMonitor(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor azurerm_new_relic_monitor} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor azurerm_new_relic_monitor} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#location NewRelicMonitor#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#name NewRelicMonitor#name}.
-        :param plan: plan block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#plan NewRelicMonitor#plan}
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#resource_group_name NewRelicMonitor#resource_group_name}.
-        :param user: user block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#user NewRelicMonitor#user}
-        :param account_creation_source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#account_creation_source NewRelicMonitor#account_creation_source}.
-        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#account_id NewRelicMonitor#account_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#id NewRelicMonitor#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#identity NewRelicMonitor#identity}
-        :param ingestion_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#ingestion_key NewRelicMonitor#ingestion_key}.
-        :param organization_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#organization_id NewRelicMonitor#organization_id}.
-        :param org_creation_source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#org_creation_source NewRelicMonitor#org_creation_source}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#timeouts NewRelicMonitor#timeouts}
-        :param user_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#user_id NewRelicMonitor#user_id}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#location NewRelicMonitor#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#name NewRelicMonitor#name}.
+        :param plan: plan block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#plan NewRelicMonitor#plan}
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#resource_group_name NewRelicMonitor#resource_group_name}.
+        :param user: user block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#user NewRelicMonitor#user}
+        :param account_creation_source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#account_creation_source NewRelicMonitor#account_creation_source}.
+        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#account_id NewRelicMonitor#account_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#id NewRelicMonitor#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#identity NewRelicMonitor#identity}
+        :param ingestion_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#ingestion_key NewRelicMonitor#ingestion_key}.
+        :param organization_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#organization_id NewRelicMonitor#organization_id}.
+        :param org_creation_source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#org_creation_source NewRelicMonitor#org_creation_source}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#timeouts NewRelicMonitor#timeouts}
+        :param user_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#user_id NewRelicMonitor#user_id}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -142,7 +142,7 @@ class NewRelicMonitor(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the NewRelicMonitor to import.
-        :param import_from_id: The id of the existing NewRelicMonitor that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing NewRelicMonitor that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the NewRelicMonitor to import is found.
         '''
         if __debug__:
@@ -156,7 +156,7 @@ class NewRelicMonitor(
     @jsii.member(jsii_name="putIdentity")
     def put_identity(self, *, type: builtins.str) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#type NewRelicMonitor#type}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#type NewRelicMonitor#type}.
         '''
         value = NewRelicMonitorIdentity(type=type)
 
@@ -172,10 +172,10 @@ class NewRelicMonitor(
         usage_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param effective_date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#effective_date NewRelicMonitor#effective_date}.
-        :param billing_cycle: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#billing_cycle NewRelicMonitor#billing_cycle}.
-        :param plan_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#plan_id NewRelicMonitor#plan_id}.
-        :param usage_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#usage_type NewRelicMonitor#usage_type}.
+        :param effective_date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#effective_date NewRelicMonitor#effective_date}.
+        :param billing_cycle: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#billing_cycle NewRelicMonitor#billing_cycle}.
+        :param plan_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#plan_id NewRelicMonitor#plan_id}.
+        :param usage_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#usage_type NewRelicMonitor#usage_type}.
         '''
         value = NewRelicMonitorPlan(
             effective_date=effective_date,
@@ -195,9 +195,9 @@ class NewRelicMonitor(
         read: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#create NewRelicMonitor#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#delete NewRelicMonitor#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#read NewRelicMonitor#read}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#create NewRelicMonitor#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#delete NewRelicMonitor#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#read NewRelicMonitor#read}.
         '''
         value = NewRelicMonitorTimeouts(create=create, delete=delete, read=read)
 
@@ -213,10 +213,10 @@ class NewRelicMonitor(
         phone_number: builtins.str,
     ) -> None:
         '''
-        :param email: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#email NewRelicMonitor#email}.
-        :param first_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#first_name NewRelicMonitor#first_name}.
-        :param last_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#last_name NewRelicMonitor#last_name}.
-        :param phone_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#phone_number NewRelicMonitor#phone_number}.
+        :param email: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#email NewRelicMonitor#email}.
+        :param first_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#first_name NewRelicMonitor#first_name}.
+        :param last_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#last_name NewRelicMonitor#last_name}.
+        :param phone_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#phone_number NewRelicMonitor#phone_number}.
         '''
         value = NewRelicMonitorUser(
             email=email,
@@ -550,20 +550,20 @@ class NewRelicMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#location NewRelicMonitor#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#name NewRelicMonitor#name}.
-        :param plan: plan block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#plan NewRelicMonitor#plan}
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#resource_group_name NewRelicMonitor#resource_group_name}.
-        :param user: user block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#user NewRelicMonitor#user}
-        :param account_creation_source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#account_creation_source NewRelicMonitor#account_creation_source}.
-        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#account_id NewRelicMonitor#account_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#id NewRelicMonitor#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#identity NewRelicMonitor#identity}
-        :param ingestion_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#ingestion_key NewRelicMonitor#ingestion_key}.
-        :param organization_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#organization_id NewRelicMonitor#organization_id}.
-        :param org_creation_source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#org_creation_source NewRelicMonitor#org_creation_source}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#timeouts NewRelicMonitor#timeouts}
-        :param user_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#user_id NewRelicMonitor#user_id}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#location NewRelicMonitor#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#name NewRelicMonitor#name}.
+        :param plan: plan block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#plan NewRelicMonitor#plan}
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#resource_group_name NewRelicMonitor#resource_group_name}.
+        :param user: user block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#user NewRelicMonitor#user}
+        :param account_creation_source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#account_creation_source NewRelicMonitor#account_creation_source}.
+        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#account_id NewRelicMonitor#account_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#id NewRelicMonitor#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#identity NewRelicMonitor#identity}
+        :param ingestion_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#ingestion_key NewRelicMonitor#ingestion_key}.
+        :param organization_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#organization_id NewRelicMonitor#organization_id}.
+        :param org_creation_source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#org_creation_source NewRelicMonitor#org_creation_source}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#timeouts NewRelicMonitor#timeouts}
+        :param user_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#user_id NewRelicMonitor#user_id}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -704,14 +704,14 @@ class NewRelicMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#location NewRelicMonitor#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#location NewRelicMonitor#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#name NewRelicMonitor#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#name NewRelicMonitor#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -720,7 +720,7 @@ class NewRelicMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def plan(self) -> "NewRelicMonitorPlan":
         '''plan block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#plan NewRelicMonitor#plan}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#plan NewRelicMonitor#plan}
         '''
         result = self._values.get("plan")
         assert result is not None, "Required property 'plan' is missing"
@@ -728,7 +728,7 @@ class NewRelicMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#resource_group_name NewRelicMonitor#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#resource_group_name NewRelicMonitor#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
@@ -737,7 +737,7 @@ class NewRelicMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def user(self) -> "NewRelicMonitorUser":
         '''user block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#user NewRelicMonitor#user}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#user NewRelicMonitor#user}
         '''
         result = self._values.get("user")
         assert result is not None, "Required property 'user' is missing"
@@ -745,19 +745,19 @@ class NewRelicMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def account_creation_source(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#account_creation_source NewRelicMonitor#account_creation_source}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#account_creation_source NewRelicMonitor#account_creation_source}.'''
         result = self._values.get("account_creation_source")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def account_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#account_id NewRelicMonitor#account_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#account_id NewRelicMonitor#account_id}.'''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#id NewRelicMonitor#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#id NewRelicMonitor#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -769,26 +769,26 @@ class NewRelicMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def identity(self) -> typing.Optional["NewRelicMonitorIdentity"]:
         '''identity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#identity NewRelicMonitor#identity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#identity NewRelicMonitor#identity}
         '''
         result = self._values.get("identity")
         return typing.cast(typing.Optional["NewRelicMonitorIdentity"], result)
 
     @builtins.property
     def ingestion_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#ingestion_key NewRelicMonitor#ingestion_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#ingestion_key NewRelicMonitor#ingestion_key}.'''
         result = self._values.get("ingestion_key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def organization_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#organization_id NewRelicMonitor#organization_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#organization_id NewRelicMonitor#organization_id}.'''
         result = self._values.get("organization_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def org_creation_source(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#org_creation_source NewRelicMonitor#org_creation_source}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#org_creation_source NewRelicMonitor#org_creation_source}.'''
         result = self._values.get("org_creation_source")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -796,14 +796,14 @@ class NewRelicMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["NewRelicMonitorTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#timeouts NewRelicMonitor#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#timeouts NewRelicMonitor#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["NewRelicMonitorTimeouts"], result)
 
     @builtins.property
     def user_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#user_id NewRelicMonitor#user_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#user_id NewRelicMonitor#user_id}.'''
         result = self._values.get("user_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -827,7 +827,7 @@ class NewRelicMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class NewRelicMonitorIdentity:
     def __init__(self, *, type: builtins.str) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#type NewRelicMonitor#type}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#type NewRelicMonitor#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3e2b44c46aedcda53dcfab421acf2a0fa01a24a853bdceb157193622bf841963)
@@ -838,7 +838,7 @@ class NewRelicMonitorIdentity:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#type NewRelicMonitor#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#type NewRelicMonitor#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -935,10 +935,10 @@ class NewRelicMonitorPlan:
         usage_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param effective_date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#effective_date NewRelicMonitor#effective_date}.
-        :param billing_cycle: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#billing_cycle NewRelicMonitor#billing_cycle}.
-        :param plan_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#plan_id NewRelicMonitor#plan_id}.
-        :param usage_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#usage_type NewRelicMonitor#usage_type}.
+        :param effective_date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#effective_date NewRelicMonitor#effective_date}.
+        :param billing_cycle: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#billing_cycle NewRelicMonitor#billing_cycle}.
+        :param plan_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#plan_id NewRelicMonitor#plan_id}.
+        :param usage_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#usage_type NewRelicMonitor#usage_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2ee966618e1b1d137da9d9d21b46aa8fbf106568a434797d921ba594ef6f062f)
@@ -958,26 +958,26 @@ class NewRelicMonitorPlan:
 
     @builtins.property
     def effective_date(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#effective_date NewRelicMonitor#effective_date}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#effective_date NewRelicMonitor#effective_date}.'''
         result = self._values.get("effective_date")
         assert result is not None, "Required property 'effective_date' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def billing_cycle(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#billing_cycle NewRelicMonitor#billing_cycle}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#billing_cycle NewRelicMonitor#billing_cycle}.'''
         result = self._values.get("billing_cycle")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def plan_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#plan_id NewRelicMonitor#plan_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#plan_id NewRelicMonitor#plan_id}.'''
         result = self._values.get("plan_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def usage_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#usage_type NewRelicMonitor#usage_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#usage_type NewRelicMonitor#usage_type}.'''
         result = self._values.get("usage_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1120,9 +1120,9 @@ class NewRelicMonitorTimeouts:
         read: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#create NewRelicMonitor#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#delete NewRelicMonitor#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#read NewRelicMonitor#read}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#create NewRelicMonitor#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#delete NewRelicMonitor#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#read NewRelicMonitor#read}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ebe6dc0fb16752e32f494be360f1b7cdc383b1a476b2b1aaad1e8913a526277d)
@@ -1139,19 +1139,19 @@ class NewRelicMonitorTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#create NewRelicMonitor#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#create NewRelicMonitor#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#delete NewRelicMonitor#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#delete NewRelicMonitor#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#read NewRelicMonitor#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#read NewRelicMonitor#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1288,10 +1288,10 @@ class NewRelicMonitorUser:
         phone_number: builtins.str,
     ) -> None:
         '''
-        :param email: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#email NewRelicMonitor#email}.
-        :param first_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#first_name NewRelicMonitor#first_name}.
-        :param last_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#last_name NewRelicMonitor#last_name}.
-        :param phone_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#phone_number NewRelicMonitor#phone_number}.
+        :param email: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#email NewRelicMonitor#email}.
+        :param first_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#first_name NewRelicMonitor#first_name}.
+        :param last_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#last_name NewRelicMonitor#last_name}.
+        :param phone_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#phone_number NewRelicMonitor#phone_number}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b439281dd9ad00bb0cbbb02ae5338868279edf4055b4267ad88435cdd5740e43)
@@ -1308,28 +1308,28 @@ class NewRelicMonitorUser:
 
     @builtins.property
     def email(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#email NewRelicMonitor#email}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#email NewRelicMonitor#email}.'''
         result = self._values.get("email")
         assert result is not None, "Required property 'email' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def first_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#first_name NewRelicMonitor#first_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#first_name NewRelicMonitor#first_name}.'''
         result = self._values.get("first_name")
         assert result is not None, "Required property 'first_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def last_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#last_name NewRelicMonitor#last_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#last_name NewRelicMonitor#last_name}.'''
         result = self._values.get("last_name")
         assert result is not None, "Required property 'last_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def phone_number(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/new_relic_monitor#phone_number NewRelicMonitor#phone_number}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/new_relic_monitor#phone_number NewRelicMonitor#phone_number}.'''
         result = self._values.get("phone_number")
         assert result is not None, "Required property 'phone_number' is missing"
         return typing.cast(builtins.str, result)

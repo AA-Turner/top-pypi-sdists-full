@@ -1,20 +1,20 @@
 Metadata-Version: 2.4
 Name: pytest-operator
-Version: 0.42.1
-Summary: Fixtures for Operators
-Home-page: https://github.com/charmed-kubernetes/pytest-operator
-Author: Cory Johns
-Author-email: cory.johns@canonical.com
-License: MIT license
-Keywords: pytest,py.test,operators,yaml,asyncio
-Classifier: Framework :: Pytest
-Classifier: Programming Language :: Python
-Classifier: Topic :: Software Development :: Testing
+Version: 0.43.0
+Summary: Fixtures for Charmed Operators
+Author-email: Adam Dyess <adam.dyess@canonical.com>, Mateo Florido <mateo.florido@canonical.com>
+License: Apache
+Project-URL: Homepage, https://github.com/charmed-kubernetes/pytest-operator
+Project-URL: Bug Tracker, https://github.com/charmed-kubernetes/pytest-operator/issues
+Keywords: pytest,py.test,operators,ops
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: ipdb
@@ -23,17 +23,7 @@ Requires-Dist: pytest-asyncio<0.23
 Requires-Dist: pyyaml
 Requires-Dist: juju
 Requires-Dist: jinja2
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
-Dynamic: requires-dist
-Dynamic: summary
 
 # pytest-operator
 

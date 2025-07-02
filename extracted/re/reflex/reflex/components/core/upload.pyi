@@ -5,13 +5,13 @@
 # ------------------------------------------------------
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any, ClassVar, overload
+from typing import Any, ClassVar
 
 from reflex.components.base.fragment import Fragment
 from reflex.components.component import Component, ComponentNamespace, MemoizationLeaf
 from reflex.components.core.breakpoints import Breakpoints
 from reflex.constants import Dirs
-from reflex.event import CallableEventSpec, EventSpec, EventType
+from reflex.event import CallableEventSpec, EventSpec, EventType, PointerEventInfo
 from reflex.style import Style
 from reflex.utils.imports import ImportVar
 from reflex.vars import VarData
@@ -40,9 +40,8 @@ uploaded_files_url_prefix = Var(
 def get_upload_url(file_path: str | Var[str]) -> Var[str]: ...
 
 class UploadFilesProvider(Component):
-    @overload
     @classmethod
-    def create(  # type: ignore
+    def create(
         cls,
         *children,
         style: Sequence[Mapping[str, Any]]
@@ -57,9 +56,9 @@ class UploadFilesProvider(Component):
         autofocus: bool | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
-        on_click: EventType[()] | None = None,
-        on_context_menu: EventType[()] | None = None,
-        on_double_click: EventType[()] | None = None,
+        on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
+        on_context_menu: EventType[()] | EventType[PointerEventInfo] | None = None,
+        on_double_click: EventType[()] | EventType[PointerEventInfo] | None = None,
         on_focus: EventType[()] | None = None,
         on_mount: EventType[()] | None = None,
         on_mouse_down: EventType[()] | None = None,
@@ -70,6 +69,7 @@ class UploadFilesProvider(Component):
         on_mouse_over: EventType[()] | None = None,
         on_mouse_up: EventType[()] | None = None,
         on_scroll: EventType[()] | None = None,
+        on_scroll_end: EventType[()] | None = None,
         on_unmount: EventType[()] | None = None,
         **props,
     ) -> UploadFilesProvider:
@@ -91,9 +91,8 @@ class UploadFilesProvider(Component):
         """
 
 class GhostUpload(Fragment):
-    @overload
     @classmethod
-    def create(  # type: ignore
+    def create(
         cls,
         *children,
         style: Sequence[Mapping[str, Any]]
@@ -108,9 +107,9 @@ class GhostUpload(Fragment):
         autofocus: bool | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
-        on_click: EventType[()] | None = None,
-        on_context_menu: EventType[()] | None = None,
-        on_double_click: EventType[()] | None = None,
+        on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
+        on_context_menu: EventType[()] | EventType[PointerEventInfo] | None = None,
+        on_double_click: EventType[()] | EventType[PointerEventInfo] | None = None,
         on_drop: EventType[()] | EventType[Any] | None = None,
         on_focus: EventType[()] | None = None,
         on_mount: EventType[()] | None = None,
@@ -122,6 +121,7 @@ class GhostUpload(Fragment):
         on_mouse_over: EventType[()] | None = None,
         on_mouse_up: EventType[()] | None = None,
         on_scroll: EventType[()] | None = None,
+        on_scroll_end: EventType[()] | None = None,
         on_unmount: EventType[()] | None = None,
         **props,
     ) -> GhostUpload:
@@ -146,9 +146,8 @@ class GhostUpload(Fragment):
 class Upload(MemoizationLeaf):
     is_used: ClassVar[bool] = False
 
-    @overload
     @classmethod
-    def create(  # type: ignore
+    def create(
         cls,
         *children,
         accept: Var[dict[str, Sequence] | None] | dict[str, Sequence] | None = None,
@@ -173,9 +172,9 @@ class Upload(MemoizationLeaf):
         autofocus: bool | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
-        on_click: EventType[()] | None = None,
-        on_context_menu: EventType[()] | None = None,
-        on_double_click: EventType[()] | None = None,
+        on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
+        on_context_menu: EventType[()] | EventType[PointerEventInfo] | None = None,
+        on_double_click: EventType[()] | EventType[PointerEventInfo] | None = None,
         on_drop: EventType[()] | EventType[Any] | None = None,
         on_focus: EventType[()] | None = None,
         on_mount: EventType[()] | None = None,
@@ -187,6 +186,7 @@ class Upload(MemoizationLeaf):
         on_mouse_over: EventType[()] | None = None,
         on_mouse_up: EventType[()] | None = None,
         on_scroll: EventType[()] | None = None,
+        on_scroll_end: EventType[()] | None = None,
         on_unmount: EventType[()] | None = None,
         **props,
     ) -> Upload:
@@ -219,9 +219,8 @@ class Upload(MemoizationLeaf):
         """
 
 class StyledUpload(Upload):
-    @overload
     @classmethod
-    def create(  # type: ignore
+    def create(
         cls,
         *children,
         accept: Var[dict[str, Sequence] | None] | dict[str, Sequence] | None = None,
@@ -246,9 +245,9 @@ class StyledUpload(Upload):
         autofocus: bool | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
-        on_click: EventType[()] | None = None,
-        on_context_menu: EventType[()] | None = None,
-        on_double_click: EventType[()] | None = None,
+        on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
+        on_context_menu: EventType[()] | EventType[PointerEventInfo] | None = None,
+        on_double_click: EventType[()] | EventType[PointerEventInfo] | None = None,
         on_drop: EventType[()] | EventType[Any] | None = None,
         on_focus: EventType[()] | None = None,
         on_mount: EventType[()] | None = None,
@@ -260,6 +259,7 @@ class StyledUpload(Upload):
         on_mouse_over: EventType[()] | None = None,
         on_mouse_up: EventType[()] | None = None,
         on_scroll: EventType[()] | None = None,
+        on_scroll_end: EventType[()] | None = None,
         on_unmount: EventType[()] | None = None,
         **props,
     ) -> StyledUpload:
@@ -319,9 +319,9 @@ class UploadNamespace(ComponentNamespace):
         autofocus: bool | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
-        on_click: EventType[()] | None = None,
-        on_context_menu: EventType[()] | None = None,
-        on_double_click: EventType[()] | None = None,
+        on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
+        on_context_menu: EventType[()] | EventType[PointerEventInfo] | None = None,
+        on_double_click: EventType[()] | EventType[PointerEventInfo] | None = None,
         on_drop: EventType[()] | EventType[Any] | None = None,
         on_focus: EventType[()] | None = None,
         on_mount: EventType[()] | None = None,
@@ -333,6 +333,7 @@ class UploadNamespace(ComponentNamespace):
         on_mouse_over: EventType[()] | None = None,
         on_mouse_up: EventType[()] | None = None,
         on_scroll: EventType[()] | None = None,
+        on_scroll_end: EventType[()] | None = None,
         on_unmount: EventType[()] | None = None,
         **props,
     ) -> StyledUpload:

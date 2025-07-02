@@ -970,8 +970,10 @@ class CfnComputeEnvironment(
                         launch_template_id="launchTemplateId",
                         launch_template_name="launchTemplateName",
                         target_instance_types=["targetInstanceTypes"],
+                        userdata_type="userdataType",
                         version="version"
                     )],
+                    userdata_type="userdataType",
                     version="version"
                 ),
                 minv_cpus=123,
@@ -1376,8 +1378,10 @@ class CfnComputeEnvironment(
                             launch_template_id="launchTemplateId",
                             launch_template_name="launchTemplateName",
                             target_instance_types=["targetInstanceTypes"],
+                            userdata_type="userdataType",
                             version="version"
                         )],
+                        userdata_type="userdataType",
                         version="version"
                     ),
                     minv_cpus=123,
@@ -1785,7 +1789,7 @@ class CfnComputeEnvironment(
 
                This object isn't applicable to jobs that are running on Fargate resources.
 
-            :param image_type: The image type to match with the instance type to select an AMI. The supported values are different for ``ECS`` and ``EKS`` resources. - **ECS** - If the ``imageIdOverride`` parameter isn't specified, then a recent `Amazon ECS-optimized Amazon Linux 2 AMI <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-optimized_AMI.html#al2ami>`_ ( ``ECS_AL2`` ) is used. If a new image type is specified in an update, but neither an ``imageId`` nor a ``imageIdOverride`` parameter is specified, then the latest Amazon ECS optimized AMI for that image type that's supported by AWS Batch is used. - **ECS_AL2** - `Amazon Linux 2 <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-optimized_AMI.html#al2ami>`_ : Default for all non-GPU instance families. - **ECS_AL2_NVIDIA** - `Amazon Linux 2 (GPU) <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-optimized_AMI.html#gpuami>`_ : Default for all GPU instance families (for example ``P4`` and ``G4`` ) and can be used for all non AWS Graviton-based instance types. - **ECS_AL2023** - `Amazon Linux 2023 <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-optimized_AMI.html>`_ : AWS Batch supports Amazon Linux 2023. .. epigraph:: Amazon Linux 2023 does not support ``A1`` instances. - **ECS_AL1** - `Amazon Linux <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-optimized_AMI.html#alami>`_ . Amazon Linux has reached the end-of-life of standard support. For more information, see `Amazon Linux AMI <https://docs.aws.amazon.com/amazon-linux-ami/>`_ . - **EKS** - If the ``imageIdOverride`` parameter isn't specified, then a recent `Amazon EKS-optimized Amazon Linux AMI <https://docs.aws.amazon.com/eks/latest/userguide/eks-optimized-ami.html>`_ ( ``EKS_AL2`` ) is used. If a new image type is specified in an update, but neither an ``imageId`` nor a ``imageIdOverride`` parameter is specified, then the latest Amazon EKS optimized AMI for that image type that AWS Batch supports is used. - **EKS_AL2** - `Amazon Linux 2 <https://docs.aws.amazon.com/eks/latest/userguide/eks-optimized-ami.html>`_ : Default for all non-GPU instance families. - **EKS_AL2_NVIDIA** - `Amazon Linux 2 (accelerated) <https://docs.aws.amazon.com/eks/latest/userguide/eks-optimized-ami.html>`_ : Default for all GPU instance families (for example, ``P4`` and ``G4`` ) and can be used for all non AWS Graviton-based instance types.
+            :param image_type: The image type to match with the instance type to select an AMI. The supported values are different for ``ECS`` and ``EKS`` resources. - **ECS** - If the ``imageIdOverride`` parameter isn't specified, then a recent `Amazon ECS-optimized Amazon Linux 2 AMI <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-optimized_AMI.html#al2ami>`_ ( ``ECS_AL2`` ) is used. If a new image type is specified in an update, but neither an ``imageId`` nor a ``imageIdOverride`` parameter is specified, then the latest Amazon ECS optimized AMI for that image type that's supported by AWS Batch is used. - **ECS_AL2** - `Amazon Linux 2 <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-optimized_AMI.html#al2ami>`_ : Default for all non-GPU instance families. - **ECS_AL2_NVIDIA** - `Amazon Linux 2 (GPU) <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-optimized_AMI.html#gpuami>`_ : Default for all GPU instance families (for example ``P4`` and ``G4`` ) and can be used for all non AWS Graviton-based instance types. - **ECS_AL2023** - `Amazon Linux 2023 <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-optimized_AMI.html>`_ : AWS Batch supports Amazon Linux 2023. .. epigraph:: Amazon Linux 2023 does not support ``A1`` instances. - **ECS_AL1** - `Amazon Linux <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-optimized_AMI.html#alami>`_ . Amazon Linux has reached the end-of-life of standard support. For more information, see `Amazon Linux AMI <https://docs.aws.amazon.com/amazon-linux-ami/>`_ . - **EKS** - If the ``imageIdOverride`` parameter isn't specified, then a recent `Amazon EKS-optimized Amazon Linux AMI <https://docs.aws.amazon.com/eks/latest/userguide/eks-optimized-ami.html>`_ ( ``EKS_AL2`` ) is used. If a new image type is specified in an update, but neither an ``imageId`` nor a ``imageIdOverride`` parameter is specified, then the latest Amazon EKS optimized AMI for that image type that AWS Batch supports is used. - **EKS_AL2** - `Amazon Linux 2 <https://docs.aws.amazon.com/eks/latest/userguide/eks-optimized-ami.html>`_ : Default for all non-GPU instance families. - **EKS_AL2_NVIDIA** - `Amazon Linux 2 (accelerated) <https://docs.aws.amazon.com/eks/latest/userguide/eks-optimized-ami.html>`_ : Default for all GPU instance families (for example, ``P4`` and ``G4`` ) and can be used for all non AWS Graviton-based instance types. - **EKS_AL2023** - `Amazon Linux 2023 <https://docs.aws.amazon.com/eks/latest/userguide/eks-optimized-ami.html>`_ : AWS Batch supports Amazon Linux 2023. .. epigraph:: Amazon Linux 2023 does not support ``A1`` instances. - **EKS_AL2023_NVIDIA** - `Amazon Linux 2023 (accelerated) <https://docs.aws.amazon.com/eks/latest/userguide/eks-optimized-ami.html>`_ : GPU instance families and can be used for all non AWS Graviton-based instance types.
             :param image_id_override: The AMI ID used for instances launched in the compute environment that match the image type. This setting overrides the ``imageId`` set in the ``computeResource`` object. .. epigraph:: The AMI that you choose for a compute environment must match the architecture of the instance types that you intend to use for that compute environment. For example, if your compute environment uses A1 instance types, the compute resource AMI that you choose must support ARM instances. Amazon ECS vends both x86 and ARM versions of the Amazon ECS-optimized Amazon Linux 2 AMI. For more information, see `Amazon ECS-optimized Amazon Linux 2 AMI <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-optimized_AMI.html#ecs-optimized-ami-linux-variants.html>`_ in the *Amazon Elastic Container Service Developer Guide* .
             :param image_kubernetes_version: The Kubernetes version for the compute environment. If you don't specify a value, the latest version that AWS Batch supports is used.
 
@@ -1838,6 +1842,13 @@ class CfnComputeEnvironment(
             - **EKS** - If the ``imageIdOverride`` parameter isn't specified, then a recent `Amazon EKS-optimized Amazon Linux AMI <https://docs.aws.amazon.com/eks/latest/userguide/eks-optimized-ami.html>`_ ( ``EKS_AL2`` ) is used. If a new image type is specified in an update, but neither an ``imageId`` nor a ``imageIdOverride`` parameter is specified, then the latest Amazon EKS optimized AMI for that image type that AWS Batch supports is used.
             - **EKS_AL2** - `Amazon Linux 2 <https://docs.aws.amazon.com/eks/latest/userguide/eks-optimized-ami.html>`_ : Default for all non-GPU instance families.
             - **EKS_AL2_NVIDIA** - `Amazon Linux 2 (accelerated) <https://docs.aws.amazon.com/eks/latest/userguide/eks-optimized-ami.html>`_ : Default for all GPU instance families (for example, ``P4`` and ``G4`` ) and can be used for all non AWS Graviton-based instance types.
+            - **EKS_AL2023** - `Amazon Linux 2023 <https://docs.aws.amazon.com/eks/latest/userguide/eks-optimized-ami.html>`_ : AWS Batch supports Amazon Linux 2023.
+
+            .. epigraph::
+
+               Amazon Linux 2023 does not support ``A1`` instances.
+
+            - **EKS_AL2023_NVIDIA** - `Amazon Linux 2023 (accelerated) <https://docs.aws.amazon.com/eks/latest/userguide/eks-optimized-ami.html>`_ : GPU instance families and can be used for all non AWS Graviton-based instance types.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-ec2configurationobject.html#cfn-batch-computeenvironment-ec2configurationobject-imagetype
             '''
@@ -1968,6 +1979,7 @@ class CfnComputeEnvironment(
             "launch_template_id": "launchTemplateId",
             "launch_template_name": "launchTemplateName",
             "target_instance_types": "targetInstanceTypes",
+            "userdata_type": "userdataType",
             "version": "version",
         },
     )
@@ -1978,6 +1990,7 @@ class CfnComputeEnvironment(
             launch_template_id: typing.Optional[builtins.str] = None,
             launch_template_name: typing.Optional[builtins.str] = None,
             target_instance_types: typing.Optional[typing.Sequence[builtins.str]] = None,
+            userdata_type: typing.Optional[builtins.str] = None,
             version: typing.Optional[builtins.str] = None,
         ) -> None:
             '''An object that represents a launch template to use in place of the default launch template.
@@ -1994,6 +2007,7 @@ class CfnComputeEnvironment(
             :param launch_template_id: The ID of the launch template. *Note:* If you specify the ``launchTemplateId`` you can't specify the ``launchTemplateName`` as well.
             :param launch_template_name: The name of the launch template. *Note:* If you specify the ``launchTemplateName`` you can't specify the ``launchTemplateId`` as well.
             :param target_instance_types: The instance type or family that this override launch template should be applied to. This parameter is required when defining a launch template override. Information included in this parameter must meet the following requirements: - Must be a valid Amazon EC2 instance type or family. - ``optimal`` isn't allowed. - ``targetInstanceTypes`` can target only instance types and families that are included within the ```ComputeResource.instanceTypes`` <https://docs.aws.amazon.com/batch/latest/APIReference/API_ComputeResource.html#Batch-Type-ComputeResource-instanceTypes>`_ set. ``targetInstanceTypes`` doesn't need to include all of the instances from the ``instanceType`` set, but at least a subset. For example, if ``ComputeResource.instanceTypes`` includes ``[m5, g5]`` , ``targetInstanceTypes`` can include ``[m5.2xlarge]`` and ``[m5.large]`` but not ``[c5.large]`` . - ``targetInstanceTypes`` included within the same launch template override or across launch template overrides can't overlap for the same compute environment. For example, you can't define one launch template override to target an instance family and another define an instance type within this same family.
+            :param userdata_type: The EKS node initialization process to use. You only need to specify this value if you are using a custom AMI. The default value is ``EKS_BOOTSTRAP_SH`` . If *imageType* is a custom AMI based on EKS_AL2023 or EKS_AL2023_NVIDIA then you must choose ``EKS_NODEADM`` .
             :param version: The version number of the launch template, ``$Default`` , or ``$Latest`` . If the value is ``$Default`` , the default version of the launch template is used. If the value is ``$Latest`` , the latest version of the launch template is used. .. epigraph:: If the AMI ID that's used in a compute environment is from the launch template, the AMI isn't changed when the compute environment is updated. It's only changed if the ``updateToLatestImageVersion`` parameter for the compute environment is set to ``true`` . During an infrastructure update, if either ``$Default`` or ``$Latest`` is specified, AWS Batch re-evaluates the launch template version, and it might use a different version of the launch template. This is the case even if the launch template isn't specified in the update. When updating a compute environment, changing the launch template requires an infrastructure update of the compute environment. For more information, see `Updating compute environments <https://docs.aws.amazon.com/batch/latest/userguide/updating-compute-environments.html>`_ in the *AWS Batch User Guide* . Default: ``$Default`` Latest: ``$Latest``
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-launchtemplatespecificationoverride.html
@@ -2009,6 +2023,7 @@ class CfnComputeEnvironment(
                     launch_template_id="launchTemplateId",
                     launch_template_name="launchTemplateName",
                     target_instance_types=["targetInstanceTypes"],
+                    userdata_type="userdataType",
                     version="version"
                 )
             '''
@@ -2017,6 +2032,7 @@ class CfnComputeEnvironment(
                 check_type(argname="argument launch_template_id", value=launch_template_id, expected_type=type_hints["launch_template_id"])
                 check_type(argname="argument launch_template_name", value=launch_template_name, expected_type=type_hints["launch_template_name"])
                 check_type(argname="argument target_instance_types", value=target_instance_types, expected_type=type_hints["target_instance_types"])
+                check_type(argname="argument userdata_type", value=userdata_type, expected_type=type_hints["userdata_type"])
                 check_type(argname="argument version", value=version, expected_type=type_hints["version"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if launch_template_id is not None:
@@ -2025,6 +2041,8 @@ class CfnComputeEnvironment(
                 self._values["launch_template_name"] = launch_template_name
             if target_instance_types is not None:
                 self._values["target_instance_types"] = target_instance_types
+            if userdata_type is not None:
+                self._values["userdata_type"] = userdata_type
             if version is not None:
                 self._values["version"] = version
 
@@ -2069,6 +2087,17 @@ class CfnComputeEnvironment(
             return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
         @builtins.property
+        def userdata_type(self) -> typing.Optional[builtins.str]:
+            '''The EKS node initialization process to use.
+
+            You only need to specify this value if you are using a custom AMI. The default value is ``EKS_BOOTSTRAP_SH`` . If *imageType* is a custom AMI based on EKS_AL2023 or EKS_AL2023_NVIDIA then you must choose ``EKS_NODEADM`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-launchtemplatespecificationoverride.html#cfn-batch-computeenvironment-launchtemplatespecificationoverride-userdatatype
+            '''
+            result = self._values.get("userdata_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
         def version(self) -> typing.Optional[builtins.str]:
             '''The version number of the launch template, ``$Default`` , or ``$Latest`` .
 
@@ -2104,6 +2133,7 @@ class CfnComputeEnvironment(
             "launch_template_id": "launchTemplateId",
             "launch_template_name": "launchTemplateName",
             "overrides": "overrides",
+            "userdata_type": "userdataType",
             "version": "version",
         },
     )
@@ -2114,6 +2144,7 @@ class CfnComputeEnvironment(
             launch_template_id: typing.Optional[builtins.str] = None,
             launch_template_name: typing.Optional[builtins.str] = None,
             overrides: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnComputeEnvironment.LaunchTemplateSpecificationOverrideProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            userdata_type: typing.Optional[builtins.str] = None,
             version: typing.Optional[builtins.str] = None,
         ) -> None:
             '''An object that represents a launch template that's associated with a compute resource.
@@ -2128,6 +2159,7 @@ class CfnComputeEnvironment(
             :param launch_template_id: The ID of the launch template.
             :param launch_template_name: The name of the launch template.
             :param overrides: A launch template to use in place of the default launch template. You must specify either the launch template ID or launch template name in the request, but not both. You can specify up to ten (10) launch template overrides that are associated to unique instance types or families for each compute environment. .. epigraph:: To unset all override templates for a compute environment, you can pass an empty array to the `UpdateComputeEnvironment.overrides <https://docs.aws.amazon.com/batch/latest/APIReference/API_UpdateComputeEnvironment.html>`_ parameter, or not include the ``overrides`` parameter when submitting the ``UpdateComputeEnvironment`` API operation.
+            :param userdata_type: The EKS node initialization process to use. You only need to specify this value if you are using a custom AMI. The default value is ``EKS_BOOTSTRAP_SH`` . If *imageType* is a custom AMI based on EKS_AL2023 or EKS_AL2023_NVIDIA then you must choose ``EKS_NODEADM`` .
             :param version: The version number of the launch template, ``$Default`` , or ``$Latest`` . If the value is ``$Default`` , the default version of the launch template is used. If the value is ``$Latest`` , the latest version of the launch template is used. .. epigraph:: If the AMI ID that's used in a compute environment is from the launch template, the AMI isn't changed when the compute environment is updated. It's only changed if the ``updateToLatestImageVersion`` parameter for the compute environment is set to ``true`` . During an infrastructure update, if either ``$Default`` or ``$Latest`` is specified, AWS Batch re-evaluates the launch template version, and it might use a different version of the launch template. This is the case even if the launch template isn't specified in the update. When updating a compute environment, changing the launch template requires an infrastructure update of the compute environment. For more information, see `Updating compute environments <https://docs.aws.amazon.com/batch/latest/userguide/updating-compute-environments.html>`_ in the *AWS Batch User Guide* . Default: ``$Default`` Latest: ``$Latest``
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-launchtemplatespecification.html
@@ -2146,8 +2178,10 @@ class CfnComputeEnvironment(
                         launch_template_id="launchTemplateId",
                         launch_template_name="launchTemplateName",
                         target_instance_types=["targetInstanceTypes"],
+                        userdata_type="userdataType",
                         version="version"
                     )],
+                    userdata_type="userdataType",
                     version="version"
                 )
             '''
@@ -2156,6 +2190,7 @@ class CfnComputeEnvironment(
                 check_type(argname="argument launch_template_id", value=launch_template_id, expected_type=type_hints["launch_template_id"])
                 check_type(argname="argument launch_template_name", value=launch_template_name, expected_type=type_hints["launch_template_name"])
                 check_type(argname="argument overrides", value=overrides, expected_type=type_hints["overrides"])
+                check_type(argname="argument userdata_type", value=userdata_type, expected_type=type_hints["userdata_type"])
                 check_type(argname="argument version", value=version, expected_type=type_hints["version"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if launch_template_id is not None:
@@ -2164,6 +2199,8 @@ class CfnComputeEnvironment(
                 self._values["launch_template_name"] = launch_template_name
             if overrides is not None:
                 self._values["overrides"] = overrides
+            if userdata_type is not None:
+                self._values["userdata_type"] = userdata_type
             if version is not None:
                 self._values["version"] = version
 
@@ -2202,6 +2239,17 @@ class CfnComputeEnvironment(
             '''
             result = self._values.get("overrides")
             return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnComputeEnvironment.LaunchTemplateSpecificationOverrideProperty"]]]], result)
+
+        @builtins.property
+        def userdata_type(self) -> typing.Optional[builtins.str]:
+            '''The EKS node initialization process to use.
+
+            You only need to specify this value if you are using a custom AMI. The default value is ``EKS_BOOTSTRAP_SH`` . If *imageType* is a custom AMI based on EKS_AL2023 or EKS_AL2023_NVIDIA then you must choose ``EKS_NODEADM`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-launchtemplatespecification.html#cfn-batch-computeenvironment-launchtemplatespecification-userdatatype
+            '''
+            result = self._values.get("userdata_type")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def version(self) -> typing.Optional[builtins.str]:
@@ -2406,8 +2454,10 @@ class CfnComputeEnvironmentProps:
                             launch_template_id="launchTemplateId",
                             launch_template_name="launchTemplateName",
                             target_instance_types=["targetInstanceTypes"],
+                            userdata_type="userdataType",
                             version="version"
                         )],
+                        userdata_type="userdataType",
                         version="version"
                     ),
                     minv_cpus=123,
@@ -25052,6 +25102,7 @@ def _typecheckingstub__4b5bc20e5d24e0d359d6430d6ef9cdce99590872d896d3e0d65372a69
     launch_template_id: typing.Optional[builtins.str] = None,
     launch_template_name: typing.Optional[builtins.str] = None,
     target_instance_types: typing.Optional[typing.Sequence[builtins.str]] = None,
+    userdata_type: typing.Optional[builtins.str] = None,
     version: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -25062,6 +25113,7 @@ def _typecheckingstub__e2a48b24f0297afff0df36a352af2f9856ad8fac713d1ecbc2161d0b9
     launch_template_id: typing.Optional[builtins.str] = None,
     launch_template_name: typing.Optional[builtins.str] = None,
     overrides: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComputeEnvironment.LaunchTemplateSpecificationOverrideProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    userdata_type: typing.Optional[builtins.str] = None,
     version: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

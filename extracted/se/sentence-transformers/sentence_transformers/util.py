@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import csv
 import functools
+import hashlib
 import heapq
 import importlib
 import logging
@@ -10,12 +12,15 @@ import random
 import sys
 from contextlib import contextmanager
 from importlib.metadata import PackageNotFoundError, metadata
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Literal, overload
 
 import numpy as np
 import requests
 import torch
 from huggingface_hub import hf_hub_download, snapshot_download
+from scipy.sparse import coo_matrix
+from sklearn.metrics import pairwise_distances
 from torch import Tensor, device
 from tqdm import trange
 from tqdm.autonotebook import tqdm
@@ -33,6 +38,7 @@ if TYPE_CHECKING:
 def _convert_to_tensor(a: list | np.ndarray | Tensor) -> Tensor:
     """
     Converts the input `a` to a PyTorch tensor if it is not already a tensor.
+    Handles lists of sparse tensors by stacking them.
 
     Args:
         a (Union[list, np.ndarray, Tensor]): The input array or tensor.
@@ -40,8 +46,17 @@ def _convert_to_tensor(a: list | np.ndarray | Tensor) -> Tensor:
     Returns:
         Tensor: The converted tensor.
     """
-    if not isinstance(a, Tensor):
+    if isinstance(a, list):
+        # Check if list contains sparse tensors
+        if all(isinstance(x, Tensor) and x.is_sparse for x in a):
+            # Stack sparse tensors while preserving sparsity
+            return torch.stack([x.coalesce().to(dtype=torch.float32) for x in a])
+        else:
+            a = torch.tensor(a)
+    elif not isinstance(a, Tensor):
         a = torch.tensor(a)
+    if a.is_sparse:
+        return a.to(dtype=torch.float32)
     return a
 
 
@@ -63,6 +78,7 @@ def _convert_to_batch(a: Tensor) -> Tensor:
 def _convert_to_batch_tensor(a: list | np.ndarray | Tensor) -> Tensor:
     """
     Converts the input data to a tensor with a batch dimension.
+    Handles lists of sparse tensors by stacking them.
 
     Args:
         a (Union[list, np.ndarray, Tensor]): The input data to be converted.
@@ -71,7 +87,8 @@ def _convert_to_batch_tensor(a: list | np.ndarray | Tensor) -> Tensor:
         Tensor: The converted tensor with a batch dimension.
     """
     a = _convert_to_tensor(a)
-    a = _convert_to_batch(a)
+    if a.dim() == 1:
+        a = a.unsqueeze(0)
     return a
 
 
@@ -105,7 +122,7 @@ def cos_sim(a: list | np.ndarray | Tensor, b: list | np.ndarray | Tensor) -> Ten
 
     a_norm = normalize_embeddings(a)
     b_norm = normalize_embeddings(b)
-    return torch.mm(a_norm, b_norm.transpose(0, 1))
+    return torch.mm(a_norm, b_norm.transpose(0, 1)).to_dense()
 
 
 def pairwise_cos_sim(a: Tensor, b: Tensor) -> Tensor:
@@ -122,7 +139,13 @@ def pairwise_cos_sim(a: Tensor, b: Tensor) -> Tensor:
     a = _convert_to_tensor(a)
     b = _convert_to_tensor(b)
 
-    return pairwise_dot_score(normalize_embeddings(a), normalize_embeddings(b))
+    # Handle sparse tensors
+    if a.is_sparse or b.is_sparse:
+        a_norm = normalize_embeddings(a)
+        b_norm = normalize_embeddings(b)
+        return (a_norm * b_norm).sum(dim=-1).to_dense()
+    else:
+        return pairwise_dot_score(normalize_embeddings(a), normalize_embeddings(b)).to_dense()
 
 
 def dot_score(a: list | np.ndarray | Tensor, b: list | np.ndarray | Tensor) -> Tensor:
@@ -139,7 +162,7 @@ def dot_score(a: list | np.ndarray | Tensor, b: list | np.ndarray | Tensor) -> T
     a = _convert_to_batch_tensor(a)
     b = _convert_to_batch_tensor(b)
 
-    return torch.mm(a, b.transpose(0, 1))
+    return torch.mm(a, b.transpose(0, 1)).to_dense()
 
 
 def pairwise_dot_score(a: Tensor, b: Tensor) -> Tensor:
@@ -156,12 +179,20 @@ def pairwise_dot_score(a: Tensor, b: Tensor) -> Tensor:
     a = _convert_to_tensor(a)
     b = _convert_to_tensor(b)
 
-    return (a * b).sum(dim=-1)
+    return (a * b).sum(dim=-1).to_dense()
+
+
+def to_scipy_coo(x: Tensor) -> coo_matrix:
+    x = x.coalesce()
+    indices = x.indices().cpu().numpy()
+    values = x.values().cpu().numpy()
+    return coo_matrix((values, (indices[0], indices[1])), shape=x.shape)
 
 
 def manhattan_sim(a: list | np.ndarray | Tensor, b: list | np.ndarray | Tensor) -> Tensor:
     """
     Computes the manhattan similarity (i.e., negative distance) between two tensors.
+    Handles sparse tensors without converting to dense when possible.
 
     Args:
         a (Union[list, np.ndarray, Tensor]): The first tensor.
@@ -173,7 +204,16 @@ def manhattan_sim(a: list | np.ndarray | Tensor, b: list | np.ndarray | Tensor) 
     a = _convert_to_batch_tensor(a)
     b = _convert_to_batch_tensor(b)
 
-    return -torch.cdist(a, b, p=1.0)
+    if a.is_sparse or b.is_sparse:
+        logger.warning("Using scipy for sparse Manhattan similarity computation.")
+
+        a_coo = to_scipy_coo(a)
+        b_coo = to_scipy_coo(b)
+        dist = pairwise_distances(a_coo, b_coo, metric="manhattan")
+        return torch.from_numpy(-dist).float().to(a.device).to_dense()
+
+    else:
+        return -torch.cdist(a, b, p=1.0).to_dense()
 
 
 def pairwise_manhattan_sim(a: list | np.ndarray | Tensor, b: list | np.ndarray | Tensor):
@@ -190,12 +230,13 @@ def pairwise_manhattan_sim(a: list | np.ndarray | Tensor, b: list | np.ndarray |
     a = _convert_to_tensor(a)
     b = _convert_to_tensor(b)
 
-    return -torch.sum(torch.abs(a - b), dim=-1)
+    return -torch.sum(torch.abs(a - b), dim=-1).to_dense()
 
 
 def euclidean_sim(a: list | np.ndarray | Tensor, b: list | np.ndarray | Tensor) -> Tensor:
     """
     Computes the euclidean similarity (i.e., negative distance) between two tensors.
+    Handles sparse tensors without converting to dense when possible.
 
     Args:
         a (Union[list, np.ndarray, Tensor]): The first tensor.
@@ -207,7 +248,20 @@ def euclidean_sim(a: list | np.ndarray | Tensor, b: list | np.ndarray | Tensor) 
     a = _convert_to_batch_tensor(a)
     b = _convert_to_batch_tensor(b)
 
-    return -torch.cdist(a, b, p=2.0)
+    if a.is_sparse:
+        a_norm_sq = torch.sparse.sum(a * a, dim=1).to_dense().unsqueeze(1)  # Shape (N, 1)
+        b_norm_sq = torch.sparse.sum(b * b, dim=1).to_dense().unsqueeze(0)  # Shape (1, M)
+        dot_product = torch.matmul(a, b.t()).to_dense()  # Shape (N, M)
+
+        # Calculate squared distance
+        squared_dist = a_norm_sq - 2 * dot_product + b_norm_sq
+
+        # Ensure no negative values before square root (due to numerical precision)
+        squared_dist = torch.clamp(squared_dist, min=0.0)
+
+        return -torch.sqrt(squared_dist).to_dense()
+    else:
+        return -torch.cdist(a, b, p=2.0)
 
 
 def pairwise_euclidean_sim(a: list | np.ndarray | Tensor, b: list | np.ndarray | Tensor):
@@ -224,7 +278,7 @@ def pairwise_euclidean_sim(a: list | np.ndarray | Tensor, b: list | np.ndarray |
     a = _convert_to_tensor(a)
     b = _convert_to_tensor(b)
 
-    return -torch.sqrt(torch.sum((a - b) ** 2, dim=-1))
+    return -torch.sqrt(torch.sum((a - b) ** 2, dim=-1)).to_dense()
 
 
 def pairwise_angle_sim(x: Tensor, y: Tensor) -> Tensor:
@@ -239,6 +293,10 @@ def pairwise_angle_sim(x: Tensor, y: Tensor) -> Tensor:
     Returns:
         Tensor: Vector with res[i] = angle_sim(a[i], b[i])
     """
+    if x.is_sparse:
+        logger.warning("Pairwise angle similarity does not support sparse tensors. Converting to dense.")
+        x = x.coalesce().to_dense()
+        y = y.coalesce().to_dense()
 
     x = _convert_to_tensor(x)
     y = _convert_to_tensor(y)
@@ -271,7 +329,23 @@ def normalize_embeddings(embeddings: Tensor) -> Tensor:
     Returns:
         Tensor: The normalized embeddings matrix.
     """
-    return torch.nn.functional.normalize(embeddings, p=2, dim=1)
+    if not embeddings.is_sparse:
+        return torch.nn.functional.normalize(embeddings, p=2, dim=1)
+
+    embeddings = embeddings.coalesce()
+    indices, values = embeddings.indices(), embeddings.values()
+
+    # Compute row norms efficiently
+    row_norms = torch.zeros(embeddings.size(0), device=embeddings.device)
+    row_norms.index_add_(0, indices[0], values**2)
+    row_norms = torch.sqrt(row_norms).index_select(0, indices[0])
+
+    # Normalize values where norm > 0
+    mask = row_norms > 0
+    normalized_values = values.clone()
+    normalized_values[mask] /= row_norms[mask]
+
+    return torch.sparse_coo_tensor(indices, normalized_values, embeddings.size())
 
 
 @overload
@@ -314,6 +388,40 @@ def truncate_embeddings(embeddings: np.ndarray | torch.Tensor, truncate_dim: int
     return embeddings[..., :truncate_dim]
 
 
+def select_max_active_dims(embeddings: np.ndarray | torch.Tensor, max_active_dims: int | None) -> torch.Tensor:
+    """
+    Keeps only the top-k values (in absolute terms) for each embedding and creates a sparse tensor.
+
+    Args:
+        embeddings (Union[np.ndarray, torch.Tensor]): Embeddings to sparsify by keeping only top_k values.
+        max_active_dims (int): Number of values to keep as non-zeros per embedding.
+
+    Returns:
+        torch.Tensor: A sparse tensor containing only the top-k values per embedding.
+    """
+    if max_active_dims is None:
+        return embeddings
+    # Convert to tensor if numpy array
+    if isinstance(embeddings, np.ndarray):
+        embeddings = torch.tensor(embeddings)
+
+    batch_size, dim = embeddings.shape
+    device = embeddings.device
+
+    # Get the top-k indices for each embedding (by absolute value)
+    _, top_indices = torch.topk(torch.abs(embeddings), k=min(max_active_dims, dim), dim=1)
+
+    # Create a mask of zeros, then set the top-k positions to 1
+    mask = torch.zeros_like(embeddings, dtype=torch.bool)
+    batch_indices = torch.arange(batch_size, device=device).unsqueeze(1).expand(-1, min(max_active_dims, dim))
+    mask[batch_indices.flatten(), top_indices.flatten()] = True
+
+    # Create a sparse tensor with only the top values
+    embeddings[~mask] = 0
+
+    return embeddings
+
+
 def paraphrase_mining(
     model,
     sentences: list[str],
@@ -324,6 +432,9 @@ def paraphrase_mining(
     max_pairs: int = 500000,
     top_k: int = 100,
     score_function: Callable[[Tensor, Tensor], Tensor] = cos_sim,
+    truncate_dim: int | None = None,
+    prompt_name: str | None = None,
+    prompt: str | None = None,
 ) -> list[list[float | int]]:
     """
     Given a list of sentences / texts, this function performs paraphrase mining. It compares all sentences against all
@@ -339,6 +450,18 @@ def paraphrase_mining(
         max_pairs (int, optional): Maximal number of text pairs returned. Defaults to 500000.
         top_k (int, optional): For each sentence, we retrieve up to top_k other sentences. Defaults to 100.
         score_function (Callable[[Tensor, Tensor], Tensor], optional): Function for computing scores. By default, cosine similarity. Defaults to cos_sim.
+        truncate_dim (int, optional): The dimension to truncate sentence embeddings to. If None, uses the model's ones. Defaults to None.
+        prompt_name (Optional[str], optional): The name of a predefined prompt to use when encoding the sentence.
+            It must match a key in the model `prompts` dictionary, which can be set during model initialization
+            or loaded from the model configuration.
+
+            Ignored if `prompt` is provided. Defaults to None.
+
+        prompt (Optional[str], optional): A raw prompt string to prepend directly to the input sentence during encoding.
+
+            For instance, `prompt="query: "` transforms the sentence "What is the capital of France?" into:
+            "query: What is the capital of France?". Use this to override the prompt logic entirely and supply your own prefix.
+            This takes precedence over `prompt_name`. Defaults to None.
 
     Returns:
         List[List[Union[float, int]]]: Returns a list of triplets with the format [score, id1, id2]
@@ -346,7 +469,13 @@ def paraphrase_mining(
 
     # Compute embedding for the sentences
     embeddings = model.encode(
-        sentences, show_progress_bar=show_progress_bar, batch_size=batch_size, convert_to_tensor=True
+        sentences,
+        show_progress_bar=show_progress_bar,
+        batch_size=batch_size,
+        convert_to_tensor=True,
+        truncate_dim=truncate_dim,
+        prompt_name=prompt_name,
+        prompt=prompt,
     )
 
     return paraphrase_mining_embeddings(
@@ -446,12 +575,12 @@ def semantic_search(
     score_function: Callable[[Tensor, Tensor], Tensor] = cos_sim,
 ) -> list[list[dict[str, int | float]]]:
     """
-    This function performs a cosine similarity search between a list of query embeddings  and a list of corpus embeddings.
+    This function performs by default a cosine similarity search between a list of query embeddings  and a list of corpus embeddings.
     It can be used for Information Retrieval / Semantic Search for corpora up to about 1 Million entries.
 
     Args:
-        query_embeddings (:class:`~torch.Tensor`): A 2 dimensional tensor with the query embeddings.
-        corpus_embeddings (:class:`~torch.Tensor`): A 2 dimensional tensor with the corpus embeddings.
+        query_embeddings (:class:`~torch.Tensor`): A 2 dimensional tensor with the query embeddings. Can be a sparse tensor.
+        corpus_embeddings (:class:`~torch.Tensor`): A 2 dimensional tensor with the corpus embeddings. Can be a sparse tensor.
         query_chunk_size (int, optional): Process 100 queries simultaneously. Increasing that value increases the speed, but requires more memory. Defaults to 100.
         corpus_chunk_size (int, optional): Scans the corpus 100k entries at a time. Increasing that value increases the speed, but requires more memory. Defaults to 500000.
         top_k (int, optional): Retrieve top k matching entries. Defaults to 10.
@@ -481,13 +610,24 @@ def semantic_search(
     queries_result_list = [[] for _ in range(len(query_embeddings))]
 
     for query_start_idx in range(0, len(query_embeddings), query_chunk_size):
+        query_end_idx = min(query_start_idx + query_chunk_size, len(query_embeddings))
+        if query_embeddings.is_sparse:
+            indices = torch.arange(query_start_idx, query_end_idx, device=query_embeddings.device)
+            query_chunk = query_embeddings.index_select(0, indices)
+        else:
+            query_chunk = query_embeddings[query_start_idx:query_end_idx]
+
         # Iterate over chunks of the corpus
         for corpus_start_idx in range(0, len(corpus_embeddings), corpus_chunk_size):
+            corpus_end_idx = min(corpus_start_idx + corpus_chunk_size, len(corpus_embeddings))
+            if corpus_embeddings.is_sparse:
+                indices = torch.arange(corpus_start_idx, corpus_end_idx, device=corpus_embeddings.device)
+                corpus_chunk = corpus_embeddings.index_select(0, indices)
+            else:
+                corpus_chunk = corpus_embeddings[corpus_start_idx:corpus_end_idx]
+
             # Compute cosine similarities
-            cos_scores = score_function(
-                query_embeddings[query_start_idx : query_start_idx + query_chunk_size],
-                corpus_embeddings[corpus_start_idx : corpus_start_idx + corpus_chunk_size],
-            )
+            cos_scores = score_function(query_chunk, corpus_chunk)
 
             # Get top-k scores
             cos_scores_top_k_values, cos_scores_top_k_idx = torch.topk(
@@ -532,6 +672,10 @@ def mine_hard_negatives(
     relative_margin: float | None = None,
     num_negatives: int = 3,
     sampling_strategy: Literal["random", "top"] = "top",
+    query_prompt_name: str | None = None,
+    query_prompt: str | None = None,
+    corpus_prompt_name: str | None = None,
+    corpus_prompt: str | None = None,
     include_positives: bool = False,
     output_format: Literal["triplet", "n-tuple", "labeled-pair", "labeled-list"] = "triplet",
     batch_size: int = 32,
@@ -539,6 +683,7 @@ def mine_hard_negatives(
     use_faiss: bool = False,
     use_multi_process: list[str] | bool = False,
     verbose: bool = True,
+    cache_folder: str | None = None,
     as_triplets: bool | None = None,
     margin: float | None = None,
 ) -> Dataset:
@@ -553,6 +698,8 @@ def mine_hard_negatives(
     This function uses a SentenceTransformer model to embed the sentences in the dataset, and then finds the closest
     matches to each anchor sentence in the dataset. It then samples negatives from the closest matches, optionally
     using a CrossEncoder model to rescore the candidates.
+
+    Supports prompt formatting for models that expect specific instruction-style input.
 
     You can influence the candidate negative selection in various ways:
 
@@ -667,6 +814,25 @@ def mine_hard_negatives(
             95% as similar to the anchor as the positive. Defaults to None.
         num_negatives (int): Number of negatives to sample. Defaults to 3.
         sampling_strategy (Literal["random", "top"]): Sampling strategy for negatives: "top" or "random". Defaults to "top".
+        query_prompt_name (Optional[str], optional): The name of a predefined prompt to use when encoding the first/anchor dataset column.
+            It must match a key in the ``model.prompts`` dictionary, which can be set during model initialization
+            or loaded from the model configuration.
+
+            For example, if ``query_prompt_name="query"`` and the model prompts dictionary includes {"query": "query: "},
+            then the sentence "What is the capital of France?" is transformed into: "query: What is the capital of France?"
+            before encoding. This is useful for models that were trained or fine-tuned with specific prompt formats.
+
+            Ignored if ``query_prompt`` is provided. Defaults to None.
+
+        query_prompt (Optional[str], optional): A raw prompt string to prepend directly to the first/anchor dataset column during encoding.
+
+            For instance, `query_prompt="query: "` transforms the sentence "What is the capital of France?" into:
+            "query: What is the capital of France?". Use this to override the prompt logic entirely and supply your own prefix.
+            This takes precedence over ``query_prompt_name``. Defaults to None.
+        corpus_prompt_name (Optional[str], optional): The name of a predefined prompt to use when encoding the corpus. See
+            ``query_prompt_name`` for more information. Defaults to None.
+        corpus_prompt (Optional[str], optional): A raw prompt string to prepend directly to the corpus during encoding.
+            See ``query_prompt`` for more information. Defaults to None.
         include_positives (bool): Whether to include the positives in the negative candidates.
             Setting this to True is primarily useful for creating Reranking evaluation datasets for CrossEncoder models,
             where it can be useful to get a full ranking (including the positives) from a first-stage retrieval model.
@@ -686,8 +852,13 @@ def mine_hard_negatives(
             is available, and 4 CPU processes if it's not available. You can also pass a list of PyTorch devices like
             ["cuda:0", "cuda:1", ...] or ["cpu", "cpu", "cpu", "cpu"].
         verbose (bool): Whether to print statistics and logging. Defaults to True.
+        cache_folder (str, optional): Directory path for caching embeddings. If provided, the function will save
+            ``query_embeddings_{hash}.npy`` and ``corpus_embeddings_{hash}.npy`` under this folder after the first run,
+            and on subsequent calls will load from these files if they exist to avoid recomputation. The hashes are
+            computed based on the model name and the queries/corpus. Defaults to None.
         as_triplets (bool, optional): Deprecated. Use `output_format` instead. Defaults to None.
         margin (float, optional): Deprecated. Use `absolute_margin` or `relative_margin` instead. Defaults to None.
+
 
     Returns:
         Dataset: A dataset containing (anchor, positive, negative) triplets, (anchor, passage, label) text tuples with
@@ -772,7 +943,7 @@ def mine_hard_negatives(
 
     # Deduplicate the corpus
     # make sure all the positives are also in the corpus and de-duplicate it.
-    corpus = list(set(corpus) | set(positives))
+    corpus = list(dict.fromkeys(corpus + positives))
 
     # corpus_idx maps the corpus text into its position in the corpus
     # This position does not necessarily matches the original corpus, as it was de-duplicated.
@@ -780,7 +951,7 @@ def mine_hard_negatives(
 
     # Deduplicate the queries, but keep the original one for later reference.
     all_queries = queries.copy()
-    queries = list(set(queries))
+    queries = list(dict.fromkeys(queries))
     queries_idx = {query: idx for idx, query in enumerate(queries)}
     n_queries = len(queries)
     batch_idx = torch.arange(n_queries).unsqueeze(-1)
@@ -794,29 +965,90 @@ def mine_hard_negatives(
         avg_positives_per_query = np.mean(positives_per_query)
         print(f"Found an average of {avg_positives_per_query:.3f} positives per query.")
 
+    corpus_embeddings = None
+    query_embeddings = None
+
+    if cache_folder:
+        os.makedirs(cache_folder, exist_ok=True)
+
+        model_name = model.model_card_data.base_model or ""
+        query_hash = hashlib.md5((model_name + "".join(queries)).encode()).hexdigest()
+        corpus_hash = hashlib.md5((model_name + "".join(corpus)).encode()).hexdigest()
+
+        query_cache_file = os.path.join(cache_folder, f"query_embeddings_{query_hash}.npy")
+        corpus_cache_file = os.path.join(cache_folder, f"corpus_embeddings_{corpus_hash}.npy")
+
+        if os.path.exists(query_cache_file):
+            query_embeddings = np.load(query_cache_file)
+            if verbose:
+                print(f"[Cache] Loaded query embeddings from {query_cache_file} (shape={query_embeddings.shape})")
+
+        if os.path.exists(corpus_cache_file):
+            corpus_embeddings = np.load(corpus_cache_file)
+            if verbose:
+                print(f"[Cache] Loaded corpus embeddings from {corpus_cache_file} (shape={corpus_embeddings.shape})")
+
     # Embed the corpus and the queries
-    if use_multi_process:
-        pool = model.start_multi_process_pool(
-            target_devices=None if isinstance(use_multi_process, bool) else use_multi_process
-        )
-        corpus_embeddings = model.encode_multi_process(
-            corpus, pool, batch_size=batch_size, normalize_embeddings=True, show_progress_bar=True
-        )
-        query_embeddings = model.encode_multi_process(
-            queries, pool, batch_size=batch_size, normalize_embeddings=True, show_progress_bar=True
-        )
-        model.stop_multi_process_pool(pool)
-    else:
-        corpus_embeddings = model.encode(
-            corpus, batch_size=batch_size, normalize_embeddings=True, convert_to_numpy=True, show_progress_bar=True
-        )
-        query_embeddings = model.encode(
-            queries,
-            batch_size=batch_size,
-            normalize_embeddings=True,
-            convert_to_numpy=True,
-            show_progress_bar=True,
-        )
+    if corpus_embeddings is None or query_embeddings is None:
+        if use_multi_process:
+            pool = model.start_multi_process_pool(
+                target_devices=None if isinstance(use_multi_process, bool) else use_multi_process
+            )
+            if corpus_embeddings is None:
+                corpus_embeddings = model.encode(
+                    corpus,
+                    pool=pool,
+                    batch_size=batch_size,
+                    normalize_embeddings=True,
+                    convert_to_numpy=True,
+                    show_progress_bar=True,
+                    prompt_name=corpus_prompt_name,
+                    prompt=corpus_prompt,
+                )
+            if query_embeddings is None:
+                query_embeddings = model.encode(
+                    queries,
+                    pool=pool,
+                    batch_size=batch_size,
+                    normalize_embeddings=True,
+                    convert_to_numpy=True,
+                    show_progress_bar=True,
+                    prompt_name=query_prompt_name,
+                    prompt=query_prompt,
+                )
+            model.stop_multi_process_pool(pool)
+        else:
+            if corpus_embeddings is None:
+                corpus_embeddings = model.encode(
+                    corpus,
+                    batch_size=batch_size,
+                    normalize_embeddings=True,
+                    convert_to_numpy=True,
+                    show_progress_bar=True,
+                    prompt_name=corpus_prompt_name,
+                    prompt=corpus_prompt,
+                )
+            if query_embeddings is None:
+                query_embeddings = model.encode(
+                    queries,
+                    batch_size=batch_size,
+                    normalize_embeddings=True,
+                    convert_to_numpy=True,
+                    show_progress_bar=True,
+                    prompt_name=query_prompt_name,
+                    prompt=query_prompt,
+                )
+
+    if cache_folder:
+        if not os.path.exists(query_cache_file):
+            np.save(query_cache_file, query_embeddings)
+            if verbose:
+                print(f"[Cache] Saved query embeddings to {query_cache_file}")
+
+        if not os.path.exists(corpus_cache_file):
+            np.save(corpus_cache_file, corpus_embeddings)
+            if verbose:
+                print(f"[Cache] Saved corpus embeddings to {corpus_cache_file}")
 
     if use_faiss:
         import faiss
@@ -992,6 +1224,9 @@ def mine_hard_negatives(
     # repeat indices and negative_scores by the number of positives of each query
     indices = torch.cat([indices[idx].repeat(n_positives[idx], 1) for idx in range(n_queries)])
     negative_scores = torch.cat([negative_scores[idx].repeat(n_positives[idx], 1) for idx in range(n_queries)])
+
+    if verbose:
+        print("Negative candidates mined, preparing dataset...")
 
     if output_format == "triplet":
         # If calling as triples and there are multiple positives per query, we will explode the dataset into triplets.
@@ -1455,7 +1690,8 @@ def is_sentence_transformer_model(
 
 def load_file_path(
     model_name_or_path: str,
-    filename: str,
+    filename: str | Path,
+    subfolder: str = "",
     token: bool | str | None = None,
     cache_folder: str | None = None,
     revision: str | None = None,
@@ -1467,6 +1703,7 @@ def load_file_path(
     Args:
         model_name_or_path (str): The model name or path.
         filename (str): The name of the file to load.
+        subfolder (str): The subfolder within the model subfolder (if applicable).
         token (Optional[Union[bool, str]]): The token to access the remote file (if applicable).
         cache_folder (Optional[str]): The folder to cache the downloaded file (if applicable).
         revision (Optional[str], optional): The revision of the file (if applicable). Defaults to None.
@@ -1476,15 +1713,17 @@ def load_file_path(
         Optional[str]: The path to the loaded file, or None if the file could not be found or loaded.
     """
     # If file is local
-    file_path = os.path.join(model_name_or_path, filename)
-    if os.path.exists(file_path):
-        return file_path
+    file_path = Path(model_name_or_path, subfolder, filename)
+    if file_path.exists():
+        return str(file_path)
 
     # If file is remote
+    file_path = Path(subfolder, filename)
     try:
         return hf_hub_download(
             model_name_or_path,
-            filename=filename,
+            filename=file_path.name,
+            subfolder=file_path.parent.as_posix(),
             revision=revision,
             library_name="sentence-transformers",
             token=token,
@@ -1497,35 +1736,38 @@ def load_file_path(
 
 def load_dir_path(
     model_name_or_path: str,
-    directory: str,
+    subfolder: str,
     token: bool | str | None = None,
     cache_folder: str | None = None,
     revision: str | None = None,
     local_files_only: bool = False,
 ) -> str | None:
     """
-    Loads the directory path for a given model name or path.
+    Loads the subfolder path for a given model name or path.
 
     Args:
         model_name_or_path (str): The name or path of the model.
-        directory (str): The directory to load.
+        subfolder (str): The subfolder to load.
         token (Optional[Union[bool, str]]): The token for authentication.
         cache_folder (Optional[str]): The folder to cache the downloaded files.
         revision (Optional[str], optional): The revision of the model. Defaults to None.
         local_files_only (bool, optional): Whether to only use local files. Defaults to False.
 
     Returns:
-        Optional[str]: The directory path if it exists, otherwise None.
+        Optional[str]: The subfolder path if it exists, otherwise None.
     """
+    if isinstance(subfolder, Path):
+        subfolder = subfolder.as_posix()
+
     # If file is local
-    dir_path = os.path.join(model_name_or_path, directory)
-    if os.path.exists(dir_path):
-        return dir_path
+    dir_path = Path(model_name_or_path, subfolder)
+    if dir_path.exists():
+        return str(dir_path)
 
     download_kwargs = {
         "repo_id": model_name_or_path,
         "revision": revision,
-        "allow_patterns": f"{directory}/**" if directory not in ["", "."] else None,
+        "allow_patterns": f"{subfolder}/**" if subfolder not in ["", "."] else None,
         "library_name": "sentence-transformers",
         "token": token,
         "cache_dir": cache_folder,
@@ -1539,7 +1781,7 @@ def load_dir_path(
         # Otherwise, try local (i.e. cache) only
         download_kwargs["local_files_only"] = True
         repo_path = snapshot_download(**download_kwargs)
-    return os.path.join(repo_path, directory)
+    return Path(repo_path, subfolder)
 
 
 def save_to_hub_args_decorator(func):
@@ -1573,10 +1815,12 @@ def get_device_name() -> str:
         str: Device name, like 'cuda:2', 'mps', 'npu', 'hpu', or 'cpu'
     """
     if torch.cuda.is_available():
-        if torch.distributed.is_initialized():
+        if "LOCAL_RANK" in os.environ:
+            local_rank = int(os.environ["LOCAL_RANK"])
+        elif torch.distributed.is_initialized() and torch.cuda.device_count() > torch.distributed.get_rank():
             local_rank = torch.distributed.get_rank()
         else:
-            local_rank = int(os.environ.get("LOCAL_RANK", 0))
+            local_rank = 0
         return f"cuda:{local_rank}"
     elif torch.backends.mps.is_available():
         return "mps"
@@ -1639,3 +1883,21 @@ def disable_datasets_caching():
     finally:
         if is_originally_enabled:
             enable_caching()
+
+
+def append_to_last_row(csv_path, additional_data):
+    # Read the entire CSV file
+    with open(csv_path, newline="", encoding="utf-8") as f:
+        reader = csv.reader(f)
+        rows = list(reader)
+
+    if len(rows) > 1:  # Make sure there's at least one data row (after the header)
+        # Append the additional data to the last row
+        rows[-1].extend(additional_data)
+
+        # Write the entire file back
+        with open(csv_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerows(rows)
+        return True
+    return False

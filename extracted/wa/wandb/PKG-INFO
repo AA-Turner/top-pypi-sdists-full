@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wandb
-Version: 0.20.1
+Version: 0.21.0
 Summary: A CLI and library for interacting with the Weights & Biases API.
 Project-URL: Source, https://github.com/wandb/wandb
 Project-URL: Bug Reports, https://github.com/wandb/wandb/issues
@@ -56,12 +56,10 @@ Requires-Dist: protobuf!=4.21.0,!=5.28.0,<7,>=3.12.0; python_version < '3.9' and
 Requires-Dist: protobuf!=4.21.0,!=5.28.0,<7,>=3.15.0; python_version == '3.9' and sys_platform == 'linux'
 Requires-Dist: protobuf!=4.21.0,!=5.28.0,<7,>=3.19.0; python_version > '3.9' and sys_platform == 'linux'
 Requires-Dist: protobuf!=4.21.0,!=5.28.0,<7,>=3.19.0; sys_platform != 'linux'
-Requires-Dist: psutil>=5.0.0
 Requires-Dist: pydantic<3
 Requires-Dist: pyyaml
 Requires-Dist: requests<3,>=2.0.0
 Requires-Dist: sentry-sdk>=2.0.0
-Requires-Dist: setproctitle
 Requires-Dist: typing-extensions<5,>=4.8
 Provides-Extra: aws
 Requires-Dist: boto3; extra == 'aws'

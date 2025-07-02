@@ -1,7 +1,7 @@
 r'''
 # `google_firestore_index`
 
-Refer to the Terraform Registry for docs: [`google_firestore_index`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index).
+Refer to the Terraform Registry for docs: [`google_firestore_index`](https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleFirestoreIndex(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleFirestoreIndex.GoogleFirestoreIndex",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index google_firestore_index}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index google_firestore_index}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class GoogleFirestoreIndex(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index google_firestore_index} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index google_firestore_index} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param collection: The collection being indexed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#collection GoogleFirestoreIndex#collection}
-        :param fields: fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#fields GoogleFirestoreIndex#fields}
-        :param api_scope: The API scope at which a query is run. Default value: "ANY_API" Possible values: ["ANY_API", "DATASTORE_MODE_API", "MONGODB_COMPATIBLE_API"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#api_scope GoogleFirestoreIndex#api_scope}
-        :param database: The Firestore database id. Defaults to '"(default)"'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#database GoogleFirestoreIndex#database}
-        :param density: The density configuration for this index. Possible values: ["SPARSE_ALL", "SPARSE_ANY", "DENSE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#density GoogleFirestoreIndex#density}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#id GoogleFirestoreIndex#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param multikey: Optional. Whether the index is multikey. By default, the index is not multikey. For non-multikey indexes, none of the paths in the index definition reach or traverse an array, except via an explicit array index. For multikey indexes, at most one of the paths in the index definition reach or traverse an array, except via an explicit array index. Violations will result in errors. Note this field only applies to indexes with MONGODB_COMPATIBLE_API ApiScope. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#multikey GoogleFirestoreIndex#multikey}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#project GoogleFirestoreIndex#project}.
-        :param query_scope: The scope at which a query is run. Default value: "COLLECTION" Possible values: ["COLLECTION", "COLLECTION_GROUP", "COLLECTION_RECURSIVE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#query_scope GoogleFirestoreIndex#query_scope}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#timeouts GoogleFirestoreIndex#timeouts}
+        :param collection: The collection being indexed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#collection GoogleFirestoreIndex#collection}
+        :param fields: fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#fields GoogleFirestoreIndex#fields}
+        :param api_scope: The API scope at which a query is run. Default value: "ANY_API" Possible values: ["ANY_API", "DATASTORE_MODE_API", "MONGODB_COMPATIBLE_API"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#api_scope GoogleFirestoreIndex#api_scope}
+        :param database: The Firestore database id. Defaults to '"(default)"'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#database GoogleFirestoreIndex#database}
+        :param density: The density configuration for this index. Possible values: ["SPARSE_ALL", "SPARSE_ANY", "DENSE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#density GoogleFirestoreIndex#density}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#id GoogleFirestoreIndex#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param multikey: Optional. Whether the index is multikey. By default, the index is not multikey. For non-multikey indexes, none of the paths in the index definition reach or traverse an array, except via an explicit array index. For multikey indexes, at most one of the paths in the index definition reach or traverse an array, except via an explicit array index. Violations will result in errors. Note this field only applies to indexes with MONGODB_COMPATIBLE_API ApiScope. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#multikey GoogleFirestoreIndex#multikey}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#project GoogleFirestoreIndex#project}.
+        :param query_scope: The scope at which a query is run. Default value: "COLLECTION" Possible values: ["COLLECTION", "COLLECTION_GROUP", "COLLECTION_RECURSIVE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#query_scope GoogleFirestoreIndex#query_scope}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#timeouts GoogleFirestoreIndex#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class GoogleFirestoreIndex(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleFirestoreIndex to import.
-        :param import_from_id: The id of the existing GoogleFirestoreIndex that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleFirestoreIndex that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleFirestoreIndex to import is found.
         '''
         if __debug__:
@@ -162,8 +162,8 @@ class GoogleFirestoreIndex(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#create GoogleFirestoreIndex#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#delete GoogleFirestoreIndex#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#create GoogleFirestoreIndex#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#delete GoogleFirestoreIndex#delete}.
         '''
         value = GoogleFirestoreIndexTimeouts(create=create, delete=delete)
 
@@ -438,16 +438,16 @@ class GoogleFirestoreIndexConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param collection: The collection being indexed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#collection GoogleFirestoreIndex#collection}
-        :param fields: fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#fields GoogleFirestoreIndex#fields}
-        :param api_scope: The API scope at which a query is run. Default value: "ANY_API" Possible values: ["ANY_API", "DATASTORE_MODE_API", "MONGODB_COMPATIBLE_API"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#api_scope GoogleFirestoreIndex#api_scope}
-        :param database: The Firestore database id. Defaults to '"(default)"'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#database GoogleFirestoreIndex#database}
-        :param density: The density configuration for this index. Possible values: ["SPARSE_ALL", "SPARSE_ANY", "DENSE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#density GoogleFirestoreIndex#density}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#id GoogleFirestoreIndex#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param multikey: Optional. Whether the index is multikey. By default, the index is not multikey. For non-multikey indexes, none of the paths in the index definition reach or traverse an array, except via an explicit array index. For multikey indexes, at most one of the paths in the index definition reach or traverse an array, except via an explicit array index. Violations will result in errors. Note this field only applies to indexes with MONGODB_COMPATIBLE_API ApiScope. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#multikey GoogleFirestoreIndex#multikey}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#project GoogleFirestoreIndex#project}.
-        :param query_scope: The scope at which a query is run. Default value: "COLLECTION" Possible values: ["COLLECTION", "COLLECTION_GROUP", "COLLECTION_RECURSIVE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#query_scope GoogleFirestoreIndex#query_scope}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#timeouts GoogleFirestoreIndex#timeouts}
+        :param collection: The collection being indexed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#collection GoogleFirestoreIndex#collection}
+        :param fields: fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#fields GoogleFirestoreIndex#fields}
+        :param api_scope: The API scope at which a query is run. Default value: "ANY_API" Possible values: ["ANY_API", "DATASTORE_MODE_API", "MONGODB_COMPATIBLE_API"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#api_scope GoogleFirestoreIndex#api_scope}
+        :param database: The Firestore database id. Defaults to '"(default)"'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#database GoogleFirestoreIndex#database}
+        :param density: The density configuration for this index. Possible values: ["SPARSE_ALL", "SPARSE_ANY", "DENSE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#density GoogleFirestoreIndex#density}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#id GoogleFirestoreIndex#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param multikey: Optional. Whether the index is multikey. By default, the index is not multikey. For non-multikey indexes, none of the paths in the index definition reach or traverse an array, except via an explicit array index. For multikey indexes, at most one of the paths in the index definition reach or traverse an array, except via an explicit array index. Violations will result in errors. Note this field only applies to indexes with MONGODB_COMPATIBLE_API ApiScope. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#multikey GoogleFirestoreIndex#multikey}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#project GoogleFirestoreIndex#project}.
+        :param query_scope: The scope at which a query is run. Default value: "COLLECTION" Possible values: ["COLLECTION", "COLLECTION_GROUP", "COLLECTION_RECURSIVE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#query_scope GoogleFirestoreIndex#query_scope}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#timeouts GoogleFirestoreIndex#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -575,7 +575,7 @@ class GoogleFirestoreIndexConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def collection(self) -> builtins.str:
         '''The collection being indexed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#collection GoogleFirestoreIndex#collection}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#collection GoogleFirestoreIndex#collection}
         '''
         result = self._values.get("collection")
         assert result is not None, "Required property 'collection' is missing"
@@ -587,7 +587,7 @@ class GoogleFirestoreIndexConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleFirestoreIndexFields"]]:
         '''fields block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#fields GoogleFirestoreIndex#fields}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#fields GoogleFirestoreIndex#fields}
         '''
         result = self._values.get("fields")
         assert result is not None, "Required property 'fields' is missing"
@@ -597,7 +597,7 @@ class GoogleFirestoreIndexConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def api_scope(self) -> typing.Optional[builtins.str]:
         '''The API scope at which a query is run. Default value: "ANY_API" Possible values: ["ANY_API", "DATASTORE_MODE_API", "MONGODB_COMPATIBLE_API"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#api_scope GoogleFirestoreIndex#api_scope}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#api_scope GoogleFirestoreIndex#api_scope}
         '''
         result = self._values.get("api_scope")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -606,7 +606,7 @@ class GoogleFirestoreIndexConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def database(self) -> typing.Optional[builtins.str]:
         '''The Firestore database id. Defaults to '"(default)"'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#database GoogleFirestoreIndex#database}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#database GoogleFirestoreIndex#database}
         '''
         result = self._values.get("database")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -615,14 +615,14 @@ class GoogleFirestoreIndexConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def density(self) -> typing.Optional[builtins.str]:
         '''The density configuration for this index. Possible values: ["SPARSE_ALL", "SPARSE_ANY", "DENSE"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#density GoogleFirestoreIndex#density}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#density GoogleFirestoreIndex#density}
         '''
         result = self._values.get("density")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#id GoogleFirestoreIndex#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#id GoogleFirestoreIndex#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -638,14 +638,14 @@ class GoogleFirestoreIndexConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Whether the index is multikey. By default, the index is not multikey. For non-multikey indexes, none of the paths in the index definition reach or traverse an array, except via an explicit array index. For multikey indexes, at most one of the paths in the index definition reach or traverse an array, except via an explicit array index. Violations will result in errors. Note this field only applies to indexes with MONGODB_COMPATIBLE_API ApiScope.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#multikey GoogleFirestoreIndex#multikey}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#multikey GoogleFirestoreIndex#multikey}
         '''
         result = self._values.get("multikey")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#project GoogleFirestoreIndex#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#project GoogleFirestoreIndex#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -653,7 +653,7 @@ class GoogleFirestoreIndexConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def query_scope(self) -> typing.Optional[builtins.str]:
         '''The scope at which a query is run. Default value: "COLLECTION" Possible values: ["COLLECTION", "COLLECTION_GROUP", "COLLECTION_RECURSIVE"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#query_scope GoogleFirestoreIndex#query_scope}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#query_scope GoogleFirestoreIndex#query_scope}
         '''
         result = self._values.get("query_scope")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -662,7 +662,7 @@ class GoogleFirestoreIndexConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleFirestoreIndexTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#timeouts GoogleFirestoreIndex#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#timeouts GoogleFirestoreIndex#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleFirestoreIndexTimeouts"], result)
@@ -699,10 +699,10 @@ class GoogleFirestoreIndexFields:
         vector_config: typing.Optional[typing.Union["GoogleFirestoreIndexFieldsVectorConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param array_config: Indicates that this field supports operations on arrayValues. Only one of 'order', 'arrayConfig', and 'vectorConfig' can be specified. Possible values: ["CONTAINS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#array_config GoogleFirestoreIndex#array_config}
-        :param field_path: Name of the field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#field_path GoogleFirestoreIndex#field_path}
-        :param order: Indicates that this field supports ordering by the specified order or comparing using =, <, <=, >, >=. Only one of 'order', 'arrayConfig', and 'vectorConfig' can be specified. Possible values: ["ASCENDING", "DESCENDING"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#order GoogleFirestoreIndex#order}
-        :param vector_config: vector_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#vector_config GoogleFirestoreIndex#vector_config}
+        :param array_config: Indicates that this field supports operations on arrayValues. Only one of 'order', 'arrayConfig', and 'vectorConfig' can be specified. Possible values: ["CONTAINS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#array_config GoogleFirestoreIndex#array_config}
+        :param field_path: Name of the field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#field_path GoogleFirestoreIndex#field_path}
+        :param order: Indicates that this field supports ordering by the specified order or comparing using =, <, <=, >, >=. Only one of 'order', 'arrayConfig', and 'vectorConfig' can be specified. Possible values: ["ASCENDING", "DESCENDING"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#order GoogleFirestoreIndex#order}
+        :param vector_config: vector_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#vector_config GoogleFirestoreIndex#vector_config}
         '''
         if isinstance(vector_config, dict):
             vector_config = GoogleFirestoreIndexFieldsVectorConfig(**vector_config)
@@ -729,7 +729,7 @@ class GoogleFirestoreIndexFields:
         Only one of 'order', 'arrayConfig', and
         'vectorConfig' can be specified. Possible values: ["CONTAINS"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#array_config GoogleFirestoreIndex#array_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#array_config GoogleFirestoreIndex#array_config}
         '''
         result = self._values.get("array_config")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -738,7 +738,7 @@ class GoogleFirestoreIndexFields:
     def field_path(self) -> typing.Optional[builtins.str]:
         '''Name of the field.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#field_path GoogleFirestoreIndex#field_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#field_path GoogleFirestoreIndex#field_path}
         '''
         result = self._values.get("field_path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -749,7 +749,7 @@ class GoogleFirestoreIndexFields:
 
         Only one of 'order', 'arrayConfig', and 'vectorConfig' can be specified. Possible values: ["ASCENDING", "DESCENDING"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#order GoogleFirestoreIndex#order}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#order GoogleFirestoreIndex#order}
         '''
         result = self._values.get("order")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -760,7 +760,7 @@ class GoogleFirestoreIndexFields:
     ) -> typing.Optional["GoogleFirestoreIndexFieldsVectorConfig"]:
         '''vector_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#vector_config GoogleFirestoreIndex#vector_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#vector_config GoogleFirestoreIndex#vector_config}
         '''
         result = self._values.get("vector_config")
         return typing.cast(typing.Optional["GoogleFirestoreIndexFieldsVectorConfig"], result)
@@ -901,8 +901,8 @@ class GoogleFirestoreIndexFieldsOutputReference(
         flat: typing.Optional[typing.Union["GoogleFirestoreIndexFieldsVectorConfigFlat", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param dimension: The resulting index will only include vectors of this dimension, and can be used for vector search with the same dimension. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#dimension GoogleFirestoreIndex#dimension}
-        :param flat: flat block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#flat GoogleFirestoreIndex#flat}
+        :param dimension: The resulting index will only include vectors of this dimension, and can be used for vector search with the same dimension. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#dimension GoogleFirestoreIndex#dimension}
+        :param flat: flat block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#flat GoogleFirestoreIndex#flat}
         '''
         value = GoogleFirestoreIndexFieldsVectorConfig(dimension=dimension, flat=flat)
 
@@ -1018,8 +1018,8 @@ class GoogleFirestoreIndexFieldsVectorConfig:
         flat: typing.Optional[typing.Union["GoogleFirestoreIndexFieldsVectorConfigFlat", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param dimension: The resulting index will only include vectors of this dimension, and can be used for vector search with the same dimension. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#dimension GoogleFirestoreIndex#dimension}
-        :param flat: flat block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#flat GoogleFirestoreIndex#flat}
+        :param dimension: The resulting index will only include vectors of this dimension, and can be used for vector search with the same dimension. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#dimension GoogleFirestoreIndex#dimension}
+        :param flat: flat block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#flat GoogleFirestoreIndex#flat}
         '''
         if isinstance(flat, dict):
             flat = GoogleFirestoreIndexFieldsVectorConfigFlat(**flat)
@@ -1037,7 +1037,7 @@ class GoogleFirestoreIndexFieldsVectorConfig:
     def dimension(self) -> typing.Optional[jsii.Number]:
         '''The resulting index will only include vectors of this dimension, and can be used for vector search with the same dimension.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#dimension GoogleFirestoreIndex#dimension}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#dimension GoogleFirestoreIndex#dimension}
         '''
         result = self._values.get("dimension")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1046,7 +1046,7 @@ class GoogleFirestoreIndexFieldsVectorConfig:
     def flat(self) -> typing.Optional["GoogleFirestoreIndexFieldsVectorConfigFlat"]:
         '''flat block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#flat GoogleFirestoreIndex#flat}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#flat GoogleFirestoreIndex#flat}
         '''
         result = self._values.get("flat")
         return typing.cast(typing.Optional["GoogleFirestoreIndexFieldsVectorConfigFlat"], result)
@@ -1212,8 +1212,8 @@ class GoogleFirestoreIndexTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#create GoogleFirestoreIndex#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#delete GoogleFirestoreIndex#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#create GoogleFirestoreIndex#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#delete GoogleFirestoreIndex#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f5b0eea42a80637a7076c51c0b5fd1dd232e563b75133c39295312e63b3005b1)
@@ -1227,13 +1227,13 @@ class GoogleFirestoreIndexTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#create GoogleFirestoreIndex#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#create GoogleFirestoreIndex#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firestore_index#delete GoogleFirestoreIndex#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firestore_index#delete GoogleFirestoreIndex#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

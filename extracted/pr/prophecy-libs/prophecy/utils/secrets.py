@@ -415,7 +415,9 @@ class SecretManager:
     # ── Health & listings (HashiCorp) ─────────────────────────────────────
     @staticmethod
     def health(conn: HashiCorpConnectionDetails):
-        return VaultUtils.vault_health(conn)
+        resp = VaultUtils.vault_health(conn)
+        VaultUtils.token_health(conn)
+        return resp
 
     @staticmethod
     def listHashiCorpSecrets(conn: HashiCorpConnectionDetails) -> Dict[str, List[str]]:
@@ -492,7 +494,7 @@ async def handle_secrets_crud(req: SecretCrudRequest) -> LSecretsResponse:
             try:
                 resp = await asyncio.to_thread(SecretManager.health, conn)
                 out = HashiCorpHealthResponse.from_rest_response(resp)
-                logger.info(f"Returning health response ")
+                logger.info(f"Returning health response {out}")
                 return LSecretsResponse.from_request(req, out, True)
             except Exception as exc:
                 msg = (
@@ -856,22 +858,25 @@ class VaultUtils:
         acc: Dict[str, List[str]],
     ):
         """Depth-first walk; for every leaf secret record  {full_path: [keys…]}."""
+        path = inner or ""
         try:
             if kv_ver == 2:
                 resp = cli.secrets.kv.v2.list_secrets(
-                    path=inner or "", mount_point=mount
+                    path=path, mount_point=mount
                 )
             elif kv_ver == 1:
                 resp = cli.secrets.kv.v1.list_secrets(
-                    path=inner or "", mount_point=mount
+                    path=path, mount_point=mount
                 )
             else:
                 try:
-                    resp = cli.secrets.kv.v2.list_secrets(path=inner or "", mount_point=mount)
+                    resp = cli.secrets.kv.v2.list_secrets(path=path, mount_point=mount)
                     kv_ver = 2
-                except hvac.exceptions.Forbidden:
-                    resp = cli.secrets.kv.v1.list_secrets(path=inner or "", mount_point=mount)
+                    logger.info(f'Setting kv engine version as 2 for mount={mount} and path={path}')
+                except Exception as e:
+                    resp = cli.secrets.kv.v1.list_secrets(path=path, mount_point=mount)
                     kv_ver = 1
+                    logger.info(f'Setting kv engine version as 1 for mount={mount} and path={path}')
 
             keys = resp["data"]["keys"]
         except hvac.exceptions.InvalidPath:

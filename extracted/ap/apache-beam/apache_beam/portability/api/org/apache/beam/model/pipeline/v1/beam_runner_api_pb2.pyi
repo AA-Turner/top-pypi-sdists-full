@@ -3734,6 +3734,8 @@ class StandardProtocols(google.protobuf.message.Message):
         """
         ORDERED_LIST_STATE: StandardProtocols._Enum.ValueType  # 10
         """Indicates whether the SDK supports ordered list state."""
+        ELEMENT_METADATA: StandardProtocols._Enum.ValueType  # 11
+        """Indicates support for reading, writing and propagating Element's metadata"""
 
     class Enum(_Enum, metaclass=_EnumEnumTypeWrapper): ...
     LEGACY_PROGRESS_REPORTING: StandardProtocols.Enum.ValueType  # 0
@@ -3786,6 +3788,8 @@ class StandardProtocols(google.protobuf.message.Message):
     """
     ORDERED_LIST_STATE: StandardProtocols.Enum.ValueType  # 10
     """Indicates whether the SDK supports ordered list state."""
+    ELEMENT_METADATA: StandardProtocols.Enum.ValueType  # 11
+    """Indicates support for reading, writing and propagating Element's metadata"""
 
     def __init__(
         self,

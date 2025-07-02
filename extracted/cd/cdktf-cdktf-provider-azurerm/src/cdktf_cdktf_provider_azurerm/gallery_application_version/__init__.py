@@ -1,7 +1,7 @@
 r'''
 # `azurerm_gallery_application_version`
 
-Refer to the Terraform Registry for docs: [`azurerm_gallery_application_version`](https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version).
+Refer to the Terraform Registry for docs: [`azurerm_gallery_application_version`](https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GalleryApplicationVersion(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.galleryApplicationVersion.GalleryApplicationVersion",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version azurerm_gallery_application_version}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version azurerm_gallery_application_version}.'''
 
     def __init__(
         self,
@@ -73,24 +73,24 @@ class GalleryApplicationVersion(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version azurerm_gallery_application_version} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version azurerm_gallery_application_version} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param gallery_application_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#gallery_application_id GalleryApplicationVersion#gallery_application_id}.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#location GalleryApplicationVersion#location}.
-        :param manage_action: manage_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#manage_action GalleryApplicationVersion#manage_action}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#name GalleryApplicationVersion#name}.
-        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#source GalleryApplicationVersion#source}
-        :param target_region: target_region block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#target_region GalleryApplicationVersion#target_region}
-        :param config_file: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#config_file GalleryApplicationVersion#config_file}.
-        :param enable_health_check: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#enable_health_check GalleryApplicationVersion#enable_health_check}.
-        :param end_of_life_date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#end_of_life_date GalleryApplicationVersion#end_of_life_date}.
-        :param exclude_from_latest: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#exclude_from_latest GalleryApplicationVersion#exclude_from_latest}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#id GalleryApplicationVersion#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param package_file: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#package_file GalleryApplicationVersion#package_file}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#tags GalleryApplicationVersion#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#timeouts GalleryApplicationVersion#timeouts}
+        :param gallery_application_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#gallery_application_id GalleryApplicationVersion#gallery_application_id}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#location GalleryApplicationVersion#location}.
+        :param manage_action: manage_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#manage_action GalleryApplicationVersion#manage_action}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#name GalleryApplicationVersion#name}.
+        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#source GalleryApplicationVersion#source}
+        :param target_region: target_region block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#target_region GalleryApplicationVersion#target_region}
+        :param config_file: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#config_file GalleryApplicationVersion#config_file}.
+        :param enable_health_check: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#enable_health_check GalleryApplicationVersion#enable_health_check}.
+        :param end_of_life_date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#end_of_life_date GalleryApplicationVersion#end_of_life_date}.
+        :param exclude_from_latest: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#exclude_from_latest GalleryApplicationVersion#exclude_from_latest}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#id GalleryApplicationVersion#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param package_file: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#package_file GalleryApplicationVersion#package_file}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#tags GalleryApplicationVersion#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#timeouts GalleryApplicationVersion#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -142,7 +142,7 @@ class GalleryApplicationVersion(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GalleryApplicationVersion to import.
-        :param import_from_id: The id of the existing GalleryApplicationVersion that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GalleryApplicationVersion that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GalleryApplicationVersion to import is found.
         '''
         if __debug__:
@@ -162,9 +162,9 @@ class GalleryApplicationVersion(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param install: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#install GalleryApplicationVersion#install}.
-        :param remove: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#remove GalleryApplicationVersion#remove}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#update GalleryApplicationVersion#update}.
+        :param install: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#install GalleryApplicationVersion#install}.
+        :param remove: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#remove GalleryApplicationVersion#remove}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#update GalleryApplicationVersion#update}.
         '''
         value = GalleryApplicationVersionManageAction(
             install=install, remove=remove, update=update
@@ -180,8 +180,8 @@ class GalleryApplicationVersion(
         default_configuration_link: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param media_link: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#media_link GalleryApplicationVersion#media_link}.
-        :param default_configuration_link: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#default_configuration_link GalleryApplicationVersion#default_configuration_link}.
+        :param media_link: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#media_link GalleryApplicationVersion#media_link}.
+        :param default_configuration_link: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#default_configuration_link GalleryApplicationVersion#default_configuration_link}.
         '''
         value = GalleryApplicationVersionSource(
             media_link=media_link,
@@ -213,10 +213,10 @@ class GalleryApplicationVersion(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#create GalleryApplicationVersion#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#delete GalleryApplicationVersion#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#read GalleryApplicationVersion#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#update GalleryApplicationVersion#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#create GalleryApplicationVersion#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#delete GalleryApplicationVersion#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#read GalleryApplicationVersion#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#update GalleryApplicationVersion#update}.
         '''
         value = GalleryApplicationVersionTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -561,20 +561,20 @@ class GalleryApplicationVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param gallery_application_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#gallery_application_id GalleryApplicationVersion#gallery_application_id}.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#location GalleryApplicationVersion#location}.
-        :param manage_action: manage_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#manage_action GalleryApplicationVersion#manage_action}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#name GalleryApplicationVersion#name}.
-        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#source GalleryApplicationVersion#source}
-        :param target_region: target_region block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#target_region GalleryApplicationVersion#target_region}
-        :param config_file: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#config_file GalleryApplicationVersion#config_file}.
-        :param enable_health_check: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#enable_health_check GalleryApplicationVersion#enable_health_check}.
-        :param end_of_life_date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#end_of_life_date GalleryApplicationVersion#end_of_life_date}.
-        :param exclude_from_latest: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#exclude_from_latest GalleryApplicationVersion#exclude_from_latest}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#id GalleryApplicationVersion#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param package_file: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#package_file GalleryApplicationVersion#package_file}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#tags GalleryApplicationVersion#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#timeouts GalleryApplicationVersion#timeouts}
+        :param gallery_application_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#gallery_application_id GalleryApplicationVersion#gallery_application_id}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#location GalleryApplicationVersion#location}.
+        :param manage_action: manage_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#manage_action GalleryApplicationVersion#manage_action}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#name GalleryApplicationVersion#name}.
+        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#source GalleryApplicationVersion#source}
+        :param target_region: target_region block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#target_region GalleryApplicationVersion#target_region}
+        :param config_file: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#config_file GalleryApplicationVersion#config_file}.
+        :param enable_health_check: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#enable_health_check GalleryApplicationVersion#enable_health_check}.
+        :param end_of_life_date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#end_of_life_date GalleryApplicationVersion#end_of_life_date}.
+        :param exclude_from_latest: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#exclude_from_latest GalleryApplicationVersion#exclude_from_latest}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#id GalleryApplicationVersion#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param package_file: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#package_file GalleryApplicationVersion#package_file}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#tags GalleryApplicationVersion#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#timeouts GalleryApplicationVersion#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -712,14 +712,14 @@ class GalleryApplicationVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def gallery_application_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#gallery_application_id GalleryApplicationVersion#gallery_application_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#gallery_application_id GalleryApplicationVersion#gallery_application_id}.'''
         result = self._values.get("gallery_application_id")
         assert result is not None, "Required property 'gallery_application_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#location GalleryApplicationVersion#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#location GalleryApplicationVersion#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
@@ -728,7 +728,7 @@ class GalleryApplicationVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def manage_action(self) -> "GalleryApplicationVersionManageAction":
         '''manage_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#manage_action GalleryApplicationVersion#manage_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#manage_action GalleryApplicationVersion#manage_action}
         '''
         result = self._values.get("manage_action")
         assert result is not None, "Required property 'manage_action' is missing"
@@ -736,7 +736,7 @@ class GalleryApplicationVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#name GalleryApplicationVersion#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#name GalleryApplicationVersion#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -745,7 +745,7 @@ class GalleryApplicationVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def source(self) -> "GalleryApplicationVersionSource":
         '''source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#source GalleryApplicationVersion#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#source GalleryApplicationVersion#source}
         '''
         result = self._values.get("source")
         assert result is not None, "Required property 'source' is missing"
@@ -757,7 +757,7 @@ class GalleryApplicationVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GalleryApplicationVersionTargetRegion"]]:
         '''target_region block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#target_region GalleryApplicationVersion#target_region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#target_region GalleryApplicationVersion#target_region}
         '''
         result = self._values.get("target_region")
         assert result is not None, "Required property 'target_region' is missing"
@@ -765,7 +765,7 @@ class GalleryApplicationVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def config_file(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#config_file GalleryApplicationVersion#config_file}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#config_file GalleryApplicationVersion#config_file}.'''
         result = self._values.get("config_file")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -773,13 +773,13 @@ class GalleryApplicationVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enable_health_check(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#enable_health_check GalleryApplicationVersion#enable_health_check}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#enable_health_check GalleryApplicationVersion#enable_health_check}.'''
         result = self._values.get("enable_health_check")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def end_of_life_date(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#end_of_life_date GalleryApplicationVersion#end_of_life_date}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#end_of_life_date GalleryApplicationVersion#end_of_life_date}.'''
         result = self._values.get("end_of_life_date")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -787,13 +787,13 @@ class GalleryApplicationVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def exclude_from_latest(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#exclude_from_latest GalleryApplicationVersion#exclude_from_latest}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#exclude_from_latest GalleryApplicationVersion#exclude_from_latest}.'''
         result = self._values.get("exclude_from_latest")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#id GalleryApplicationVersion#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#id GalleryApplicationVersion#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -803,13 +803,13 @@ class GalleryApplicationVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def package_file(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#package_file GalleryApplicationVersion#package_file}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#package_file GalleryApplicationVersion#package_file}.'''
         result = self._values.get("package_file")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#tags GalleryApplicationVersion#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#tags GalleryApplicationVersion#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -817,7 +817,7 @@ class GalleryApplicationVersionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GalleryApplicationVersionTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#timeouts GalleryApplicationVersion#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#timeouts GalleryApplicationVersion#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GalleryApplicationVersionTimeouts"], result)
@@ -848,9 +848,9 @@ class GalleryApplicationVersionManageAction:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param install: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#install GalleryApplicationVersion#install}.
-        :param remove: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#remove GalleryApplicationVersion#remove}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#update GalleryApplicationVersion#update}.
+        :param install: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#install GalleryApplicationVersion#install}.
+        :param remove: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#remove GalleryApplicationVersion#remove}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#update GalleryApplicationVersion#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f0391e8ddd8da3785b3219159ee35d7d0d22a2d3915ea540d88bf4bfc03d8705)
@@ -866,21 +866,21 @@ class GalleryApplicationVersionManageAction:
 
     @builtins.property
     def install(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#install GalleryApplicationVersion#install}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#install GalleryApplicationVersion#install}.'''
         result = self._values.get("install")
         assert result is not None, "Required property 'install' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def remove(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#remove GalleryApplicationVersion#remove}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#remove GalleryApplicationVersion#remove}.'''
         result = self._values.get("remove")
         assert result is not None, "Required property 'remove' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#update GalleryApplicationVersion#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#update GalleryApplicationVersion#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1003,8 +1003,8 @@ class GalleryApplicationVersionSource:
         default_configuration_link: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param media_link: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#media_link GalleryApplicationVersion#media_link}.
-        :param default_configuration_link: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#default_configuration_link GalleryApplicationVersion#default_configuration_link}.
+        :param media_link: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#media_link GalleryApplicationVersion#media_link}.
+        :param default_configuration_link: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#default_configuration_link GalleryApplicationVersion#default_configuration_link}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__746bc03053e224da596a0d0e4b69e5811b0564908d96952417143b27e1f839b1)
@@ -1018,14 +1018,14 @@ class GalleryApplicationVersionSource:
 
     @builtins.property
     def media_link(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#media_link GalleryApplicationVersion#media_link}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#media_link GalleryApplicationVersion#media_link}.'''
         result = self._values.get("media_link")
         assert result is not None, "Required property 'media_link' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def default_configuration_link(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#default_configuration_link GalleryApplicationVersion#default_configuration_link}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#default_configuration_link GalleryApplicationVersion#default_configuration_link}.'''
         result = self._values.get("default_configuration_link")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1135,10 +1135,10 @@ class GalleryApplicationVersionTargetRegion:
         storage_account_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#name GalleryApplicationVersion#name}.
-        :param regional_replica_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#regional_replica_count GalleryApplicationVersion#regional_replica_count}.
-        :param exclude_from_latest: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#exclude_from_latest GalleryApplicationVersion#exclude_from_latest}.
-        :param storage_account_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#storage_account_type GalleryApplicationVersion#storage_account_type}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#name GalleryApplicationVersion#name}.
+        :param regional_replica_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#regional_replica_count GalleryApplicationVersion#regional_replica_count}.
+        :param exclude_from_latest: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#exclude_from_latest GalleryApplicationVersion#exclude_from_latest}.
+        :param storage_account_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#storage_account_type GalleryApplicationVersion#storage_account_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e6ebc4f76313752704ebf098e410045414f198a700f7c630bc7935f5a760401b)
@@ -1157,14 +1157,14 @@ class GalleryApplicationVersionTargetRegion:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#name GalleryApplicationVersion#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#name GalleryApplicationVersion#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def regional_replica_count(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#regional_replica_count GalleryApplicationVersion#regional_replica_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#regional_replica_count GalleryApplicationVersion#regional_replica_count}.'''
         result = self._values.get("regional_replica_count")
         assert result is not None, "Required property 'regional_replica_count' is missing"
         return typing.cast(jsii.Number, result)
@@ -1173,13 +1173,13 @@ class GalleryApplicationVersionTargetRegion:
     def exclude_from_latest(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#exclude_from_latest GalleryApplicationVersion#exclude_from_latest}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#exclude_from_latest GalleryApplicationVersion#exclude_from_latest}.'''
         result = self._values.get("exclude_from_latest")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def storage_account_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#storage_account_type GalleryApplicationVersion#storage_account_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#storage_account_type GalleryApplicationVersion#storage_account_type}.'''
         result = self._values.get("storage_account_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1435,10 +1435,10 @@ class GalleryApplicationVersionTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#create GalleryApplicationVersion#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#delete GalleryApplicationVersion#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#read GalleryApplicationVersion#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#update GalleryApplicationVersion#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#create GalleryApplicationVersion#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#delete GalleryApplicationVersion#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#read GalleryApplicationVersion#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#update GalleryApplicationVersion#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d6cba481a9b120a16650bfa70976a2aa68e7bfe1628fab96f77aa1fa1396c764)
@@ -1458,25 +1458,25 @@ class GalleryApplicationVersionTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#create GalleryApplicationVersion#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#create GalleryApplicationVersion#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#delete GalleryApplicationVersion#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#delete GalleryApplicationVersion#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#read GalleryApplicationVersion#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#read GalleryApplicationVersion#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/gallery_application_version#update GalleryApplicationVersion#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/gallery_application_version#update GalleryApplicationVersion#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

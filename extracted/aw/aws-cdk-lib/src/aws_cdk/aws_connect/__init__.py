@@ -2043,6 +2043,9 @@ class CfnEvaluationForm(
             title="title",
         
             # the properties below are optional
+            auto_evaluation_configuration=connect.CfnEvaluationForm.AutoEvaluationConfigurationProperty(
+                enabled=False
+            ),
             description="description",
             scoring_strategy=connect.CfnEvaluationForm.ScoringStrategyProperty(
                 mode="mode",
@@ -2064,6 +2067,7 @@ class CfnEvaluationForm(
         items: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEvaluationForm.EvaluationFormBaseItemProperty", typing.Dict[builtins.str, typing.Any]]]]],
         status: builtins.str,
         title: builtins.str,
+        auto_evaluation_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEvaluationForm.AutoEvaluationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
         scoring_strategy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEvaluationForm.ScoringStrategyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -2075,6 +2079,7 @@ class CfnEvaluationForm(
         :param items: Items that are part of the evaluation form. The total number of sections and questions must not exceed 100 each. Questions must be contained in a section. *Minimum size* : 1 *Maximum size* : 100
         :param status: The status of the evaluation form. *Allowed values* : ``DRAFT`` | ``ACTIVE`` Default: - "DRAFT"
         :param title: A title of the evaluation form.
+        :param auto_evaluation_configuration: 
         :param description: The description of the evaluation form. *Length Constraints* : Minimum length of 0. Maximum length of 1024.
         :param scoring_strategy: A scoring strategy of the evaluation form.
         :param tags: The tags used to organize, track, or control access for this resource. For example, { "tags": {"key1":"value1", "key2":"value2"} }.
@@ -2088,6 +2093,7 @@ class CfnEvaluationForm(
             items=items,
             status=status,
             title=title,
+            auto_evaluation_configuration=auto_evaluation_configuration,
             description=description,
             scoring_strategy=scoring_strategy,
             tags=tags,
@@ -2203,6 +2209,23 @@ class CfnEvaluationForm(
         jsii.set(self, "title", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="autoEvaluationConfiguration")
+    def auto_evaluation_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEvaluationForm.AutoEvaluationConfigurationProperty"]]:
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEvaluationForm.AutoEvaluationConfigurationProperty"]], jsii.get(self, "autoEvaluationConfiguration"))
+
+    @auto_evaluation_configuration.setter
+    def auto_evaluation_configuration(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEvaluationForm.AutoEvaluationConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a08e1e02a066d51cb7c88cedc412ba13d32397cae46e7f033fd3cb7a16cb12a2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "autoEvaluationConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="description")
     def description(self) -> typing.Optional[builtins.str]:
         '''The description of the evaluation form.'''
@@ -2245,6 +2268,62 @@ class CfnEvaluationForm(
             type_hints = typing.get_type_hints(_typecheckingstub__ec087e4492b70f062d224ca25c2f0d81dc78704ad8d957b26ed60e8e67176df5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_connect.CfnEvaluationForm.AutoEvaluationConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"enabled": "enabled"},
+    )
+    class AutoEvaluationConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        ) -> None:
+            '''
+            :param enabled: Auto Evaluation enablement status.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-autoevaluationconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_connect as connect
+                
+                auto_evaluation_configuration_property = connect.CfnEvaluationForm.AutoEvaluationConfigurationProperty(
+                    enabled=False
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__30b463f4300b968f0cb3373d8f901132b083c7d8934434bd6d53aa58b54107ea)
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if enabled is not None:
+                self._values["enabled"] = enabled
+
+        @builtins.property
+        def enabled(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''Auto Evaluation enablement status.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-autoevaluationconfiguration.html#cfn-connect-evaluationform-autoevaluationconfiguration-enabled
+            '''
+            result = self._values.get("enabled")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AutoEvaluationConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_connect.CfnEvaluationForm.EvaluationFormBaseItemProperty",
@@ -2524,7 +2603,7 @@ class CfnEvaluationForm(
         def __init__(
             self,
             *,
-            property_value: typing.Union[_IResolvable_da3f097b, typing.Union["CfnEvaluationForm.NumericQuestionPropertyValueAutomationProperty", typing.Dict[builtins.str, typing.Any]]],
+            property_value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEvaluationForm.NumericQuestionPropertyValueAutomationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Information about the automation configuration in numeric questions.
 
@@ -2548,21 +2627,20 @@ class CfnEvaluationForm(
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__b81afcd26ca2b7f7f360e53cfff837a4d204082391c2522686bc1415137d9bb0)
                 check_type(argname="argument property_value", value=property_value, expected_type=type_hints["property_value"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "property_value": property_value,
-            }
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if property_value is not None:
+                self._values["property_value"] = property_value
 
         @builtins.property
         def property_value(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnEvaluationForm.NumericQuestionPropertyValueAutomationProperty"]:
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEvaluationForm.NumericQuestionPropertyValueAutomationProperty"]]:
             '''The property value of the automation.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-evaluationformnumericquestionautomation.html#cfn-connect-evaluationform-evaluationformnumericquestionautomation-propertyvalue
             '''
             result = self._values.get("property_value")
-            assert result is not None, "Required property 'property_value' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnEvaluationForm.NumericQuestionPropertyValueAutomationProperty"], result)
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEvaluationForm.NumericQuestionPropertyValueAutomationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3978,6 +4056,7 @@ class CfnEvaluationForm(
         "items": "items",
         "status": "status",
         "title": "title",
+        "auto_evaluation_configuration": "autoEvaluationConfiguration",
         "description": "description",
         "scoring_strategy": "scoringStrategy",
         "tags": "tags",
@@ -3991,6 +4070,7 @@ class CfnEvaluationFormProps:
         items: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEvaluationForm.EvaluationFormBaseItemProperty, typing.Dict[builtins.str, typing.Any]]]]],
         status: builtins.str,
         title: builtins.str,
+        auto_evaluation_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEvaluationForm.AutoEvaluationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
         scoring_strategy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEvaluationForm.ScoringStrategyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -4001,6 +4081,7 @@ class CfnEvaluationFormProps:
         :param items: Items that are part of the evaluation form. The total number of sections and questions must not exceed 100 each. Questions must be contained in a section. *Minimum size* : 1 *Maximum size* : 100
         :param status: The status of the evaluation form. *Allowed values* : ``DRAFT`` | ``ACTIVE`` Default: - "DRAFT"
         :param title: A title of the evaluation form.
+        :param auto_evaluation_configuration: 
         :param description: The description of the evaluation form. *Length Constraints* : Minimum length of 0. Maximum length of 1024.
         :param scoring_strategy: A scoring strategy of the evaluation form.
         :param tags: The tags used to organize, track, or control access for this resource. For example, { "tags": {"key1":"value1", "key2":"value2"} }.
@@ -4091,6 +4172,9 @@ class CfnEvaluationFormProps:
                 title="title",
             
                 # the properties below are optional
+                auto_evaluation_configuration=connect.CfnEvaluationForm.AutoEvaluationConfigurationProperty(
+                    enabled=False
+                ),
                 description="description",
                 scoring_strategy=connect.CfnEvaluationForm.ScoringStrategyProperty(
                     mode="mode",
@@ -4108,6 +4192,7 @@ class CfnEvaluationFormProps:
             check_type(argname="argument items", value=items, expected_type=type_hints["items"])
             check_type(argname="argument status", value=status, expected_type=type_hints["status"])
             check_type(argname="argument title", value=title, expected_type=type_hints["title"])
+            check_type(argname="argument auto_evaluation_configuration", value=auto_evaluation_configuration, expected_type=type_hints["auto_evaluation_configuration"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument scoring_strategy", value=scoring_strategy, expected_type=type_hints["scoring_strategy"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -4117,6 +4202,8 @@ class CfnEvaluationFormProps:
             "status": status,
             "title": title,
         }
+        if auto_evaluation_configuration is not None:
+            self._values["auto_evaluation_configuration"] = auto_evaluation_configuration
         if description is not None:
             self._values["description"] = description
         if scoring_strategy is not None:
@@ -4175,6 +4262,16 @@ class CfnEvaluationFormProps:
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def auto_evaluation_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEvaluationForm.AutoEvaluationConfigurationProperty]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-evaluationform.html#cfn-connect-evaluationform-autoevaluationconfiguration
+        '''
+        result = self._values.get("auto_evaluation_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEvaluationForm.AutoEvaluationConfigurationProperty]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -16947,6 +17044,7 @@ def _typecheckingstub__67672e07b9b284918b4f61d0c04df64749fd2f5f1f5a07e093b1e338f
     items: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEvaluationForm.EvaluationFormBaseItemProperty, typing.Dict[builtins.str, typing.Any]]]]],
     status: builtins.str,
     title: builtins.str,
+    auto_evaluation_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEvaluationForm.AutoEvaluationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
     scoring_strategy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEvaluationForm.ScoringStrategyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -16990,6 +17088,12 @@ def _typecheckingstub__5fe499614d5f5501fca8c029af605f671cdbfd45404bbcf2cb1dca048
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__a08e1e02a066d51cb7c88cedc412ba13d32397cae46e7f033fd3cb7a16cb12a2(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEvaluationForm.AutoEvaluationConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__9b9daef123f8c8ba72731239424846e3251f3e39a09700e6514170d316f71293(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -17004,6 +17108,13 @@ def _typecheckingstub__b8ab41606e6f4148f72499568c63a3750f38b857a5fc25e01a04fcefb
 
 def _typecheckingstub__ec087e4492b70f062d224ca25c2f0d81dc78704ad8d957b26ed60e8e67176df5(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__30b463f4300b968f0cb3373d8f901132b083c7d8934434bd6d53aa58b54107ea(
+    *,
+    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17025,7 +17136,7 @@ def _typecheckingstub__1ed93558b58ad3642a506969313dd38d56ce0f003f808635135ccaf5c
 
 def _typecheckingstub__b81afcd26ca2b7f7f360e53cfff837a4d204082391c2522686bc1415137d9bb0(
     *,
-    property_value: typing.Union[_IResolvable_da3f097b, typing.Union[CfnEvaluationForm.NumericQuestionPropertyValueAutomationProperty, typing.Dict[builtins.str, typing.Any]]],
+    property_value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEvaluationForm.NumericQuestionPropertyValueAutomationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17146,6 +17257,7 @@ def _typecheckingstub__b678e993288629444b4e1bc33b4631f7578a458c70203ec6ae7263a8a
     items: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEvaluationForm.EvaluationFormBaseItemProperty, typing.Dict[builtins.str, typing.Any]]]]],
     status: builtins.str,
     title: builtins.str,
+    auto_evaluation_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEvaluationForm.AutoEvaluationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
     scoring_strategy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEvaluationForm.ScoringStrategyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,

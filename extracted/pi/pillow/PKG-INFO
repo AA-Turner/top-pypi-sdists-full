@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pillow
-Version: 11.2.1
+Version: 11.3.0
 Summary: Python Imaging Library (Fork)
 Author-email: "Jeffrey A. Clark" <aclark@aclark.net>
 License-Expression: MIT-CMU
@@ -34,6 +34,7 @@ Provides-Extra: docs
 Requires-Dist: furo; extra == "docs"
 Requires-Dist: olefile; extra == "docs"
 Requires-Dist: sphinx>=8.2; extra == "docs"
+Requires-Dist: sphinx-autobuild; extra == "docs"
 Requires-Dist: sphinx-copybutton; extra == "docs"
 Requires-Dist: sphinx-inline-tabs; extra == "docs"
 Requires-Dist: sphinxext-opengraph; extra == "docs"
@@ -54,6 +55,7 @@ Requires-Dist: pyroma; extra == "tests"
 Requires-Dist: pytest; extra == "tests"
 Requires-Dist: pytest-cov; extra == "tests"
 Requires-Dist: pytest-timeout; extra == "tests"
+Requires-Dist: pytest-xdist; extra == "tests"
 Requires-Dist: trove-classifiers>=2024.10.12; extra == "tests"
 Provides-Extra: typing
 Requires-Dist: typing-extensions; python_version < "3.10" and extra == "typing"
@@ -158,7 +160,7 @@ This library provides extensive file format support, an efficient internal repre
 
 The core image library is designed for fast access to data stored in a few basic pixel formats. It should provide a solid foundation for a general image processing tool.
 
-## More Information
+## More information
 
 - [Documentation](https://pillow.readthedocs.io/)
   - [Installation](https://pillow.readthedocs.io/en/latest/installation/basic-installation.html)
@@ -170,6 +172,6 @@ The core image library is designed for fast access to data stored in a few basic
 - [Changelog](https://github.com/python-pillow/Pillow/releases)
   - [Pre-fork](https://github.com/python-pillow/Pillow/blob/main/CHANGES.rst#pre-fork)
 
-## Report a Vulnerability
+## Report a vulnerability
 
 To report a security vulnerability, please follow the procedure described in the [Tidelift security policy](https://tidelift.com/docs/security).

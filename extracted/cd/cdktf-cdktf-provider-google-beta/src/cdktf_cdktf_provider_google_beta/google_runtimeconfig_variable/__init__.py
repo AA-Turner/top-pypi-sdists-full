@@ -1,7 +1,7 @@
 r'''
 # `google_runtimeconfig_variable`
 
-Refer to the Terraform Registry for docs: [`google_runtimeconfig_variable`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_runtimeconfig_variable).
+Refer to the Terraform Registry for docs: [`google_runtimeconfig_variable`](https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_runtimeconfig_variable).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleRuntimeconfigVariable(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleRuntimeconfigVariable.GoogleRuntimeconfigVariable",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_runtimeconfig_variable google_runtimeconfig_variable}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_runtimeconfig_variable google_runtimeconfig_variable}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class GoogleRuntimeconfigVariable(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_runtimeconfig_variable google_runtimeconfig_variable} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_runtimeconfig_variable google_runtimeconfig_variable} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The name of the variable to manage. Note that variable names can be hierarchical using slashes (e.g. "prod-variables/hostname"). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_runtimeconfig_variable#name GoogleRuntimeconfigVariable#name}
-        :param parent: The name of the RuntimeConfig resource containing this variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_runtimeconfig_variable#parent GoogleRuntimeconfigVariable#parent}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_runtimeconfig_variable#id GoogleRuntimeconfigVariable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_runtimeconfig_variable#project GoogleRuntimeconfigVariable#project}
-        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_runtimeconfig_variable#text GoogleRuntimeconfigVariable#text}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_runtimeconfig_variable#value GoogleRuntimeconfigVariable#value}.
+        :param name: The name of the variable to manage. Note that variable names can be hierarchical using slashes (e.g. "prod-variables/hostname"). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_runtimeconfig_variable#name GoogleRuntimeconfigVariable#name}
+        :param parent: The name of the RuntimeConfig resource containing this variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_runtimeconfig_variable#parent GoogleRuntimeconfigVariable#parent}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_runtimeconfig_variable#id GoogleRuntimeconfigVariable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_runtimeconfig_variable#project GoogleRuntimeconfigVariable#project}
+        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_runtimeconfig_variable#text GoogleRuntimeconfigVariable#text}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_runtimeconfig_variable#value GoogleRuntimeconfigVariable#value}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class GoogleRuntimeconfigVariable(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleRuntimeconfigVariable to import.
-        :param import_from_id: The id of the existing GoogleRuntimeconfigVariable that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_runtimeconfig_variable#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleRuntimeconfigVariable that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_runtimeconfig_variable#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleRuntimeconfigVariable to import is found.
         '''
         if __debug__:
@@ -311,12 +311,12 @@ class GoogleRuntimeconfigVariableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The name of the variable to manage. Note that variable names can be hierarchical using slashes (e.g. "prod-variables/hostname"). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_runtimeconfig_variable#name GoogleRuntimeconfigVariable#name}
-        :param parent: The name of the RuntimeConfig resource containing this variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_runtimeconfig_variable#parent GoogleRuntimeconfigVariable#parent}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_runtimeconfig_variable#id GoogleRuntimeconfigVariable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_runtimeconfig_variable#project GoogleRuntimeconfigVariable#project}
-        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_runtimeconfig_variable#text GoogleRuntimeconfigVariable#text}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_runtimeconfig_variable#value GoogleRuntimeconfigVariable#value}.
+        :param name: The name of the variable to manage. Note that variable names can be hierarchical using slashes (e.g. "prod-variables/hostname"). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_runtimeconfig_variable#name GoogleRuntimeconfigVariable#name}
+        :param parent: The name of the RuntimeConfig resource containing this variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_runtimeconfig_variable#parent GoogleRuntimeconfigVariable#parent}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_runtimeconfig_variable#id GoogleRuntimeconfigVariable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_runtimeconfig_variable#project GoogleRuntimeconfigVariable#project}
+        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_runtimeconfig_variable#text GoogleRuntimeconfigVariable#text}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_runtimeconfig_variable#value GoogleRuntimeconfigVariable#value}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -430,7 +430,7 @@ class GoogleRuntimeconfigVariableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the variable to manage. Note that variable names can be hierarchical using slashes (e.g. "prod-variables/hostname").
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_runtimeconfig_variable#name GoogleRuntimeconfigVariable#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_runtimeconfig_variable#name GoogleRuntimeconfigVariable#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -440,7 +440,7 @@ class GoogleRuntimeconfigVariableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def parent(self) -> builtins.str:
         '''The name of the RuntimeConfig resource containing this variable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_runtimeconfig_variable#parent GoogleRuntimeconfigVariable#parent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_runtimeconfig_variable#parent GoogleRuntimeconfigVariable#parent}
         '''
         result = self._values.get("parent")
         assert result is not None, "Required property 'parent' is missing"
@@ -448,7 +448,7 @@ class GoogleRuntimeconfigVariableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_runtimeconfig_variable#id GoogleRuntimeconfigVariable#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_runtimeconfig_variable#id GoogleRuntimeconfigVariable#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -462,20 +462,20 @@ class GoogleRuntimeconfigVariableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If it is not provided, the provider project is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_runtimeconfig_variable#project GoogleRuntimeconfigVariable#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_runtimeconfig_variable#project GoogleRuntimeconfigVariable#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def text(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_runtimeconfig_variable#text GoogleRuntimeconfigVariable#text}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_runtimeconfig_variable#text GoogleRuntimeconfigVariable#text}.'''
         result = self._values.get("text")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_runtimeconfig_variable#value GoogleRuntimeconfigVariable#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_runtimeconfig_variable#value GoogleRuntimeconfigVariable#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
 

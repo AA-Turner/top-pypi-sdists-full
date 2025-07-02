@@ -1,7 +1,7 @@
 r'''
 # `data_google_firebase_web_app`
 
-Refer to the Terraform Registry for docs: [`data_google_firebase_web_app`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_firebase_web_app).
+Refer to the Terraform Registry for docs: [`data_google_firebase_web_app`](https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/data-sources/google_firebase_web_app).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataGoogleFirebaseWebApp(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.dataGoogleFirebaseWebApp.DataGoogleFirebaseWebApp",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_firebase_web_app google_firebase_web_app}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/data-sources/google_firebase_web_app google_firebase_web_app}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class DataGoogleFirebaseWebApp(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_firebase_web_app google_firebase_web_app} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/data-sources/google_firebase_web_app google_firebase_web_app} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param app_id: The globally unique, Firebase-assigned identifier of the App. This identifier should be treated as an opaque token, as the data format is not specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_firebase_web_app#app_id DataGoogleFirebaseWebApp#app_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_firebase_web_app#id DataGoogleFirebaseWebApp#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_firebase_web_app#project DataGoogleFirebaseWebApp#project}.
+        :param app_id: The globally unique, Firebase-assigned identifier of the App. This identifier should be treated as an opaque token, as the data format is not specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/data-sources/google_firebase_web_app#app_id DataGoogleFirebaseWebApp#app_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/data-sources/google_firebase_web_app#id DataGoogleFirebaseWebApp#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/data-sources/google_firebase_web_app#project DataGoogleFirebaseWebApp#project}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class DataGoogleFirebaseWebApp(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataGoogleFirebaseWebApp to import.
-        :param import_from_id: The id of the existing DataGoogleFirebaseWebApp that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_firebase_web_app#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataGoogleFirebaseWebApp that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/data-sources/google_firebase_web_app#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataGoogleFirebaseWebApp to import is found.
         '''
         if __debug__:
@@ -257,9 +257,9 @@ class DataGoogleFirebaseWebAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param app_id: The globally unique, Firebase-assigned identifier of the App. This identifier should be treated as an opaque token, as the data format is not specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_firebase_web_app#app_id DataGoogleFirebaseWebApp#app_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_firebase_web_app#id DataGoogleFirebaseWebApp#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_firebase_web_app#project DataGoogleFirebaseWebApp#project}.
+        :param app_id: The globally unique, Firebase-assigned identifier of the App. This identifier should be treated as an opaque token, as the data format is not specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/data-sources/google_firebase_web_app#app_id DataGoogleFirebaseWebApp#app_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/data-sources/google_firebase_web_app#id DataGoogleFirebaseWebApp#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/data-sources/google_firebase_web_app#project DataGoogleFirebaseWebApp#project}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -367,7 +367,7 @@ class DataGoogleFirebaseWebAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This identifier should be treated as an opaque token, as the data format is not specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_firebase_web_app#app_id DataGoogleFirebaseWebApp#app_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/data-sources/google_firebase_web_app#app_id DataGoogleFirebaseWebApp#app_id}
         '''
         result = self._values.get("app_id")
         assert result is not None, "Required property 'app_id' is missing"
@@ -375,7 +375,7 @@ class DataGoogleFirebaseWebAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_firebase_web_app#id DataGoogleFirebaseWebApp#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/data-sources/google_firebase_web_app#id DataGoogleFirebaseWebApp#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -385,7 +385,7 @@ class DataGoogleFirebaseWebAppConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_firebase_web_app#project DataGoogleFirebaseWebApp#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/data-sources/google_firebase_web_app#project DataGoogleFirebaseWebApp#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 

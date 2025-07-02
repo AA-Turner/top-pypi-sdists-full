@@ -14,20 +14,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from . import beam_runner_api_pb2_urns
-from . import endpoints_pb2_grpc
-from . import standard_window_fns_pb2
-from . import standard_window_fns_pb2_urns
-from . import schema_pb2
-from . import endpoints_pb2
-from . import external_transforms_pb2
-from . import standard_window_fns_pb2_grpc
-from . import beam_runner_api_pb2
 from . import schema_pb2_urns
-from . import metrics_pb2_urns
-from . import metrics_pb2
-from . import beam_runner_api_pb2_grpc
+from . import beam_runner_api_pb2
 from . import metrics_pb2_grpc
 from . import schema_pb2_grpc
+from . import external_transforms_pb2
+from . import beam_runner_api_pb2_urns
+from . import endpoints_pb2
+from . import standard_window_fns_pb2
+from . import standard_window_fns_pb2_urns
 from . import external_transforms_pb2_urns
+from . import beam_runner_api_pb2_grpc
+from . import metrics_pb2
+from . import schema_pb2
+from . import metrics_pb2_urns
 from . import external_transforms_pb2_grpc
+from . import endpoints_pb2_grpc
+from . import standard_window_fns_pb2_grpc

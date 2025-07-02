@@ -4175,6 +4175,788 @@ class CfnFileSystemProps:
         )
 
 
+@jsii.implements(_IInspectable_c2943556)
+class CfnS3AccessPointAttachment(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_fsx.CfnS3AccessPointAttachment",
+):
+    '''Resource type definition for AWS::FSx::S3AccessPointAttachment.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-s3accesspointattachment.html
+    :cloudformationResource: AWS::FSx::S3AccessPointAttachment
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_fsx as fsx
+        
+        # policy: Any
+        
+        cfn_s3_access_point_attachment = fsx.CfnS3AccessPointAttachment(self, "MyCfnS3AccessPointAttachment",
+            name="name",
+            open_zfs_configuration=fsx.CfnS3AccessPointAttachment.S3AccessPointOpenZFSConfigurationProperty(
+                file_system_identity=fsx.CfnS3AccessPointAttachment.OpenZFSFileSystemIdentityProperty(
+                    posix_user=fsx.CfnS3AccessPointAttachment.OpenZFSPosixFileSystemUserProperty(
+                        gid=123,
+                        uid=123,
+        
+                        # the properties below are optional
+                        secondary_gids=[fsx.CfnS3AccessPointAttachment.FileSystemGIDProperty(
+                            gid=123
+                        )]
+                    ),
+                    type="type"
+                ),
+                volume_id="volumeId"
+            ),
+            type="type",
+        
+            # the properties below are optional
+            s3_access_point=fsx.CfnS3AccessPointAttachment.S3AccessPointProperty(
+                alias="alias",
+                policy=policy,
+                resource_arn="resourceArn",
+                vpc_configuration=fsx.CfnS3AccessPointAttachment.S3AccessPointVpcConfigurationProperty(
+                    vpc_id="vpcId"
+                )
+            )
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        name: builtins.str,
+        open_zfs_configuration: typing.Union[_IResolvable_da3f097b, typing.Union["CfnS3AccessPointAttachment.S3AccessPointOpenZFSConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        type: builtins.str,
+        s3_access_point: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnS3AccessPointAttachment.S3AccessPointProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param name: The Name of the S3AccessPointAttachment.
+        :param open_zfs_configuration: 
+        :param type: 
+        :param s3_access_point: 
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f51e0b107c6c6ca8bc284dbcf4013f6c7bcdd088cb084476fdf615b4d8ae257e)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnS3AccessPointAttachmentProps(
+            name=name,
+            open_zfs_configuration=open_zfs_configuration,
+            type=type,
+            s3_access_point=s3_access_point,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6e021f2b2cc052b241526f0c8b04451cdbb773840ed5e597d710011b7885f25f)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e4764700463d52298286c209b2ab565142140f7bfb04556d307ca9bd56430fb2)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrS3AccessPointAlias")
+    def attr_s3_access_point_alias(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: S3AccessPoint.Alias
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrS3AccessPointAlias"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrS3AccessPointResourceArn")
+    def attr_s3_access_point_resource_arn(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: S3AccessPoint.ResourceARN
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrS3AccessPointResourceArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The Name of the S3AccessPointAttachment.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__644edd6bd850880f5ebd47e103e56e49b7d7f21e620f2807e12dac453933e59d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="openZfsConfiguration")
+    def open_zfs_configuration(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnS3AccessPointAttachment.S3AccessPointOpenZFSConfigurationProperty"]:
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnS3AccessPointAttachment.S3AccessPointOpenZFSConfigurationProperty"], jsii.get(self, "openZfsConfiguration"))
+
+    @open_zfs_configuration.setter
+    def open_zfs_configuration(
+        self,
+        value: typing.Union[_IResolvable_da3f097b, "CfnS3AccessPointAttachment.S3AccessPointOpenZFSConfigurationProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0756a73fef71599ffefeead45c6d0ea227439b511cdc73a360780b4f4c0df186)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "openZfsConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="type")
+    def type(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "type"))
+
+    @type.setter
+    def type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ece88a5ab6d3a69d75415d92fc3eea5b9fd91186f1a15239e5ec10f6c6c0005a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="s3AccessPoint")
+    def s3_access_point(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnS3AccessPointAttachment.S3AccessPointProperty"]]:
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnS3AccessPointAttachment.S3AccessPointProperty"]], jsii.get(self, "s3AccessPoint"))
+
+    @s3_access_point.setter
+    def s3_access_point(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnS3AccessPointAttachment.S3AccessPointProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1588dcc78f8354bc56e434d157b8dadab331295e3cbf0c065b7bd4b4b793aaa0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "s3AccessPoint", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_fsx.CfnS3AccessPointAttachment.FileSystemGIDProperty",
+        jsii_struct_bases=[],
+        name_mapping={"gid": "gid"},
+    )
+    class FileSystemGIDProperty:
+        def __init__(self, *, gid: jsii.Number) -> None:
+            '''
+            :param gid: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-s3accesspointattachment-filesystemgid.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_fsx as fsx
+                
+                file_system_gIDProperty = fsx.CfnS3AccessPointAttachment.FileSystemGIDProperty(
+                    gid=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__72efd25b3b6057030d910de35b2f8e4104cb66dc72f89dc8ebb3b89daaf6a69f)
+                check_type(argname="argument gid", value=gid, expected_type=type_hints["gid"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "gid": gid,
+            }
+
+        @builtins.property
+        def gid(self) -> jsii.Number:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-s3accesspointattachment-filesystemgid.html#cfn-fsx-s3accesspointattachment-filesystemgid-gid
+            '''
+            result = self._values.get("gid")
+            assert result is not None, "Required property 'gid' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "FileSystemGIDProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_fsx.CfnS3AccessPointAttachment.OpenZFSFileSystemIdentityProperty",
+        jsii_struct_bases=[],
+        name_mapping={"posix_user": "posixUser", "type": "type"},
+    )
+    class OpenZFSFileSystemIdentityProperty:
+        def __init__(
+            self,
+            *,
+            posix_user: typing.Union[_IResolvable_da3f097b, typing.Union["CfnS3AccessPointAttachment.OpenZFSPosixFileSystemUserProperty", typing.Dict[builtins.str, typing.Any]]],
+            type: builtins.str,
+        ) -> None:
+            '''
+            :param posix_user: 
+            :param type: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-s3accesspointattachment-openzfsfilesystemidentity.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_fsx as fsx
+                
+                open_zFSFile_system_identity_property = fsx.CfnS3AccessPointAttachment.OpenZFSFileSystemIdentityProperty(
+                    posix_user=fsx.CfnS3AccessPointAttachment.OpenZFSPosixFileSystemUserProperty(
+                        gid=123,
+                        uid=123,
+                
+                        # the properties below are optional
+                        secondary_gids=[fsx.CfnS3AccessPointAttachment.FileSystemGIDProperty(
+                            gid=123
+                        )]
+                    ),
+                    type="type"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__af3bbbb456f8fdedf7c641c4786d89bf08acb663687e1b91f1ffdb83ab9819cb)
+                check_type(argname="argument posix_user", value=posix_user, expected_type=type_hints["posix_user"])
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "posix_user": posix_user,
+                "type": type,
+            }
+
+        @builtins.property
+        def posix_user(
+            self,
+        ) -> typing.Union[_IResolvable_da3f097b, "CfnS3AccessPointAttachment.OpenZFSPosixFileSystemUserProperty"]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-s3accesspointattachment-openzfsfilesystemidentity.html#cfn-fsx-s3accesspointattachment-openzfsfilesystemidentity-posixuser
+            '''
+            result = self._values.get("posix_user")
+            assert result is not None, "Required property 'posix_user' is missing"
+            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnS3AccessPointAttachment.OpenZFSPosixFileSystemUserProperty"], result)
+
+        @builtins.property
+        def type(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-s3accesspointattachment-openzfsfilesystemidentity.html#cfn-fsx-s3accesspointattachment-openzfsfilesystemidentity-type
+            '''
+            result = self._values.get("type")
+            assert result is not None, "Required property 'type' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "OpenZFSFileSystemIdentityProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_fsx.CfnS3AccessPointAttachment.OpenZFSPosixFileSystemUserProperty",
+        jsii_struct_bases=[],
+        name_mapping={"gid": "gid", "uid": "uid", "secondary_gids": "secondaryGids"},
+    )
+    class OpenZFSPosixFileSystemUserProperty:
+        def __init__(
+            self,
+            *,
+            gid: jsii.Number,
+            uid: jsii.Number,
+            secondary_gids: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnS3AccessPointAttachment.FileSystemGIDProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''
+            :param gid: 
+            :param uid: 
+            :param secondary_gids: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-s3accesspointattachment-openzfsposixfilesystemuser.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_fsx as fsx
+                
+                open_zFSPosix_file_system_user_property = fsx.CfnS3AccessPointAttachment.OpenZFSPosixFileSystemUserProperty(
+                    gid=123,
+                    uid=123,
+                
+                    # the properties below are optional
+                    secondary_gids=[fsx.CfnS3AccessPointAttachment.FileSystemGIDProperty(
+                        gid=123
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__3decc490fdc822be6603dab799c80c7e004416dbd58cc34ea290fa556e81be39)
+                check_type(argname="argument gid", value=gid, expected_type=type_hints["gid"])
+                check_type(argname="argument uid", value=uid, expected_type=type_hints["uid"])
+                check_type(argname="argument secondary_gids", value=secondary_gids, expected_type=type_hints["secondary_gids"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "gid": gid,
+                "uid": uid,
+            }
+            if secondary_gids is not None:
+                self._values["secondary_gids"] = secondary_gids
+
+        @builtins.property
+        def gid(self) -> jsii.Number:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-s3accesspointattachment-openzfsposixfilesystemuser.html#cfn-fsx-s3accesspointattachment-openzfsposixfilesystemuser-gid
+            '''
+            result = self._values.get("gid")
+            assert result is not None, "Required property 'gid' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def uid(self) -> jsii.Number:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-s3accesspointattachment-openzfsposixfilesystemuser.html#cfn-fsx-s3accesspointattachment-openzfsposixfilesystemuser-uid
+            '''
+            result = self._values.get("uid")
+            assert result is not None, "Required property 'uid' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def secondary_gids(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnS3AccessPointAttachment.FileSystemGIDProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-s3accesspointattachment-openzfsposixfilesystemuser.html#cfn-fsx-s3accesspointattachment-openzfsposixfilesystemuser-secondarygids
+            '''
+            result = self._values.get("secondary_gids")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnS3AccessPointAttachment.FileSystemGIDProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "OpenZFSPosixFileSystemUserProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_fsx.CfnS3AccessPointAttachment.S3AccessPointOpenZFSConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "file_system_identity": "fileSystemIdentity",
+            "volume_id": "volumeId",
+        },
+    )
+    class S3AccessPointOpenZFSConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            file_system_identity: typing.Union[_IResolvable_da3f097b, typing.Union["CfnS3AccessPointAttachment.OpenZFSFileSystemIdentityProperty", typing.Dict[builtins.str, typing.Any]]],
+            volume_id: builtins.str,
+        ) -> None:
+            '''
+            :param file_system_identity: 
+            :param volume_id: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-s3accesspointattachment-s3accesspointopenzfsconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_fsx as fsx
+                
+                s3_access_point_open_zFSConfiguration_property = fsx.CfnS3AccessPointAttachment.S3AccessPointOpenZFSConfigurationProperty(
+                    file_system_identity=fsx.CfnS3AccessPointAttachment.OpenZFSFileSystemIdentityProperty(
+                        posix_user=fsx.CfnS3AccessPointAttachment.OpenZFSPosixFileSystemUserProperty(
+                            gid=123,
+                            uid=123,
+                
+                            # the properties below are optional
+                            secondary_gids=[fsx.CfnS3AccessPointAttachment.FileSystemGIDProperty(
+                                gid=123
+                            )]
+                        ),
+                        type="type"
+                    ),
+                    volume_id="volumeId"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__19e4ea8fd55e864f4fe150ca7ce6a9a2838595c2d032b53647f2917e1f00ccfa)
+                check_type(argname="argument file_system_identity", value=file_system_identity, expected_type=type_hints["file_system_identity"])
+                check_type(argname="argument volume_id", value=volume_id, expected_type=type_hints["volume_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "file_system_identity": file_system_identity,
+                "volume_id": volume_id,
+            }
+
+        @builtins.property
+        def file_system_identity(
+            self,
+        ) -> typing.Union[_IResolvable_da3f097b, "CfnS3AccessPointAttachment.OpenZFSFileSystemIdentityProperty"]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-s3accesspointattachment-s3accesspointopenzfsconfiguration.html#cfn-fsx-s3accesspointattachment-s3accesspointopenzfsconfiguration-filesystemidentity
+            '''
+            result = self._values.get("file_system_identity")
+            assert result is not None, "Required property 'file_system_identity' is missing"
+            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnS3AccessPointAttachment.OpenZFSFileSystemIdentityProperty"], result)
+
+        @builtins.property
+        def volume_id(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-s3accesspointattachment-s3accesspointopenzfsconfiguration.html#cfn-fsx-s3accesspointattachment-s3accesspointopenzfsconfiguration-volumeid
+            '''
+            result = self._values.get("volume_id")
+            assert result is not None, "Required property 'volume_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "S3AccessPointOpenZFSConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_fsx.CfnS3AccessPointAttachment.S3AccessPointProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "alias": "alias",
+            "policy": "policy",
+            "resource_arn": "resourceArn",
+            "vpc_configuration": "vpcConfiguration",
+        },
+    )
+    class S3AccessPointProperty:
+        def __init__(
+            self,
+            *,
+            alias: typing.Optional[builtins.str] = None,
+            policy: typing.Any = None,
+            resource_arn: typing.Optional[builtins.str] = None,
+            vpc_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnS3AccessPointAttachment.S3AccessPointVpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param alias: 
+            :param policy: 
+            :param resource_arn: 
+            :param vpc_configuration: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-s3accesspointattachment-s3accesspoint.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_fsx as fsx
+                
+                # policy: Any
+                
+                s3_access_point_property = fsx.CfnS3AccessPointAttachment.S3AccessPointProperty(
+                    alias="alias",
+                    policy=policy,
+                    resource_arn="resourceArn",
+                    vpc_configuration=fsx.CfnS3AccessPointAttachment.S3AccessPointVpcConfigurationProperty(
+                        vpc_id="vpcId"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__f4a6a2c709cd1951841b5d405e10b97412387430297e85aa1495d3aab1b70367)
+                check_type(argname="argument alias", value=alias, expected_type=type_hints["alias"])
+                check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
+                check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
+                check_type(argname="argument vpc_configuration", value=vpc_configuration, expected_type=type_hints["vpc_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if alias is not None:
+                self._values["alias"] = alias
+            if policy is not None:
+                self._values["policy"] = policy
+            if resource_arn is not None:
+                self._values["resource_arn"] = resource_arn
+            if vpc_configuration is not None:
+                self._values["vpc_configuration"] = vpc_configuration
+
+        @builtins.property
+        def alias(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-s3accesspointattachment-s3accesspoint.html#cfn-fsx-s3accesspointattachment-s3accesspoint-alias
+            '''
+            result = self._values.get("alias")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def policy(self) -> typing.Any:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-s3accesspointattachment-s3accesspoint.html#cfn-fsx-s3accesspointattachment-s3accesspoint-policy
+            '''
+            result = self._values.get("policy")
+            return typing.cast(typing.Any, result)
+
+        @builtins.property
+        def resource_arn(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-s3accesspointattachment-s3accesspoint.html#cfn-fsx-s3accesspointattachment-s3accesspoint-resourcearn
+            '''
+            result = self._values.get("resource_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def vpc_configuration(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnS3AccessPointAttachment.S3AccessPointVpcConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-s3accesspointattachment-s3accesspoint.html#cfn-fsx-s3accesspointattachment-s3accesspoint-vpcconfiguration
+            '''
+            result = self._values.get("vpc_configuration")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnS3AccessPointAttachment.S3AccessPointVpcConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "S3AccessPointProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_fsx.CfnS3AccessPointAttachment.S3AccessPointVpcConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"vpc_id": "vpcId"},
+    )
+    class S3AccessPointVpcConfigurationProperty:
+        def __init__(self, *, vpc_id: builtins.str) -> None:
+            '''
+            :param vpc_id: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-s3accesspointattachment-s3accesspointvpcconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_fsx as fsx
+                
+                s3_access_point_vpc_configuration_property = fsx.CfnS3AccessPointAttachment.S3AccessPointVpcConfigurationProperty(
+                    vpc_id="vpcId"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__ca5b9e5f42caf136a78ce4c94fb03a42b36504167d07de97e63171ff15aab81d)
+                check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "vpc_id": vpc_id,
+            }
+
+        @builtins.property
+        def vpc_id(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-s3accesspointattachment-s3accesspointvpcconfiguration.html#cfn-fsx-s3accesspointattachment-s3accesspointvpcconfiguration-vpcid
+            '''
+            result = self._values.get("vpc_id")
+            assert result is not None, "Required property 'vpc_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "S3AccessPointVpcConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_fsx.CfnS3AccessPointAttachmentProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "open_zfs_configuration": "openZfsConfiguration",
+        "type": "type",
+        "s3_access_point": "s3AccessPoint",
+    },
+)
+class CfnS3AccessPointAttachmentProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        open_zfs_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnS3AccessPointAttachment.S3AccessPointOpenZFSConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+        type: builtins.str,
+        s3_access_point: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnS3AccessPointAttachment.S3AccessPointProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnS3AccessPointAttachment``.
+
+        :param name: The Name of the S3AccessPointAttachment.
+        :param open_zfs_configuration: 
+        :param type: 
+        :param s3_access_point: 
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-s3accesspointattachment.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_fsx as fsx
+            
+            # policy: Any
+            
+            cfn_s3_access_point_attachment_props = fsx.CfnS3AccessPointAttachmentProps(
+                name="name",
+                open_zfs_configuration=fsx.CfnS3AccessPointAttachment.S3AccessPointOpenZFSConfigurationProperty(
+                    file_system_identity=fsx.CfnS3AccessPointAttachment.OpenZFSFileSystemIdentityProperty(
+                        posix_user=fsx.CfnS3AccessPointAttachment.OpenZFSPosixFileSystemUserProperty(
+                            gid=123,
+                            uid=123,
+            
+                            # the properties below are optional
+                            secondary_gids=[fsx.CfnS3AccessPointAttachment.FileSystemGIDProperty(
+                                gid=123
+                            )]
+                        ),
+                        type="type"
+                    ),
+                    volume_id="volumeId"
+                ),
+                type="type",
+            
+                # the properties below are optional
+                s3_access_point=fsx.CfnS3AccessPointAttachment.S3AccessPointProperty(
+                    alias="alias",
+                    policy=policy,
+                    resource_arn="resourceArn",
+                    vpc_configuration=fsx.CfnS3AccessPointAttachment.S3AccessPointVpcConfigurationProperty(
+                        vpc_id="vpcId"
+                    )
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f8d86aefcd2904a1c36c865f774d6ff97130a2707963573cf5c4a4173e91ab0e)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument open_zfs_configuration", value=open_zfs_configuration, expected_type=type_hints["open_zfs_configuration"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument s3_access_point", value=s3_access_point, expected_type=type_hints["s3_access_point"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "open_zfs_configuration": open_zfs_configuration,
+            "type": type,
+        }
+        if s3_access_point is not None:
+            self._values["s3_access_point"] = s3_access_point
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The Name of the S3AccessPointAttachment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-s3accesspointattachment.html#cfn-fsx-s3accesspointattachment-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def open_zfs_configuration(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, CfnS3AccessPointAttachment.S3AccessPointOpenZFSConfigurationProperty]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-s3accesspointattachment.html#cfn-fsx-s3accesspointattachment-openzfsconfiguration
+        '''
+        result = self._values.get("open_zfs_configuration")
+        assert result is not None, "Required property 'open_zfs_configuration' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnS3AccessPointAttachment.S3AccessPointOpenZFSConfigurationProperty], result)
+
+    @builtins.property
+    def type(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-s3accesspointattachment.html#cfn-fsx-s3accesspointattachment-type
+        '''
+        result = self._values.get("type")
+        assert result is not None, "Required property 'type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def s3_access_point(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnS3AccessPointAttachment.S3AccessPointProperty]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-s3accesspointattachment.html#cfn-fsx-s3accesspointattachment-s3accesspoint
+        '''
+        result = self._values.get("s3_access_point")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnS3AccessPointAttachment.S3AccessPointProperty]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnS3AccessPointAttachmentProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
 class CfnSnapshot(
     _CfnResource_9df397a6,
@@ -8633,6 +9415,8 @@ __all__ = [
     "CfnDataRepositoryAssociationProps",
     "CfnFileSystem",
     "CfnFileSystemProps",
+    "CfnS3AccessPointAttachment",
+    "CfnS3AccessPointAttachmentProps",
     "CfnSnapshot",
     "CfnSnapshotProps",
     "CfnStorageVirtualMachine",
@@ -9058,6 +9842,113 @@ def _typecheckingstub__cc6cf655096c0830614c2b73c7ebf907b07fc70f50859b1aa0f76bbf6
     storage_type: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     windows_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFileSystem.WindowsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f51e0b107c6c6ca8bc284dbcf4013f6c7bcdd088cb084476fdf615b4d8ae257e(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    name: builtins.str,
+    open_zfs_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnS3AccessPointAttachment.S3AccessPointOpenZFSConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    type: builtins.str,
+    s3_access_point: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnS3AccessPointAttachment.S3AccessPointProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6e021f2b2cc052b241526f0c8b04451cdbb773840ed5e597d710011b7885f25f(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e4764700463d52298286c209b2ab565142140f7bfb04556d307ca9bd56430fb2(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__644edd6bd850880f5ebd47e103e56e49b7d7f21e620f2807e12dac453933e59d(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0756a73fef71599ffefeead45c6d0ea227439b511cdc73a360780b4f4c0df186(
+    value: typing.Union[_IResolvable_da3f097b, CfnS3AccessPointAttachment.S3AccessPointOpenZFSConfigurationProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ece88a5ab6d3a69d75415d92fc3eea5b9fd91186f1a15239e5ec10f6c6c0005a(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1588dcc78f8354bc56e434d157b8dadab331295e3cbf0c065b7bd4b4b793aaa0(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnS3AccessPointAttachment.S3AccessPointProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__72efd25b3b6057030d910de35b2f8e4104cb66dc72f89dc8ebb3b89daaf6a69f(
+    *,
+    gid: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__af3bbbb456f8fdedf7c641c4786d89bf08acb663687e1b91f1ffdb83ab9819cb(
+    *,
+    posix_user: typing.Union[_IResolvable_da3f097b, typing.Union[CfnS3AccessPointAttachment.OpenZFSPosixFileSystemUserProperty, typing.Dict[builtins.str, typing.Any]]],
+    type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3decc490fdc822be6603dab799c80c7e004416dbd58cc34ea290fa556e81be39(
+    *,
+    gid: jsii.Number,
+    uid: jsii.Number,
+    secondary_gids: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnS3AccessPointAttachment.FileSystemGIDProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__19e4ea8fd55e864f4fe150ca7ce6a9a2838595c2d032b53647f2917e1f00ccfa(
+    *,
+    file_system_identity: typing.Union[_IResolvable_da3f097b, typing.Union[CfnS3AccessPointAttachment.OpenZFSFileSystemIdentityProperty, typing.Dict[builtins.str, typing.Any]]],
+    volume_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f4a6a2c709cd1951841b5d405e10b97412387430297e85aa1495d3aab1b70367(
+    *,
+    alias: typing.Optional[builtins.str] = None,
+    policy: typing.Any = None,
+    resource_arn: typing.Optional[builtins.str] = None,
+    vpc_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnS3AccessPointAttachment.S3AccessPointVpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ca5b9e5f42caf136a78ce4c94fb03a42b36504167d07de97e63171ff15aab81d(
+    *,
+    vpc_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f8d86aefcd2904a1c36c865f774d6ff97130a2707963573cf5c4a4173e91ab0e(
+    *,
+    name: builtins.str,
+    open_zfs_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnS3AccessPointAttachment.S3AccessPointOpenZFSConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    type: builtins.str,
+    s3_access_point: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnS3AccessPointAttachment.S3AccessPointProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

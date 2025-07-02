@@ -1,7 +1,7 @@
 r'''
 # `google_dataplex_entry`
 
-Refer to the Terraform Registry for docs: [`google_dataplex_entry`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry).
+Refer to the Terraform Registry for docs: [`google_dataplex_entry`](https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleDataplexEntry(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleDataplexEntry.GoogleDataplexEntry",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry google_dataplex_entry}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry google_dataplex_entry}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class GoogleDataplexEntry(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry google_dataplex_entry} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry google_dataplex_entry} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param entry_type: The relative resource name of the entry type that was used to create this entry, in the format projects/{project_number}/locations/{locationId}/entryTypes/{entryTypeId}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#entry_type GoogleDataplexEntry#entry_type}
-        :param aspects: aspects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#aspects GoogleDataplexEntry#aspects}
-        :param entry_group_id: The entry group id of the entry group the entry will be created in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#entry_group_id GoogleDataplexEntry#entry_group_id}
-        :param entry_id: The entry id of the entry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#entry_id GoogleDataplexEntry#entry_id}
-        :param entry_source: entry_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#entry_source GoogleDataplexEntry#entry_source}
-        :param fully_qualified_name: A name for the entry that can be referenced by an external system. For more information, see https://cloud.google.com/dataplex/docs/fully-qualified-names. The maximum size of the field is 4000 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#fully_qualified_name GoogleDataplexEntry#fully_qualified_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#id GoogleDataplexEntry#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location: The location where entry will be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#location GoogleDataplexEntry#location}
-        :param parent_entry: The resource name of the parent entry, in the format projects/{project_number}/locations/{locationId}/entryGroups/{entryGroupId}/entries/{entryId}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#parent_entry GoogleDataplexEntry#parent_entry}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#project GoogleDataplexEntry#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#timeouts GoogleDataplexEntry#timeouts}
+        :param entry_type: The relative resource name of the entry type that was used to create this entry, in the format projects/{project_number}/locations/{locationId}/entryTypes/{entryTypeId}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#entry_type GoogleDataplexEntry#entry_type}
+        :param aspects: aspects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#aspects GoogleDataplexEntry#aspects}
+        :param entry_group_id: The entry group id of the entry group the entry will be created in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#entry_group_id GoogleDataplexEntry#entry_group_id}
+        :param entry_id: The entry id of the entry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#entry_id GoogleDataplexEntry#entry_id}
+        :param entry_source: entry_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#entry_source GoogleDataplexEntry#entry_source}
+        :param fully_qualified_name: A name for the entry that can be referenced by an external system. For more information, see https://cloud.google.com/dataplex/docs/fully-qualified-names. The maximum size of the field is 4000 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#fully_qualified_name GoogleDataplexEntry#fully_qualified_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#id GoogleDataplexEntry#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: The location where entry will be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#location GoogleDataplexEntry#location}
+        :param parent_entry: The resource name of the parent entry, in the format projects/{project_number}/locations/{locationId}/entryGroups/{entryGroupId}/entries/{entryId}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#parent_entry GoogleDataplexEntry#parent_entry}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#project GoogleDataplexEntry#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#timeouts GoogleDataplexEntry#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class GoogleDataplexEntry(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleDataplexEntry to import.
-        :param import_from_id: The id of the existing GoogleDataplexEntry that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleDataplexEntry that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleDataplexEntry to import is found.
         '''
         if __debug__:
@@ -172,15 +172,15 @@ class GoogleDataplexEntry(
         update_time: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param ancestors: ancestors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#ancestors GoogleDataplexEntry#ancestors}
-        :param create_time: The time when the resource was created in the source system. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#create_time GoogleDataplexEntry#create_time}
-        :param description: A description of the data resource. Maximum length is 2,000 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#description GoogleDataplexEntry#description}
-        :param display_name: A user-friendly display name. Maximum length is 500 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#display_name GoogleDataplexEntry#display_name}
-        :param labels: User-defined labels. The maximum size of keys and values is 128 characters each. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#labels GoogleDataplexEntry#labels}
-        :param platform: The platform containing the source system. Maximum length is 64 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#platform GoogleDataplexEntry#platform}
-        :param resource: The name of the resource in the source system. Maximum length is 4,000 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#resource GoogleDataplexEntry#resource}
-        :param system_attribute: The name of the source system. Maximum length is 64 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#system GoogleDataplexEntry#system}
-        :param update_time: The time when the resource was last updated in the source system. If the entry exists in the system and its EntrySource has updateTime populated, further updates to the EntrySource of the entry must provide incremental updates to its updateTime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#update_time GoogleDataplexEntry#update_time}
+        :param ancestors: ancestors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#ancestors GoogleDataplexEntry#ancestors}
+        :param create_time: The time when the resource was created in the source system. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#create_time GoogleDataplexEntry#create_time}
+        :param description: A description of the data resource. Maximum length is 2,000 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#description GoogleDataplexEntry#description}
+        :param display_name: A user-friendly display name. Maximum length is 500 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#display_name GoogleDataplexEntry#display_name}
+        :param labels: User-defined labels. The maximum size of keys and values is 128 characters each. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#labels GoogleDataplexEntry#labels}
+        :param platform: The platform containing the source system. Maximum length is 64 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#platform GoogleDataplexEntry#platform}
+        :param resource: The name of the resource in the source system. Maximum length is 4,000 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#resource GoogleDataplexEntry#resource}
+        :param system_attribute: The name of the source system. Maximum length is 64 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#system GoogleDataplexEntry#system}
+        :param update_time: The time when the resource was last updated in the source system. If the entry exists in the system and its EntrySource has updateTime populated, further updates to the EntrySource of the entry must provide incremental updates to its updateTime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#update_time GoogleDataplexEntry#update_time}
         '''
         value = GoogleDataplexEntryEntrySource(
             ancestors=ancestors,
@@ -205,9 +205,9 @@ class GoogleDataplexEntry(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#create GoogleDataplexEntry#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#delete GoogleDataplexEntry#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#update GoogleDataplexEntry#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#create GoogleDataplexEntry#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#delete GoogleDataplexEntry#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#update GoogleDataplexEntry#update}.
         '''
         value = GoogleDataplexEntryTimeouts(
             create=create, delete=delete, update=update
@@ -467,8 +467,8 @@ class GoogleDataplexEntryAspects:
         aspect_key: builtins.str,
     ) -> None:
         '''
-        :param aspect: aspect block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#aspect GoogleDataplexEntry#aspect}
-        :param aspect_key: Depending on how the aspect is attached to the entry, the format of the aspect key can be one of the following:. If the aspect is attached directly to the entry: {project_number}.{locationId}.{aspectTypeId} If the aspect is attached to an entry's path: {project_number}.{locationId}.{aspectTypeId}@{path} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#aspect_key GoogleDataplexEntry#aspect_key}
+        :param aspect: aspect block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#aspect GoogleDataplexEntry#aspect}
+        :param aspect_key: Depending on how the aspect is attached to the entry, the format of the aspect key can be one of the following:. If the aspect is attached directly to the entry: {project_number}.{locationId}.{aspectTypeId} If the aspect is attached to an entry's path: {project_number}.{locationId}.{aspectTypeId}@{path} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#aspect_key GoogleDataplexEntry#aspect_key}
         '''
         if isinstance(aspect, dict):
             aspect = GoogleDataplexEntryAspectsAspect(**aspect)
@@ -485,7 +485,7 @@ class GoogleDataplexEntryAspects:
     def aspect(self) -> "GoogleDataplexEntryAspectsAspect":
         '''aspect block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#aspect GoogleDataplexEntry#aspect}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#aspect GoogleDataplexEntry#aspect}
         '''
         result = self._values.get("aspect")
         assert result is not None, "Required property 'aspect' is missing"
@@ -498,7 +498,7 @@ class GoogleDataplexEntryAspects:
         If the aspect is attached directly to the entry: {project_number}.{locationId}.{aspectTypeId}
         If the aspect is attached to an entry's path: {project_number}.{locationId}.{aspectTypeId}@{path}
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#aspect_key GoogleDataplexEntry#aspect_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#aspect_key GoogleDataplexEntry#aspect_key}
         '''
         result = self._values.get("aspect_key")
         assert result is not None, "Required property 'aspect_key' is missing"
@@ -524,7 +524,7 @@ class GoogleDataplexEntryAspects:
 class GoogleDataplexEntryAspectsAspect:
     def __init__(self, *, data: builtins.str) -> None:
         '''
-        :param data: The content of the aspect in JSON form, according to its aspect type schema. The maximum size of the field is 120KB (encoded as UTF-8). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#data GoogleDataplexEntry#data}
+        :param data: The content of the aspect in JSON form, according to its aspect type schema. The maximum size of the field is 120KB (encoded as UTF-8). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#data GoogleDataplexEntry#data}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__573a8800f763d15be33ccbd933f54772aa37d70c9f39ddc59255abd44fbaea82)
@@ -539,7 +539,7 @@ class GoogleDataplexEntryAspectsAspect:
 
         The maximum size of the field is 120KB (encoded as UTF-8).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#data GoogleDataplexEntry#data}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#data GoogleDataplexEntry#data}
         '''
         result = self._values.get("data")
         assert result is not None, "Required property 'data' is missing"
@@ -749,7 +749,7 @@ class GoogleDataplexEntryAspectsOutputReference(
     @jsii.member(jsii_name="putAspect")
     def put_aspect(self, *, data: builtins.str) -> None:
         '''
-        :param data: The content of the aspect in JSON form, according to its aspect type schema. The maximum size of the field is 120KB (encoded as UTF-8). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#data GoogleDataplexEntry#data}
+        :param data: The content of the aspect in JSON form, according to its aspect type schema. The maximum size of the field is 120KB (encoded as UTF-8). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#data GoogleDataplexEntry#data}
         '''
         value = GoogleDataplexEntryAspectsAspect(data=data)
 
@@ -855,17 +855,17 @@ class GoogleDataplexEntryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param entry_type: The relative resource name of the entry type that was used to create this entry, in the format projects/{project_number}/locations/{locationId}/entryTypes/{entryTypeId}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#entry_type GoogleDataplexEntry#entry_type}
-        :param aspects: aspects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#aspects GoogleDataplexEntry#aspects}
-        :param entry_group_id: The entry group id of the entry group the entry will be created in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#entry_group_id GoogleDataplexEntry#entry_group_id}
-        :param entry_id: The entry id of the entry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#entry_id GoogleDataplexEntry#entry_id}
-        :param entry_source: entry_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#entry_source GoogleDataplexEntry#entry_source}
-        :param fully_qualified_name: A name for the entry that can be referenced by an external system. For more information, see https://cloud.google.com/dataplex/docs/fully-qualified-names. The maximum size of the field is 4000 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#fully_qualified_name GoogleDataplexEntry#fully_qualified_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#id GoogleDataplexEntry#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location: The location where entry will be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#location GoogleDataplexEntry#location}
-        :param parent_entry: The resource name of the parent entry, in the format projects/{project_number}/locations/{locationId}/entryGroups/{entryGroupId}/entries/{entryId}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#parent_entry GoogleDataplexEntry#parent_entry}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#project GoogleDataplexEntry#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#timeouts GoogleDataplexEntry#timeouts}
+        :param entry_type: The relative resource name of the entry type that was used to create this entry, in the format projects/{project_number}/locations/{locationId}/entryTypes/{entryTypeId}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#entry_type GoogleDataplexEntry#entry_type}
+        :param aspects: aspects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#aspects GoogleDataplexEntry#aspects}
+        :param entry_group_id: The entry group id of the entry group the entry will be created in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#entry_group_id GoogleDataplexEntry#entry_group_id}
+        :param entry_id: The entry id of the entry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#entry_id GoogleDataplexEntry#entry_id}
+        :param entry_source: entry_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#entry_source GoogleDataplexEntry#entry_source}
+        :param fully_qualified_name: A name for the entry that can be referenced by an external system. For more information, see https://cloud.google.com/dataplex/docs/fully-qualified-names. The maximum size of the field is 4000 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#fully_qualified_name GoogleDataplexEntry#fully_qualified_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#id GoogleDataplexEntry#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: The location where entry will be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#location GoogleDataplexEntry#location}
+        :param parent_entry: The resource name of the parent entry, in the format projects/{project_number}/locations/{locationId}/entryGroups/{entryGroupId}/entries/{entryId}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#parent_entry GoogleDataplexEntry#parent_entry}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#project GoogleDataplexEntry#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#timeouts GoogleDataplexEntry#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -999,7 +999,7 @@ class GoogleDataplexEntryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def entry_type(self) -> builtins.str:
         '''The relative resource name of the entry type that was used to create this entry, in the format projects/{project_number}/locations/{locationId}/entryTypes/{entryTypeId}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#entry_type GoogleDataplexEntry#entry_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#entry_type GoogleDataplexEntry#entry_type}
         '''
         result = self._values.get("entry_type")
         assert result is not None, "Required property 'entry_type' is missing"
@@ -1011,7 +1011,7 @@ class GoogleDataplexEntryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[GoogleDataplexEntryAspects]]]:
         '''aspects block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#aspects GoogleDataplexEntry#aspects}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#aspects GoogleDataplexEntry#aspects}
         '''
         result = self._values.get("aspects")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[GoogleDataplexEntryAspects]]], result)
@@ -1020,7 +1020,7 @@ class GoogleDataplexEntryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def entry_group_id(self) -> typing.Optional[builtins.str]:
         '''The entry group id of the entry group the entry will be created in.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#entry_group_id GoogleDataplexEntry#entry_group_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#entry_group_id GoogleDataplexEntry#entry_group_id}
         '''
         result = self._values.get("entry_group_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1029,7 +1029,7 @@ class GoogleDataplexEntryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def entry_id(self) -> typing.Optional[builtins.str]:
         '''The entry id of the entry.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#entry_id GoogleDataplexEntry#entry_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#entry_id GoogleDataplexEntry#entry_id}
         '''
         result = self._values.get("entry_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1038,7 +1038,7 @@ class GoogleDataplexEntryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def entry_source(self) -> typing.Optional["GoogleDataplexEntryEntrySource"]:
         '''entry_source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#entry_source GoogleDataplexEntry#entry_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#entry_source GoogleDataplexEntry#entry_source}
         '''
         result = self._values.get("entry_source")
         return typing.cast(typing.Optional["GoogleDataplexEntryEntrySource"], result)
@@ -1050,14 +1050,14 @@ class GoogleDataplexEntryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         For more information, see https://cloud.google.com/dataplex/docs/fully-qualified-names.
         The maximum size of the field is 4000 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#fully_qualified_name GoogleDataplexEntry#fully_qualified_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#fully_qualified_name GoogleDataplexEntry#fully_qualified_name}
         '''
         result = self._values.get("fully_qualified_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#id GoogleDataplexEntry#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#id GoogleDataplexEntry#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1069,7 +1069,7 @@ class GoogleDataplexEntryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> typing.Optional[builtins.str]:
         '''The location where entry will be created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#location GoogleDataplexEntry#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#location GoogleDataplexEntry#location}
         '''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1078,14 +1078,14 @@ class GoogleDataplexEntryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def parent_entry(self) -> typing.Optional[builtins.str]:
         '''The resource name of the parent entry, in the format projects/{project_number}/locations/{locationId}/entryGroups/{entryGroupId}/entries/{entryId}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#parent_entry GoogleDataplexEntry#parent_entry}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#parent_entry GoogleDataplexEntry#parent_entry}
         '''
         result = self._values.get("parent_entry")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#project GoogleDataplexEntry#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#project GoogleDataplexEntry#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1093,7 +1093,7 @@ class GoogleDataplexEntryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleDataplexEntryTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#timeouts GoogleDataplexEntry#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#timeouts GoogleDataplexEntry#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleDataplexEntryTimeouts"], result)
@@ -1140,15 +1140,15 @@ class GoogleDataplexEntryEntrySource:
         update_time: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param ancestors: ancestors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#ancestors GoogleDataplexEntry#ancestors}
-        :param create_time: The time when the resource was created in the source system. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#create_time GoogleDataplexEntry#create_time}
-        :param description: A description of the data resource. Maximum length is 2,000 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#description GoogleDataplexEntry#description}
-        :param display_name: A user-friendly display name. Maximum length is 500 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#display_name GoogleDataplexEntry#display_name}
-        :param labels: User-defined labels. The maximum size of keys and values is 128 characters each. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#labels GoogleDataplexEntry#labels}
-        :param platform: The platform containing the source system. Maximum length is 64 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#platform GoogleDataplexEntry#platform}
-        :param resource: The name of the resource in the source system. Maximum length is 4,000 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#resource GoogleDataplexEntry#resource}
-        :param system_attribute: The name of the source system. Maximum length is 64 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#system GoogleDataplexEntry#system}
-        :param update_time: The time when the resource was last updated in the source system. If the entry exists in the system and its EntrySource has updateTime populated, further updates to the EntrySource of the entry must provide incremental updates to its updateTime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#update_time GoogleDataplexEntry#update_time}
+        :param ancestors: ancestors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#ancestors GoogleDataplexEntry#ancestors}
+        :param create_time: The time when the resource was created in the source system. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#create_time GoogleDataplexEntry#create_time}
+        :param description: A description of the data resource. Maximum length is 2,000 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#description GoogleDataplexEntry#description}
+        :param display_name: A user-friendly display name. Maximum length is 500 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#display_name GoogleDataplexEntry#display_name}
+        :param labels: User-defined labels. The maximum size of keys and values is 128 characters each. An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#labels GoogleDataplexEntry#labels}
+        :param platform: The platform containing the source system. Maximum length is 64 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#platform GoogleDataplexEntry#platform}
+        :param resource: The name of the resource in the source system. Maximum length is 4,000 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#resource GoogleDataplexEntry#resource}
+        :param system_attribute: The name of the source system. Maximum length is 64 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#system GoogleDataplexEntry#system}
+        :param update_time: The time when the resource was last updated in the source system. If the entry exists in the system and its EntrySource has updateTime populated, further updates to the EntrySource of the entry must provide incremental updates to its updateTime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#update_time GoogleDataplexEntry#update_time}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9f20eef4ae8d59ec35a63e3c95b6f8ff3314e1145afc54ec2a3096436497b229)
@@ -1187,7 +1187,7 @@ class GoogleDataplexEntryEntrySource:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDataplexEntryEntrySourceAncestors"]]]:
         '''ancestors block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#ancestors GoogleDataplexEntry#ancestors}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#ancestors GoogleDataplexEntry#ancestors}
         '''
         result = self._values.get("ancestors")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDataplexEntryEntrySourceAncestors"]]], result)
@@ -1196,7 +1196,7 @@ class GoogleDataplexEntryEntrySource:
     def create_time(self) -> typing.Optional[builtins.str]:
         '''The time when the resource was created in the source system.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#create_time GoogleDataplexEntry#create_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#create_time GoogleDataplexEntry#create_time}
         '''
         result = self._values.get("create_time")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1205,7 +1205,7 @@ class GoogleDataplexEntryEntrySource:
     def description(self) -> typing.Optional[builtins.str]:
         '''A description of the data resource. Maximum length is 2,000 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#description GoogleDataplexEntry#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#description GoogleDataplexEntry#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1214,7 +1214,7 @@ class GoogleDataplexEntryEntrySource:
     def display_name(self) -> typing.Optional[builtins.str]:
         '''A user-friendly display name. Maximum length is 500 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#display_name GoogleDataplexEntry#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#display_name GoogleDataplexEntry#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1226,7 +1226,7 @@ class GoogleDataplexEntryEntrySource:
         The maximum size of keys and values is 128 characters each.
         An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#labels GoogleDataplexEntry#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#labels GoogleDataplexEntry#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1235,7 +1235,7 @@ class GoogleDataplexEntryEntrySource:
     def platform(self) -> typing.Optional[builtins.str]:
         '''The platform containing the source system. Maximum length is 64 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#platform GoogleDataplexEntry#platform}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#platform GoogleDataplexEntry#platform}
         '''
         result = self._values.get("platform")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1244,7 +1244,7 @@ class GoogleDataplexEntryEntrySource:
     def resource(self) -> typing.Optional[builtins.str]:
         '''The name of the resource in the source system. Maximum length is 4,000 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#resource GoogleDataplexEntry#resource}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#resource GoogleDataplexEntry#resource}
         '''
         result = self._values.get("resource")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1253,7 +1253,7 @@ class GoogleDataplexEntryEntrySource:
     def system_attribute(self) -> typing.Optional[builtins.str]:
         '''The name of the source system. Maximum length is 64 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#system GoogleDataplexEntry#system}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#system GoogleDataplexEntry#system}
         '''
         result = self._values.get("system_attribute")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1265,7 +1265,7 @@ class GoogleDataplexEntryEntrySource:
         If the entry exists in the system and its EntrySource has updateTime populated,
         further updates to the EntrySource of the entry must provide incremental updates to its updateTime.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#update_time GoogleDataplexEntry#update_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#update_time GoogleDataplexEntry#update_time}
         '''
         result = self._values.get("update_time")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1295,8 +1295,8 @@ class GoogleDataplexEntryEntrySourceAncestors:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: The name of the ancestor resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#name GoogleDataplexEntry#name}
-        :param type: The type of the ancestor resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#type GoogleDataplexEntry#type}
+        :param name: The name of the ancestor resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#name GoogleDataplexEntry#name}
+        :param type: The type of the ancestor resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#type GoogleDataplexEntry#type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__74d3176bf3d3bb3d26293be7a7348009976d2e48f3fa1972b321bbc992e6416d)
@@ -1312,7 +1312,7 @@ class GoogleDataplexEntryEntrySourceAncestors:
     def name(self) -> typing.Optional[builtins.str]:
         '''The name of the ancestor resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#name GoogleDataplexEntry#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#name GoogleDataplexEntry#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1321,7 +1321,7 @@ class GoogleDataplexEntryEntrySourceAncestors:
     def type(self) -> typing.Optional[builtins.str]:
         '''The type of the ancestor resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#type GoogleDataplexEntry#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#type GoogleDataplexEntry#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1771,9 +1771,9 @@ class GoogleDataplexEntryTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#create GoogleDataplexEntry#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#delete GoogleDataplexEntry#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#update GoogleDataplexEntry#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#create GoogleDataplexEntry#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#delete GoogleDataplexEntry#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#update GoogleDataplexEntry#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9296d3b779805ed97449e553412e175e213aa6cacb7e6fd30ca400d00dd77a4b)
@@ -1790,19 +1790,19 @@ class GoogleDataplexEntryTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#create GoogleDataplexEntry#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#create GoogleDataplexEntry#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#delete GoogleDataplexEntry#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#delete GoogleDataplexEntry#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dataplex_entry#update GoogleDataplexEntry#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dataplex_entry#update GoogleDataplexEntry#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

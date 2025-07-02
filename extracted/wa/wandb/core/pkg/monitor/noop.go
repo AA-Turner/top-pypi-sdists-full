@@ -3,11 +3,13 @@
 package monitor
 
 import (
+	"context"
+
 	"github.com/wandb/wandb/core/internal/observability"
 	spb "github.com/wandb/wandb/core/pkg/service_go_proto"
 )
 
-// Trainium is a dummy implementation of the Asset interface for Trainium.
+// Trainium is a dummy implementation of the Resource interface for Trainium.
 type Trainium struct{}
 
 func NewTrainium(
@@ -21,11 +23,11 @@ func NewTrainium(
 
 func (t *Trainium) Sample() (*spb.StatsRecord, error) { return nil, nil }
 
-func (t *Trainium) Probe() *spb.MetadataRequest {
+func (t *Trainium) Probe(_ context.Context) *spb.EnvironmentRecord {
 	return nil
 }
 
-// TPU is a dummy implementation of the Asset interface for TPUs.
+// TPU is a dummy implementation of the Resource interface for TPUs.
 type TPU struct{}
 
 func NewTPU() *TPU {
@@ -34,6 +36,6 @@ func NewTPU() *TPU {
 
 func (t *TPU) Sample() (*spb.StatsRecord, error) { return nil, nil }
 
-func (t *TPU) Probe() *spb.MetadataRequest {
+func (t *TPU) Probe(_ context.Context) *spb.EnvironmentRecord {
 	return nil
 }

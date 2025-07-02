@@ -984,6 +984,38 @@ dashboard = cw.Dashboard(self, "Dash",
 ```
 
 You can add a variable after object instantiation with the method `dashboard.addVariable()`.
+
+### Cross-Account Visibility
+
+Both Log and Metric Widget objects support cross-account visibility by allowing you to specify the AWS Account ID that the data (logs or metrics) originates from.
+
+**Prerequisites:**
+
+1. The monitoring account must be set up as a monitoring account
+2. The source account must grant permissions to the monitoring account
+3. Appropriate IAM roles and policies must be configured
+
+For detailed setup instructions, see [Cross-Account Cross-Region CloudWatch Console](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Cross-Account-Cross-Region.html).
+
+To use this feature, you can set the `accountId` property on `LogQueryWidget`, `GraphWidget`, `AlarmWidget`, `SingleValueWidget`, and `GaugeWidget` constructs:
+
+```python
+# dashboard: cloudwatch.Dashboard
+
+
+dashboard.add_widgets(cloudwatch.GraphWidget(
+    # ...
+    account_id="123456789012"
+))
+
+dashboard.add_widgets(cloudwatch.LogQueryWidget(
+    log_group_names=["my-log-group"],
+    # ...
+    account_id="123456789012",
+    query_lines=["fields @message"
+    ]
+))
+```
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -8529,6 +8561,7 @@ class LogQueryVisualizationType(enum.Enum):
     jsii_struct_bases=[],
     name_mapping={
         "log_group_names": "logGroupNames",
+        "account_id": "accountId",
         "height": "height",
         "query_lines": "queryLines",
         "query_string": "queryString",
@@ -8543,6 +8576,7 @@ class LogQueryWidgetProps:
         self,
         *,
         log_group_names: typing.Sequence[builtins.str],
+        account_id: typing.Optional[builtins.str] = None,
         height: typing.Optional[jsii.Number] = None,
         query_lines: typing.Optional[typing.Sequence[builtins.str]] = None,
         query_string: typing.Optional[builtins.str] = None,
@@ -8554,6 +8588,7 @@ class LogQueryWidgetProps:
         '''Properties for a Query widget.
 
         :param log_group_names: Names of log groups to query.
+        :param account_id: The AWS account ID where the log groups are located. This enables cross-account functionality for CloudWatch dashboards. Before using this feature, ensure that proper cross-account sharing is configured between the monitoring account and source account. For more information, see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Unified-Cross-Account.html Default: - Current account
         :param height: Height of the widget. Default: 6
         :param query_lines: A sequence of lines to use to build the query. The query will be built by joining the lines together using ``\\n|``. Default: - Exactly one of ``queryString``, ``queryLines`` is required.
         :param query_string: Full query string for log insights. Be sure to prepend every new line with a newline and pipe character (``\\n|``). Default: - Exactly one of ``queryString``, ``queryLines`` is required.
@@ -8580,6 +8615,7 @@ class LogQueryWidgetProps:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b7d4a308b1274696259a35b14b5ae833f34881f95eaba521bb47a74b3a80e8c0)
             check_type(argname="argument log_group_names", value=log_group_names, expected_type=type_hints["log_group_names"])
+            check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
             check_type(argname="argument height", value=height, expected_type=type_hints["height"])
             check_type(argname="argument query_lines", value=query_lines, expected_type=type_hints["query_lines"])
             check_type(argname="argument query_string", value=query_string, expected_type=type_hints["query_string"])
@@ -8590,6 +8626,8 @@ class LogQueryWidgetProps:
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "log_group_names": log_group_names,
         }
+        if account_id is not None:
+            self._values["account_id"] = account_id
         if height is not None:
             self._values["height"] = height
         if query_lines is not None:
@@ -8611,6 +8649,22 @@ class LogQueryWidgetProps:
         result = self._values.get("log_group_names")
         assert result is not None, "Required property 'log_group_names' is missing"
         return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def account_id(self) -> typing.Optional[builtins.str]:
+        '''The AWS account ID where the log groups are located.
+
+        This enables cross-account functionality for CloudWatch dashboards.
+        Before using this feature, ensure that proper cross-account sharing is configured
+        between the monitoring account and source account.
+
+        For more information, see:
+        https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Unified-Cross-Account.html
+
+        :default: - Current account
+        '''
+        result = self._values.get("account_id")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def height(self) -> typing.Optional[jsii.Number]:
@@ -10592,6 +10646,7 @@ class MetricStatConfig:
     jsii_type="aws-cdk-lib.aws_cloudwatch.MetricWidgetProps",
     jsii_struct_bases=[],
     name_mapping={
+        "account_id": "accountId",
         "height": "height",
         "region": "region",
         "title": "title",
@@ -10602,6 +10657,7 @@ class MetricWidgetProps:
     def __init__(
         self,
         *,
+        account_id: typing.Optional[builtins.str] = None,
         height: typing.Optional[jsii.Number] = None,
         region: typing.Optional[builtins.str] = None,
         title: typing.Optional[builtins.str] = None,
@@ -10609,6 +10665,7 @@ class MetricWidgetProps:
     ) -> None:
         '''Basic properties for widgets that display metrics.
 
+        :param account_id: The AWS account ID where the metrics are located. This enables cross-account functionality for CloudWatch dashboards. Before using this feature, ensure that proper cross-account sharing is configured between the monitoring account and source account. For more information, see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Unified-Cross-Account.html Default: - Current account
         :param height: Height of the widget. Default: - 6 for Alarm and Graph widgets. 3 for single value widgets where most recent value of a metric is displayed.
         :param region: The region the metrics of this graph should be taken from. Default: - Current region
         :param title: Title for the graph. Default: - None
@@ -10623,6 +10680,7 @@ class MetricWidgetProps:
             from aws_cdk import aws_cloudwatch as cloudwatch
             
             metric_widget_props = cloudwatch.MetricWidgetProps(
+                account_id="accountId",
                 height=123,
                 region="region",
                 title="title",
@@ -10631,11 +10689,14 @@ class MetricWidgetProps:
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__028d2c6eccbbf06b74566403b038cac0cdc1c8588c939f4352cc861885b12c38)
+            check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
             check_type(argname="argument height", value=height, expected_type=type_hints["height"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument title", value=title, expected_type=type_hints["title"])
             check_type(argname="argument width", value=width, expected_type=type_hints["width"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if account_id is not None:
+            self._values["account_id"] = account_id
         if height is not None:
             self._values["height"] = height
         if region is not None:
@@ -10644,6 +10705,22 @@ class MetricWidgetProps:
             self._values["title"] = title
         if width is not None:
             self._values["width"] = width
+
+    @builtins.property
+    def account_id(self) -> typing.Optional[builtins.str]:
+        '''The AWS account ID where the metrics are located.
+
+        This enables cross-account functionality for CloudWatch dashboards.
+        Before using this feature, ensure that proper cross-account sharing is configured
+        between the monitoring account and source account.
+
+        For more information, see:
+        https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Unified-Cross-Account.html
+
+        :default: - Current account
+        '''
+        result = self._values.get("account_id")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def height(self) -> typing.Optional[jsii.Number]:
@@ -10902,6 +10979,7 @@ class Shading(enum.Enum):
     jsii_type="aws-cdk-lib.aws_cloudwatch.SingleValueWidgetProps",
     jsii_struct_bases=[MetricWidgetProps],
     name_mapping={
+        "account_id": "accountId",
         "height": "height",
         "region": "region",
         "title": "title",
@@ -10919,6 +10997,7 @@ class SingleValueWidgetProps(MetricWidgetProps):
     def __init__(
         self,
         *,
+        account_id: typing.Optional[builtins.str] = None,
         height: typing.Optional[jsii.Number] = None,
         region: typing.Optional[builtins.str] = None,
         title: typing.Optional[builtins.str] = None,
@@ -10933,6 +11012,7 @@ class SingleValueWidgetProps(MetricWidgetProps):
     ) -> None:
         '''Properties for a SingleValueWidget.
 
+        :param account_id: The AWS account ID where the metrics are located. This enables cross-account functionality for CloudWatch dashboards. Before using this feature, ensure that proper cross-account sharing is configured between the monitoring account and source account. For more information, see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Unified-Cross-Account.html Default: - Current account
         :param height: Height of the widget. Default: - 6 for Alarm and Graph widgets. 3 for single value widgets where most recent value of a metric is displayed.
         :param region: The region the metrics of this graph should be taken from. Default: - Current region
         :param title: Title for the graph. Default: - None
@@ -10960,6 +11040,7 @@ class SingleValueWidgetProps(MetricWidgetProps):
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4596565f40195bdcc9fe939fa585a3bdf484f8a4a6817e427c6f9e1e49650041)
+            check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
             check_type(argname="argument height", value=height, expected_type=type_hints["height"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument title", value=title, expected_type=type_hints["title"])
@@ -10974,6 +11055,8 @@ class SingleValueWidgetProps(MetricWidgetProps):
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "metrics": metrics,
         }
+        if account_id is not None:
+            self._values["account_id"] = account_id
         if height is not None:
             self._values["height"] = height
         if region is not None:
@@ -10994,6 +11077,22 @@ class SingleValueWidgetProps(MetricWidgetProps):
             self._values["sparkline"] = sparkline
         if start is not None:
             self._values["start"] = start
+
+    @builtins.property
+    def account_id(self) -> typing.Optional[builtins.str]:
+        '''The AWS account ID where the metrics are located.
+
+        This enables cross-account functionality for CloudWatch dashboards.
+        Before using this feature, ensure that proper cross-account sharing is configured
+        between the monitoring account and source account.
+
+        For more information, see:
+        https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Unified-Cross-Account.html
+
+        :default: - Current account
+        '''
+        result = self._values.get("account_id")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def height(self) -> typing.Optional[jsii.Number]:
@@ -11914,6 +12013,7 @@ class TableThreshold(
     jsii_type="aws-cdk-lib.aws_cloudwatch.TableWidgetProps",
     jsii_struct_bases=[MetricWidgetProps],
     name_mapping={
+        "account_id": "accountId",
         "height": "height",
         "region": "region",
         "title": "title",
@@ -11936,6 +12036,7 @@ class TableWidgetProps(MetricWidgetProps):
     def __init__(
         self,
         *,
+        account_id: typing.Optional[builtins.str] = None,
         height: typing.Optional[jsii.Number] = None,
         region: typing.Optional[builtins.str] = None,
         title: typing.Optional[builtins.str] = None,
@@ -11955,6 +12056,7 @@ class TableWidgetProps(MetricWidgetProps):
     ) -> None:
         '''Properties for a TableWidget.
 
+        :param account_id: The AWS account ID where the metrics are located. This enables cross-account functionality for CloudWatch dashboards. Before using this feature, ensure that proper cross-account sharing is configured between the monitoring account and source account. For more information, see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Unified-Cross-Account.html Default: - Current account
         :param height: Height of the widget. Default: - 6 for Alarm and Graph widgets. 3 for single value widgets where most recent value of a metric is displayed.
         :param region: The region the metrics of this graph should be taken from. Default: - Current region
         :param title: Title for the graph. Default: - None
@@ -11989,6 +12091,7 @@ class TableWidgetProps(MetricWidgetProps):
             summary = TableSummaryProps(**summary)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__03726ba90bb01c2a1340af4f73005fffe1b8288cff57d77f31d745d629defb8b)
+            check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
             check_type(argname="argument height", value=height, expected_type=type_hints["height"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument title", value=title, expected_type=type_hints["title"])
@@ -12006,6 +12109,8 @@ class TableWidgetProps(MetricWidgetProps):
             check_type(argname="argument summary", value=summary, expected_type=type_hints["summary"])
             check_type(argname="argument thresholds", value=thresholds, expected_type=type_hints["thresholds"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if account_id is not None:
+            self._values["account_id"] = account_id
         if height is not None:
             self._values["height"] = height
         if region is not None:
@@ -12038,6 +12143,22 @@ class TableWidgetProps(MetricWidgetProps):
             self._values["summary"] = summary
         if thresholds is not None:
             self._values["thresholds"] = thresholds
+
+    @builtins.property
+    def account_id(self) -> typing.Optional[builtins.str]:
+        '''The AWS account ID where the metrics are located.
+
+        This enables cross-account functionality for CloudWatch dashboards.
+        Before using this feature, ensure that proper cross-account sharing is configured
+        between the monitoring account and source account.
+
+        For more information, see:
+        https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Unified-Cross-Account.html
+
+        :default: - Current account
+        '''
+        result = self._values.get("account_id")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def height(self) -> typing.Optional[jsii.Number]:
@@ -13179,6 +13300,7 @@ class AlarmProps(CreateAlarmOptions):
     jsii_type="aws-cdk-lib.aws_cloudwatch.AlarmWidgetProps",
     jsii_struct_bases=[MetricWidgetProps],
     name_mapping={
+        "account_id": "accountId",
         "height": "height",
         "region": "region",
         "title": "title",
@@ -13191,6 +13313,7 @@ class AlarmWidgetProps(MetricWidgetProps):
     def __init__(
         self,
         *,
+        account_id: typing.Optional[builtins.str] = None,
         height: typing.Optional[jsii.Number] = None,
         region: typing.Optional[builtins.str] = None,
         title: typing.Optional[builtins.str] = None,
@@ -13200,6 +13323,7 @@ class AlarmWidgetProps(MetricWidgetProps):
     ) -> None:
         '''Properties for an AlarmWidget.
 
+        :param account_id: The AWS account ID where the metrics are located. This enables cross-account functionality for CloudWatch dashboards. Before using this feature, ensure that proper cross-account sharing is configured between the monitoring account and source account. For more information, see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Unified-Cross-Account.html Default: - Current account
         :param height: Height of the widget. Default: - 6 for Alarm and Graph widgets. 3 for single value widgets where most recent value of a metric is displayed.
         :param region: The region the metrics of this graph should be taken from. Default: - Current region
         :param title: Title for the graph. Default: - None
@@ -13224,6 +13348,7 @@ class AlarmWidgetProps(MetricWidgetProps):
             left_y_axis = YAxisProps(**left_y_axis)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8b6bef2cc64a78bffd68dc95a764829a6c125294deaebcd42b56c493541573d5)
+            check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
             check_type(argname="argument height", value=height, expected_type=type_hints["height"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument title", value=title, expected_type=type_hints["title"])
@@ -13233,6 +13358,8 @@ class AlarmWidgetProps(MetricWidgetProps):
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "alarm": alarm,
         }
+        if account_id is not None:
+            self._values["account_id"] = account_id
         if height is not None:
             self._values["height"] = height
         if region is not None:
@@ -13243,6 +13370,22 @@ class AlarmWidgetProps(MetricWidgetProps):
             self._values["width"] = width
         if left_y_axis is not None:
             self._values["left_y_axis"] = left_y_axis
+
+    @builtins.property
+    def account_id(self) -> typing.Optional[builtins.str]:
+        '''The AWS account ID where the metrics are located.
+
+        This enables cross-account functionality for CloudWatch dashboards.
+        Before using this feature, ensure that proper cross-account sharing is configured
+        between the monitoring account and source account.
+
+        For more information, see:
+        https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Unified-Cross-Account.html
+
+        :default: - Current account
+        '''
+        result = self._values.get("account_id")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def height(self) -> typing.Optional[jsii.Number]:
@@ -13868,6 +14011,7 @@ class GaugeWidget(
         set_period_to_time_range: typing.Optional[builtins.bool] = None,
         start: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
+        account_id: typing.Optional[builtins.str] = None,
         height: typing.Optional[jsii.Number] = None,
         region: typing.Optional[builtins.str] = None,
         title: typing.Optional[builtins.str] = None,
@@ -13884,6 +14028,7 @@ class GaugeWidget(
         :param set_period_to_time_range: Whether to show the value from the entire time range. Only applicable for Bar and Pie charts. If false, values will be from the most recent period of your chosen time range; if true, shows the value from the entire time range. Default: false
         :param start: The start of the time range to use for each widget independently from those of the dashboard. You can specify start without specifying end to specify a relative time range that ends with the current time. In this case, the value of start must begin with -P, and you can use M, H, D, W and M as abbreviations for minutes, hours, days, weeks and months. For example, -PT8H shows the last 8 hours and -P3M shows the last three months. You can also use start along with an end field, to specify an absolute time range. When specifying an absolute time range, use the ISO 8601 format. For example, 2018-12-17T06:00:00.000Z. Default: When the dashboard loads, the start time will be the default time range.
         :param statistic: The default statistic to be displayed for each metric. This default can be overridden within the definition of each individual metric Default: - The statistic for each metric is used
+        :param account_id: The AWS account ID where the metrics are located. This enables cross-account functionality for CloudWatch dashboards. Before using this feature, ensure that proper cross-account sharing is configured between the monitoring account and source account. For more information, see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Unified-Cross-Account.html Default: - Current account
         :param height: Height of the widget. Default: - 6 for Alarm and Graph widgets. 3 for single value widgets where most recent value of a metric is displayed.
         :param region: The region the metrics of this graph should be taken from. Default: - Current region
         :param title: Title for the graph. Default: - None
@@ -13900,6 +14045,7 @@ class GaugeWidget(
             set_period_to_time_range=set_period_to_time_range,
             start=start,
             statistic=statistic,
+            account_id=account_id,
             height=height,
             region=region,
             title=title,
@@ -13929,6 +14075,7 @@ class GaugeWidget(
     jsii_type="aws-cdk-lib.aws_cloudwatch.GaugeWidgetProps",
     jsii_struct_bases=[MetricWidgetProps],
     name_mapping={
+        "account_id": "accountId",
         "height": "height",
         "region": "region",
         "title": "title",
@@ -13949,6 +14096,7 @@ class GaugeWidgetProps(MetricWidgetProps):
     def __init__(
         self,
         *,
+        account_id: typing.Optional[builtins.str] = None,
         height: typing.Optional[jsii.Number] = None,
         region: typing.Optional[builtins.str] = None,
         title: typing.Optional[builtins.str] = None,
@@ -13966,6 +14114,7 @@ class GaugeWidgetProps(MetricWidgetProps):
     ) -> None:
         '''Properties for a GaugeWidget.
 
+        :param account_id: The AWS account ID where the metrics are located. This enables cross-account functionality for CloudWatch dashboards. Before using this feature, ensure that proper cross-account sharing is configured between the monitoring account and source account. For more information, see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Unified-Cross-Account.html Default: - Current account
         :param height: Height of the widget. Default: - 6 for Alarm and Graph widgets. 3 for single value widgets where most recent value of a metric is displayed.
         :param region: The region the metrics of this graph should be taken from. Default: - Current region
         :param title: Title for the graph. Default: - None
@@ -14002,6 +14151,7 @@ class GaugeWidgetProps(MetricWidgetProps):
             left_y_axis = YAxisProps(**left_y_axis)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c1f8fe2511861f7fc6d2225bf5821fc9134b7036355dffb1d0ddd86a99b53dc5)
+            check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
             check_type(argname="argument height", value=height, expected_type=type_hints["height"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument title", value=title, expected_type=type_hints["title"])
@@ -14017,6 +14167,8 @@ class GaugeWidgetProps(MetricWidgetProps):
             check_type(argname="argument start", value=start, expected_type=type_hints["start"])
             check_type(argname="argument statistic", value=statistic, expected_type=type_hints["statistic"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if account_id is not None:
+            self._values["account_id"] = account_id
         if height is not None:
             self._values["height"] = height
         if region is not None:
@@ -14045,6 +14197,22 @@ class GaugeWidgetProps(MetricWidgetProps):
             self._values["start"] = start
         if statistic is not None:
             self._values["statistic"] = statistic
+
+    @builtins.property
+    def account_id(self) -> typing.Optional[builtins.str]:
+        '''The AWS account ID where the metrics are located.
+
+        This enables cross-account functionality for CloudWatch dashboards.
+        Before using this feature, ensure that proper cross-account sharing is configured
+        between the monitoring account and source account.
+
+        For more information, see:
+        https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Unified-Cross-Account.html
+
+        :default: - Current account
+        '''
+        result = self._values.get("account_id")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def height(self) -> typing.Optional[jsii.Number]:
@@ -14220,8 +14388,15 @@ class GraphWidget(
         
         dashboard.add_widgets(cloudwatch.GraphWidget(
             # ...
+            account_id="123456789012"
+        ))
         
-            legend_position=cloudwatch.LegendPosition.RIGHT
+        dashboard.add_widgets(cloudwatch.LogQueryWidget(
+            log_group_names=["my-log-group"],
+            # ...
+            account_id="123456789012",
+            query_lines=["fields @message"
+            ]
         ))
     '''
 
@@ -14244,6 +14419,7 @@ class GraphWidget(
         statistic: typing.Optional[builtins.str] = None,
         vertical_annotations: typing.Optional[typing.Sequence[typing.Union[VerticalAnnotation, typing.Dict[builtins.str, typing.Any]]]] = None,
         view: typing.Optional[GraphWidgetView] = None,
+        account_id: typing.Optional[builtins.str] = None,
         height: typing.Optional[jsii.Number] = None,
         region: typing.Optional[builtins.str] = None,
         title: typing.Optional[builtins.str] = None,
@@ -14266,6 +14442,7 @@ class GraphWidget(
         :param statistic: The default statistic to be displayed for each metric. This default can be overridden within the definition of each individual metric Default: - The statistic for each metric is used
         :param vertical_annotations: Annotations for the X axis. Default: - No annotations
         :param view: Display this metric. Default: TimeSeries
+        :param account_id: The AWS account ID where the metrics are located. This enables cross-account functionality for CloudWatch dashboards. Before using this feature, ensure that proper cross-account sharing is configured between the monitoring account and source account. For more information, see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Unified-Cross-Account.html Default: - Current account
         :param height: Height of the widget. Default: - 6 for Alarm and Graph widgets. 3 for single value widgets where most recent value of a metric is displayed.
         :param region: The region the metrics of this graph should be taken from. Default: - Current region
         :param title: Title for the graph. Default: - None
@@ -14288,6 +14465,7 @@ class GraphWidget(
             statistic=statistic,
             vertical_annotations=vertical_annotations,
             view=view,
+            account_id=account_id,
             height=height,
             region=region,
             title=title,
@@ -14328,6 +14506,7 @@ class GraphWidget(
     jsii_type="aws-cdk-lib.aws_cloudwatch.GraphWidgetProps",
     jsii_struct_bases=[MetricWidgetProps],
     name_mapping={
+        "account_id": "accountId",
         "height": "height",
         "region": "region",
         "title": "title",
@@ -14354,6 +14533,7 @@ class GraphWidgetProps(MetricWidgetProps):
     def __init__(
         self,
         *,
+        account_id: typing.Optional[builtins.str] = None,
         height: typing.Optional[jsii.Number] = None,
         region: typing.Optional[builtins.str] = None,
         title: typing.Optional[builtins.str] = None,
@@ -14377,6 +14557,7 @@ class GraphWidgetProps(MetricWidgetProps):
     ) -> None:
         '''Properties for a GraphWidget.
 
+        :param account_id: The AWS account ID where the metrics are located. This enables cross-account functionality for CloudWatch dashboards. Before using this feature, ensure that proper cross-account sharing is configured between the monitoring account and source account. For more information, see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Unified-Cross-Account.html Default: - Current account
         :param height: Height of the widget. Default: - 6 for Alarm and Graph widgets. 3 for single value widgets where most recent value of a metric is displayed.
         :param region: The region the metrics of this graph should be taken from. Default: - Current region
         :param title: Title for the graph. Default: - None
@@ -14407,8 +14588,15 @@ class GraphWidgetProps(MetricWidgetProps):
             
             dashboard.add_widgets(cloudwatch.GraphWidget(
                 # ...
+                account_id="123456789012"
+            ))
             
-                legend_position=cloudwatch.LegendPosition.RIGHT
+            dashboard.add_widgets(cloudwatch.LogQueryWidget(
+                log_group_names=["my-log-group"],
+                # ...
+                account_id="123456789012",
+                query_lines=["fields @message"
+                ]
             ))
         '''
         if isinstance(left_y_axis, dict):
@@ -14417,6 +14605,7 @@ class GraphWidgetProps(MetricWidgetProps):
             right_y_axis = YAxisProps(**right_y_axis)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3471ad100c9e34a517506d76368276ef9b137a3c7b33aecc91910b5dc9263b3b)
+            check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
             check_type(argname="argument height", value=height, expected_type=type_hints["height"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument title", value=title, expected_type=type_hints["title"])
@@ -14438,6 +14627,8 @@ class GraphWidgetProps(MetricWidgetProps):
             check_type(argname="argument vertical_annotations", value=vertical_annotations, expected_type=type_hints["vertical_annotations"])
             check_type(argname="argument view", value=view, expected_type=type_hints["view"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if account_id is not None:
+            self._values["account_id"] = account_id
         if height is not None:
             self._values["height"] = height
         if region is not None:
@@ -14478,6 +14669,22 @@ class GraphWidgetProps(MetricWidgetProps):
             self._values["vertical_annotations"] = vertical_annotations
         if view is not None:
             self._values["view"] = view
+
+    @builtins.property
+    def account_id(self) -> typing.Optional[builtins.str]:
+        '''The AWS account ID where the metrics are located.
+
+        This enables cross-account functionality for CloudWatch dashboards.
+        Before using this feature, ensure that proper cross-account sharing is configured
+        between the monitoring account and source account.
+
+        For more information, see:
+        https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Unified-Cross-Account.html
+
+        :default: - Current account
+        '''
+        result = self._values.get("account_id")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def height(self) -> typing.Optional[jsii.Number]:
@@ -14771,6 +14978,7 @@ class LogQueryWidget(
         self,
         *,
         log_group_names: typing.Sequence[builtins.str],
+        account_id: typing.Optional[builtins.str] = None,
         height: typing.Optional[jsii.Number] = None,
         query_lines: typing.Optional[typing.Sequence[builtins.str]] = None,
         query_string: typing.Optional[builtins.str] = None,
@@ -14781,6 +14989,7 @@ class LogQueryWidget(
     ) -> None:
         '''
         :param log_group_names: Names of log groups to query.
+        :param account_id: The AWS account ID where the log groups are located. This enables cross-account functionality for CloudWatch dashboards. Before using this feature, ensure that proper cross-account sharing is configured between the monitoring account and source account. For more information, see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Unified-Cross-Account.html Default: - Current account
         :param height: Height of the widget. Default: 6
         :param query_lines: A sequence of lines to use to build the query. The query will be built by joining the lines together using ``\\n|``. Default: - Exactly one of ``queryString``, ``queryLines`` is required.
         :param query_string: Full query string for log insights. Be sure to prepend every new line with a newline and pipe character (``\\n|``). Default: - Exactly one of ``queryString``, ``queryLines`` is required.
@@ -14791,6 +15000,7 @@ class LogQueryWidget(
         '''
         props = LogQueryWidgetProps(
             log_group_names=log_group_names,
+            account_id=account_id,
             height=height,
             query_lines=query_lines,
             query_string=query_string,
@@ -14839,6 +15049,7 @@ class SingleValueWidget(
         set_period_to_time_range: typing.Optional[builtins.bool] = None,
         sparkline: typing.Optional[builtins.bool] = None,
         start: typing.Optional[builtins.str] = None,
+        account_id: typing.Optional[builtins.str] = None,
         height: typing.Optional[jsii.Number] = None,
         region: typing.Optional[builtins.str] = None,
         title: typing.Optional[builtins.str] = None,
@@ -14852,6 +15063,7 @@ class SingleValueWidget(
         :param set_period_to_time_range: Whether to show the value from the entire time range. Default: false
         :param sparkline: Whether to show a graph below the value illustrating the value for the whole time range. Cannot be used in combination with ``setPeriodToTimeRange`` Default: false
         :param start: The start of the time range to use for each widget independently from those of the dashboard. You can specify start without specifying end to specify a relative time range that ends with the current time. In this case, the value of start must begin with -P, and you can use M, H, D, W and M as abbreviations for minutes, hours, days, weeks and months. For example, -PT8H shows the last 8 hours and -P3M shows the last three months. You can also use start along with an end field, to specify an absolute time range. When specifying an absolute time range, use the ISO 8601 format. For example, 2018-12-17T06:00:00.000Z. Default: When the dashboard loads, the start time will be the default time range.
+        :param account_id: The AWS account ID where the metrics are located. This enables cross-account functionality for CloudWatch dashboards. Before using this feature, ensure that proper cross-account sharing is configured between the monitoring account and source account. For more information, see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Unified-Cross-Account.html Default: - Current account
         :param height: Height of the widget. Default: - 6 for Alarm and Graph widgets. 3 for single value widgets where most recent value of a metric is displayed.
         :param region: The region the metrics of this graph should be taken from. Default: - Current region
         :param title: Title for the graph. Default: - None
@@ -14865,6 +15077,7 @@ class SingleValueWidget(
             set_period_to_time_range=set_period_to_time_range,
             sparkline=sparkline,
             start=start,
+            account_id=account_id,
             height=height,
             region=region,
             title=title,
@@ -14915,6 +15128,7 @@ class TableWidget(
         statistic: typing.Optional[builtins.str] = None,
         summary: typing.Optional[typing.Union[TableSummaryProps, typing.Dict[builtins.str, typing.Any]]] = None,
         thresholds: typing.Optional[typing.Sequence[TableThreshold]] = None,
+        account_id: typing.Optional[builtins.str] = None,
         height: typing.Optional[jsii.Number] = None,
         region: typing.Optional[builtins.str] = None,
         title: typing.Optional[builtins.str] = None,
@@ -14933,6 +15147,7 @@ class TableWidget(
         :param statistic: The default statistic to be displayed for each metric. This default can be overridden within the definition of each individual metric Default: - The statistic for each metric is used
         :param summary: Properties for displaying summary columns. Default: - no summary columns are shown
         :param thresholds: Thresholds for highlighting table cells. Default: - No thresholds
+        :param account_id: The AWS account ID where the metrics are located. This enables cross-account functionality for CloudWatch dashboards. Before using this feature, ensure that proper cross-account sharing is configured between the monitoring account and source account. For more information, see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Unified-Cross-Account.html Default: - Current account
         :param height: Height of the widget. Default: - 6 for Alarm and Graph widgets. 3 for single value widgets where most recent value of a metric is displayed.
         :param region: The region the metrics of this graph should be taken from. Default: - Current region
         :param title: Title for the graph. Default: - None
@@ -14951,6 +15166,7 @@ class TableWidget(
             statistic=statistic,
             summary=summary,
             thresholds=thresholds,
+            account_id=account_id,
             height=height,
             region=region,
             title=title,
@@ -15300,6 +15516,7 @@ class AlarmWidget(
         *,
         alarm: IAlarm,
         left_y_axis: typing.Optional[typing.Union[YAxisProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        account_id: typing.Optional[builtins.str] = None,
         height: typing.Optional[jsii.Number] = None,
         region: typing.Optional[builtins.str] = None,
         title: typing.Optional[builtins.str] = None,
@@ -15308,6 +15525,7 @@ class AlarmWidget(
         '''
         :param alarm: The alarm to show.
         :param left_y_axis: Left Y axis. Default: - No minimum or maximum values for the left Y-axis
+        :param account_id: The AWS account ID where the metrics are located. This enables cross-account functionality for CloudWatch dashboards. Before using this feature, ensure that proper cross-account sharing is configured between the monitoring account and source account. For more information, see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Unified-Cross-Account.html Default: - Current account
         :param height: Height of the widget. Default: - 6 for Alarm and Graph widgets. 3 for single value widgets where most recent value of a metric is displayed.
         :param region: The region the metrics of this graph should be taken from. Default: - Current region
         :param title: Title for the graph. Default: - None
@@ -15316,6 +15534,7 @@ class AlarmWidget(
         props = AlarmWidgetProps(
             alarm=alarm,
             left_y_axis=left_y_axis,
+            account_id=account_id,
             height=height,
             region=region,
             title=title,
@@ -16855,6 +17074,7 @@ def _typecheckingstub__f09026a4cce4261b0c1f425d42f625c9bd8f0ba4495e11743f621a2cd
 def _typecheckingstub__b7d4a308b1274696259a35b14b5ae833f34881f95eaba521bb47a74b3a80e8c0(
     *,
     log_group_names: typing.Sequence[builtins.str],
+    account_id: typing.Optional[builtins.str] = None,
     height: typing.Optional[jsii.Number] = None,
     query_lines: typing.Optional[typing.Sequence[builtins.str]] = None,
     query_string: typing.Optional[builtins.str] = None,
@@ -17008,6 +17228,7 @@ def _typecheckingstub__b4491ad5e5a4b9301258f50e45d0278fe9bbf165c840e3c65f8feab63
 
 def _typecheckingstub__028d2c6eccbbf06b74566403b038cac0cdc1c8588c939f4352cc861885b12c38(
     *,
+    account_id: typing.Optional[builtins.str] = None,
     height: typing.Optional[jsii.Number] = None,
     region: typing.Optional[builtins.str] = None,
     title: typing.Optional[builtins.str] = None,
@@ -17047,6 +17268,7 @@ def _typecheckingstub__834c69a269555056b1b73146ff2784af68174eb591f39133c58560704
 
 def _typecheckingstub__4596565f40195bdcc9fe939fa585a3bdf484f8a4a6817e427c6f9e1e49650041(
     *,
+    account_id: typing.Optional[builtins.str] = None,
     height: typing.Optional[jsii.Number] = None,
     region: typing.Optional[builtins.str] = None,
     title: typing.Optional[builtins.str] = None,
@@ -17192,6 +17414,7 @@ def _typecheckingstub__837fdebf81b3f53de6d99624ebde152b4aba1d764a0cc2bd930440701
 
 def _typecheckingstub__03726ba90bb01c2a1340af4f73005fffe1b8288cff57d77f31d745d629defb8b(
     *,
+    account_id: typing.Optional[builtins.str] = None,
     height: typing.Optional[jsii.Number] = None,
     region: typing.Optional[builtins.str] = None,
     title: typing.Optional[builtins.str] = None,
@@ -17282,6 +17505,7 @@ def _typecheckingstub__b2e7c873c118fbc1f6cf26e1bb5bd3d8549040c626a6450f2d686bb07
 
 def _typecheckingstub__8b6bef2cc64a78bffd68dc95a764829a6c125294deaebcd42b56c493541573d5(
     *,
+    account_id: typing.Optional[builtins.str] = None,
     height: typing.Optional[jsii.Number] = None,
     region: typing.Optional[builtins.str] = None,
     title: typing.Optional[builtins.str] = None,
@@ -17364,6 +17588,7 @@ def _typecheckingstub__11f194bd6989eaa4279174f388eb1c44a7faf424b684d189ffe90647d
 
 def _typecheckingstub__c1f8fe2511861f7fc6d2225bf5821fc9134b7036355dffb1d0ddd86a99b53dc5(
     *,
+    account_id: typing.Optional[builtins.str] = None,
     height: typing.Optional[jsii.Number] = None,
     region: typing.Optional[builtins.str] = None,
     title: typing.Optional[builtins.str] = None,
@@ -17396,6 +17621,7 @@ def _typecheckingstub__d98276ba6bbea7a9a5b2efedfda4a862eeca9b42a2aaca743679984a1
 
 def _typecheckingstub__3471ad100c9e34a517506d76368276ef9b137a3c7b33aecc91910b5dc9263b3b(
     *,
+    account_id: typing.Optional[builtins.str] = None,
     height: typing.Optional[jsii.Number] = None,
     region: typing.Optional[builtins.str] = None,
     title: typing.Optional[builtins.str] = None,

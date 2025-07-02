@@ -87,7 +87,7 @@ async def get_api_key_async() -> Optional[str]:
 
         # Migrate the API key from the old config file to the new one
         if os.path.exists(API_KEY_FILE_PATH_BEFORE_0_5_0):
-            async with aiofiles.open(API_KEY_FILE_PATH_BEFORE_0_5_0, mode="r") as file:
+            async with aiofiles.open(API_KEY_FILE_PATH_BEFORE_0_5_0) as file:
                 content = await file.read()
             local_config.read_string(content)
             api_key = local_config.get("DEFAULT", "agentql_api_key", fallback=None)
@@ -98,7 +98,7 @@ async def get_api_key_async() -> Optional[str]:
 
         if os.path.exists(CONFIG_FILE_PATH):
             logger.debug("Using API key from local file...")
-            async with aiofiles.open(CONFIG_FILE_PATH, mode="r") as file:
+            async with aiofiles.open(CONFIG_FILE_PATH) as file:
                 content = await file.read()
             local_config.read_string(content)
 

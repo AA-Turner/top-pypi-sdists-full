@@ -5,17 +5,16 @@
 # ------------------------------------------------------
 from collections.abc import Mapping, Sequence
 from types import SimpleNamespace
-from typing import Any, Literal, overload
+from typing import Any, Literal
 
 from reflex.components.core.breakpoints import Breakpoints
 from reflex.components.radix.themes.base import RadixThemesComponent
-from reflex.event import EventType
+from reflex.event import EventType, PointerEventInfo
 from reflex.vars.base import Var
 
 class DataListRoot(RadixThemesComponent):
-    @overload
     @classmethod
-    def create(  # type: ignore
+    def create(
         cls,
         *children,
         orientation: Breakpoints[str, Literal["horizontal", "vertical"]]
@@ -48,9 +47,9 @@ class DataListRoot(RadixThemesComponent):
         autofocus: bool | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
-        on_click: EventType[()] | None = None,
-        on_context_menu: EventType[()] | None = None,
-        on_double_click: EventType[()] | None = None,
+        on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
+        on_context_menu: EventType[()] | EventType[PointerEventInfo] | None = None,
+        on_double_click: EventType[()] | EventType[PointerEventInfo] | None = None,
         on_focus: EventType[()] | None = None,
         on_mount: EventType[()] | None = None,
         on_mouse_down: EventType[()] | None = None,
@@ -61,6 +60,7 @@ class DataListRoot(RadixThemesComponent):
         on_mouse_over: EventType[()] | None = None,
         on_mouse_up: EventType[()] | None = None,
         on_scroll: EventType[()] | None = None,
+        on_scroll_end: EventType[()] | None = None,
         on_unmount: EventType[()] | None = None,
         **props,
     ) -> DataListRoot:
@@ -88,9 +88,8 @@ class DataListRoot(RadixThemesComponent):
         """
 
 class DataListItem(RadixThemesComponent):
-    @overload
     @classmethod
-    def create(  # type: ignore
+    def create(
         cls,
         *children,
         align: Breakpoints[
@@ -114,9 +113,9 @@ class DataListItem(RadixThemesComponent):
         autofocus: bool | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
-        on_click: EventType[()] | None = None,
-        on_context_menu: EventType[()] | None = None,
-        on_double_click: EventType[()] | None = None,
+        on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
+        on_context_menu: EventType[()] | EventType[PointerEventInfo] | None = None,
+        on_double_click: EventType[()] | EventType[PointerEventInfo] | None = None,
         on_focus: EventType[()] | None = None,
         on_mount: EventType[()] | None = None,
         on_mouse_down: EventType[()] | None = None,
@@ -127,6 +126,7 @@ class DataListItem(RadixThemesComponent):
         on_mouse_over: EventType[()] | None = None,
         on_mouse_up: EventType[()] | None = None,
         on_scroll: EventType[()] | None = None,
+        on_scroll_end: EventType[()] | None = None,
         on_unmount: EventType[()] | None = None,
         **props,
     ) -> DataListItem:
@@ -152,9 +152,8 @@ class DataListItem(RadixThemesComponent):
         """
 
 class DataListLabel(RadixThemesComponent):
-    @overload
     @classmethod
-    def create(  # type: ignore
+    def create(
         cls,
         *children,
         width: Breakpoints[str, str]
@@ -240,9 +239,9 @@ class DataListLabel(RadixThemesComponent):
         autofocus: bool | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
-        on_click: EventType[()] | None = None,
-        on_context_menu: EventType[()] | None = None,
-        on_double_click: EventType[()] | None = None,
+        on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
+        on_context_menu: EventType[()] | EventType[PointerEventInfo] | None = None,
+        on_double_click: EventType[()] | EventType[PointerEventInfo] | None = None,
         on_focus: EventType[()] | None = None,
         on_mount: EventType[()] | None = None,
         on_mouse_down: EventType[()] | None = None,
@@ -253,6 +252,7 @@ class DataListLabel(RadixThemesComponent):
         on_mouse_over: EventType[()] | None = None,
         on_mouse_up: EventType[()] | None = None,
         on_scroll: EventType[()] | None = None,
+        on_scroll_end: EventType[()] | None = None,
         on_unmount: EventType[()] | None = None,
         **props,
     ) -> DataListLabel:
@@ -281,9 +281,8 @@ class DataListLabel(RadixThemesComponent):
         """
 
 class DataListValue(RadixThemesComponent):
-    @overload
     @classmethod
-    def create(  # type: ignore
+    def create(
         cls,
         *children,
         style: Sequence[Mapping[str, Any]]
@@ -298,9 +297,9 @@ class DataListValue(RadixThemesComponent):
         autofocus: bool | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
-        on_click: EventType[()] | None = None,
-        on_context_menu: EventType[()] | None = None,
-        on_double_click: EventType[()] | None = None,
+        on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
+        on_context_menu: EventType[()] | EventType[PointerEventInfo] | None = None,
+        on_double_click: EventType[()] | EventType[PointerEventInfo] | None = None,
         on_focus: EventType[()] | None = None,
         on_mount: EventType[()] | None = None,
         on_mouse_down: EventType[()] | None = None,
@@ -311,6 +310,7 @@ class DataListValue(RadixThemesComponent):
         on_mouse_over: EventType[()] | None = None,
         on_mouse_up: EventType[()] | None = None,
         on_scroll: EventType[()] | None = None,
+        on_scroll_end: EventType[()] | None = None,
         on_unmount: EventType[()] | None = None,
         **props,
     ) -> DataListValue:

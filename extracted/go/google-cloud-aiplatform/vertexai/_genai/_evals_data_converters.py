@@ -15,8 +15,9 @@
 """Dataset converters for evals."""
 
 import abc
+import json
 import logging
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 from google.genai import _common
 from google.genai import types as genai_types
@@ -102,12 +103,20 @@ class _GeminiEvalDataConverter(_EvalDataConverter):
                 last_message.content.role if last_message.content else "user"
             )
             if last_message_role in ["user", None]:
-                prompt = last_message.content
+                prompt = (
+                    last_message.content
+                    if last_message.content
+                    else genai_types.Content()
+                )
             elif last_message_role == "model":
                 reference = types.ResponseCandidate(response=last_message.content)
                 if conversation_history:
                     second_to_last_message = conversation_history.pop()
-                    prompt = second_to_last_message.content
+                    prompt = (
+                        second_to_last_message.content
+                        if second_to_last_message.content
+                        else genai_types.Content()
+                    )
                 else:
                     prompt = genai_types.Content()
 
@@ -355,7 +364,29 @@ class _OpenAIDataConverter(_EvalDataConverter):
                 continue
 
             request_data = item.get("request", {})
-            response_data = item.get("response", {})
+            response_data_raw = item.get("response", {})
+
+            response_data = {}
+            if isinstance(response_data_raw, str):
+                try:
+                    loaded_json = json.loads(response_data_raw)
+                    if isinstance(loaded_json, dict):
+                        response_data = loaded_json
+                    else:
+                        logger.warning(
+                            "Decoded response JSON is not a dictionary for case"
+                            " %s. Type: %s",
+                            i,
+                            type(loaded_json),
+                        )
+                except json.JSONDecodeError:
+                    logger.warning(
+                        "Could not decode response JSON string for case %s."
+                        " Treating as empty response.",
+                        i,
+                    )
+            elif isinstance(response_data_raw, dict):
+                response_data = response_data_raw
 
             messages = request_data.get("messages", [])
             choices = response_data.get("choices", [])
@@ -413,7 +444,7 @@ class _OpenAIDataConverter(_EvalDataConverter):
 
 def auto_detect_dataset_schema(
     raw_dataset: list[dict[str, Any]],
-) -> EvalDatasetSchema:
+) -> Union[EvalDatasetSchema, str]:
     """Detects the schema of a raw dataset."""
     if not raw_dataset:
         return EvalDatasetSchema.UNKNOWN
@@ -499,7 +530,7 @@ def _validate_case_consistency(
     current_case: types.EvalCase,
     case_idx: int,
     dataset_idx: int,
-):
+) -> None:
     """Logs warnings if prompt or reference mismatches occur."""
     if base_case.prompt != current_case.prompt:
         base_prompt_text_preview = _get_first_part_text(base_case.prompt)[:50]
@@ -586,7 +617,11 @@ def merge_response_datasets_into_canonical_format(
     base_parsed_dataset = parsed_evaluation_datasets[0]
 
     for case_idx in range(num_expected_cases):
-        base_eval_case: types.EvalCase = base_parsed_dataset.eval_cases[case_idx]
+        base_eval_case: types.EvalCase = (
+            base_parsed_dataset.eval_cases[case_idx]
+            if base_parsed_dataset.eval_cases
+            else types.EvalCase()
+        )
         candidate_responses: list[types.ResponseCandidate] = []
 
         if base_eval_case.responses:
@@ -617,9 +652,11 @@ def merge_response_datasets_into_canonical_format(
         for dataset_idx_offset, current_parsed_ds in enumerate(
             parsed_evaluation_datasets[1:], start=1
         ):
-            current_ds_eval_case: types.EvalCase = current_parsed_ds.eval_cases[
-                case_idx
-            ]
+            current_ds_eval_case: types.EvalCase = (
+                current_parsed_ds.eval_cases[case_idx]
+                if current_parsed_ds.eval_cases
+                else types.EvalCase()
+            )
 
             _validate_case_consistency(
                 base_eval_case, current_ds_eval_case, case_idx, dataset_idx_offset

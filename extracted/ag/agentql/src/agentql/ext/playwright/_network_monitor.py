@@ -56,9 +56,7 @@ class PageActivityMonitor:
         bool: True if the page has loaded, False otherwise."""
         return self._page_loaded
 
-    def is_page_ready(
-        self, start_time: float, last_active_dom_time_ms: Optional[float] = None
-    ) -> bool:
+    def is_page_ready(self, start_time: float, last_active_dom_time_ms: Optional[float] = None) -> bool:
         """Check if the conditions for Page Ready state have been met
 
         Parameters:
@@ -76,9 +74,7 @@ class PageActivityMonitor:
         if last_active_dom_time_ms:
             last_active_dom_time = float(last_active_dom_time_ms) / 1000
             if time.time() - last_active_dom_time > DOM_NETWORK_QUIET_THRESHOLD_SECONDS:
-                log.debug(
-                    f"Page ready: No DOM activity for {DOM_NETWORK_QUIET_THRESHOLD_SECONDS} seconds."
-                )
+                log.debug(f"Page ready: No DOM activity for {DOM_NETWORK_QUIET_THRESHOLD_SECONDS} seconds.")
                 dom_is_quiet = True
 
         # Check for inactivity
@@ -107,14 +103,10 @@ class PageActivityMonitor:
         # If set seconds for checking DOM activity has passed, only check if the network is quiet or if multiple requests to the same destination are found
         if time.time() - start_time > IGNORE_DOM_ACTIVITY_AFTER_SECONDS:
             if network_is_quiet:
-                log.debug(
-                    f"Page ready: No network activity for {DOM_NETWORK_QUIET_THRESHOLD_SECONDS} seconds."
-                )
+                log.debug(f"Page ready: No network activity for {DOM_NETWORK_QUIET_THRESHOLD_SECONDS} seconds.")
                 return True
             if self._multi_request_found:
-                log.debug(
-                    f"Page ready: Multiple outgoing requests to url {self._multi_request_url} are found."
-                )
+                log.debug(f"Page ready: Multiple outgoing requests to url {self._multi_request_url} are found.")
                 return True
 
         return False

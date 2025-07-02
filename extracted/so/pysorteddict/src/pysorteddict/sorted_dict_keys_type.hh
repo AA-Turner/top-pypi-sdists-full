@@ -8,12 +8,19 @@
 
 struct SortedDictKeysIterType : public SortedDictViewIterType
 {
+public:
     PyObject* next(void);
 };
 
 struct SortedDictKeysType : public SortedDictViewType
 {
+private:
+    PyObject* getitem(Py_ssize_t);
+    PyObject* getitem(Py_ssize_t, Py_ssize_t, Py_ssize_t);
+
+public:
     int contains(PyObject*);
+    PyObject* getitem(PyObject*);
 };
 
 #endif

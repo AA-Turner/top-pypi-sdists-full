@@ -1,6 +1,6 @@
 import warnings
 from pathlib import Path
-from typing import Callable, Dict, Generic, List, Optional, Union
+from typing import Any, Callable, Dict, Generic, List, Optional, Tuple, Union
 
 from mistral_common.exceptions import (
     TokenizerException,
@@ -25,6 +25,7 @@ from mistral_common.tokens.tokenizers.base import (
     InstructRequest,
     InstructRequestType,
     InstructTokenizer,
+    SpecialTokenPolicy,
     SpecialTokens,
     TokenizedType,
     TokenizerVersion,
@@ -81,6 +82,10 @@ class MistralTokenizer(
     [InstructRequestNormalizer][mistral_common.protocol.instruct.normalize.InstructRequestNormalizer].
 
     It provides a convenient interface to tokenize, validate ad normalize Mistral requests.
+
+    Attributes:
+        instruct_tokenizer: The instruct tokenizer to use. See
+            [InstructTokenizer][mistral_common.tokens.tokenizers.instruct.InstructTokenizer].
     """
 
     def __init__(
@@ -100,7 +105,21 @@ class MistralTokenizer(
         """
         self._chat_completion_request_validator = validator
         self._instruct_request_normalizer = request_normalizer
-        self.instruct_tokenizer = instruct_tokenizer
+        self.instruct_tokenizer: InstructTokenizer[InstructRequest, FIMRequest, TokenizedType, AssistantMessageType] = (
+            instruct_tokenizer
+        )
+
+    def __reduce__(self) -> Tuple[Callable, Tuple[Any, ...]]:
+        """
+        Provides a recipe for pickling (serializing) this object, which is necessary for use with multiprocessing.
+
+        Returns:
+            A tuple of the factory function and the arguments to reconstruct the object from its source file.
+        """
+        return MistralTokenizer.from_file, (
+            self.instruct_tokenizer.tokenizer.file_path,
+            self._chat_completion_request_validator._mode,
+        )
 
     @classmethod
     def _data_path(cls) -> Path:
@@ -195,7 +214,12 @@ class MistralTokenizer(
 
     @staticmethod
     def from_hf_hub(
-        repo_id: str, token: Optional[Union[bool, str]] = None, revision: Optional[str] = None
+        repo_id: str,
+        token: Optional[Union[bool, str]] = None,
+        revision: Optional[str] = None,
+        force_download: bool = False,
+        local_files_only: bool = False,
+        mode: ValidationMode = ValidationMode.test,
     ) -> "MistralTokenizer":
         r"""Download the Mistral tokenizer for a given Hugging Face repository ID.
 
@@ -205,17 +229,28 @@ class MistralTokenizer(
             repo_id: The Hugging Face repo ID.
             token: The Hugging Face token to use to download the tokenizer.
             revision: The revision of the model to use. If `None`, the latest revision will be used.
+            mode: The validation mode to use.
+            force_download: Whether to force the download of the tokenizer. If `True`, the tokenizer will be downloaded
+                even if it is already cached.
+            local_files_only: Whether to only use local files. If `True`, the tokenizer will be downloaded only if it is
+                already cached.
 
         Returns:
             The Mistral tokenizer for the given model.
         """
-        tokenizer_path = download_tokenizer_from_hf_hub(repo_id=repo_id, token=token, revision=revision)
-        return MistralTokenizer.from_file(tokenizer_path)
+        tokenizer_path = download_tokenizer_from_hf_hub(
+            repo_id=repo_id,
+            token=token,
+            revision=revision,
+            force_download=force_download,
+            local_files_only=local_files_only,
+        )
+        return MistralTokenizer.from_file(tokenizer_path, mode=mode)
 
     @classmethod
     def from_file(
         cls,
-        tokenizer_filename: str,
+        tokenizer_filename: Union[str, Path],
         mode: ValidationMode = ValidationMode.test,
     ) -> "MistralTokenizer":
         r"""Loads a tokenizer from a file.
@@ -294,7 +329,7 @@ class MistralTokenizer(
         validated_request = self._chat_completion_request_validator.validate_request(request)
 
         if max_model_input_len is None and request.truncate_for_context_length:
-            # the max_model_input_len arg should not be optionnal ;
+            # the max_model_input_len arg should not be optional ;
             # but this function is used in many small scripts that have no use
             # for truncation, and don't provide the max model len
             raise TokenizerException(
@@ -319,16 +354,21 @@ class MistralTokenizer(
         """
         return self.instruct_tokenizer.encode_fim(request)
 
-    def decode(self, tokens: List[int]) -> str:
+    def decode(self, tokens: List[int], special_token_policy: Optional[SpecialTokenPolicy] = None) -> str:
         r"""Decodes a list of tokens into a string.
 
         Args:
             tokens: The tokens to decode.
+            special_token_policy: The policy to use for special tokens. Passing `None` is deprecated and will be changed
+                to `SpecialTokenPolicy.IGNORE` in `mistral_common=1.7.0`.
 
         Returns:
             The decoded string.
         """
-        return self.instruct_tokenizer.decode(tokens)
+        return self.instruct_tokenizer.decode(tokens, special_token_policy=special_token_policy)
+
+    def _to_string(self, tokens: List[int]) -> str:
+        return self.instruct_tokenizer._to_string(tokens)
 
 
 MODEL_NAME_TO_TOKENIZER_CLS: Dict[str, Callable[[], MistralTokenizer]] = {

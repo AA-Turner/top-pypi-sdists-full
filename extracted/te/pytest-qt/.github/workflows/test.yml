@@ -1,6 +1,11 @@
 name: test
 
-on: [push, pull_request]
+on:
+  push:
+    branches:
+      - main
+
+  pull_request:
 
 # Cancel running jobs for the same workflow and branch.
 concurrency:
@@ -11,9 +16,9 @@ jobs:
   package:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Build and Check Package
-        uses: hynek/build-and-inspect-python-package@v1.5
+        uses: hynek/build-and-inspect-python-package@v2.13
 
   test:
 
@@ -24,28 +29,27 @@ jobs:
       fail-fast: false
 
       matrix:
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
-        qt-lib: [pyqt5, pyqt6, pyside2, pyside6]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        qt-lib: [pyqt5, pyqt6, pyside6]
         os: [ubuntu-latest, windows-latest, macos-latest]
-        exclude:
-          # Not installable:
-          # ERROR: Could not find a version that satisfies the requirement pyside2 (from versions: none)
-          - python-version: "3.11"
-            qt-lib: pyside2
-            os: windows-latest
-          - python-version: "3.12"
-            qt-lib: pyside2
+        include:
+          - python-version: "3.9"
+            qt-lib: pyqt61
+            os: ubuntu-latest
+          - python-version: "3.9"
+            qt-lib: pyside60
+            os: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v3
+      uses: actions/setup-python@v5.6.0
       with:
         python-version: ${{ matrix.python-version }}
 
     - name: Download Package
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: Packages
         path: dist

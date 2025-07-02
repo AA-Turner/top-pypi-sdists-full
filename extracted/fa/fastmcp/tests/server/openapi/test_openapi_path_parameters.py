@@ -301,20 +301,11 @@ async def test_array_query_param_with_fastapi():
 
         # Single day
         result = await client.call_tool(tool_name, {"days": ["monday"]})
-        # Client returns TextContent objects, so parse the JSON
-        assert len(result) == 1
-        assert result[0].type == "text"
-        import json
-
-        result_data = json.loads(result[0].text)
-        assert result_data == {"selected": ["monday"]}
+        assert result.data == {"selected": ["monday"]}
 
         # Multiple days
         result = await client.call_tool(tool_name, {"days": ["monday", "tuesday"]})
-        assert len(result) == 1
-        assert result[0].type == "text"
-        result_data = json.loads(result[0].text)
-        assert result_data == {"selected": ["monday", "tuesday"]}
+        assert result.data == {"selected": ["monday", "tuesday"]}
 
 
 async def test_array_query_parameter_format(mock_client):
@@ -329,9 +320,9 @@ async def test_array_query_parameter_format(mock_client):
                 name="days",
                 location="query",  # This is a query parameter
                 required=True,
+                explode=False,  # Set explode=False to test comma-separated formatting
                 schema={
                     "type": "array",
-                    "explode": False,  # Set explode=False to test comma-separated formatting
                     "items": {
                         "type": "string",
                         "enum": [
@@ -399,9 +390,9 @@ async def test_array_query_parameter_exploded_format(mock_client):
                 name="days",
                 location="query",  # This is a query parameter
                 required=True,
+                explode=True,  # Set explode=True for separate parameter serialization
                 schema={
                     "type": "array",
-                    "explode": True,  # Set explode=True for separate parameter serialization
                     "items": {
                         "type": "string",
                         "enum": [

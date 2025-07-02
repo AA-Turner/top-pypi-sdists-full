@@ -209,7 +209,8 @@ def descend_classes_and_funcs(mod: ModuleType, root: str, encountered=None):
 
 def annotate_doc_types(mod: ModuleType, root: str):
     for c_or_f in descend_classes_and_funcs(mod, root):
-        c_or_f.getdoc = partial(getdoc, c_or_f)
+        with suppress(AttributeError):
+            c_or_f.getdoc = partial(getdoc, c_or_f)
 
 
 _leading_whitespace_re = re.compile("(^[ ]*)(?:[^ \n])", re.MULTILINE)
@@ -471,7 +472,7 @@ def moving_average(a: np.ndarray, n: int):
     a
         One-dimensional array.
     n
-        Number of entries to average over. n=2 means averaging over the currrent
+        Number of entries to average over. n=2 means averaging over the current
         the previous entry.
 
     Returns
@@ -733,8 +734,7 @@ def _(X: DaskArray, axis: Literal[0, 1]) -> DaskArray:
         partial(axis_nnz, axis=axis),
         dtype=np.int64,
         meta=np.array([], dtype=np.int64),
-        drop_axis=0,
-        chunks=len(X.to_delayed()) * (X.chunksize[int(not axis)],),
+        drop_axis=axis,
     )
 
 
@@ -874,7 +874,7 @@ def select_groups(
         if len(groups_ids) == 0:
             # fallback to index retrieval
             groups_ids = np.where(
-                np.in1d(
+                np.isin(
                     np.arange(len(adata.obs[key].cat.categories)).astype(str),
                     np.array(groups_order_subset),
                 )
@@ -1057,7 +1057,7 @@ class NeighborsView:
 def _choose_graph(
     adata: AnnData, obsp: str | None, neighbors_key: str | None
 ) -> CSBase:
-    """Choose connectivities from neighbbors or another obsp entry."""
+    """Choose connectivities from neighbors or another obsp entry."""
     if obsp is not None and neighbors_key is not None:
         msg = "You can't specify both obsp, neighbors_key. Please select only one."
         raise ValueError(msg)

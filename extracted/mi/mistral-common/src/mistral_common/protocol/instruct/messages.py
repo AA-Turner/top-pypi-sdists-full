@@ -44,7 +44,7 @@ class BaseContentChunk(MistralBase):
 
         Should be implemented by subclasses.
         """
-        raise NotImplementedError("to_openai method not implemented for {cls.__name__}")
+        raise NotImplementedError(f"to_openai method not implemented for {type(self).__name__}")
 
     @classmethod
     def from_openai(cls, openai_chunk: Dict[str, Union[str, Dict[str, str]]]) -> "BaseContentChunk":
@@ -52,7 +52,7 @@ class BaseContentChunk(MistralBase):
 
         Should be implemented by subclasses.
         """
-        raise NotImplementedError("from_openai method not implemented for {cls.__name__}")
+        raise NotImplementedError(f"from_openai method not implemented for {cls.__name__}")
 
 
 class ImageChunk(BaseContentChunk):
@@ -219,7 +219,7 @@ class BaseMessage(MistralBase):
 
         Should be implemented by subclasses.
         """
-        raise NotImplementedError("to_openai method not implemented for {cls.__name__}")
+        raise NotImplementedError(f"to_openai method not implemented for {type(self).__name__}")
 
     @classmethod
     def from_openai(
@@ -229,7 +229,7 @@ class BaseMessage(MistralBase):
 
         Should be implemented by subclasses.
         """
-        raise NotImplementedError("from_openai method not implemented for {cls.__name__}.")
+        raise NotImplementedError(f"from_openai method not implemented for {cls.__name__}.")
 
 
 class UserMessage(BaseMessage):
@@ -310,7 +310,7 @@ class AssistantMessage(BaseMessage):
         prefix: Whether the message is a prefix.
 
     Examples:
-        >>> messsage = AssistantMessage(content="Hello, how can I help you?")
+        >>> message = AssistantMessage(content="Hello, how can I help you?")
     """
 
     role: Literal[Roles.assistant] = Roles.assistant
@@ -320,7 +320,9 @@ class AssistantMessage(BaseMessage):
 
     def to_openai(self) -> Dict[str, Union[str, List[Dict[str, Union[str, Dict[str, Any]]]]]]:
         r"""Converts the message to the OpenAI format."""
-        out_dict: dict[str, Union[str, List[Dict[str, Union[str, Dict[str, Any]]]]]] = {"role": self.role}
+        out_dict: dict[str, Union[str, List[Dict[str, Union[str, Dict[str, Any]]]]]] = {
+            "role": self.role,
+        }
         if self.content is not None:
             out_dict["content"] = self.content
         if self.tool_calls is not None:

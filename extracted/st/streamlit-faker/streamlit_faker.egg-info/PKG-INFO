@@ -1,19 +1,23 @@
-Metadata-Version: 2.1
-Name: streamlit-faker
-Version: 0.0.3
+Metadata-Version: 2.4
+Name: streamlit_faker
+Version: 0.0.4
 Summary: streamlit-faker is a library to very easily fake Streamlit commands
 Author-email: Arnaud Miribel <arnaudmiribel@gmail.com>
 Project-URL: Homepage, https://github.com/arnaudmiribel/streamlit-faker
 Project-URL: Bug Tracker, https://github.com/arnaudmiribel/streamlit-faker/issues
 Keywords: python,streamlit,faker
 Classifier: Programming Language :: Python :: 3
-Requires-Python: >=3.6
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
 Requires-Dist: streamlit
-Requires-Dist: streamlit-extras
+Requires-Dist: altex>=0.2.0
 Requires-Dist: faker
 Requires-Dist: matplotlib
+Provides-Extra: dev
+Requires-Dist: pytest>=6.0; extra == "dev"
+Requires-Dist: pytest-mock>=3.0; extra == "dev"
+Dynamic: license-file
 
 <a href="https://fakker.streamlitapp.com" title="Python Version"><img src="https://static.streamlit.io/badges/streamlit_badge_black_white.svg"></a>
 <a href="https://github.com/arnaudmiribel/streamlit-extras"> <img src="https://img.shields.io/badge/-%F0%9F%AA%A2%20featured%20extra-e8ded1"></img></a>

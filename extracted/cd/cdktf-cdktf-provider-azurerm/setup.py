@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdktf-cdktf-provider-azurerm",
-    "version": "14.3.0",
+    "version": "14.4.0",
     "description": "Prebuilt azurerm Provider for Terraform CDK (cdktf)",
     "license": "MPL-2.0",
     "url": "https://github.com/cdktf/cdktf-provider-azurerm.git",
@@ -774,6 +774,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_azurerm.elastic_san_volume_group",
         "cdktf_cdktf_provider_azurerm.email_communication_service",
         "cdktf_cdktf_provider_azurerm.email_communication_service_domain",
+        "cdktf_cdktf_provider_azurerm.email_communication_service_domain_sender_username",
         "cdktf_cdktf_provider_azurerm.eventgrid_domain",
         "cdktf_cdktf_provider_azurerm.eventgrid_domain_topic",
         "cdktf_cdktf_provider_azurerm.eventgrid_event_subscription",
@@ -975,6 +976,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_azurerm.management_group_policy_assignment",
         "cdktf_cdktf_provider_azurerm.management_group_policy_exemption",
         "cdktf_cdktf_provider_azurerm.management_group_policy_remediation",
+        "cdktf_cdktf_provider_azurerm.management_group_policy_set_definition",
         "cdktf_cdktf_provider_azurerm.management_group_subscription_association",
         "cdktf_cdktf_provider_azurerm.management_group_template_deployment",
         "cdktf_cdktf_provider_azurerm.management_lock",
@@ -1507,7 +1509,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdktf_cdktf_provider_azurerm._jsii": [
-            "provider-azurerm@14.3.0.jsii.tgz"
+            "provider-azurerm@14.4.0.jsii.tgz"
         ],
         "cdktf_cdktf_provider_azurerm": [
             "py.typed"

@@ -1,7 +1,7 @@
 """Command-line entry-point into db-contrib-tool."""
 
 import click
-
+from multiprocessing import freeze_support
 from db_contrib_tool.evg_aware_bisect.cli import bisect
 from db_contrib_tool.setup_mongot_repro_env.cli import setup_mongot_repro_env
 from db_contrib_tool.setup_repro_env.cli import setup_repro_env
@@ -33,4 +33,5 @@ for plugin in _PLUGINS:
 
 
 if __name__ == "__main__":
+    freeze_support()  # Required for multiprocessing support in a frozen (i.e. PyInstaller) application
     cli(obj=CommandUsage())

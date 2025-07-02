@@ -8447,7 +8447,7 @@ class CfnBucket(
             :param encryption_configuration: Specifies encryption-related information.
             :param metrics: A container specifying replication metrics-related settings enabling replication metrics and events.
             :param replication_time: A container specifying S3 Replication Time Control (S3 RTC), including whether S3 RTC is enabled and the time when all objects and operations on objects must be replicated. Must be specified together with a ``Metrics`` block.
-            :param storage_class: The storage class to use when replicating objects, such as S3 Standard or reduced redundancy. By default, Amazon S3 uses the storage class of the source object to create the object replica. For valid values, see the ``StorageClass`` element of the `PUT Bucket replication <https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTreplication.html>`_ action in the *Amazon S3 API Reference* .
+            :param storage_class: The storage class to use when replicating objects, such as S3 Standard or reduced redundancy. By default, Amazon S3 uses the storage class of the source object to create the object replica. For valid values, see the ``StorageClass`` element of the `PUT Bucket replication <https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTreplication.html>`_ action in the *Amazon S3 API Reference* . ``FSX_OPENZFS`` is not an accepted value when replicating objects.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3-bucket-replicationdestination.html
             :exampleMetadata: fixture=_generated
@@ -8589,6 +8589,8 @@ class CfnBucket(
             By default, Amazon S3 uses the storage class of the source object to create the object replica.
 
             For valid values, see the ``StorageClass`` element of the `PUT Bucket replication <https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTreplication.html>`_ action in the *Amazon S3 API Reference* .
+
+            ``FSX_OPENZFS`` is not an accepted value when replicating objects.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3-bucket-replicationdestination.html#cfn-s3-bucket-replicationdestination-storageclass
             '''

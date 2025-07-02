@@ -39,7 +39,6 @@ type CoreWeaveInstanceData struct {
 }
 
 type CoreWeaveMetadataParams struct {
-	Ctx           context.Context
 	Client        *retryablehttp.Client
 	Logger        *observability.CoreLogger
 	GraphqlClient graphql.Client
@@ -51,8 +50,6 @@ type CoreWeaveMetadataParams struct {
 // CoreWeaveMetadata is used to capture the metadata about the compute environment
 // for jobs running on CoreWeave.
 type CoreWeaveMetadata struct {
-	ctx context.Context
-
 	// HTTP client to communicate with the CoreWeave metadata server.
 	client *retryablehttp.Client
 
@@ -98,7 +95,6 @@ func NewCoreWeaveMetadata(params CoreWeaveMetadataParams) (*CoreWeaveMetadata, e
 	endpoint := params.Endpoint
 
 	cwm := &CoreWeaveMetadata{
-		ctx:           params.Ctx,
 		client:        params.Client,
 		graphqlClient: params.GraphqlClient,
 		logger:        params.Logger,
@@ -112,7 +108,7 @@ func NewCoreWeaveMetadata(params CoreWeaveMetadataParams) (*CoreWeaveMetadata, e
 
 // Sample is a no-op method.
 //
-// Required for CoreWeaveMetadata to implement the Asset interface.
+// Required for CoreWeaveMetadata to implement the Resource interface.
 func (cwm *CoreWeaveMetadata) Sample() (*spb.StatsRecord, error) {
 	return nil, nil
 }
@@ -122,7 +118,7 @@ func (cwm *CoreWeaveMetadata) Sample() (*spb.StatsRecord, error) {
 // It first checks if the current W&B entity's organization is using
 // CoreWeave by querying the W&B backend. If so, it fetches instance
 // metadata from the CoreWeave metadata endpoint using the Get method.
-func (cwm *CoreWeaveMetadata) Probe() *spb.MetadataRequest {
+func (cwm *CoreWeaveMetadata) Probe(ctx context.Context) *spb.EnvironmentRecord {
 	if cwm.graphqlClient == nil {
 		cwm.logger.Debug("coreweave metadata: error collecting data", "error", fmt.Errorf("GraphQL client is nil"))
 		return nil
@@ -131,7 +127,7 @@ func (cwm *CoreWeaveMetadata) Probe() *spb.MetadataRequest {
 	// Check whether this entity's organization is on CoreWeave
 	// to limit collecting metadata to the relevant organizations.
 	data, err := gql.OrganizationCoreWeaveOrganizationID(
-		cwm.ctx,
+		ctx,
 		cwm.graphqlClient,
 		cwm.entity,
 	)
@@ -149,7 +145,7 @@ func (cwm *CoreWeaveMetadata) Probe() *spb.MetadataRequest {
 		return nil
 	}
 
-	return &spb.MetadataRequest{
+	return &spb.EnvironmentRecord{
 		Coreweave: &spb.CoreWeaveInfo{
 			ClusterName: instanceData.ClusterName,
 			OrgId:       instanceData.OrgID,

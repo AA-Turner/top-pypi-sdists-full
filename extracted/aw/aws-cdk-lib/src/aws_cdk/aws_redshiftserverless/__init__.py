@@ -64,6 +64,7 @@ from .. import (
     IInspectable as _IInspectable_c2943556,
     IResolvable as _IResolvable_da3f097b,
     ITaggable as _ITaggable_36806126,
+    ITaggableV2 as _ITaggableV2_4e6798f8,
     TagManager as _TagManager_0a598cb3,
     TreeInspector as _TreeInspector_488e0dd5,
 )
@@ -1232,6 +1233,561 @@ class CfnNamespaceProps:
 
     def __repr__(self) -> str:
         return "CfnNamespaceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+class CfnSnapshot(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_redshiftserverless.CfnSnapshot",
+):
+    '''Resource Type definition for AWS::RedshiftServerless::Snapshot Resource Type.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-snapshot.html
+    :cloudformationResource: AWS::RedshiftServerless::Snapshot
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_redshiftserverless as redshiftserverless
+        
+        cfn_snapshot = redshiftserverless.CfnSnapshot(self, "MyCfnSnapshot",
+            snapshot_name="snapshotName",
+        
+            # the properties below are optional
+            namespace_name="namespaceName",
+            retention_period=123,
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        snapshot_name: builtins.str,
+        namespace_name: typing.Optional[builtins.str] = None,
+        retention_period: typing.Optional[jsii.Number] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param snapshot_name: The name of the snapshot.
+        :param namespace_name: The namespace the snapshot is associated with.
+        :param retention_period: The retention period of the snapshot.
+        :param tags: An array of key-value pairs to apply to this resource.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a1e2b5eeadcf14eaf0be75cda550b6bcef2aa009af0fe87d6f5e9e856ad0ef43)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnSnapshotProps(
+            snapshot_name=snapshot_name,
+            namespace_name=namespace_name,
+            retention_period=retention_period,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5ddc470fc115016c807de39b9ff4325d249ff8657e32f92eefbcb4bac9e79eb0)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4bdbe6940b32b0a05793c97cd18c6f2009d35937c086b1b342b276e310c97129)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrOwnerAccount")
+    def attr_owner_account(self) -> builtins.str:
+        '''The owner account of the snapshot.
+
+        :cloudformationAttribute: OwnerAccount
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrOwnerAccount"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSnapshot")
+    def attr_snapshot(self) -> _IResolvable_da3f097b:
+        '''
+        :cloudformationAttribute: Snapshot
+        '''
+        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrSnapshot"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSnapshotAdminUsername")
+    def attr_snapshot_admin_username(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Snapshot.AdminUsername
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSnapshotAdminUsername"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSnapshotKmsKeyId")
+    def attr_snapshot_kms_key_id(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Snapshot.KmsKeyId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSnapshotKmsKeyId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSnapshotNamespaceArn")
+    def attr_snapshot_namespace_arn(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Snapshot.NamespaceArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSnapshotNamespaceArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSnapshotNamespaceName")
+    def attr_snapshot_namespace_name(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Snapshot.NamespaceName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSnapshotNamespaceName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSnapshotOwnerAccount")
+    def attr_snapshot_owner_account(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Snapshot.OwnerAccount
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSnapshotOwnerAccount"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSnapshotRetentionPeriod")
+    def attr_snapshot_retention_period(self) -> jsii.Number:
+        '''
+        :cloudformationAttribute: Snapshot.RetentionPeriod
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrSnapshotRetentionPeriod"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSnapshotSnapshotArn")
+    def attr_snapshot_snapshot_arn(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Snapshot.SnapshotArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSnapshotSnapshotArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSnapshotSnapshotCreateTime")
+    def attr_snapshot_snapshot_create_time(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Snapshot.SnapshotCreateTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSnapshotSnapshotCreateTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSnapshotSnapshotName")
+    def attr_snapshot_snapshot_name(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Snapshot.SnapshotName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSnapshotSnapshotName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSnapshotStatus")
+    def attr_snapshot_status(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Snapshot.Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSnapshotStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="snapshotName")
+    def snapshot_name(self) -> builtins.str:
+        '''The name of the snapshot.'''
+        return typing.cast(builtins.str, jsii.get(self, "snapshotName"))
+
+    @snapshot_name.setter
+    def snapshot_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f64f97556142b340a4fd0b74522c68b85e2157f2a27ece8203bd18185cfe3ce6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "snapshotName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="namespaceName")
+    def namespace_name(self) -> typing.Optional[builtins.str]:
+        '''The namespace the snapshot is associated with.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "namespaceName"))
+
+    @namespace_name.setter
+    def namespace_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5f6a30dd9c5c0b8045b8d36ef14977ccb4361c843f7dcb8ac7322f8fa349468d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "namespaceName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="retentionPeriod")
+    def retention_period(self) -> typing.Optional[jsii.Number]:
+        '''The retention period of the snapshot.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "retentionPeriod"))
+
+    @retention_period.setter
+    def retention_period(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__521c1c8ca437327e56c1b9a24896fa19595912e045202fbf656a893304dd3c04)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "retentionPeriod", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__77534803a2fb41b5883d0c89334777e664cec59572dd7a376bbe5dbc41ff64ef)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_redshiftserverless.CfnSnapshot.SnapshotProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "admin_username": "adminUsername",
+            "kms_key_id": "kmsKeyId",
+            "namespace_arn": "namespaceArn",
+            "namespace_name": "namespaceName",
+            "owner_account": "ownerAccount",
+            "retention_period": "retentionPeriod",
+            "snapshot_arn": "snapshotArn",
+            "snapshot_create_time": "snapshotCreateTime",
+            "snapshot_name": "snapshotName",
+            "status": "status",
+        },
+    )
+    class SnapshotProperty:
+        def __init__(
+            self,
+            *,
+            admin_username: typing.Optional[builtins.str] = None,
+            kms_key_id: typing.Optional[builtins.str] = None,
+            namespace_arn: typing.Optional[builtins.str] = None,
+            namespace_name: typing.Optional[builtins.str] = None,
+            owner_account: typing.Optional[builtins.str] = None,
+            retention_period: typing.Optional[jsii.Number] = None,
+            snapshot_arn: typing.Optional[builtins.str] = None,
+            snapshot_create_time: typing.Optional[builtins.str] = None,
+            snapshot_name: typing.Optional[builtins.str] = None,
+            status: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param admin_username: 
+            :param kms_key_id: 
+            :param namespace_arn: 
+            :param namespace_name: 
+            :param owner_account: 
+            :param retention_period: 
+            :param snapshot_arn: 
+            :param snapshot_create_time: 
+            :param snapshot_name: 
+            :param status: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshiftserverless-snapshot-snapshot.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_redshiftserverless as redshiftserverless
+                
+                snapshot_property = redshiftserverless.CfnSnapshot.SnapshotProperty(
+                    admin_username="adminUsername",
+                    kms_key_id="kmsKeyId",
+                    namespace_arn="namespaceArn",
+                    namespace_name="namespaceName",
+                    owner_account="ownerAccount",
+                    retention_period=123,
+                    snapshot_arn="snapshotArn",
+                    snapshot_create_time="snapshotCreateTime",
+                    snapshot_name="snapshotName",
+                    status="status"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__d32a77292254bff347197e3bdcc04e2fea309ebb7baea20e5fee3f5714159ffa)
+                check_type(argname="argument admin_username", value=admin_username, expected_type=type_hints["admin_username"])
+                check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
+                check_type(argname="argument namespace_arn", value=namespace_arn, expected_type=type_hints["namespace_arn"])
+                check_type(argname="argument namespace_name", value=namespace_name, expected_type=type_hints["namespace_name"])
+                check_type(argname="argument owner_account", value=owner_account, expected_type=type_hints["owner_account"])
+                check_type(argname="argument retention_period", value=retention_period, expected_type=type_hints["retention_period"])
+                check_type(argname="argument snapshot_arn", value=snapshot_arn, expected_type=type_hints["snapshot_arn"])
+                check_type(argname="argument snapshot_create_time", value=snapshot_create_time, expected_type=type_hints["snapshot_create_time"])
+                check_type(argname="argument snapshot_name", value=snapshot_name, expected_type=type_hints["snapshot_name"])
+                check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if admin_username is not None:
+                self._values["admin_username"] = admin_username
+            if kms_key_id is not None:
+                self._values["kms_key_id"] = kms_key_id
+            if namespace_arn is not None:
+                self._values["namespace_arn"] = namespace_arn
+            if namespace_name is not None:
+                self._values["namespace_name"] = namespace_name
+            if owner_account is not None:
+                self._values["owner_account"] = owner_account
+            if retention_period is not None:
+                self._values["retention_period"] = retention_period
+            if snapshot_arn is not None:
+                self._values["snapshot_arn"] = snapshot_arn
+            if snapshot_create_time is not None:
+                self._values["snapshot_create_time"] = snapshot_create_time
+            if snapshot_name is not None:
+                self._values["snapshot_name"] = snapshot_name
+            if status is not None:
+                self._values["status"] = status
+
+        @builtins.property
+        def admin_username(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshiftserverless-snapshot-snapshot.html#cfn-redshiftserverless-snapshot-snapshot-adminusername
+            '''
+            result = self._values.get("admin_username")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def kms_key_id(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshiftserverless-snapshot-snapshot.html#cfn-redshiftserverless-snapshot-snapshot-kmskeyid
+            '''
+            result = self._values.get("kms_key_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def namespace_arn(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshiftserverless-snapshot-snapshot.html#cfn-redshiftserverless-snapshot-snapshot-namespacearn
+            '''
+            result = self._values.get("namespace_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def namespace_name(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshiftserverless-snapshot-snapshot.html#cfn-redshiftserverless-snapshot-snapshot-namespacename
+            '''
+            result = self._values.get("namespace_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def owner_account(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshiftserverless-snapshot-snapshot.html#cfn-redshiftserverless-snapshot-snapshot-owneraccount
+            '''
+            result = self._values.get("owner_account")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def retention_period(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshiftserverless-snapshot-snapshot.html#cfn-redshiftserverless-snapshot-snapshot-retentionperiod
+            '''
+            result = self._values.get("retention_period")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def snapshot_arn(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshiftserverless-snapshot-snapshot.html#cfn-redshiftserverless-snapshot-snapshot-snapshotarn
+            '''
+            result = self._values.get("snapshot_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def snapshot_create_time(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshiftserverless-snapshot-snapshot.html#cfn-redshiftserverless-snapshot-snapshot-snapshotcreatetime
+            '''
+            result = self._values.get("snapshot_create_time")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def snapshot_name(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshiftserverless-snapshot-snapshot.html#cfn-redshiftserverless-snapshot-snapshot-snapshotname
+            '''
+            result = self._values.get("snapshot_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def status(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshiftserverless-snapshot-snapshot.html#cfn-redshiftserverless-snapshot-snapshot-status
+            '''
+            result = self._values.get("status")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SnapshotProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_redshiftserverless.CfnSnapshotProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "snapshot_name": "snapshotName",
+        "namespace_name": "namespaceName",
+        "retention_period": "retentionPeriod",
+        "tags": "tags",
+    },
+)
+class CfnSnapshotProps:
+    def __init__(
+        self,
+        *,
+        snapshot_name: builtins.str,
+        namespace_name: typing.Optional[builtins.str] = None,
+        retention_period: typing.Optional[jsii.Number] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSnapshot``.
+
+        :param snapshot_name: The name of the snapshot.
+        :param namespace_name: The namespace the snapshot is associated with.
+        :param retention_period: The retention period of the snapshot.
+        :param tags: An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-snapshot.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_redshiftserverless as redshiftserverless
+            
+            cfn_snapshot_props = redshiftserverless.CfnSnapshotProps(
+                snapshot_name="snapshotName",
+            
+                # the properties below are optional
+                namespace_name="namespaceName",
+                retention_period=123,
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__38cd0d09fc150d83197b13fb0e10ea82ffa589e88452cdfecbd53994ae2ced5b)
+            check_type(argname="argument snapshot_name", value=snapshot_name, expected_type=type_hints["snapshot_name"])
+            check_type(argname="argument namespace_name", value=namespace_name, expected_type=type_hints["namespace_name"])
+            check_type(argname="argument retention_period", value=retention_period, expected_type=type_hints["retention_period"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "snapshot_name": snapshot_name,
+        }
+        if namespace_name is not None:
+            self._values["namespace_name"] = namespace_name
+        if retention_period is not None:
+            self._values["retention_period"] = retention_period
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def snapshot_name(self) -> builtins.str:
+        '''The name of the snapshot.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-snapshot.html#cfn-redshiftserverless-snapshot-snapshotname
+        '''
+        result = self._values.get("snapshot_name")
+        assert result is not None, "Required property 'snapshot_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def namespace_name(self) -> typing.Optional[builtins.str]:
+        '''The namespace the snapshot is associated with.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-snapshot.html#cfn-redshiftserverless-snapshot-namespacename
+        '''
+        result = self._values.get("namespace_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def retention_period(self) -> typing.Optional[jsii.Number]:
+        '''The retention period of the snapshot.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-snapshot.html#cfn-redshiftserverless-snapshot-retentionperiod
+        '''
+        result = self._values.get("retention_period")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-snapshot.html#cfn-redshiftserverless-snapshot-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSnapshotProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -3054,6 +3610,8 @@ class CfnWorkgroupProps:
 __all__ = [
     "CfnNamespace",
     "CfnNamespaceProps",
+    "CfnSnapshot",
+    "CfnSnapshotProps",
     "CfnWorkgroup",
     "CfnWorkgroupProps",
 ]
@@ -3237,6 +3795,80 @@ def _typecheckingstub__5964a5da555f62a5d9615a6e07cd0d1128cdf904fd5aa3c5be9fd5e53
     namespace_resource_policy: typing.Any = None,
     redshift_idc_application_arn: typing.Optional[builtins.str] = None,
     snapshot_copy_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnNamespace.SnapshotCopyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a1e2b5eeadcf14eaf0be75cda550b6bcef2aa009af0fe87d6f5e9e856ad0ef43(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    snapshot_name: builtins.str,
+    namespace_name: typing.Optional[builtins.str] = None,
+    retention_period: typing.Optional[jsii.Number] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5ddc470fc115016c807de39b9ff4325d249ff8657e32f92eefbcb4bac9e79eb0(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4bdbe6940b32b0a05793c97cd18c6f2009d35937c086b1b342b276e310c97129(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f64f97556142b340a4fd0b74522c68b85e2157f2a27ece8203bd18185cfe3ce6(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5f6a30dd9c5c0b8045b8d36ef14977ccb4361c843f7dcb8ac7322f8fa349468d(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__521c1c8ca437327e56c1b9a24896fa19595912e045202fbf656a893304dd3c04(
+    value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__77534803a2fb41b5883d0c89334777e664cec59572dd7a376bbe5dbc41ff64ef(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d32a77292254bff347197e3bdcc04e2fea309ebb7baea20e5fee3f5714159ffa(
+    *,
+    admin_username: typing.Optional[builtins.str] = None,
+    kms_key_id: typing.Optional[builtins.str] = None,
+    namespace_arn: typing.Optional[builtins.str] = None,
+    namespace_name: typing.Optional[builtins.str] = None,
+    owner_account: typing.Optional[builtins.str] = None,
+    retention_period: typing.Optional[jsii.Number] = None,
+    snapshot_arn: typing.Optional[builtins.str] = None,
+    snapshot_create_time: typing.Optional[builtins.str] = None,
+    snapshot_name: typing.Optional[builtins.str] = None,
+    status: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__38cd0d09fc150d83197b13fb0e10ea82ffa589e88452cdfecbd53994ae2ced5b(
+    *,
+    snapshot_name: builtins.str,
+    namespace_name: typing.Optional[builtins.str] = None,
+    retention_period: typing.Optional[jsii.Number] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

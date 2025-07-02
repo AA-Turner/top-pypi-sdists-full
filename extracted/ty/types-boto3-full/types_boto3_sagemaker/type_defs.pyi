@@ -12004,7 +12004,7 @@ ModelPackageValidationSpecificationUnionTypeDef = Union[
 
 class CreateClusterRequestTypeDef(TypedDict):
     ClusterName: str
-    InstanceGroups: Sequence[ClusterInstanceGroupSpecificationTypeDef]
+    InstanceGroups: NotRequired[Sequence[ClusterInstanceGroupSpecificationTypeDef]]
     VpcConfig: NotRequired[VpcConfigUnionTypeDef]
     Tags: NotRequired[Sequence[TagTypeDef]]
     Orchestrator: NotRequired[ClusterOrchestratorTypeDef]
@@ -12012,7 +12012,7 @@ class CreateClusterRequestTypeDef(TypedDict):
 
 class UpdateClusterRequestTypeDef(TypedDict):
     ClusterName: str
-    InstanceGroups: Sequence[ClusterInstanceGroupSpecificationTypeDef]
+    InstanceGroups: NotRequired[Sequence[ClusterInstanceGroupSpecificationTypeDef]]
     NodeRecovery: NotRequired[ClusterNodeRecoveryType]
     InstanceGroupsToDelete: NotRequired[Sequence[str]]
 

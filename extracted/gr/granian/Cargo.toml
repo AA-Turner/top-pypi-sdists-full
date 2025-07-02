@@ -1,6 +1,6 @@
 [package]
 name = "granian"
-version = "2.4.0"
+version = "2.4.1"
 description = "A Rust HTTP server for Python applications"
 authors = ["Giovanni Barillari <g@baro.dev>"]
 license = "BSD-3-Clause"
@@ -54,7 +54,7 @@ tikv-jemallocator = { version = "0.6.0", default-features = false, features = ["
 tls-listener = { version = "=0.11", features = ["rustls-ring"] }
 tokio = { version = "1.45", features = ["full"] }
 tokio-stream = "0.1"
-tokio-tungstenite = "=0.26"
+tokio-tungstenite = "=0.27"
 tokio-util = { version = "0.7", features = ["codec", "rt"] }
 
 [build-dependencies]

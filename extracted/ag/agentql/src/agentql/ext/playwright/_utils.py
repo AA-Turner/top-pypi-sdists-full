@@ -20,17 +20,13 @@ def _post_process_accessibility_tree(accessibility_tree: dict):
         try:
             accessibility_tree["children"] = json.loads(accessibility_tree["children"])
         except json.JSONDecodeError as e:
-            raise ValueError(
-                f"Accessibility tree contains children of type str and is not valid JSON: {e}"
-            ) from e
+            raise ValueError(f"Accessibility tree contains children of type str and is not valid JSON: {e}") from e
 
     for child in accessibility_tree.get("children", []):
         _post_process_accessibility_tree(child)
 
 
-def merge_iframe_tree_into_page(
-    iframe_id, accessibility_tree: dict, iframe_accessibility_tree: dict
-):
+def merge_iframe_tree_into_page(iframe_id, accessibility_tree: dict, iframe_accessibility_tree: dict):
     """
     Stitches the iframe accessibility tree with the page accessibility tree.
 

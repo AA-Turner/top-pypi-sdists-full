@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: icechunk
-Version: 0.2.17
+Version: 0.2.18
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -67,6 +67,7 @@ Requires-Dist: sphinx-autodoc-typehints ; extra == 'docs'
 Provides-Extra: test
 Provides-Extra: benchmark
 Provides-Extra: docs
+License-File: LICENSE
 Summary: Icechunk Python
 Keywords: zarr,xarray,database
 Home-Page: https://icechunk.io

@@ -1,7 +1,7 @@
 r'''
-# CDKTF prebuilt bindings for hashicorp/google-beta provider version 6.41.0
+# CDKTF prebuilt bindings for hashicorp/google-beta provider version 6.42.0
 
-This repo builds and publishes the [Terraform google-beta provider](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
+This repo builds and publishes the [Terraform google-beta provider](https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
 
 ## Available Packages
 
@@ -63,7 +63,7 @@ This project is explicitly not tracking the Terraform google-beta provider versi
 These are the upstream dependencies:
 
 * [CDK for Terraform](https://cdk.tf)
-* [Terraform google-beta provider](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0)
+* [Terraform google-beta provider](https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0)
 * [Terraform Engine](https://terraform.io)
 
 If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
@@ -593,6 +593,7 @@ __all__ = [
     "google_apihub_api_hub_instance",
     "google_apihub_curation",
     "google_apihub_host_project_registration",
+    "google_apihub_plugin",
     "google_apihub_plugin_instance",
     "google_apikeys_key",
     "google_app_engine_application",
@@ -943,6 +944,7 @@ __all__ = [
     "google_compute_url_map",
     "google_compute_vpn_gateway",
     "google_compute_vpn_tunnel",
+    "google_compute_wire_group",
     "google_contact_center_insights_view",
     "google_container_analysis_note",
     "google_container_analysis_note_iam_binding",
@@ -1080,6 +1082,7 @@ __all__ = [
     "google_dialogflow_cx_entity_type",
     "google_dialogflow_cx_environment",
     "google_dialogflow_cx_flow",
+    "google_dialogflow_cx_generative_settings",
     "google_dialogflow_cx_intent",
     "google_dialogflow_cx_page",
     "google_dialogflow_cx_security_settings",
@@ -2182,6 +2185,7 @@ from . import google_apigee_target_server
 from . import google_apihub_api_hub_instance
 from . import google_apihub_curation
 from . import google_apihub_host_project_registration
+from . import google_apihub_plugin
 from . import google_apihub_plugin_instance
 from . import google_apikeys_key
 from . import google_app_engine_application
@@ -2532,6 +2536,7 @@ from . import google_compute_target_tcp_proxy
 from . import google_compute_url_map
 from . import google_compute_vpn_gateway
 from . import google_compute_vpn_tunnel
+from . import google_compute_wire_group
 from . import google_contact_center_insights_view
 from . import google_container_analysis_note
 from . import google_container_analysis_note_iam_binding
@@ -2669,6 +2674,7 @@ from . import google_dialogflow_cx_agent
 from . import google_dialogflow_cx_entity_type
 from . import google_dialogflow_cx_environment
 from . import google_dialogflow_cx_flow
+from . import google_dialogflow_cx_generative_settings
 from . import google_dialogflow_cx_intent
 from . import google_dialogflow_cx_page
 from . import google_dialogflow_cx_security_settings

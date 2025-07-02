@@ -115,8 +115,7 @@ class TFRunInferenceTest(unittest.TestCase):
         tf.convert_to_tensor(numpy.array([100])),
     ]
     expected_predictions = [
-        PredictionResult(ex, pred) for ex,
-        pred in zip(
+        PredictionResult(ex, pred) for ex, pred in zip(
             batched_examples,
             [tf.math.multiply(n, 10) for n in batched_examples])
     ]
@@ -159,8 +158,8 @@ class TFRunInferenceTest(unittest.TestCase):
               numpy.array([200.1, 300.2, 400.3], dtype='float32')),
       ]
       expected_predictions = [
-          PredictionResult(ex, pred) for ex,
-          pred in zip(examples, [tf.math.multiply(n, 2) for n in examples])
+          PredictionResult(ex, pred) for ex, pred in zip(
+              examples, [tf.math.multiply(n, 2) for n in examples])
       ]
 
       pcoll = pipeline | 'start' >> beam.Create(examples)
@@ -206,8 +205,8 @@ class TFRunInferenceTest(unittest.TestCase):
               numpy.array([200.1, 300.2, 400.3], dtype='float32')),
       ]
       expected_predictions = [
-          PredictionResult(ex, pred) for ex,
-          pred in zip(examples, [tf.math.multiply(n, 2) for n in examples])
+          PredictionResult(ex, pred) for ex, pred in zip(
+              examples, [tf.math.multiply(n, 2) for n in examples])
       ]
 
       pcoll = pipeline | 'start' >> beam.Create(examples)
@@ -222,7 +221,10 @@ class TFRunInferenceTest(unittest.TestCase):
     model = _create_mult2_model()
     model_path = os.path.join(self.tmpdir, f'mult2_{uuid.uuid4()}.keras')
     tf.keras.models.save_model(model, model_path)
-    with TestPipeline() as pipeline:
+    # TODO(https://github.com/apache/beam/issues/34549): This test relies on a
+    # runner producing a single bundle or bundles of even size, neither of
+    # which prism seems to do here
+    with TestPipeline('FnApiRunner') as pipeline:
 
       def fake_batching_inference_fn(
           model: tf.Module,
@@ -249,8 +251,8 @@ class TFRunInferenceTest(unittest.TestCase):
           numpy.array([200.1, 300.2, 400.3], dtype='float32'),
       ]
       expected_predictions = [
-          PredictionResult(ex, pred) for ex,
-          pred in zip(examples, [numpy.multiply(n, 2) for n in examples])
+          PredictionResult(ex, pred) for ex, pred in zip(
+              examples, [numpy.multiply(n, 2) for n in examples])
       ]
 
       pcoll = pipeline | 'start' >> beam.Create(examples)
@@ -293,8 +295,8 @@ class TFRunInferenceTest(unittest.TestCase):
           numpy.array([200.1, 300.2, 400.3], dtype='float32'),
       ]
       expected_predictions = [
-          PredictionResult(ex, pred) for ex,
-          pred in zip(examples, [numpy.multiply(n, 2) for n in examples])
+          PredictionResult(ex, pred) for ex, pred in zip(
+              examples, [numpy.multiply(n, 2) for n in examples])
       ]
 
       pcoll = pipeline | 'start' >> beam.Create(examples)
@@ -315,8 +317,7 @@ class TFRunInferenceTest(unittest.TestCase):
         tf.convert_to_tensor(numpy.array([100])),
     ]
     expected_predictions = [
-        PredictionResult(ex, pred) for ex,
-        pred in zip(
+        PredictionResult(ex, pred) for ex, pred in zip(
             batched_examples, [
                 tf.math.add(tf.math.multiply(n, 10), 10)
                 for n in batched_examples
@@ -338,8 +339,7 @@ class TFRunInferenceTest(unittest.TestCase):
         ('k3', numpy.array([100], dtype=numpy.int64)),
     ]
     expected_predictions = [
-        (ex[0], PredictionResult(ex[1], pred)) for ex,
-        pred in zip(
+        (ex[0], PredictionResult(ex[1], pred)) for ex, pred in zip(
             batched_examples,
             [numpy.multiply(n[1], 10) for n in batched_examples])
     ]
@@ -358,8 +358,7 @@ class TFRunInferenceTest(unittest.TestCase):
         ('k3', tf.convert_to_tensor(numpy.array([100]))),
     ]
     expected_predictions = [
-        (ex[0], PredictionResult(ex[1], pred)) for ex,
-        pred in zip(
+        (ex[0], PredictionResult(ex[1], pred)) for ex, pred in zip(
             batched_examples,
             [tf.math.multiply(n[1], 10) for n in batched_examples])
     ]
@@ -370,8 +369,9 @@ class TFRunInferenceTest(unittest.TestCase):
   def test_load_model_exception(self):
     with self.assertRaises(ValueError):
       tensorflow_inference._load_model(
-          "https://tfhub.dev/google/imagenet/mobilenet_v1_075_192/quantops/classification/3", # pylint: disable=line-too-long
-          None, {})
+          "https://tfhub.dev/google/imagenet/mobilenet_v1_075_192/quantops/classification/3",  # pylint: disable=line-too-long
+          None,
+          {})
 
 
 @pytest.mark.uses_tf

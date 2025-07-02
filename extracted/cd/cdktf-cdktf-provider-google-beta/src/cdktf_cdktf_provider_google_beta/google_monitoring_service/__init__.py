@@ -1,7 +1,7 @@
 r'''
 # `google_monitoring_service`
 
-Refer to the Terraform Registry for docs: [`google_monitoring_service`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_monitoring_service).
+Refer to the Terraform Registry for docs: [`google_monitoring_service`](https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_monitoring_service).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleMonitoringService(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleMonitoringService.GoogleMonitoringService",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_monitoring_service google_monitoring_service}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_monitoring_service google_monitoring_service}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class GoogleMonitoringService(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_monitoring_service google_monitoring_service} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_monitoring_service google_monitoring_service} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param service_id: An optional service ID to use. If not given, the server will generate a service ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_monitoring_service#service_id GoogleMonitoringService#service_id}
-        :param basic_service: basic_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_monitoring_service#basic_service GoogleMonitoringService#basic_service}
-        :param display_name: Name used for UI elements listing this Service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_monitoring_service#display_name GoogleMonitoringService#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_monitoring_service#id GoogleMonitoringService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_monitoring_service#project GoogleMonitoringService#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_monitoring_service#timeouts GoogleMonitoringService#timeouts}
-        :param user_labels: Labels which have been used to annotate the service. Label keys must start with a letter. Label keys and values may contain lowercase letters, numbers, underscores, and dashes. Label keys and values have a maximum length of 63 characters, and must be less than 128 bytes in size. Up to 64 label entries may be stored. For labels which do not have a semantic value, the empty string may be supplied for the label value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_monitoring_service#user_labels GoogleMonitoringService#user_labels}
+        :param service_id: An optional service ID to use. If not given, the server will generate a service ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_monitoring_service#service_id GoogleMonitoringService#service_id}
+        :param basic_service: basic_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_monitoring_service#basic_service GoogleMonitoringService#basic_service}
+        :param display_name: Name used for UI elements listing this Service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_monitoring_service#display_name GoogleMonitoringService#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_monitoring_service#id GoogleMonitoringService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_monitoring_service#project GoogleMonitoringService#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_monitoring_service#timeouts GoogleMonitoringService#timeouts}
+        :param user_labels: Labels which have been used to annotate the service. Label keys must start with a letter. Label keys and values may contain lowercase letters, numbers, underscores, and dashes. Label keys and values have a maximum length of 63 characters, and must be less than 128 bytes in size. Up to 64 label entries may be stored. For labels which do not have a semantic value, the empty string may be supplied for the label value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_monitoring_service#user_labels GoogleMonitoringService#user_labels}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class GoogleMonitoringService(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleMonitoringService to import.
-        :param import_from_id: The id of the existing GoogleMonitoringService that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_monitoring_service#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleMonitoringService that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_monitoring_service#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleMonitoringService to import is found.
         '''
         if __debug__:
@@ -140,8 +140,8 @@ class GoogleMonitoringService(
         service_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param service_labels: Labels that specify the resource that emits the monitoring data which is used for SLO reporting of this 'Service'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_monitoring_service#service_labels GoogleMonitoringService#service_labels}
-        :param service_type: The type of service that this basic service defines, e.g. APP_ENGINE service type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_monitoring_service#service_type GoogleMonitoringService#service_type}
+        :param service_labels: Labels that specify the resource that emits the monitoring data which is used for SLO reporting of this 'Service'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_monitoring_service#service_labels GoogleMonitoringService#service_labels}
+        :param service_type: The type of service that this basic service defines, e.g. APP_ENGINE service type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_monitoring_service#service_type GoogleMonitoringService#service_type}
         '''
         value = GoogleMonitoringServiceBasicService(
             service_labels=service_labels, service_type=service_type
@@ -158,9 +158,9 @@ class GoogleMonitoringService(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_monitoring_service#create GoogleMonitoringService#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_monitoring_service#delete GoogleMonitoringService#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_monitoring_service#update GoogleMonitoringService#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_monitoring_service#create GoogleMonitoringService#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_monitoring_service#delete GoogleMonitoringService#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_monitoring_service#update GoogleMonitoringService#update}.
         '''
         value = GoogleMonitoringServiceTimeouts(
             create=create, delete=delete, update=update
@@ -340,8 +340,8 @@ class GoogleMonitoringServiceBasicService:
         service_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param service_labels: Labels that specify the resource that emits the monitoring data which is used for SLO reporting of this 'Service'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_monitoring_service#service_labels GoogleMonitoringService#service_labels}
-        :param service_type: The type of service that this basic service defines, e.g. APP_ENGINE service type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_monitoring_service#service_type GoogleMonitoringService#service_type}
+        :param service_labels: Labels that specify the resource that emits the monitoring data which is used for SLO reporting of this 'Service'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_monitoring_service#service_labels GoogleMonitoringService#service_labels}
+        :param service_type: The type of service that this basic service defines, e.g. APP_ENGINE service type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_monitoring_service#service_type GoogleMonitoringService#service_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__641b433aef86cd678b758cfea18fa8e3e4cb02bc4c795b72055d290e6f3b9a96)
@@ -359,7 +359,7 @@ class GoogleMonitoringServiceBasicService:
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''Labels that specify the resource that emits the monitoring data which is used for SLO reporting of this 'Service'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_monitoring_service#service_labels GoogleMonitoringService#service_labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_monitoring_service#service_labels GoogleMonitoringService#service_labels}
         '''
         result = self._values.get("service_labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -368,7 +368,7 @@ class GoogleMonitoringServiceBasicService:
     def service_type(self) -> typing.Optional[builtins.str]:
         '''The type of service that this basic service defines, e.g. APP_ENGINE service type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_monitoring_service#service_type GoogleMonitoringService#service_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_monitoring_service#service_type GoogleMonitoringService#service_type}
         '''
         result = self._values.get("service_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -512,13 +512,13 @@ class GoogleMonitoringServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param service_id: An optional service ID to use. If not given, the server will generate a service ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_monitoring_service#service_id GoogleMonitoringService#service_id}
-        :param basic_service: basic_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_monitoring_service#basic_service GoogleMonitoringService#basic_service}
-        :param display_name: Name used for UI elements listing this Service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_monitoring_service#display_name GoogleMonitoringService#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_monitoring_service#id GoogleMonitoringService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_monitoring_service#project GoogleMonitoringService#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_monitoring_service#timeouts GoogleMonitoringService#timeouts}
-        :param user_labels: Labels which have been used to annotate the service. Label keys must start with a letter. Label keys and values may contain lowercase letters, numbers, underscores, and dashes. Label keys and values have a maximum length of 63 characters, and must be less than 128 bytes in size. Up to 64 label entries may be stored. For labels which do not have a semantic value, the empty string may be supplied for the label value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_monitoring_service#user_labels GoogleMonitoringService#user_labels}
+        :param service_id: An optional service ID to use. If not given, the server will generate a service ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_monitoring_service#service_id GoogleMonitoringService#service_id}
+        :param basic_service: basic_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_monitoring_service#basic_service GoogleMonitoringService#basic_service}
+        :param display_name: Name used for UI elements listing this Service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_monitoring_service#display_name GoogleMonitoringService#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_monitoring_service#id GoogleMonitoringService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_monitoring_service#project GoogleMonitoringService#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_monitoring_service#timeouts GoogleMonitoringService#timeouts}
+        :param user_labels: Labels which have been used to annotate the service. Label keys must start with a letter. Label keys and values may contain lowercase letters, numbers, underscores, and dashes. Label keys and values have a maximum length of 63 characters, and must be less than 128 bytes in size. Up to 64 label entries may be stored. For labels which do not have a semantic value, the empty string may be supplied for the label value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_monitoring_service#user_labels GoogleMonitoringService#user_labels}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -640,7 +640,7 @@ class GoogleMonitoringServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def service_id(self) -> builtins.str:
         '''An optional service ID to use. If not given, the server will generate a service ID.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_monitoring_service#service_id GoogleMonitoringService#service_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_monitoring_service#service_id GoogleMonitoringService#service_id}
         '''
         result = self._values.get("service_id")
         assert result is not None, "Required property 'service_id' is missing"
@@ -650,7 +650,7 @@ class GoogleMonitoringServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def basic_service(self) -> typing.Optional[GoogleMonitoringServiceBasicService]:
         '''basic_service block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_monitoring_service#basic_service GoogleMonitoringService#basic_service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_monitoring_service#basic_service GoogleMonitoringService#basic_service}
         '''
         result = self._values.get("basic_service")
         return typing.cast(typing.Optional[GoogleMonitoringServiceBasicService], result)
@@ -659,14 +659,14 @@ class GoogleMonitoringServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> typing.Optional[builtins.str]:
         '''Name used for UI elements listing this Service.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_monitoring_service#display_name GoogleMonitoringService#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_monitoring_service#display_name GoogleMonitoringService#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_monitoring_service#id GoogleMonitoringService#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_monitoring_service#id GoogleMonitoringService#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -676,7 +676,7 @@ class GoogleMonitoringServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_monitoring_service#project GoogleMonitoringService#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_monitoring_service#project GoogleMonitoringService#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -684,7 +684,7 @@ class GoogleMonitoringServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleMonitoringServiceTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_monitoring_service#timeouts GoogleMonitoringService#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_monitoring_service#timeouts GoogleMonitoringService#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleMonitoringServiceTimeouts"], result)
@@ -702,7 +702,7 @@ class GoogleMonitoringServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         label entries may be stored. For labels which do not have a semantic value,
         the empty string may be supplied for the label value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_monitoring_service#user_labels GoogleMonitoringService#user_labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_monitoring_service#user_labels GoogleMonitoringService#user_labels}
         '''
         result = self._values.get("user_labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -877,9 +877,9 @@ class GoogleMonitoringServiceTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_monitoring_service#create GoogleMonitoringService#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_monitoring_service#delete GoogleMonitoringService#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_monitoring_service#update GoogleMonitoringService#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_monitoring_service#create GoogleMonitoringService#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_monitoring_service#delete GoogleMonitoringService#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_monitoring_service#update GoogleMonitoringService#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cdf1892e1e12e4aaa0a3d11c0e0b202912236bcd388f7c0ed846f375ac4fa0f4)
@@ -896,19 +896,19 @@ class GoogleMonitoringServiceTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_monitoring_service#create GoogleMonitoringService#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_monitoring_service#create GoogleMonitoringService#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_monitoring_service#delete GoogleMonitoringService#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_monitoring_service#delete GoogleMonitoringService#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_monitoring_service#update GoogleMonitoringService#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_monitoring_service#update GoogleMonitoringService#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

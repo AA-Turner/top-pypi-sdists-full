@@ -6084,7 +6084,8 @@ class Geometry(object):
         Returns
         --------
         int:
-            True if the geometry has no points, otherwise False.
+            True if the coordinates of the geometry form a ring, by checking length
+            and closure (self-intersection is not checked), otherwise False.
 
         """
         return _ogr.Geometry_IsRing(self, *args)
@@ -7060,7 +7061,7 @@ def CreateCodedFieldDomain(*args):
 
 def CreateRangeFieldDomain(*args):
     r"""
-    CreateRangeFieldDomain(char const * name, char const * description, OGRFieldType type, OGRFieldSubType subtype, double min, bool minIsInclusive, double max, double maxIsInclusive) -> FieldDomain
+    CreateRangeFieldDomain(char const * name, char const * description, OGRFieldType type, OGRFieldSubType subtype, double * min, bool minIsInclusive, double * max, bool maxIsInclusive) -> FieldDomain
 
     Creates a new range field domain.
 

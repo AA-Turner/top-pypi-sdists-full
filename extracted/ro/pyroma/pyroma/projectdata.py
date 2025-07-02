@@ -1,4 +1,4 @@
-# Extracts information from a project that has a distutils setup.py file.
+# Extracts information from a project
 import build
 import build.util
 import logging
@@ -59,8 +59,11 @@ def map_metadata_keys(metadata):
 
 
 def get_build_data(path, isolated=None):
-    metadata = build_metadata(path, isolated=isolated)
-    return map_metadata_keys(metadata)
+    metadata = map_metadata_keys(build_metadata(path, isolated=isolated))
+    # Check if there is a pyproject_toml
+    if "pyproject.toml" not in os.listdir(path):
+        metadata["_missing_pyproject_toml"] = True
+    return metadata
 
 
 def get_setupcfg_data(path):
@@ -71,6 +74,12 @@ def get_setupcfg_data(path):
 
 
 def get_data(path):
+    data = _get_data(path)
+    data["_path"] = path
+    return data
+
+
+def _get_data(path):
     try:
         return get_build_data(path)
     except build.BuildException as e:
@@ -78,7 +87,6 @@ def get_data(path):
             # It couldn't build the package, because there is no setup.py or pyproject.toml.
             # Let's see if there is a setup.cfg:
             try:
-
                 metadata = get_setupcfg_data(path)
                 # Yes, there's a setup.cfg. Pyroma accepted this earlier, but that was probably
                 # a mistake. For the time being, warn for it, but in a future version just fail.
@@ -121,7 +129,6 @@ class FakeContext:
 
 
 class SetupMonkey:
-
     used_setuptools = False
 
     def distutils_setup_replacement(self, **kw):
@@ -236,6 +243,7 @@ def get_setuppy_data(path):
     with FakeContext(path):
         with SetupMonkey() as sm:
             if os.path.isfile("setup.py"):
+
                 try:
                     distro = run_setup("setup.py", stop_after="config")
 

@@ -1,7 +1,7 @@
 r'''
 # `google_chronicle_retrohunt`
 
-Refer to the Terraform Registry for docs: [`google_chronicle_retrohunt`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_chronicle_retrohunt).
+Refer to the Terraform Registry for docs: [`google_chronicle_retrohunt`](https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_chronicle_retrohunt).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleChronicleRetrohunt(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleChronicleRetrohunt.GoogleChronicleRetrohunt",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_chronicle_retrohunt google_chronicle_retrohunt}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_chronicle_retrohunt google_chronicle_retrohunt}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class GoogleChronicleRetrohunt(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_chronicle_retrohunt google_chronicle_retrohunt} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_chronicle_retrohunt google_chronicle_retrohunt} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param instance: The unique identifier for the Chronicle instance, which is the same as the customer ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_chronicle_retrohunt#instance GoogleChronicleRetrohunt#instance}
-        :param location: The location of the resource. This is the geographical region where the Chronicle instance resides, such as "us" or "europe-west2". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_chronicle_retrohunt#location GoogleChronicleRetrohunt#location}
-        :param process_interval: process_interval block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_chronicle_retrohunt#process_interval GoogleChronicleRetrohunt#process_interval}
-        :param rule: The Rule ID of the rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_chronicle_retrohunt#rule GoogleChronicleRetrohunt#rule}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_chronicle_retrohunt#id GoogleChronicleRetrohunt#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_chronicle_retrohunt#project GoogleChronicleRetrohunt#project}.
-        :param retrohunt: The retrohunt ID of the Retrohunt. A retrohunt is an execution of a Rule over a time range in the past. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_chronicle_retrohunt#retrohunt GoogleChronicleRetrohunt#retrohunt}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_chronicle_retrohunt#timeouts GoogleChronicleRetrohunt#timeouts}
+        :param instance: The unique identifier for the Chronicle instance, which is the same as the customer ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_chronicle_retrohunt#instance GoogleChronicleRetrohunt#instance}
+        :param location: The location of the resource. This is the geographical region where the Chronicle instance resides, such as "us" or "europe-west2". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_chronicle_retrohunt#location GoogleChronicleRetrohunt#location}
+        :param process_interval: process_interval block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_chronicle_retrohunt#process_interval GoogleChronicleRetrohunt#process_interval}
+        :param rule: The Rule ID of the rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_chronicle_retrohunt#rule GoogleChronicleRetrohunt#rule}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_chronicle_retrohunt#id GoogleChronicleRetrohunt#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_chronicle_retrohunt#project GoogleChronicleRetrohunt#project}.
+        :param retrohunt: The retrohunt ID of the Retrohunt. A retrohunt is an execution of a Rule over a time range in the past. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_chronicle_retrohunt#retrohunt GoogleChronicleRetrohunt#retrohunt}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_chronicle_retrohunt#timeouts GoogleChronicleRetrohunt#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class GoogleChronicleRetrohunt(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleChronicleRetrohunt to import.
-        :param import_from_id: The id of the existing GoogleChronicleRetrohunt that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_chronicle_retrohunt#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleChronicleRetrohunt that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_chronicle_retrohunt#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleChronicleRetrohunt to import is found.
         '''
         if __debug__:
@@ -143,8 +143,8 @@ class GoogleChronicleRetrohunt(
         start_time: builtins.str,
     ) -> None:
         '''
-        :param end_time: Exclusive end of the interval. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_chronicle_retrohunt#end_time GoogleChronicleRetrohunt#end_time}
-        :param start_time: Inclusive start of the interval. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_chronicle_retrohunt#start_time GoogleChronicleRetrohunt#start_time}
+        :param end_time: Exclusive end of the interval. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_chronicle_retrohunt#end_time GoogleChronicleRetrohunt#end_time}
+        :param start_time: Inclusive start of the interval. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_chronicle_retrohunt#start_time GoogleChronicleRetrohunt#start_time}
         '''
         value = GoogleChronicleRetrohuntProcessInterval(
             end_time=end_time, start_time=start_time
@@ -160,8 +160,8 @@ class GoogleChronicleRetrohunt(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_chronicle_retrohunt#create GoogleChronicleRetrohunt#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_chronicle_retrohunt#delete GoogleChronicleRetrohunt#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_chronicle_retrohunt#create GoogleChronicleRetrohunt#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_chronicle_retrohunt#delete GoogleChronicleRetrohunt#delete}.
         '''
         value = GoogleChronicleRetrohuntTimeouts(create=create, delete=delete)
 
@@ -394,14 +394,14 @@ class GoogleChronicleRetrohuntConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param instance: The unique identifier for the Chronicle instance, which is the same as the customer ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_chronicle_retrohunt#instance GoogleChronicleRetrohunt#instance}
-        :param location: The location of the resource. This is the geographical region where the Chronicle instance resides, such as "us" or "europe-west2". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_chronicle_retrohunt#location GoogleChronicleRetrohunt#location}
-        :param process_interval: process_interval block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_chronicle_retrohunt#process_interval GoogleChronicleRetrohunt#process_interval}
-        :param rule: The Rule ID of the rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_chronicle_retrohunt#rule GoogleChronicleRetrohunt#rule}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_chronicle_retrohunt#id GoogleChronicleRetrohunt#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_chronicle_retrohunt#project GoogleChronicleRetrohunt#project}.
-        :param retrohunt: The retrohunt ID of the Retrohunt. A retrohunt is an execution of a Rule over a time range in the past. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_chronicle_retrohunt#retrohunt GoogleChronicleRetrohunt#retrohunt}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_chronicle_retrohunt#timeouts GoogleChronicleRetrohunt#timeouts}
+        :param instance: The unique identifier for the Chronicle instance, which is the same as the customer ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_chronicle_retrohunt#instance GoogleChronicleRetrohunt#instance}
+        :param location: The location of the resource. This is the geographical region where the Chronicle instance resides, such as "us" or "europe-west2". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_chronicle_retrohunt#location GoogleChronicleRetrohunt#location}
+        :param process_interval: process_interval block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_chronicle_retrohunt#process_interval GoogleChronicleRetrohunt#process_interval}
+        :param rule: The Rule ID of the rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_chronicle_retrohunt#rule GoogleChronicleRetrohunt#rule}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_chronicle_retrohunt#id GoogleChronicleRetrohunt#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_chronicle_retrohunt#project GoogleChronicleRetrohunt#project}.
+        :param retrohunt: The retrohunt ID of the Retrohunt. A retrohunt is an execution of a Rule over a time range in the past. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_chronicle_retrohunt#retrohunt GoogleChronicleRetrohunt#retrohunt}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_chronicle_retrohunt#timeouts GoogleChronicleRetrohunt#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -523,7 +523,7 @@ class GoogleChronicleRetrohuntConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def instance(self) -> builtins.str:
         '''The unique identifier for the Chronicle instance, which is the same as the customer ID.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_chronicle_retrohunt#instance GoogleChronicleRetrohunt#instance}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_chronicle_retrohunt#instance GoogleChronicleRetrohunt#instance}
         '''
         result = self._values.get("instance")
         assert result is not None, "Required property 'instance' is missing"
@@ -535,7 +535,7 @@ class GoogleChronicleRetrohuntConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This is the geographical region where the Chronicle instance resides, such as "us" or "europe-west2".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_chronicle_retrohunt#location GoogleChronicleRetrohunt#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_chronicle_retrohunt#location GoogleChronicleRetrohunt#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -545,7 +545,7 @@ class GoogleChronicleRetrohuntConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def process_interval(self) -> "GoogleChronicleRetrohuntProcessInterval":
         '''process_interval block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_chronicle_retrohunt#process_interval GoogleChronicleRetrohunt#process_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_chronicle_retrohunt#process_interval GoogleChronicleRetrohunt#process_interval}
         '''
         result = self._values.get("process_interval")
         assert result is not None, "Required property 'process_interval' is missing"
@@ -555,7 +555,7 @@ class GoogleChronicleRetrohuntConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def rule(self) -> builtins.str:
         '''The Rule ID of the rule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_chronicle_retrohunt#rule GoogleChronicleRetrohunt#rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_chronicle_retrohunt#rule GoogleChronicleRetrohunt#rule}
         '''
         result = self._values.get("rule")
         assert result is not None, "Required property 'rule' is missing"
@@ -563,7 +563,7 @@ class GoogleChronicleRetrohuntConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_chronicle_retrohunt#id GoogleChronicleRetrohunt#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_chronicle_retrohunt#id GoogleChronicleRetrohunt#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -573,7 +573,7 @@ class GoogleChronicleRetrohuntConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_chronicle_retrohunt#project GoogleChronicleRetrohunt#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_chronicle_retrohunt#project GoogleChronicleRetrohunt#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -583,7 +583,7 @@ class GoogleChronicleRetrohuntConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         A retrohunt is an execution of a Rule over a time range in the past.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_chronicle_retrohunt#retrohunt GoogleChronicleRetrohunt#retrohunt}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_chronicle_retrohunt#retrohunt GoogleChronicleRetrohunt#retrohunt}
         '''
         result = self._values.get("retrohunt")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -592,7 +592,7 @@ class GoogleChronicleRetrohuntConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleChronicleRetrohuntTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_chronicle_retrohunt#timeouts GoogleChronicleRetrohunt#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_chronicle_retrohunt#timeouts GoogleChronicleRetrohunt#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleChronicleRetrohuntTimeouts"], result)
@@ -768,8 +768,8 @@ class GoogleChronicleRetrohuntExecutionIntervalOutputReference(
 class GoogleChronicleRetrohuntProcessInterval:
     def __init__(self, *, end_time: builtins.str, start_time: builtins.str) -> None:
         '''
-        :param end_time: Exclusive end of the interval. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_chronicle_retrohunt#end_time GoogleChronicleRetrohunt#end_time}
-        :param start_time: Inclusive start of the interval. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_chronicle_retrohunt#start_time GoogleChronicleRetrohunt#start_time}
+        :param end_time: Exclusive end of the interval. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_chronicle_retrohunt#end_time GoogleChronicleRetrohunt#end_time}
+        :param start_time: Inclusive start of the interval. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_chronicle_retrohunt#start_time GoogleChronicleRetrohunt#start_time}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__66177b69872cd2c3a7b5f584de0e630103ba9316712b03b1430c6287c104f82f)
@@ -784,7 +784,7 @@ class GoogleChronicleRetrohuntProcessInterval:
     def end_time(self) -> builtins.str:
         '''Exclusive end of the interval.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_chronicle_retrohunt#end_time GoogleChronicleRetrohunt#end_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_chronicle_retrohunt#end_time GoogleChronicleRetrohunt#end_time}
         '''
         result = self._values.get("end_time")
         assert result is not None, "Required property 'end_time' is missing"
@@ -794,7 +794,7 @@ class GoogleChronicleRetrohuntProcessInterval:
     def start_time(self) -> builtins.str:
         '''Inclusive start of the interval.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_chronicle_retrohunt#start_time GoogleChronicleRetrohunt#start_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_chronicle_retrohunt#start_time GoogleChronicleRetrohunt#start_time}
         '''
         result = self._values.get("start_time")
         assert result is not None, "Required property 'start_time' is missing"
@@ -897,8 +897,8 @@ class GoogleChronicleRetrohuntTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_chronicle_retrohunt#create GoogleChronicleRetrohunt#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_chronicle_retrohunt#delete GoogleChronicleRetrohunt#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_chronicle_retrohunt#create GoogleChronicleRetrohunt#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_chronicle_retrohunt#delete GoogleChronicleRetrohunt#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5cfe583bd8263ca3ebc0d00ba53a687f81782714bdb144e36b1ecfa065c94393)
@@ -912,13 +912,13 @@ class GoogleChronicleRetrohuntTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_chronicle_retrohunt#create GoogleChronicleRetrohunt#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_chronicle_retrohunt#create GoogleChronicleRetrohunt#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_chronicle_retrohunt#delete GoogleChronicleRetrohunt#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_chronicle_retrohunt#delete GoogleChronicleRetrohunt#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

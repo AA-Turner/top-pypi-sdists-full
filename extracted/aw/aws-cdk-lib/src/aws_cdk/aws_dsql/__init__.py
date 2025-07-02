@@ -130,6 +130,7 @@ class CfnCluster(
         
         cfn_cluster = dsql.CfnCluster(self, "MyCfnCluster",
             deletion_protection_enabled=False,
+            kms_encryption_key="kmsEncryptionKey",
             multi_region_properties=dsql.CfnCluster.MultiRegionPropertiesProperty(
                 clusters=["clusters"],
                 witness_region="witnessRegion"
@@ -147,6 +148,7 @@ class CfnCluster(
         id: builtins.str,
         *,
         deletion_protection_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        kms_encryption_key: typing.Optional[builtins.str] = None,
         multi_region_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.MultiRegionPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -154,6 +156,7 @@ class CfnCluster(
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param deletion_protection_enabled: Whether deletion protection is enabled on this cluster.
+        :param kms_encryption_key: The KMS key that encrypts data on the cluster.
         :param multi_region_properties: Defines the structure for multi-Region cluster configurations, containing the witness Region and peered cluster settings.
         :param tags: A map of key and value pairs this cluster is tagged with.
         '''
@@ -163,6 +166,7 @@ class CfnCluster(
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnClusterProps(
             deletion_protection_enabled=deletion_protection_enabled,
+            kms_encryption_key=kms_encryption_key,
             multi_region_properties=multi_region_properties,
             tags=tags,
         )
@@ -207,6 +211,15 @@ class CfnCluster(
         :cloudformationAttribute: CreationTime
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrCreationTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrEncryptionDetails")
+    def attr_encryption_details(self) -> _IResolvable_da3f097b:
+        '''The encryption configuration details for the cluster.
+
+        :cloudformationAttribute: EncryptionDetails
+        '''
+        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrEncryptionDetails"))
 
     @builtins.property
     @jsii.member(jsii_name="attrIdentifier")
@@ -286,6 +299,19 @@ class CfnCluster(
         jsii.set(self, "deletionProtectionEnabled", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="kmsEncryptionKey")
+    def kms_encryption_key(self) -> typing.Optional[builtins.str]:
+        '''The KMS key that encrypts data on the cluster.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsEncryptionKey"))
+
+    @kms_encryption_key.setter
+    def kms_encryption_key(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8ae716ffcdd031c28de520d863a21a8cc04056fe6c3c1a6e658dd02ea3bae8eb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "kmsEncryptionKey", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="multiRegionProperties")
     def multi_region_properties(
         self,
@@ -315,6 +341,95 @@ class CfnCluster(
             type_hints = typing.get_type_hints(_typecheckingstub__c9eb2f89b2e4104fba43d8d14808715e2f3435951317df69258fecf9b606d598)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dsql.CfnCluster.EncryptionDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "encryption_status": "encryptionStatus",
+            "encryption_type": "encryptionType",
+            "kms_key_arn": "kmsKeyArn",
+        },
+    )
+    class EncryptionDetailsProperty:
+        def __init__(
+            self,
+            *,
+            encryption_status: typing.Optional[builtins.str] = None,
+            encryption_type: typing.Optional[builtins.str] = None,
+            kms_key_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Configuration details about encryption for the cluster including the AWS KMS key ARN, encryption type, and encryption status.
+
+            :param encryption_status: The status of encryption for the cluster.
+            :param encryption_type: The type of encryption that protects the data on your cluster.
+            :param kms_key_arn: The ARN of the AWS KMS key that encrypts data in the cluster.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dsql-cluster-encryptiondetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dsql as dsql
+                
+                encryption_details_property = dsql.CfnCluster.EncryptionDetailsProperty(
+                    encryption_status="encryptionStatus",
+                    encryption_type="encryptionType",
+                    kms_key_arn="kmsKeyArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__dd4156a8f1ca33d4dc585a1af5623fff8b945e08734aa29b92ad1fc93a6bccd0)
+                check_type(argname="argument encryption_status", value=encryption_status, expected_type=type_hints["encryption_status"])
+                check_type(argname="argument encryption_type", value=encryption_type, expected_type=type_hints["encryption_type"])
+                check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if encryption_status is not None:
+                self._values["encryption_status"] = encryption_status
+            if encryption_type is not None:
+                self._values["encryption_type"] = encryption_type
+            if kms_key_arn is not None:
+                self._values["kms_key_arn"] = kms_key_arn
+
+        @builtins.property
+        def encryption_status(self) -> typing.Optional[builtins.str]:
+            '''The status of encryption for the cluster.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dsql-cluster-encryptiondetails.html#cfn-dsql-cluster-encryptiondetails-encryptionstatus
+            '''
+            result = self._values.get("encryption_status")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def encryption_type(self) -> typing.Optional[builtins.str]:
+            '''The type of encryption that protects the data on your cluster.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dsql-cluster-encryptiondetails.html#cfn-dsql-cluster-encryptiondetails-encryptiontype
+            '''
+            result = self._values.get("encryption_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def kms_key_arn(self) -> typing.Optional[builtins.str]:
+            '''The ARN of the AWS KMS key that encrypts data in the cluster.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dsql-cluster-encryptiondetails.html#cfn-dsql-cluster-encryptiondetails-kmskeyarn
+            '''
+            result = self._values.get("kms_key_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EncryptionDetailsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_dsql.CfnCluster.MultiRegionPropertiesProperty",
@@ -396,6 +511,7 @@ class CfnCluster(
     jsii_struct_bases=[],
     name_mapping={
         "deletion_protection_enabled": "deletionProtectionEnabled",
+        "kms_encryption_key": "kmsEncryptionKey",
         "multi_region_properties": "multiRegionProperties",
         "tags": "tags",
     },
@@ -405,12 +521,14 @@ class CfnClusterProps:
         self,
         *,
         deletion_protection_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        kms_encryption_key: typing.Optional[builtins.str] = None,
         multi_region_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.MultiRegionPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnCluster``.
 
         :param deletion_protection_enabled: Whether deletion protection is enabled on this cluster.
+        :param kms_encryption_key: The KMS key that encrypts data on the cluster.
         :param multi_region_properties: Defines the structure for multi-Region cluster configurations, containing the witness Region and peered cluster settings.
         :param tags: A map of key and value pairs this cluster is tagged with.
 
@@ -425,6 +543,7 @@ class CfnClusterProps:
             
             cfn_cluster_props = dsql.CfnClusterProps(
                 deletion_protection_enabled=False,
+                kms_encryption_key="kmsEncryptionKey",
                 multi_region_properties=dsql.CfnCluster.MultiRegionPropertiesProperty(
                     clusters=["clusters"],
                     witness_region="witnessRegion"
@@ -438,11 +557,14 @@ class CfnClusterProps:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c99b78beafe41f2e25cbcc0b8a8aff58ff66a77464bef06dbf9128ff75ebd08c)
             check_type(argname="argument deletion_protection_enabled", value=deletion_protection_enabled, expected_type=type_hints["deletion_protection_enabled"])
+            check_type(argname="argument kms_encryption_key", value=kms_encryption_key, expected_type=type_hints["kms_encryption_key"])
             check_type(argname="argument multi_region_properties", value=multi_region_properties, expected_type=type_hints["multi_region_properties"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if deletion_protection_enabled is not None:
             self._values["deletion_protection_enabled"] = deletion_protection_enabled
+        if kms_encryption_key is not None:
+            self._values["kms_encryption_key"] = kms_encryption_key
         if multi_region_properties is not None:
             self._values["multi_region_properties"] = multi_region_properties
         if tags is not None:
@@ -458,6 +580,15 @@ class CfnClusterProps:
         '''
         result = self._values.get("deletion_protection_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def kms_encryption_key(self) -> typing.Optional[builtins.str]:
+        '''The KMS key that encrypts data on the cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dsql-cluster.html#cfn-dsql-cluster-kmsencryptionkey
+        '''
+        result = self._values.get("kms_encryption_key")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def multi_region_properties(
@@ -503,6 +634,7 @@ def _typecheckingstub__b82b76673b1942e60f823768c857e13a61b0491cdd1ca21c1f2a574e9
     id: builtins.str,
     *,
     deletion_protection_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    kms_encryption_key: typing.Optional[builtins.str] = None,
     multi_region_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.MultiRegionPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -527,6 +659,12 @@ def _typecheckingstub__393f500a888707295be5db6ececab65a69f1c1889e02c7043d1d8ad0e
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__8ae716ffcdd031c28de520d863a21a8cc04056fe6c3c1a6e658dd02ea3bae8eb(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__d1cd42de6387e3057eda85830c6674c4cac74a5be160e21869cc4c1b3274381c(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCluster.MultiRegionPropertiesProperty]],
 ) -> None:
@@ -535,6 +673,15 @@ def _typecheckingstub__d1cd42de6387e3057eda85830c6674c4cac74a5be160e21869cc4c1b3
 
 def _typecheckingstub__c9eb2f89b2e4104fba43d8d14808715e2f3435951317df69258fecf9b606d598(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dd4156a8f1ca33d4dc585a1af5623fff8b945e08734aa29b92ad1fc93a6bccd0(
+    *,
+    encryption_status: typing.Optional[builtins.str] = None,
+    encryption_type: typing.Optional[builtins.str] = None,
+    kms_key_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -550,6 +697,7 @@ def _typecheckingstub__b9a11b947e8fa036630c80e949e1619ff609036ee5de58658c8157988
 def _typecheckingstub__c99b78beafe41f2e25cbcc0b8a8aff58ff66a77464bef06dbf9128ff75ebd08c(
     *,
     deletion_protection_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    kms_encryption_key: typing.Optional[builtins.str] = None,
     multi_region_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.MultiRegionPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:

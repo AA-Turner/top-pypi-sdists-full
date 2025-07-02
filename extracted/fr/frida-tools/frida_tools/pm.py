@@ -45,35 +45,62 @@ class PackageManagerApplication(ConsoleApplication):
             "--registry",
             metavar="HOST",
             default=None,
-            help=f"Package registry to use (default: {default_registry})",
+            help=f"package registry to use (default: {default_registry})",
         )
 
         sub = parser.add_subparsers(dest="command", metavar="<command>", required=True)
 
-        search_p = sub.add_parser("search", help="Search for packages")
-        search_p.add_argument("query", nargs="?", default="", help="Search string, e.g. 'trace'")
-        search_p.add_argument("--offset", type=int, metavar="N", help="Result offset")
-        search_p.add_argument("--limit", type=int, metavar="N", help="Max results")
+        search_p = sub.add_parser("search", help="search for packages")
+        search_p.add_argument("query", nargs="?", default="", help="search string, e.g. 'trace'")
+        search_p.add_argument("--offset", type=int, metavar="N", help="result offset")
+        search_p.add_argument("--limit", type=int, metavar="N", help="max results")
         search_p.add_argument(
             "--json",
             action="store_true",
-            help="Emit raw JSON instead of a table",
+            help="emit raw JSON instead of a table",
         )
 
-        install_p = sub.add_parser("install", help="Install one or more packages")
+        install_p = sub.add_parser("install", help="install one or more packages")
         install_p.add_argument(
             "specs",
             nargs="*",
             metavar="SPEC",
-            help="Package spec, e.g. 'frida-objc-bridge@^8.0.5' or 'frida-il2cpp-bridge'",
+            help="package spec, e.g. 'frida-objc-bridge@^8.0.5' or 'frida-il2cpp-bridge'",
         )
         install_p.add_argument(
             "--project-root",
             default=os.getcwd(),
             metavar="DIR",
-            help="Directory that will receive node_modules (default: CWD)",
+            help="directory that will receive node_modules (default: CWD)",
         )
-        install_p.add_argument("--quiet", action="store_true", help="Suppress the progress bar")
+        role_group = install_p.add_mutually_exclusive_group()
+        role_group.add_argument(
+            "-P",
+            "--save-prod",
+            action="store_const",
+            const="runtime",
+            dest="role",
+            help="save as production dependencies (default)",
+        )
+        role_group.add_argument(
+            "-D",
+            "--save-dev",
+            action="store_const",
+            const="development",
+            dest="role",
+            help="save as development dependencies",
+        )
+        role_group.add_argument(
+            "--save-optional", action="store_const", const="optional", dest="role", help="save as optional dependencies"
+        )
+        install_p.add_argument(
+            "--omit",
+            help="dependency types to skip",
+            choices=["dev", "optional", "peer"],
+            dest="omits",
+            action="append",
+        )
+        install_p.add_argument("--quiet", action="store_true", help="suppress the progress bar")
 
     def _initialize(
         self,
@@ -190,13 +217,16 @@ class PackageManagerApplication(ConsoleApplication):
 
     def _cmd_install(self) -> None:
         pm = self._pm
+        normalized_omits = self._normalize_omits(self._opts.omits)
 
         interactive = self._have_terminal and not self._plain_terminal
 
         if self._opts.quiet or not interactive:
             result = pm.install(
                 project_root=self._opts.project_root,
+                role=self._opts.role,
                 specs=self._opts.specs,
+                omits=normalized_omits,
             )
         else:
             BAR_LEN = 30
@@ -253,7 +283,9 @@ class PackageManagerApplication(ConsoleApplication):
             try:
                 result = pm.install(
                     project_root=self._opts.project_root,
+                    role=self._opts.role,
                     specs=self._opts.specs,
+                    omits=normalized_omits,
                 )
             finally:
                 pm.off("install-progress", render)
@@ -273,6 +305,17 @@ class PackageManagerApplication(ConsoleApplication):
             print(f"\n{n} {package_or_packages} installed into {os.path.abspath(self._opts.project_root)}")
         else:
             print("✔ up to date")
+
+    def _normalize_omits(self, omits: Optional[List[str]]) -> Optional[List[str]]:
+        if not omits:
+            return omits
+        normalized = []
+        for omit in omits:
+            if omit == "dev":
+                normalized.append("development")
+            else:
+                normalized.append(omit)
+        return normalized
 
 
 def plural(n: int, word: str) -> str:

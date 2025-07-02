@@ -1,7 +1,7 @@
 r'''
 # `azurerm_shared_image_gallery`
 
-Refer to the Terraform Registry for docs: [`azurerm_shared_image_gallery`](https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery).
+Refer to the Terraform Registry for docs: [`azurerm_shared_image_gallery`](https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SharedImageGallery(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.sharedImageGallery.SharedImageGallery",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery azurerm_shared_image_gallery}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery azurerm_shared_image_gallery}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class SharedImageGallery(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery azurerm_shared_image_gallery} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery azurerm_shared_image_gallery} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#location SharedImageGallery#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#name SharedImageGallery#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#resource_group_name SharedImageGallery#resource_group_name}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#description SharedImageGallery#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#id SharedImageGallery#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param sharing: sharing block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#sharing SharedImageGallery#sharing}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#tags SharedImageGallery#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#timeouts SharedImageGallery#timeouts}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#location SharedImageGallery#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#name SharedImageGallery#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#resource_group_name SharedImageGallery#resource_group_name}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#description SharedImageGallery#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#id SharedImageGallery#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param sharing: sharing block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#sharing SharedImageGallery#sharing}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#tags SharedImageGallery#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#timeouts SharedImageGallery#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class SharedImageGallery(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SharedImageGallery to import.
-        :param import_from_id: The id of the existing SharedImageGallery that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SharedImageGallery that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SharedImageGallery to import is found.
         '''
         if __debug__:
@@ -143,8 +143,8 @@ class SharedImageGallery(
         community_gallery: typing.Optional[typing.Union["SharedImageGallerySharingCommunityGallery", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param permission: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#permission SharedImageGallery#permission}.
-        :param community_gallery: community_gallery block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#community_gallery SharedImageGallery#community_gallery}
+        :param permission: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#permission SharedImageGallery#permission}.
+        :param community_gallery: community_gallery block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#community_gallery SharedImageGallery#community_gallery}
         '''
         value = SharedImageGallerySharing(
             permission=permission, community_gallery=community_gallery
@@ -162,10 +162,10 @@ class SharedImageGallery(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#create SharedImageGallery#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#delete SharedImageGallery#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#read SharedImageGallery#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#update SharedImageGallery#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#create SharedImageGallery#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#delete SharedImageGallery#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#read SharedImageGallery#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#update SharedImageGallery#update}.
         '''
         value = SharedImageGalleryTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -385,14 +385,14 @@ class SharedImageGalleryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#location SharedImageGallery#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#name SharedImageGallery#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#resource_group_name SharedImageGallery#resource_group_name}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#description SharedImageGallery#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#id SharedImageGallery#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param sharing: sharing block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#sharing SharedImageGallery#sharing}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#tags SharedImageGallery#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#timeouts SharedImageGallery#timeouts}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#location SharedImageGallery#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#name SharedImageGallery#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#resource_group_name SharedImageGallery#resource_group_name}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#description SharedImageGallery#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#id SharedImageGallery#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param sharing: sharing block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#sharing SharedImageGallery#sharing}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#tags SharedImageGallery#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#timeouts SharedImageGallery#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -513,34 +513,34 @@ class SharedImageGalleryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#location SharedImageGallery#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#location SharedImageGallery#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#name SharedImageGallery#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#name SharedImageGallery#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#resource_group_name SharedImageGallery#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#resource_group_name SharedImageGallery#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#description SharedImageGallery#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#description SharedImageGallery#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#id SharedImageGallery#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#id SharedImageGallery#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -552,14 +552,14 @@ class SharedImageGalleryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def sharing(self) -> typing.Optional["SharedImageGallerySharing"]:
         '''sharing block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#sharing SharedImageGallery#sharing}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#sharing SharedImageGallery#sharing}
         '''
         result = self._values.get("sharing")
         return typing.cast(typing.Optional["SharedImageGallerySharing"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#tags SharedImageGallery#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#tags SharedImageGallery#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -567,7 +567,7 @@ class SharedImageGalleryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["SharedImageGalleryTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#timeouts SharedImageGallery#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#timeouts SharedImageGallery#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["SharedImageGalleryTimeouts"], result)
@@ -597,8 +597,8 @@ class SharedImageGallerySharing:
         community_gallery: typing.Optional[typing.Union["SharedImageGallerySharingCommunityGallery", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param permission: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#permission SharedImageGallery#permission}.
-        :param community_gallery: community_gallery block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#community_gallery SharedImageGallery#community_gallery}
+        :param permission: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#permission SharedImageGallery#permission}.
+        :param community_gallery: community_gallery block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#community_gallery SharedImageGallery#community_gallery}
         '''
         if isinstance(community_gallery, dict):
             community_gallery = SharedImageGallerySharingCommunityGallery(**community_gallery)
@@ -614,7 +614,7 @@ class SharedImageGallerySharing:
 
     @builtins.property
     def permission(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#permission SharedImageGallery#permission}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#permission SharedImageGallery#permission}.'''
         result = self._values.get("permission")
         assert result is not None, "Required property 'permission' is missing"
         return typing.cast(builtins.str, result)
@@ -625,7 +625,7 @@ class SharedImageGallerySharing:
     ) -> typing.Optional["SharedImageGallerySharingCommunityGallery"]:
         '''community_gallery block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#community_gallery SharedImageGallery#community_gallery}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#community_gallery SharedImageGallery#community_gallery}
         '''
         result = self._values.get("community_gallery")
         return typing.cast(typing.Optional["SharedImageGallerySharingCommunityGallery"], result)
@@ -662,10 +662,10 @@ class SharedImageGallerySharingCommunityGallery:
         publisher_uri: builtins.str,
     ) -> None:
         '''
-        :param eula: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#eula SharedImageGallery#eula}.
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#prefix SharedImageGallery#prefix}.
-        :param publisher_email: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#publisher_email SharedImageGallery#publisher_email}.
-        :param publisher_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#publisher_uri SharedImageGallery#publisher_uri}.
+        :param eula: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#eula SharedImageGallery#eula}.
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#prefix SharedImageGallery#prefix}.
+        :param publisher_email: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#publisher_email SharedImageGallery#publisher_email}.
+        :param publisher_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#publisher_uri SharedImageGallery#publisher_uri}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__771619a1d6e2528afc2cb132573ec09bad6dcec5714ee70ab74c9bc6ab19b108)
@@ -682,28 +682,28 @@ class SharedImageGallerySharingCommunityGallery:
 
     @builtins.property
     def eula(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#eula SharedImageGallery#eula}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#eula SharedImageGallery#eula}.'''
         result = self._values.get("eula")
         assert result is not None, "Required property 'eula' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def prefix(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#prefix SharedImageGallery#prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#prefix SharedImageGallery#prefix}.'''
         result = self._values.get("prefix")
         assert result is not None, "Required property 'prefix' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def publisher_email(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#publisher_email SharedImageGallery#publisher_email}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#publisher_email SharedImageGallery#publisher_email}.'''
         result = self._values.get("publisher_email")
         assert result is not None, "Required property 'publisher_email' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def publisher_uri(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#publisher_uri SharedImageGallery#publisher_uri}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#publisher_uri SharedImageGallery#publisher_uri}.'''
         result = self._values.get("publisher_uri")
         assert result is not None, "Required property 'publisher_uri' is missing"
         return typing.cast(builtins.str, result)
@@ -861,10 +861,10 @@ class SharedImageGallerySharingOutputReference(
         publisher_uri: builtins.str,
     ) -> None:
         '''
-        :param eula: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#eula SharedImageGallery#eula}.
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#prefix SharedImageGallery#prefix}.
-        :param publisher_email: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#publisher_email SharedImageGallery#publisher_email}.
-        :param publisher_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#publisher_uri SharedImageGallery#publisher_uri}.
+        :param eula: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#eula SharedImageGallery#eula}.
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#prefix SharedImageGallery#prefix}.
+        :param publisher_email: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#publisher_email SharedImageGallery#publisher_email}.
+        :param publisher_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#publisher_uri SharedImageGallery#publisher_uri}.
         '''
         value = SharedImageGallerySharingCommunityGallery(
             eula=eula,
@@ -943,10 +943,10 @@ class SharedImageGalleryTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#create SharedImageGallery#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#delete SharedImageGallery#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#read SharedImageGallery#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#update SharedImageGallery#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#create SharedImageGallery#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#delete SharedImageGallery#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#read SharedImageGallery#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#update SharedImageGallery#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b6cb450f8b759d83909ed1eb921e32996de1ea7cc8c7753637e4fedfc9ae859b)
@@ -966,25 +966,25 @@ class SharedImageGalleryTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#create SharedImageGallery#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#create SharedImageGallery#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#delete SharedImageGallery#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#delete SharedImageGallery#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#read SharedImageGallery#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#read SharedImageGallery#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/shared_image_gallery#update SharedImageGallery#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/shared_image_gallery#update SharedImageGallery#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

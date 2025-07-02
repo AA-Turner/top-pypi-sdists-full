@@ -2,7 +2,7 @@
 """
 @Author: HuangJianYi
 @Date: 2021-08-30 09:22:51
-@LastEditTime: 2025-06-30 19:12:20
+@LastEditTime: 2025-07-01 14:11:47
 @LastEditors: HuangJianYi
 @Description: 排队系统帮助类
 """
@@ -189,7 +189,7 @@ class QueueUpHelper:
         """
         invoke_result_data = InvokeResultData()
         try:
-            acquire_lock_name = f"queueup_queue"
+            acquire_lock_name = "queueup_queue"
             if app_id:
                 acquire_lock_name += "_" + str(app_id)
             acquire_lock_name += ":" + str(queue_name)
@@ -202,13 +202,13 @@ class QueueUpHelper:
                 return invoke_result_data
             redis_init = SevenHelper.redis_init()
             if app_limit_user_num > 0 and self._get_app_user_num(app_id) >= app_limit_user_num:
-                SevenHelper.redis_release_lock(acquire_lock_name, identifier)
+                # 防止有些队列，用户排到队之后直接退出，导致没有请求，无法触发自动踢人的清理，需要全应用清理一次，释放异常占用的应用总人数
+                self.muti_expire_user_pop(app_id)
                 invoke_result_data.success = False
                 invoke_result_data.error_code = "total_limit"
                 invoke_result_data.error_message = "抱歉~当前活动排队人数过多，请稍后再试"
                 return invoke_result_data
             if limit_user_queue_num > 0 and QueueUpHelper.get_user_queue_num(app_id, user_id) >= limit_user_queue_num:
-                SevenHelper.redis_release_lock(acquire_lock_name, identifier)
                 invoke_result_data.success = False
                 invoke_result_data.error_code = "user_limit"
                 invoke_result_data.error_message = "抱歉~当前可排队列已达上限，请稍后再试"
@@ -219,7 +219,6 @@ class QueueUpHelper:
             expire_time = 7 * 24 * 3600
             if not redis_init.zscore(zset_name, data):
                 if self._get_queue_num(app_id, queue_name) >= queue_length:
-                    SevenHelper.redis_release_lock(acquire_lock_name, identifier)
                     invoke_result_data.success = False
                     invoke_result_data.error_code = "queue_limit"
                     invoke_result_data.error_message = "排队失败,当前排队人数已达上限"
@@ -265,21 +264,20 @@ class QueueUpHelper:
                 if share_config.get_value("queue_is_log", False):
                     self.add_log(app_id=app_id, queue_name=queue_name, user_id=user_id, operate_type=QueueupOperateType.join.value, remain_time=0, info_json=info_dict)
 
-                SevenHelper.redis_release_lock(acquire_lock_name, identifier)
                 return invoke_result_data
             else:
-                SevenHelper.redis_release_lock(acquire_lock_name, identifier)
                 invoke_result_data.success = False
                 invoke_result_data.error_code = "error"
                 invoke_result_data.error_message = "您已在队列中，请勿重复排队"
                 return invoke_result_data
         except Exception as ex:
             self.logger_error.error("【加入排队】" + traceback.format_exc())
-            SevenHelper.redis_release_lock(acquire_lock_name, identifier)
             invoke_result_data.success = False
             invoke_result_data.error_code = "error"
             invoke_result_data.error_message = "对不起，加入队列失败，请稍后再试"
             return invoke_result_data
+        finally:
+            SevenHelper.redis_release_lock(acquire_lock_name, identifier)
 
     @classmethod
     def _set_last_pop_date(self, app_id, redis_init, hash_key):
@@ -449,6 +447,32 @@ class QueueUpHelper:
                                 self.add_log(app_id=app_id, queue_name=queue_name, user_id=data, operate_type=QueueupOperateType.auto_exit.value, remain_time=0, info_json=hash_value['info_json'])
             except Exception as ex:
                 self.logger_error.error("【删除未操作的排队信息】" + traceback.format_exc())
+
+    @classmethod
+    def muti_expire_user_pop(self, app_id):
+        """
+        :description: 批量踢掉过期用户，防止占用队列和应用总人数
+        :param app_id：应用标识
+        :return: 
+        :last_editors: HuangJianYi
+        """
+        zset_keys = []
+        pattern = f"queueup_zset_{app_id}:*"
+        redis_init = SevenHelper.redis_init()
+        if SevenHelper.is_continue_request(f"muti_expire_user_pop:{app_id}", 1000 * 60) is False:
+            try:
+                cursor = '0'
+                while cursor != 0:
+                    cursor, keys = redis_init.scan(cursor=cursor, match=pattern)
+                    for key in keys:
+                        if redis_init.type(key) == 'zset':  # 检查键类型
+                            zset_keys.append(key)
+                for item in zset_keys:
+                    app_id = str(item.split(':')[0]).replace("queueup_zset_", "")
+                    queue_name = str(item.split(':')[1])
+                    QueueUpHelper.expire_user_pop(app_id, queue_name)
+            except Exception as ex:
+                pass
 
     @classmethod
     def query(self, app_id, queue_name, user_id, is_pop=True):
@@ -757,7 +781,6 @@ class QueueUpHelper:
             if score:
                 queue_index = SevenHelper.to_int(redis_init.zrank(zset_name, data)) + 1  #当前位置
                 if queue_index != 1:
-                    SevenHelper.redis_release_lock(acquire_lock_name, identifier)
                     invoke_result_data.success = False
                     invoke_result_data.error_code = "error"
                     invoke_result_data.error_message = "前面还有人在队列中，请耐心等待"
@@ -770,14 +793,12 @@ class QueueUpHelper:
                 hash_key = f"userid_{data}_queuename_{queue_name}"
                 hash_value = redis_init.hget(hash_name, hash_key)
                 if not hash_value:
-                    SevenHelper.redis_release_lock(acquire_lock_name, identifier)
                     invoke_result_data.success = False
                     invoke_result_data.error_code = "error"
                     invoke_result_data.error_message = "您当前不在队列中，请先排队"
                     return invoke_result_data
                 hash_value = SevenHelper.json_loads(hash_value)
                 if hash_value["progress_status"] == 2:
-                    SevenHelper.redis_release_lock(acquire_lock_name, identifier)
                     invoke_result_data.success = False
                     invoke_result_data.error_code = "error"
                     invoke_result_data.error_message = "您已在队列中，请勿重复排队"
@@ -798,23 +819,23 @@ class QueueUpHelper:
                         hash_value = SevenHelper.json_loads(item[1])
                         if hash_value["queue_name"] == queue_name:
                             continue
-                        self.pop(app_id, hash_value["queue_name"], data)
+                        self.pop(app_id, hash_value["queue_name"], data, False)
                 invoke_result_data.data = hash_value
-                SevenHelper.redis_release_lock(acquire_lock_name, identifier)
                 return invoke_result_data
             else:
-                SevenHelper.redis_release_lock(acquire_lock_name, identifier)
                 invoke_result_data.success = False
                 invoke_result_data.error_code = "error"
                 invoke_result_data.error_message = "您当前不在队列中，请先排队"
                 return invoke_result_data
         except Exception as ex:
             self.logger_error.error("【签到操作】" + traceback.format_exc())
-            SevenHelper.redis_release_lock(acquire_lock_name, identifier)
             invoke_result_data.success = False
             invoke_result_data.error_code = "error"
             invoke_result_data.error_message = "您当前不在队列中，请先排队"
             return invoke_result_data
+        finally:
+            SevenHelper.redis_release_lock(acquire_lock_name, identifier)
+
 
     @classmethod
     def add_log(self, app_id, queue_name, user_id, operate_type, remain_time, info_json={}):

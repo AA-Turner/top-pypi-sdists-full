@@ -113,6 +113,7 @@ class CfnServer(
             preferred_backup_window="preferredBackupWindow",
             preferred_maintenance_window="preferredMaintenanceWindow",
             security_group_ids=["securityGroupIds"],
+            server_name="serverName",
             subnet_ids=["subnetIds"],
             tags=[CfnTag(
                 key="key",
@@ -144,6 +145,7 @@ class CfnServer(
         preferred_backup_window: typing.Optional[builtins.str] = None,
         preferred_maintenance_window: typing.Optional[builtins.str] = None,
         security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        server_name: typing.Optional[builtins.str] = None,
         subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -168,6 +170,7 @@ class CfnServer(
         :param preferred_backup_window: The start time for a one-hour period during which AWS OpsWorks CM backs up application-level data on your server if automated backups are enabled. Valid values must be specified in one of the following formats: - ``HH:MM`` for daily backups - ``DDD:HH:MM`` for weekly backups ``MM`` must be specified as ``00`` . The specified time is in coordinated universal time (UTC). The default value is a random, daily start time. *Example:* ``08:00`` , which represents a daily start time of 08:00 UTC. *Example:* ``Mon:08:00`` , which represents a start time of every Monday at 08:00 UTC. (8:00 a.m.)
         :param preferred_maintenance_window: The start time for a one-hour period each week during which AWS OpsWorks CM performs maintenance on the instance. Valid values must be specified in the following format: ``DDD:HH:MM`` . ``MM`` must be specified as ``00`` . The specified time is in coordinated universal time (UTC). The default value is a random one-hour period on Tuesday, Wednesday, or Friday. See ``TimeWindowDefinition`` for more information. *Example:* ``Mon:08:00`` , which represents a start time of every Monday at 08:00 UTC. (8:00 a.m.)
         :param security_group_ids: A list of security group IDs to attach to the Amazon EC2 instance. If you add this parameter, the specified security groups must be within the VPC that is specified by ``SubnetIds`` . If you do not specify this parameter, AWS OpsWorks CM creates one new security group that uses TCP ports 22 and 443, open to 0.0.0.0/0 (everyone).
+        :param server_name: The name of the server. The server name must be unique within your AWS account, within each region. Server names must start with a letter; then letters, numbers, or hyphens (-) are allowed, up to a maximum of 40 characters.
         :param subnet_ids: The IDs of subnets in which to launch the server EC2 instance. Amazon EC2-Classic customers: This field is required. All servers must run within a VPC. The VPC must have "Auto Assign Public IP" enabled. EC2-VPC customers: This field is optional. If you do not specify subnet IDs, your EC2 instances are created in a default subnet that is selected by Amazon EC2. If you specify subnet IDs, the VPC must have "Auto Assign Public IP" enabled. For more information about supported Amazon EC2 platforms, see `Supported Platforms <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-supported-platforms.html>`_ .
         :param tags: A map that contains tag keys and tag values to attach to an AWS OpsWorks for Chef Automate or OpsWorks for Puppet Enterprise server. - The key cannot be empty. - The key can be a maximum of 127 characters, and can contain only Unicode letters, numbers, or separators, or the following special characters: `+ - = . _ : /
         '''
@@ -194,6 +197,7 @@ class CfnServer(
             preferred_backup_window=preferred_backup_window,
             preferred_maintenance_window=preferred_maintenance_window,
             security_group_ids=security_group_ids,
+            server_name=server_name,
             subnet_ids=subnet_ids,
             tags=tags,
         )
@@ -262,8 +266,7 @@ class CfnServer(
     @builtins.property
     @jsii.member(jsii_name="attrServerName")
     def attr_server_name(self) -> builtins.str:
-        '''The name of the server.
-
+        '''
         :cloudformationAttribute: ServerName
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrServerName"))
@@ -535,6 +538,19 @@ class CfnServer(
         jsii.set(self, "securityGroupIds", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="serverName")
+    def server_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the server.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "serverName"))
+
+    @server_name.setter
+    def server_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0fdc9b0c6ccfb79b318a5321a2bdb7586f084e301b627e9b708804bad96c9238)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "serverName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="subnetIds")
     def subnet_ids(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The IDs of subnets in which to launch the server EC2 instance.'''
@@ -679,6 +695,7 @@ class CfnServer(
         "preferred_backup_window": "preferredBackupWindow",
         "preferred_maintenance_window": "preferredMaintenanceWindow",
         "security_group_ids": "securityGroupIds",
+        "server_name": "serverName",
         "subnet_ids": "subnetIds",
         "tags": "tags",
     },
@@ -705,6 +722,7 @@ class CfnServerProps:
         preferred_backup_window: typing.Optional[builtins.str] = None,
         preferred_maintenance_window: typing.Optional[builtins.str] = None,
         security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        server_name: typing.Optional[builtins.str] = None,
         subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -728,6 +746,7 @@ class CfnServerProps:
         :param preferred_backup_window: The start time for a one-hour period during which AWS OpsWorks CM backs up application-level data on your server if automated backups are enabled. Valid values must be specified in one of the following formats: - ``HH:MM`` for daily backups - ``DDD:HH:MM`` for weekly backups ``MM`` must be specified as ``00`` . The specified time is in coordinated universal time (UTC). The default value is a random, daily start time. *Example:* ``08:00`` , which represents a daily start time of 08:00 UTC. *Example:* ``Mon:08:00`` , which represents a start time of every Monday at 08:00 UTC. (8:00 a.m.)
         :param preferred_maintenance_window: The start time for a one-hour period each week during which AWS OpsWorks CM performs maintenance on the instance. Valid values must be specified in the following format: ``DDD:HH:MM`` . ``MM`` must be specified as ``00`` . The specified time is in coordinated universal time (UTC). The default value is a random one-hour period on Tuesday, Wednesday, or Friday. See ``TimeWindowDefinition`` for more information. *Example:* ``Mon:08:00`` , which represents a start time of every Monday at 08:00 UTC. (8:00 a.m.)
         :param security_group_ids: A list of security group IDs to attach to the Amazon EC2 instance. If you add this parameter, the specified security groups must be within the VPC that is specified by ``SubnetIds`` . If you do not specify this parameter, AWS OpsWorks CM creates one new security group that uses TCP ports 22 and 443, open to 0.0.0.0/0 (everyone).
+        :param server_name: The name of the server. The server name must be unique within your AWS account, within each region. Server names must start with a letter; then letters, numbers, or hyphens (-) are allowed, up to a maximum of 40 characters.
         :param subnet_ids: The IDs of subnets in which to launch the server EC2 instance. Amazon EC2-Classic customers: This field is required. All servers must run within a VPC. The VPC must have "Auto Assign Public IP" enabled. EC2-VPC customers: This field is optional. If you do not specify subnet IDs, your EC2 instances are created in a default subnet that is selected by Amazon EC2. If you specify subnet IDs, the VPC must have "Auto Assign Public IP" enabled. For more information about supported Amazon EC2 platforms, see `Supported Platforms <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-supported-platforms.html>`_ .
         :param tags: A map that contains tag keys and tag values to attach to an AWS OpsWorks for Chef Automate or OpsWorks for Puppet Enterprise server. - The key cannot be empty. - The key can be a maximum of 127 characters, and can contain only Unicode letters, numbers, or separators, or the following special characters: `+ - = . _ : /
 
@@ -764,6 +783,7 @@ class CfnServerProps:
                 preferred_backup_window="preferredBackupWindow",
                 preferred_maintenance_window="preferredMaintenanceWindow",
                 security_group_ids=["securityGroupIds"],
+                server_name="serverName",
                 subnet_ids=["subnetIds"],
                 tags=[CfnTag(
                     key="key",
@@ -791,6 +811,7 @@ class CfnServerProps:
             check_type(argname="argument preferred_backup_window", value=preferred_backup_window, expected_type=type_hints["preferred_backup_window"])
             check_type(argname="argument preferred_maintenance_window", value=preferred_maintenance_window, expected_type=type_hints["preferred_maintenance_window"])
             check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
+            check_type(argname="argument server_name", value=server_name, expected_type=type_hints["server_name"])
             check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -828,6 +849,8 @@ class CfnServerProps:
             self._values["preferred_maintenance_window"] = preferred_maintenance_window
         if security_group_ids is not None:
             self._values["security_group_ids"] = security_group_ids
+        if server_name is not None:
+            self._values["server_name"] = server_name
         if subnet_ids is not None:
             self._values["subnet_ids"] = subnet_ids
         if tags is not None:
@@ -1057,6 +1080,17 @@ class CfnServerProps:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
+    def server_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the server.
+
+        The server name must be unique within your AWS account, within each region. Server names must start with a letter; then letters, numbers, or hyphens (-) are allowed, up to a maximum of 40 characters.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworkscm-server.html#cfn-opsworkscm-server-servername
+        '''
+        result = self._values.get("server_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def subnet_ids(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The IDs of subnets in which to launch the server EC2 instance.
 
@@ -1131,6 +1165,7 @@ def _typecheckingstub__4fcf3005231c62e7682797d2e25d33ceb0c0b9602a2f2ffe6a7c3dabf
     preferred_backup_window: typing.Optional[builtins.str] = None,
     preferred_maintenance_window: typing.Optional[builtins.str] = None,
     security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    server_name: typing.Optional[builtins.str] = None,
     subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -1257,6 +1292,12 @@ def _typecheckingstub__d7663e937d0fabd66d40de7584fca886669aae87261a418b199493778
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__0fdc9b0c6ccfb79b318a5321a2bdb7586f084e301b627e9b708804bad96c9238(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e6d133d8dd209b40a7f4c3900293e312fe8b95abc9cfff43e88a6fd1608b595b(
     value: typing.Optional[typing.List[builtins.str]],
 ) -> None:
@@ -1297,6 +1338,7 @@ def _typecheckingstub__6f3d9a63c768f1a40206835320dfa128b267da1fa702fbb4ecd8ac94b
     preferred_backup_window: typing.Optional[builtins.str] = None,
     preferred_maintenance_window: typing.Optional[builtins.str] = None,
     security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    server_name: typing.Optional[builtins.str] = None,
     subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:

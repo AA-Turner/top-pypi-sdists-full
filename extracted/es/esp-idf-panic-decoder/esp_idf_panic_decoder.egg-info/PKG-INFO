@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: esp_idf_panic_decoder
-Version: 1.4.0
+Version: 1.4.1
 Summary: ESP-IDF panic decoder
 Author: Espressif Systems
 License:                                  Apache License

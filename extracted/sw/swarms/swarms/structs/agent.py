@@ -56,7 +56,6 @@ from swarms.tools.base_tool import BaseTool
 from swarms.tools.py_func_to_openai_func_str import (
     convert_multiple_functions_to_openai_function_schema,
 )
-from swarms.utils.any_to_str import any_to_str
 from swarms.utils.data_to_text import data_to_text
 from swarms.utils.file_processing import create_file_in_folder
 from swarms.utils.formatter import formatter
@@ -288,6 +287,11 @@ class Agent:
     >>> print(response)
     >>> # Generate a report on the financials.
 
+    >>> # Real-time streaming example
+    >>> agent = Agent(llm=llm, max_loops=1, streaming_on=True)
+    >>> response = agent.run("Tell me a long story.")  # Will stream in real-time
+    >>> print(response)  # Final complete response
+
     """
 
     def __init__(
@@ -404,7 +408,7 @@ class Agent:
         llm_args: dict = None,
         load_state_path: str = None,
         role: agent_roles = "worker",
-        no_print: bool = False,
+        print_on: bool = True,
         tools_list_dictionary: Optional[List[Dict[str, Any]]] = None,
         mcp_url: Optional[Union[str, MCPConnection]] = None,
         mcp_urls: List[str] = None,
@@ -420,6 +424,7 @@ class Agent:
         rag_config: Optional[RAGConfig] = None,
         tool_call_summary: bool = True,
         output_raw_json_from_tool_call: bool = False,
+        summarize_multiple_images: bool = False,
         *args,
         **kwargs,
     ):
@@ -540,7 +545,7 @@ class Agent:
         self.llm_args = llm_args
         self.load_state_path = load_state_path
         self.role = role
-        self.no_print = no_print
+        self.print_on = print_on
         self.tools_list_dictionary = tools_list_dictionary
         self.mcp_url = mcp_url
         self.mcp_urls = mcp_urls
@@ -558,6 +563,7 @@ class Agent:
         self.output_raw_json_from_tool_call = (
             output_raw_json_from_tool_call
         )
+        self.summarize_multiple_images = summarize_multiple_images
 
         # self.short_memory = self.short_memory_init()
 
@@ -630,16 +636,20 @@ class Agent:
         )
 
         self.short_memory.add(
-            role=f"{self.agent_name}",
+            role=self.agent_name,
             content=self.tools_list_dictionary,
         )
 
     def short_memory_init(self):
-        if (
-            self.agent_name is not None
-            or self.agent_description is not None
-        ):
-            prompt = f"\n Your Name: {self.agent_name} \n\n Your Description: {self.agent_description} \n\n {self.system_prompt}"
+        prompt = ""
+
+        # Add agent name, description, and instructions to the prompt
+        if self.agent_name is not None:
+            prompt += f"\n Name: {self.agent_name}"
+        elif self.agent_description is not None:
+            prompt += f"\n Description: {self.agent_description}"
+        elif self.system_prompt is not None:
+            prompt += f"\n Instructions: {self.system_prompt}"
         else:
             prompt = self.system_prompt
 
@@ -810,6 +820,29 @@ class Agent:
 
         return json.loads(self.tools_list_dictionary)
 
+    def check_model_supports_utilities(self, img: str = None) -> bool:
+        """
+        Check if the current model supports vision capabilities.
+
+        Args:
+            img (str, optional): Image input to check vision support for. Defaults to None.
+
+        Returns:
+            bool: True if model supports vision and image is provided, False otherwise.
+        """
+        from litellm.utils import supports_vision
+
+        # Only check vision support if an image is provided
+        if img is not None:
+            out = supports_vision(self.model_name)
+            if not out:
+                raise ValueError(
+                    f"Model {self.model_name} does not support vision capabilities. Please use a vision-enabled model."
+                )
+            return out
+
+        return False
+
     def check_if_no_prompt_then_autogenerate(self, task: str = None):
         """
         Checks if auto_generate_prompt is enabled and generates a prompt by combining agent name, description and system prompt if available.
@@ -931,12 +964,7 @@ class Agent:
         self,
         task: Optional[Union[str, Any]] = None,
         img: Optional[str] = None,
-        speech: Optional[str] = None,
-        video: Optional[str] = None,
-        is_last: Optional[bool] = False,
         print_task: Optional[bool] = False,
-        generate_speech: Optional[bool] = False,
-        correct_answer: Optional[str] = None,
         *args,
         **kwargs,
     ) -> Any:
@@ -961,9 +989,12 @@ class Agent:
 
             self.check_if_no_prompt_then_autogenerate(task)
 
+            if img is not None:
+                self.check_model_supports_utilities(img=img)
+
             self.short_memory.add(role=self.user_name, content=task)
 
-            if self.plan_enabled or self.planning_prompt is not None:
+            if self.plan_enabled is True:
                 self.plan(task)
 
             # Set the loop count
@@ -1030,12 +1061,23 @@ class Agent:
                             )
                             self.memory_query(task_prompt)
 
-                        response = self.call_llm(
-                            task=task_prompt, img=img, *args, **kwargs
-                        )
+                        if img is not None:
+                            response = self.call_llm(
+                                task=task_prompt,
+                                img=img,
+                                current_loop=loop_count,
+                                *args,
+                                **kwargs,
+                            )
+                        else:
+                            response = self.call_llm(
+                                task=task_prompt,
+                                current_loop=loop_count,
+                                *args,
+                                **kwargs,
+                            )
 
-                        print(f"Response: {response}")
-
+                        # Parse the response from the agent with the output type
                         if exists(self.tools_list_dictionary):
                             if isinstance(response, BaseModel):
                                 response = response.model_dump()
@@ -1053,18 +1095,22 @@ class Agent:
 
                         # Check and execute callable tools
                         if exists(self.tools):
-
                             if (
                                 self.output_raw_json_from_tool_call
                                 is True
                             ):
-                                print(type(response))
                                 response = response
                             else:
-                                self.execute_tools(
-                                    response=response,
-                                    loop_count=loop_count,
-                                )
+                                # Only execute tools if response is not None
+                                if response is not None:
+                                    self.execute_tools(
+                                        response=response,
+                                        loop_count=loop_count,
+                                    )
+                                else:
+                                    logger.warning(
+                                        f"LLM returned None response in loop {loop_count}, skipping tool execution"
+                                    )
 
                         # Handle MCP tools
                         if (
@@ -1072,10 +1118,16 @@ class Agent:
                             or exists(self.mcp_config)
                             or exists(self.mcp_urls)
                         ):
-                            self.mcp_tool_handling(
-                                response=response,
-                                current_loop=loop_count,
-                            )
+                            # Only handle MCP tools if response is not None
+                            if response is not None:
+                                self.mcp_tool_handling(
+                                    response=response,
+                                    current_loop=loop_count,
+                                )
+                            else:
+                                logger.warning(
+                                    f"LLM returned None response in loop {loop_count}, skipping MCP tool handling"
+                                )
 
                         self.sentiment_and_evaluator(response)
 
@@ -1130,7 +1182,10 @@ class Agent:
                         user_input.lower()
                         == self.custom_exit_command.lower()
                     ):
-                        print("Exiting as per user request.")
+                        self.pretty_print(
+                            "Exiting as per user request.",
+                            loop_count=loop_count,
+                        )
                         break
 
                     self.short_memory.add(
@@ -1231,12 +1286,6 @@ class Agent:
         self,
         task: Optional[str] = None,
         img: Optional[str] = None,
-        is_last: bool = False,
-        device: str = "cpu",  # gpu
-        device_id: int = 1,
-        all_cores: bool = True,
-        do_not_use_cluster_ops: bool = True,
-        all_gpus: bool = False,
         *args,
         **kwargs,
     ) -> Any:
@@ -1245,10 +1294,6 @@ class Agent:
         Args:
             task (Optional[str]): The task to be performed. Defaults to None.
             img (Optional[str]): The image to be processed. Defaults to None.
-            is_last (bool): Indicates if this is the last task. Defaults to False.
-            device (str): The device to use for execution. Defaults to "cpu".
-            device_id (int): The ID of the GPU to use if device is set to "gpu". Defaults to 0.
-            all_cores (bool): If True, uses all available CPU cores. Defaults to True.
         """
         try:
             return self.run(
@@ -1339,10 +1384,15 @@ class Agent:
             # Get the current conversation history
             history = self.short_memory.get_str()
 
+            plan_prompt = f"Create a comprehensive step-by-step plan to complete the following task: \n\n {task}"
+
             # Construct the planning prompt by combining history, planning prompt, and task
-            planning_prompt = (
-                f"{history}\n\n{self.planning_prompt}\n\nTask: {task}"
-            )
+            if exists(self.planning_prompt):
+                planning_prompt = f"{history}\n\n{self.planning_prompt}\n\nTask: {task}"
+            else:
+                planning_prompt = (
+                    f"{history}\n\n{plan_prompt}\n\nTask: {task}"
+                )
 
             # Generate the plan using the LLM
             plan = self.llm.run(task=planning_prompt, *args, **kwargs)
@@ -1350,9 +1400,6 @@ class Agent:
             # Store the generated plan in short-term memory
             self.short_memory.add(role=self.agent_name, content=plan)
 
-            logger.info(
-                f"Successfully created plan for task: {task[:50]}..."
-            )
             return None
 
         except Exception as error:
@@ -1477,10 +1524,13 @@ class Agent:
                     f"The model '{self.model_name}' does not support function calling. Please use a model that supports function calling."
                 )
 
-        if self.max_tokens > get_max_tokens(self.model_name):
-            raise AgentInitializationError(
-                f"Max tokens is set to {self.max_tokens}, but the model '{self.model_name}' only supports {get_max_tokens(self.model_name)} tokens. Please set max tokens to {get_max_tokens(self.model_name)} or less."
-            )
+        try:
+            if self.max_tokens > get_max_tokens(self.model_name):
+                raise AgentInitializationError(
+                    f"Max tokens is set to {self.max_tokens}, but the model '{self.model_name}' only supports {get_max_tokens(self.model_name)} tokens. Please set max tokens to {get_max_tokens(self.model_name)} or less."
+                )
+        except Exception:
+            pass
 
         if self.model_name not in model_list:
             logger.warning(
@@ -2424,7 +2474,12 @@ class Agent:
         return None
 
     def call_llm(
-        self, task: str, img: Optional[str] = None, *args, **kwargs
+        self,
+        task: str,
+        img: Optional[str] = None,
+        current_loop: int = 0,
+        *args,
+        **kwargs,
     ) -> str:
         """
         Calls the appropriate method on the `llm` object based on the given task.
@@ -2446,14 +2501,81 @@ class Agent:
         """
 
         try:
-            if img is not None:
-                out = self.llm.run(
-                    task=task, img=img, *args, **kwargs
-                )
-            else:
-                out = self.llm.run(task=task, *args, **kwargs)
+            # Set streaming parameter in LLM if streaming is enabled
+            if self.streaming_on and hasattr(self.llm, "stream"):
+                original_stream = self.llm.stream
+                self.llm.stream = True
 
-            return out
+                if img is not None:
+                    streaming_response = self.llm.run(
+                        task=task, img=img, *args, **kwargs
+                    )
+                else:
+                    streaming_response = self.llm.run(
+                        task=task, *args, **kwargs
+                    )
+
+                # If we get a streaming response, handle it with the new streaming panel
+                if hasattr(
+                    streaming_response, "__iter__"
+                ) and not isinstance(streaming_response, str):
+                    # Check print_on parameter for different streaming behaviors
+                    if self.print_on is False:
+                        # Silent streaming - no printing, just collect chunks
+                        chunks = []
+                        for chunk in streaming_response:
+                            if (
+                                hasattr(chunk, "choices")
+                                and chunk.choices[0].delta.content
+                            ):
+                                content = chunk.choices[
+                                    0
+                                ].delta.content
+                                chunks.append(content)
+                        complete_response = "".join(chunks)
+                    else:
+                        # Collect chunks for conversation saving
+                        collected_chunks = []
+
+                        def on_chunk_received(chunk: str):
+                            """Callback to collect chunks as they arrive"""
+                            collected_chunks.append(chunk)
+                            # Optional: Save each chunk to conversation in real-time
+                            # This creates a more detailed conversation history
+                            if self.verbose:
+                                logger.debug(
+                                    f"Streaming chunk received: {chunk[:50]}..."
+                                )
+
+                        # Use the streaming panel to display and collect the response
+                        complete_response = formatter.print_streaming_panel(
+                            streaming_response,
+                            title=f"🤖 Agent: {self.agent_name} Loops: {current_loop}",
+                            style=None,  # Use random color like non-streaming approach
+                            collect_chunks=True,
+                            on_chunk_callback=on_chunk_received,
+                        )
+
+                    # Restore original stream setting
+                    self.llm.stream = original_stream
+
+                    # Return the complete response for further processing
+                    return complete_response
+                else:
+                    # Restore original stream setting
+                    self.llm.stream = original_stream
+                    return streaming_response
+            else:
+                # Non-streaming call
+                if img is not None:
+                    out = self.llm.run(
+                        task=task, img=img, *args, **kwargs
+                    )
+                else:
+                    out = self.llm.run(task=task, *args, **kwargs)
+
+                return out
+
         except AgentLLMError as e:
             logger.error(
                 f"Error calling LLM: {e}. Task: {task}, Args: {args}, Kwargs: {kwargs}"
@@ -2479,7 +2601,8 @@ class Agent:
         self,
         task: Optional[Union[str, Any]] = None,
         img: Optional[str] = None,
-        scheduled_run_date: Optional[datetime] = None,
+        imgs: Optional[List[str]] = None,
+        correct_answer: Optional[str] = None,
         *args,
         **kwargs,
     ) -> Any:
@@ -2493,11 +2616,7 @@ class Agent:
         Args:
             task (Optional[str], optional): The task to be executed. Defaults to None.
             img (Optional[str], optional): The image to be processed. Defaults to None.
-            device (str, optional): The device to use for execution. Defaults to "cpu".
-            device_id (int, optional): The ID of the GPU to use if device is set to "gpu". Defaults to 0.
-            all_cores (bool, optional): If True, uses all available CPU cores. Defaults to True.
-            scheduled_run_date (Optional[datetime], optional): The date and time to schedule the task. Defaults to None.
-            do_not_use_cluster_ops (bool, optional): If True, does not use cluster ops. Defaults to False.
+            imgs (Optional[List[str]], optional): The list of images to be processed. Defaults to None.
             *args: Additional positional arguments to be passed to the execution method.
             **kwargs: Additional keyword arguments to be passed to the execution method.
 
@@ -2510,21 +2629,28 @@ class Agent:
         """
 
         if not isinstance(task, str):
-            task = any_to_str(task)
-
-        if scheduled_run_date:
-            while datetime.now() < scheduled_run_date:
-                time.sleep(
-                    1
-                )  # Sleep for a short period to avoid busy waiting
+            task = format_data_structure(task)
 
         try:
-            output = self._run(
-                task=task,
-                img=img,
-                *args,
-                **kwargs,
-            )
+            if exists(imgs):
+                output = self.run_multiple_images(
+                    task=task, imgs=imgs, *args, **kwargs
+                )
+            elif exists(correct_answer):
+                output = self.continuous_run_with_answer(
+                    task=task,
+                    img=img,
+                    correct_answer=correct_answer,
+                    *args,
+                    **kwargs,
+                )
+            else:
+                output = self._run(
+                    task=task,
+                    img=img,
+                    *args,
+                    **kwargs,
+                )
 
             return output
 
@@ -2664,14 +2790,12 @@ class Agent:
         return self.role
 
     def pretty_print(self, response: str, loop_count: int):
-        if self.no_print is False:
+        if self.print_on is False:
             if self.streaming_on is True:
-                # self.stream_response(response)
-                formatter.print_panel_token_by_token(
-                    f"{self.agent_name}: {response}",
-                    title=f"Agent Name: {self.agent_name} [Max Loops: {loop_count}]",
-                )
-            elif self.no_print is True:
+                # Skip printing here since real streaming is handled in call_llm
+                # This avoids double printing when streaming_on=True
+                pass
+            elif self.print_on is False:
                 pass
             else:
                 # logger.info(f"Response: {response}")
@@ -2781,7 +2905,7 @@ class Agent:
                 )
                 # tool_response = format_data_structure(tool_response)
 
-                print(f"Multiple MCP Tool Response: {tool_response}")
+                # print(f"Multiple MCP Tool Response: {tool_response}")
             else:
                 raise AgentMCPConnectionError(
                     "mcp_url must be either a string URL or MCPConnection object"
@@ -2791,7 +2915,7 @@ class Agent:
             # execute_tool_call_simple returns a string directly, not an object with content attribute
             text_content = f"MCP Tool Response: \n\n {json.dumps(tool_response, indent=2)}"
 
-            if self.no_print is False:
+            if self.print_on is False:
                 formatter.print_panel(
                     text_content,
                     "MCP Tool Response: 🛠️",
@@ -2834,7 +2958,7 @@ class Agent:
             temperature=self.temperature,
             max_tokens=self.max_tokens,
             system_prompt=self.system_prompt,
-            stream=self.streaming_on,
+            stream=False,  # Always disable streaming for tool summaries
             tools_list_dictionary=None,
             parallel_tool_calls=False,
             base_url=self.llm_base_url,
@@ -2842,6 +2966,13 @@ class Agent:
         )
 
     def execute_tools(self, response: any, loop_count: int):
+        # Handle None response gracefully
+        if response is None:
+            logger.warning(
+                f"Cannot execute tools with None response in loop {loop_count}. "
+                "This may indicate the LLM did not return a valid response."
+            )
+            return
 
         output = (
             self.tool_struct.execute_function_calls_from_api_response(
@@ -2888,3 +3019,134 @@ class Agent:
 
     def list_output_types(self):
         return OutputType
+
+    def run_multiple_images(
+        self, task: str, imgs: List[str], *args, **kwargs
+    ):
+        """
+        Run the agent with multiple images using concurrent processing.
+
+        Args:
+            task (str): The task to be performed on each image.
+            imgs (List[str]): List of image paths or URLs to process.
+            *args: Additional positional arguments to pass to the agent's run method.
+            **kwargs: Additional keyword arguments to pass to the agent's run method.
+
+        Returns:
+            List[Any]: A list of outputs generated for each image in the same order as the input images.
+
+        Examples:
+            >>> agent = Agent()
+            >>> outputs = agent.run_multiple_images(
+            ...     task="Describe what you see in this image",
+            ...     imgs=["image1.jpg", "image2.png", "image3.jpeg"]
+            ... )
+            >>> print(f"Processed {len(outputs)} images")
+            Processed 3 images
+
+        Raises:
+            Exception: If an error occurs while processing any of the images.
+        """
+        # Calculate number of workers as 95% of available CPU cores
+        cpu_count = os.cpu_count()
+        max_workers = max(1, int(cpu_count * 0.95))
+
+        # Use ThreadPoolExecutor for concurrent processing
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # Submit all image processing tasks
+            future_to_img = {
+                executor.submit(
+                    self.run, task=task, img=img, *args, **kwargs
+                ): img
+                for img in imgs
+            }
+
+            # Collect results in order
+            outputs = []
+            for future in future_to_img:
+                try:
+                    output = future.result()
+                    outputs.append(output)
+                except Exception as e:
+                    logger.error(f"Error processing image: {e}")
+                    outputs.append(
+                        None
+                    )  # or raise the exception based on your preference
+
+        # Combine the outputs into a single string if summarization is enabled
+        if self.summarize_multiple_images is True:
+            output = "\n".join(outputs)
+
+            prompt = f"""
+            You have already analyzed {len(outputs)} images and provided detailed descriptions for each one. 
+            Now, based on your previous analysis of these images, create a comprehensive report that:
+
+            1. Synthesizes the key findings across all images
+            2. Identifies common themes, patterns, or relationships between the images
+            3. Provides an overall summary that captures the most important insights
+            4. Highlights any notable differences or contrasts between the images
+
+            Here are your previous analyses of the images:
+            {output}
+
+            Please create a well-structured report that brings together your insights from all {len(outputs)} images.
+            """
+
+            outputs = self.run(task=prompt, *args, **kwargs)
+
+        return outputs
+
+    def continuous_run_with_answer(
+        self,
+        task: str,
+        img: Optional[str] = None,
+        correct_answer: str = None,
+        max_attempts: int = 10,
+    ):
+        """
+        Run the agent with the task until the correct answer is provided.
+
+        Args:
+            task (str): The task to be performed
+            correct_answer (str): The correct answer that must be found in the response
+            max_attempts (int): Maximum number of attempts before giving up (default: 10)
+
+        Returns:
+            str: The response containing the correct answer
+
+        Raises:
+            Exception: If max_attempts is reached without finding the correct answer
+        """
+        attempts = 0
+
+        while attempts < max_attempts:
+            attempts += 1
+
+            if self.verbose:
+                logger.info(
+                    f"Attempt {attempts}/{max_attempts} to find correct answer"
+                )
+
+            response = self._run(task=task, img=img)
+
+            # Check if the correct answer is in the response (case-insensitive)
+            if correct_answer.lower() in response.lower():
+                if self.verbose:
+                    logger.info(
+                        f"Correct answer found on attempt {attempts}"
+                    )
+                return response
+            else:
+                # Add feedback to help guide the agent
+                feedback = "Your previous response was incorrect. Think carefully about the question and ensure your response directly addresses what was asked."
+                self.short_memory.add(role="User", content=feedback)
+
+                if self.verbose:
+                    logger.info(
+                        f"Correct answer not found. Expected: '{correct_answer}'"
+                    )
+
+        # If we reach here, we've exceeded max_attempts
+        raise Exception(
+            f"Failed to find correct answer '{correct_answer}' after {max_attempts} attempts"
+        )

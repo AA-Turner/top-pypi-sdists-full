@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import sys
 from collections.abc import Iterable, Sequence
-from datetime import datetime
 from inspect import getmodule
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -20,13 +19,15 @@ from reflex.components.component import (
     StatefulComponent,
 )
 from reflex.config import get_config
-from reflex.constants.compiler import PageNames
+from reflex.constants.compiler import PageNames, ResetStylesheet
+from reflex.constants.state import FIELD_MARKER
 from reflex.environment import environment
 from reflex.state import BaseState
 from reflex.style import SYSTEM_COLOR_MODE
 from reflex.utils import console, path_ops
 from reflex.utils.exceptions import ReflexError
 from reflex.utils.exec import is_prod_mode
+from reflex.utils.format import to_title_case
 from reflex.utils.imports import ImportVar
 from reflex.utils.prerequisites import get_web_dir
 from reflex.vars.base import LiteralVar, Var
@@ -36,7 +37,9 @@ def _apply_common_imports(
     imports: dict[str, list[ImportVar]],
 ):
     imports.setdefault("@emotion/react", []).append(ImportVar("jsx"))
-    imports.setdefault("react", []).append(ImportVar("Fragment"))
+    imports.setdefault("react", []).extend(
+        [ImportVar("Fragment"), ImportVar("useEffect")],
+    )
 
 
 def _compile_document_root(root: Component) -> str:
@@ -85,6 +88,8 @@ def _compile_app(app_root: Component) -> str:
         (_normalize_library_name(name), name) for name in bundled_libraries
     ]
 
+    window_libraries_deduped = list(dict.fromkeys(window_libraries))
+
     app_root_imports = app_root._get_all_imports()
     _apply_common_imports(app_root_imports)
 
@@ -92,7 +97,7 @@ def _compile_app(app_root: Component) -> str:
         imports=utils.compile_imports(app_root_imports),
         custom_codes=app_root._get_all_custom_code(),
         hooks=app_root._get_all_hooks(),
-        window_libraries=window_libraries,
+        window_libraries=window_libraries_deduped,
         render=app_root.render(),
         dynamic_imports=app_root._get_all_dynamic_imports(),
     )
@@ -124,21 +129,18 @@ def _compile_contexts(state: type[BaseState] | None, theme: Component | None) ->
     if appearance is None or str(LiteralVar.create(appearance)) == '"inherit"':
         appearance = LiteralVar.create(SYSTEM_COLOR_MODE)
 
-    last_compiled_time = str(datetime.now())
     return (
         templates.CONTEXT.render(
             initial_state=utils.compile_state(state),
             state_name=state.get_name(),
             client_storage=utils.compile_client_storage(state),
             is_dev_mode=not is_prod_mode(),
-            last_compiled_time=last_compiled_time,
             default_color_mode=appearance,
         )
         if state
         else templates.CONTEXT.render(
             is_dev_mode=not is_prod_mode(),
             default_color_mode=appearance,
-            last_compiled_time=last_compiled_time,
         )
     )
 
@@ -173,18 +175,21 @@ def _compile_page(
     )
 
 
-def compile_root_stylesheet(stylesheets: list[str]) -> tuple[str, str]:
+def compile_root_stylesheet(
+    stylesheets: list[str], reset_style: bool = True
+) -> tuple[str, str]:
     """Compile the root stylesheet.
 
     Args:
         stylesheets: The stylesheets to include in the root stylesheet.
+        reset_style: Whether to include CSS reset for margin and padding.
 
     Returns:
         The path and code of the compiled root stylesheet.
     """
     output_path = utils.get_root_stylesheet_path()
 
-    code = _compile_root_stylesheet(stylesheets)
+    code = _compile_root_stylesheet(stylesheets, reset_style)
 
     return output_path, code
 
@@ -226,11 +231,12 @@ def _validate_stylesheet(stylesheet_full_path: Path, assets_app_path: Path) -> N
 RADIX_THEMES_STYLESHEET = "@radix-ui/themes/styles.css"
 
 
-def _compile_root_stylesheet(stylesheets: list[str]) -> str:
+def _compile_root_stylesheet(stylesheets: list[str], reset_style: bool = True) -> str:
     """Compile the root stylesheet.
 
     Args:
         stylesheets: The stylesheets to include in the root stylesheet.
+        reset_style: Whether to include CSS reset for margin and padding.
 
     Returns:
         The compiled root stylesheet.
@@ -239,11 +245,21 @@ def _compile_root_stylesheet(stylesheets: list[str]) -> str:
         FileNotFoundError: If a specified stylesheet in assets directory does not exist.
     """
     # Add stylesheets from plugins.
-    sheets = [RADIX_THEMES_STYLESHEET] + [
-        sheet
-        for plugin in get_config().plugins
-        for sheet in plugin.get_stylesheet_paths()
-    ]
+    sheets = []
+
+    # Add CSS reset if enabled
+    if reset_style:
+        # Reference the vendored style reset file (automatically copied from .templates/web)
+        sheets.append(f"./{ResetStylesheet.FILENAME}")
+
+    sheets.extend(
+        [RADIX_THEMES_STYLESHEET]
+        + [
+            sheet
+            for plugin in get_config().plugins
+            for sheet in plugin.get_stylesheet_paths()
+        ]
+    )
 
     failed_to_import_sass = False
     assets_app_path = Path.cwd() / constants.Dirs.APP_ASSETS
@@ -427,7 +443,7 @@ def _compile_stateful_components(
 
             # Include custom code in the shared component.
             rendered_components.update(
-                dict.fromkeys(component._get_all_custom_code()),
+                dict.fromkeys(component._get_all_custom_code(export=True)),
             )
 
             # Include all imports in the shared component.
@@ -469,7 +485,9 @@ def compile_document_root(
         The path and code of the compiled document root.
     """
     # Get the path for the output file.
-    output_path = utils.get_page_path(constants.PageNames.DOCUMENT_ROOT)
+    output_path = str(
+        get_web_dir() / constants.Dirs.PAGES / constants.PageNames.DOCUMENT_ROOT
+    )
 
     # Create the document root.
     document_root = utils.create_document_root(
@@ -491,7 +509,9 @@ def compile_app(app_root: Component) -> tuple[str, str]:
         The path and code of the compiled app wrapper.
     """
     # Get the path for the output file.
-    output_path = utils.get_page_path(constants.PageNames.APP_ROOT)
+    output_path = str(
+        get_web_dir() / constants.Dirs.PAGES / constants.PageNames.APP_ROOT
+    )
 
     # Compile the document root.
     code = _compile_app(app_root)
@@ -606,7 +626,7 @@ def purge_web_pages_dir():
         return
 
     # Empty out the web pages directory.
-    utils.empty_dir(get_web_dir() / constants.Dirs.PAGES, keep_files=["_app.js"])
+    utils.empty_dir(get_web_dir() / constants.Dirs.PAGES, keep_files=["routes.js"])
 
 
 if TYPE_CHECKING:
@@ -668,6 +688,32 @@ def readable_name_from_component(
     return None
 
 
+def _modify_exception(e: Exception) -> None:
+    """Modify the exception to make it more readable.
+
+    Args:
+        e: The exception to modify.
+    """
+    if len(e.args) == 1 and isinstance((msg := e.args[0]), str):
+        while (state_index := msg.find("reflex___")) != -1:
+            dot_index = msg.find(".", state_index)
+            if dot_index == -1:
+                break
+            state_name = msg[state_index:dot_index]
+            module_dot_state_name = state_name.replace("___", ".").rsplit("__", 1)[-1]
+            module_path, _, state_snake_case = module_dot_state_name.rpartition(".")
+            if not state_snake_case:
+                break
+            actual_state_name = to_title_case(state_snake_case)
+            msg = (
+                f"{msg[:state_index]}{module_path}.{actual_state_name}{msg[dot_index:]}"
+            )
+
+        msg = msg.replace(FIELD_MARKER, "")
+
+        e.args = (msg,)
+
+
 def into_component(component: Component | ComponentCallable) -> Component:
     """Convert a component to a Component.
 
@@ -692,6 +738,7 @@ def into_component(component: Component | ComponentCallable) -> Component:
         component_called = component()
     except KeyError as e:
         if isinstance(e, ReflexError):
+            _modify_exception(e)
             raise
         key = e.args[0] if e.args else None
         if key is not None and isinstance(key, Var):
@@ -701,6 +748,7 @@ def into_component(component: Component | ComponentCallable) -> Component:
         raise
     except TypeError as e:
         if isinstance(e, ReflexError):
+            _modify_exception(e)
             raise
         message = e.args[0] if e.args else None
         if message and isinstance(message, str):
@@ -725,6 +773,9 @@ def into_component(component: Component | ComponentCallable) -> Component:
             raise TypeError(
                 "Cannot pass a Var to a built-in function. Consider moving the operation to the backend, using existing Var operations, or defining a custom Var operation."
             ).with_traceback(e.__traceback__) from None
+        raise
+    except ReflexError as e:
+        _modify_exception(e)
         raise
 
     if (converted := _into_component_once(component_called)) is not None:

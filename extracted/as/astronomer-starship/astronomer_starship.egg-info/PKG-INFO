@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: astronomer-starship
-Version: 2.2.3
+Version: 2.2.4
 Summary: Migrations to Astro
 Author-email: Fritz Davenport <fritz@astronomer.io>, CETA Team <ceta@astronomer.io>, Astronomer <humans@astronomer.io>
 License: PROPRIETARY
@@ -14,7 +14,7 @@ Requires-Dist: apache-airflow-providers-http; extra == "provider"
 Provides-Extra: dev
 Requires-Dist: twine; extra == "dev"
 Requires-Dist: build; extra == "dev"
-Requires-Dist: apache-airflow; extra == "dev"
+Requires-Dist: apache-airflow<2.11; extra == "dev"
 Requires-Dist: pytest>=7; extra == "dev"
 Requires-Dist: pytest-cov>=4.0; extra == "dev"
 Requires-Dist: pytest-integration>=0.2; extra == "dev"
@@ -30,6 +30,7 @@ Requires-Dist: black>=22; extra == "dev"
 Requires-Dist: ruff>=0.0.261; python_version > "3.6" and extra == "dev"
 Requires-Dist: pylint>=2; extra == "dev"
 Requires-Dist: isort>=5; extra == "dev"
+Dynamic: license-file
 
 <!--suppress HtmlDeprecatedAttribute -->
 <p align="center">

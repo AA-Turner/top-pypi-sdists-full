@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: litserve
-Version: 0.2.12
+Version: 0.2.13
 Summary: Lightweight AI server.
 Home-page: https://github.com/Lightning-AI/litserve
 Download-URL: https://github.com/Lightning-AI/litserve
@@ -38,11 +38,11 @@ Requires-Dist: uvloop>=0.21.0; extra == "perf"
 Provides-Extra: test
 Requires-Dist: asgi-lifespan; extra == "test"
 Requires-Dist: coverage[toml]>=7.5.3; extra == "test"
+Requires-Dist: fastmcp>=2.9.2; python_version >= "3.10" and extra == "test"
 Requires-Dist: httpx>=0.27.0; extra == "test"
 Requires-Dist: lightning>2.0.0; extra == "test"
-Requires-Dist: mcp>=1.9.2; python_version >= "3.10" and extra == "test"
-Requires-Dist: mypy==1.11.2; extra == "test"
-Requires-Dist: numpy<2.0; extra == "test"
+Requires-Dist: mypy==1.16.0; extra == "test"
+Requires-Dist: numpy<3.0; extra == "test"
 Requires-Dist: openai>=1.12.0; extra == "test"
 Requires-Dist: pillow; extra == "test"
 Requires-Dist: psutil; extra == "test"
@@ -73,7 +73,7 @@ Dynamic: summary
 <div align='center'>
 
 <h2>
-  The easiest way to deploy agents, RAG, pipelines, any model. 
+  The easiest way to deploy agents, MCP servers, RAG, pipelines, any model. 
   <br/>
   No MLOps. No YAML.
 </h2>    
@@ -83,7 +83,7 @@ Dynamic: summary
 &nbsp; 
 </div>
 
-Most serving engines serve one model with rigid abstractions. LitServe lets you serve any model (vision, audio, text) and build full AI systems - agents, chatbots, RAG, pipelines - with full control, batching, multi-GPU, streaming, custom logic, multi-model support, and zero YAML. 
+Most serving engines serve one model with rigid abstractions. LitServe lets you serve any model (vision, audio, text) and build full AI systems - agents, chatbots, MCP servers, RAG, pipelines - with full control, batching, multi-GPU, streaming, custom logic, multi-model support, and zero YAML. 
 
 Self host or deploy in one-click to [Lightning AI](https://lightning.ai/).
 
@@ -289,6 +289,8 @@ https://github.com/user-attachments/assets/ff83dab9-0c9f-4453-8dcb-fb9526726344
 | [Supports PyTorch, JAX, TF, etc...](https://lightning.ai/docs/litserve/features/full-control) | ✅       | ✅                                 |
 | [OpenAPI compliant](https://www.openapis.org/)                                                | ✅       | ✅                                 |
 | [Open AI compatibility](https://lightning.ai/docs/litserve/features/open-ai-spec)             | ✅       | ✅                                 |
+| [MCP server support](https://lightning.ai/docs/litserve/features/mcp)                         | ✅       | ✅                                 |
+| [Asynchronous](https://lightning.ai/docs/litserve/features/async-concurrency)                 | ✅       | ✅                                 |
 | [Authentication](https://lightning.ai/docs/litserve/features/authentication)                  | ❌ DIY   | ✅ Token, password, custom         |
 | GPUs                             | ❌ DIY                             | ✅ 8+ GPU types, H100s from $1.75  |
 | Load balancing                   | ❌                                 | ✅ Built-in                        |

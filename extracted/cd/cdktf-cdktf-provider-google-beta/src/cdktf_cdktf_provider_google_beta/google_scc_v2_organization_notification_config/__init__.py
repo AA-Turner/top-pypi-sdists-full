@@ -1,7 +1,7 @@
 r'''
 # `google_scc_v2_organization_notification_config`
 
-Refer to the Terraform Registry for docs: [`google_scc_v2_organization_notification_config`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_notification_config).
+Refer to the Terraform Registry for docs: [`google_scc_v2_organization_notification_config`](https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_notification_config).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleSccV2OrganizationNotificationConfig(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleSccV2OrganizationNotificationConfig.GoogleSccV2OrganizationNotificationConfig",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_notification_config google_scc_v2_organization_notification_config}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_notification_config google_scc_v2_organization_notification_config}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class GoogleSccV2OrganizationNotificationConfig(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_notification_config google_scc_v2_organization_notification_config} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_notification_config google_scc_v2_organization_notification_config} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param config_id: This must be unique within the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_notification_config#config_id GoogleSccV2OrganizationNotificationConfig#config_id}
-        :param organization: The organization whose Cloud Security Command Center the Notification Config lives in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_notification_config#organization GoogleSccV2OrganizationNotificationConfig#organization}
-        :param pubsub_topic: The Pub/Sub topic to send notifications to. Its format is "projects/[project_id]/topics/[topic]". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_notification_config#pubsub_topic GoogleSccV2OrganizationNotificationConfig#pubsub_topic}
-        :param streaming_config: streaming_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_notification_config#streaming_config GoogleSccV2OrganizationNotificationConfig#streaming_config}
-        :param description: The description of the notification config (max of 1024 characters). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_notification_config#description GoogleSccV2OrganizationNotificationConfig#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_notification_config#id GoogleSccV2OrganizationNotificationConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location: location Id is provided by organization. If not provided, Use global as default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_notification_config#location GoogleSccV2OrganizationNotificationConfig#location}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_notification_config#timeouts GoogleSccV2OrganizationNotificationConfig#timeouts}
+        :param config_id: This must be unique within the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_notification_config#config_id GoogleSccV2OrganizationNotificationConfig#config_id}
+        :param organization: The organization whose Cloud Security Command Center the Notification Config lives in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_notification_config#organization GoogleSccV2OrganizationNotificationConfig#organization}
+        :param pubsub_topic: The Pub/Sub topic to send notifications to. Its format is "projects/[project_id]/topics/[topic]". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_notification_config#pubsub_topic GoogleSccV2OrganizationNotificationConfig#pubsub_topic}
+        :param streaming_config: streaming_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_notification_config#streaming_config GoogleSccV2OrganizationNotificationConfig#streaming_config}
+        :param description: The description of the notification config (max of 1024 characters). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_notification_config#description GoogleSccV2OrganizationNotificationConfig#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_notification_config#id GoogleSccV2OrganizationNotificationConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: location Id is provided by organization. If not provided, Use global as default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_notification_config#location GoogleSccV2OrganizationNotificationConfig#location}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_notification_config#timeouts GoogleSccV2OrganizationNotificationConfig#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class GoogleSccV2OrganizationNotificationConfig(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleSccV2OrganizationNotificationConfig to import.
-        :param import_from_id: The id of the existing GoogleSccV2OrganizationNotificationConfig that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_notification_config#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleSccV2OrganizationNotificationConfig that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_notification_config#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleSccV2OrganizationNotificationConfig to import is found.
         '''
         if __debug__:
@@ -138,7 +138,7 @@ class GoogleSccV2OrganizationNotificationConfig(
     @jsii.member(jsii_name="putStreamingConfig")
     def put_streaming_config(self, *, filter: builtins.str) -> None:
         '''
-        :param filter: Expression that defines the filter to apply across create/update events of assets or findings as specified by the event type. The expression is a list of zero or more restrictions combined via logical operators AND and OR. Parentheses are supported, and OR has higher precedence than AND. Restrictions have the form and may have a - character in front of them to indicate negation. The fields map to those defined in the corresponding resource. The supported operators are: - = for all value types. - .. epigraph:: , <, >=, <= for integer values. - :, meaning substring matching, for strings. The supported value types are: - string literals in quotes. - integer literals without quotes. - boolean literals true and false without quotes. See `Filtering notifications <https://cloud.google.com/security-command-center/docs/how-to-api-filter-notifications>`_ for information on how to write a filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_notification_config#filter GoogleSccV2OrganizationNotificationConfig#filter}
+        :param filter: Expression that defines the filter to apply across create/update events of assets or findings as specified by the event type. The expression is a list of zero or more restrictions combined via logical operators AND and OR. Parentheses are supported, and OR has higher precedence than AND. Restrictions have the form and may have a - character in front of them to indicate negation. The fields map to those defined in the corresponding resource. The supported operators are: - = for all value types. - .. epigraph:: , <, >=, <= for integer values. - :, meaning substring matching, for strings. The supported value types are: - string literals in quotes. - integer literals without quotes. - boolean literals true and false without quotes. See `Filtering notifications <https://cloud.google.com/security-command-center/docs/how-to-api-filter-notifications>`_ for information on how to write a filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_notification_config#filter GoogleSccV2OrganizationNotificationConfig#filter}
         '''
         value = GoogleSccV2OrganizationNotificationConfigStreamingConfig(filter=filter)
 
@@ -153,9 +153,9 @@ class GoogleSccV2OrganizationNotificationConfig(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_notification_config#create GoogleSccV2OrganizationNotificationConfig#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_notification_config#delete GoogleSccV2OrganizationNotificationConfig#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_notification_config#update GoogleSccV2OrganizationNotificationConfig#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_notification_config#create GoogleSccV2OrganizationNotificationConfig#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_notification_config#delete GoogleSccV2OrganizationNotificationConfig#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_notification_config#update GoogleSccV2OrganizationNotificationConfig#update}.
         '''
         value = GoogleSccV2OrganizationNotificationConfigTimeouts(
             create=create, delete=delete, update=update
@@ -384,14 +384,14 @@ class GoogleSccV2OrganizationNotificationConfigConfig(
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param config_id: This must be unique within the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_notification_config#config_id GoogleSccV2OrganizationNotificationConfig#config_id}
-        :param organization: The organization whose Cloud Security Command Center the Notification Config lives in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_notification_config#organization GoogleSccV2OrganizationNotificationConfig#organization}
-        :param pubsub_topic: The Pub/Sub topic to send notifications to. Its format is "projects/[project_id]/topics/[topic]". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_notification_config#pubsub_topic GoogleSccV2OrganizationNotificationConfig#pubsub_topic}
-        :param streaming_config: streaming_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_notification_config#streaming_config GoogleSccV2OrganizationNotificationConfig#streaming_config}
-        :param description: The description of the notification config (max of 1024 characters). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_notification_config#description GoogleSccV2OrganizationNotificationConfig#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_notification_config#id GoogleSccV2OrganizationNotificationConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location: location Id is provided by organization. If not provided, Use global as default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_notification_config#location GoogleSccV2OrganizationNotificationConfig#location}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_notification_config#timeouts GoogleSccV2OrganizationNotificationConfig#timeouts}
+        :param config_id: This must be unique within the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_notification_config#config_id GoogleSccV2OrganizationNotificationConfig#config_id}
+        :param organization: The organization whose Cloud Security Command Center the Notification Config lives in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_notification_config#organization GoogleSccV2OrganizationNotificationConfig#organization}
+        :param pubsub_topic: The Pub/Sub topic to send notifications to. Its format is "projects/[project_id]/topics/[topic]". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_notification_config#pubsub_topic GoogleSccV2OrganizationNotificationConfig#pubsub_topic}
+        :param streaming_config: streaming_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_notification_config#streaming_config GoogleSccV2OrganizationNotificationConfig#streaming_config}
+        :param description: The description of the notification config (max of 1024 characters). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_notification_config#description GoogleSccV2OrganizationNotificationConfig#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_notification_config#id GoogleSccV2OrganizationNotificationConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: location Id is provided by organization. If not provided, Use global as default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_notification_config#location GoogleSccV2OrganizationNotificationConfig#location}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_notification_config#timeouts GoogleSccV2OrganizationNotificationConfig#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -513,7 +513,7 @@ class GoogleSccV2OrganizationNotificationConfigConfig(
     def config_id(self) -> builtins.str:
         '''This must be unique within the organization.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_notification_config#config_id GoogleSccV2OrganizationNotificationConfig#config_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_notification_config#config_id GoogleSccV2OrganizationNotificationConfig#config_id}
         '''
         result = self._values.get("config_id")
         assert result is not None, "Required property 'config_id' is missing"
@@ -523,7 +523,7 @@ class GoogleSccV2OrganizationNotificationConfigConfig(
     def organization(self) -> builtins.str:
         '''The organization whose Cloud Security Command Center the Notification Config lives in.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_notification_config#organization GoogleSccV2OrganizationNotificationConfig#organization}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_notification_config#organization GoogleSccV2OrganizationNotificationConfig#organization}
         '''
         result = self._values.get("organization")
         assert result is not None, "Required property 'organization' is missing"
@@ -533,7 +533,7 @@ class GoogleSccV2OrganizationNotificationConfigConfig(
     def pubsub_topic(self) -> builtins.str:
         '''The Pub/Sub topic to send notifications to. Its format is "projects/[project_id]/topics/[topic]".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_notification_config#pubsub_topic GoogleSccV2OrganizationNotificationConfig#pubsub_topic}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_notification_config#pubsub_topic GoogleSccV2OrganizationNotificationConfig#pubsub_topic}
         '''
         result = self._values.get("pubsub_topic")
         assert result is not None, "Required property 'pubsub_topic' is missing"
@@ -545,7 +545,7 @@ class GoogleSccV2OrganizationNotificationConfigConfig(
     ) -> "GoogleSccV2OrganizationNotificationConfigStreamingConfig":
         '''streaming_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_notification_config#streaming_config GoogleSccV2OrganizationNotificationConfig#streaming_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_notification_config#streaming_config GoogleSccV2OrganizationNotificationConfig#streaming_config}
         '''
         result = self._values.get("streaming_config")
         assert result is not None, "Required property 'streaming_config' is missing"
@@ -555,14 +555,14 @@ class GoogleSccV2OrganizationNotificationConfigConfig(
     def description(self) -> typing.Optional[builtins.str]:
         '''The description of the notification config (max of 1024 characters).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_notification_config#description GoogleSccV2OrganizationNotificationConfig#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_notification_config#description GoogleSccV2OrganizationNotificationConfig#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_notification_config#id GoogleSccV2OrganizationNotificationConfig#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_notification_config#id GoogleSccV2OrganizationNotificationConfig#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -574,7 +574,7 @@ class GoogleSccV2OrganizationNotificationConfigConfig(
     def location(self) -> typing.Optional[builtins.str]:
         '''location Id is provided by organization. If not provided, Use global as default.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_notification_config#location GoogleSccV2OrganizationNotificationConfig#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_notification_config#location GoogleSccV2OrganizationNotificationConfig#location}
         '''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -585,7 +585,7 @@ class GoogleSccV2OrganizationNotificationConfigConfig(
     ) -> typing.Optional["GoogleSccV2OrganizationNotificationConfigTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_notification_config#timeouts GoogleSccV2OrganizationNotificationConfig#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_notification_config#timeouts GoogleSccV2OrganizationNotificationConfig#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleSccV2OrganizationNotificationConfigTimeouts"], result)
@@ -610,7 +610,7 @@ class GoogleSccV2OrganizationNotificationConfigConfig(
 class GoogleSccV2OrganizationNotificationConfigStreamingConfig:
     def __init__(self, *, filter: builtins.str) -> None:
         '''
-        :param filter: Expression that defines the filter to apply across create/update events of assets or findings as specified by the event type. The expression is a list of zero or more restrictions combined via logical operators AND and OR. Parentheses are supported, and OR has higher precedence than AND. Restrictions have the form and may have a - character in front of them to indicate negation. The fields map to those defined in the corresponding resource. The supported operators are: - = for all value types. - .. epigraph:: , <, >=, <= for integer values. - :, meaning substring matching, for strings. The supported value types are: - string literals in quotes. - integer literals without quotes. - boolean literals true and false without quotes. See `Filtering notifications <https://cloud.google.com/security-command-center/docs/how-to-api-filter-notifications>`_ for information on how to write a filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_notification_config#filter GoogleSccV2OrganizationNotificationConfig#filter}
+        :param filter: Expression that defines the filter to apply across create/update events of assets or findings as specified by the event type. The expression is a list of zero or more restrictions combined via logical operators AND and OR. Parentheses are supported, and OR has higher precedence than AND. Restrictions have the form and may have a - character in front of them to indicate negation. The fields map to those defined in the corresponding resource. The supported operators are: - = for all value types. - .. epigraph:: , <, >=, <= for integer values. - :, meaning substring matching, for strings. The supported value types are: - string literals in quotes. - integer literals without quotes. - boolean literals true and false without quotes. See `Filtering notifications <https://cloud.google.com/security-command-center/docs/how-to-api-filter-notifications>`_ for information on how to write a filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_notification_config#filter GoogleSccV2OrganizationNotificationConfig#filter}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a0bc1dd99aaa16369b2d4496ab37b1a79fd0661b79e01703320e121d57734a61)
@@ -650,7 +650,7 @@ class GoogleSccV2OrganizationNotificationConfigStreamingConfig:
         `Filtering notifications <https://cloud.google.com/security-command-center/docs/how-to-api-filter-notifications>`_
         for information on how to write a filter.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_notification_config#filter GoogleSccV2OrganizationNotificationConfig#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_notification_config#filter GoogleSccV2OrganizationNotificationConfig#filter}
         '''
         result = self._values.get("filter")
         assert result is not None, "Required property 'filter' is missing"
@@ -737,9 +737,9 @@ class GoogleSccV2OrganizationNotificationConfigTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_notification_config#create GoogleSccV2OrganizationNotificationConfig#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_notification_config#delete GoogleSccV2OrganizationNotificationConfig#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_notification_config#update GoogleSccV2OrganizationNotificationConfig#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_notification_config#create GoogleSccV2OrganizationNotificationConfig#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_notification_config#delete GoogleSccV2OrganizationNotificationConfig#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_notification_config#update GoogleSccV2OrganizationNotificationConfig#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0d7d2ef892529cb61c6e316c4af0a7f105202d2978bbfcae5df0385e55045fae)
@@ -756,19 +756,19 @@ class GoogleSccV2OrganizationNotificationConfigTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_notification_config#create GoogleSccV2OrganizationNotificationConfig#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_notification_config#create GoogleSccV2OrganizationNotificationConfig#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_notification_config#delete GoogleSccV2OrganizationNotificationConfig#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_notification_config#delete GoogleSccV2OrganizationNotificationConfig#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_notification_config#update GoogleSccV2OrganizationNotificationConfig#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_notification_config#update GoogleSccV2OrganizationNotificationConfig#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -4352,6 +4352,8 @@ class CfnRuleGroup(
         ) -> None:
             '''Settings that are available for use in the rules in the ``RuleGroup`` where this is defined.
 
+            See ``CreateRuleGroup`` or ``UpdateRuleGroup`` for usage.
+
             :param ip_sets: A list of IP addresses and address ranges, in CIDR notation.
             :param port_sets: A list of port ranges.
 
@@ -5900,7 +5902,7 @@ class CfnTLSInspectionConfiguration(
 
                If a server certificate that's associated with your `TLSInspectionConfiguration <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-tlsinspectionconfiguration.html>`_ is revoked, deleted, or expired it can result in client-side TLS errors.
 
-            :param certificate_authority_arn: The Amazon Resource Name (ARN) of the imported certificate authority (CA) certificate within AWS Certificate Manager (ACM) to use for outbound SSL/TLS inspection. The following limitations apply: - You can use CA certificates that you imported into ACM, but you can't generate CA certificates with ACM. - You can't use certificates issued by AWS Private Certificate Authority . For more information about configuring certificates for outbound inspection, see `Using SSL/TLS certificates with certificates with TLS inspection configurations <https://docs.aws.amazon.com/network-firewall/latest/developerguide/tls-inspection-certificate-requirements.html>`_ in the *AWS Network Firewall Developer Guide* . For information about working with certificates in ACM, see `Importing certificates <https://docs.aws.amazon.com/acm/latest/userguide/import-certificate.html>`_ in the *AWS Certificate Manager User Guide* .
+            :param certificate_authority_arn: The Amazon Resource Name (ARN) of the imported certificate authority (CA) certificate within AWS Certificate Manager (ACM) to use for outbound SSL/TLS inspection. The following limitations apply: - You can use CA certificates that you imported into ACM, but you can't generate CA certificates with ACM. - You can't use certificates issued by AWS Private Certificate Authority . For more information about configuring certificates for outbound inspection, see `Using SSL/TLS certificates with TLS inspection configurations <https://docs.aws.amazon.com/network-firewall/latest/developerguide/tls-inspection-certificate-requirements.html>`_ in the *AWS Network Firewall Developer Guide* . For information about working with certificates in ACM, see `Importing certificates <https://docs.aws.amazon.com/acm/latest/userguide/import-certificate.html>`_ in the *AWS Certificate Manager User Guide* .
             :param check_certificate_revocation_status: When enabled, Network Firewall checks if the server certificate presented by the server in the SSL/TLS connection has a revoked or unkown status. If the certificate has an unknown or revoked status, you must specify the actions that Network Firewall takes on outbound traffic. To check the certificate revocation status, you must also specify a ``CertificateAuthorityArn`` in `ServerCertificateConfiguration <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-servercertificateconfiguration.html>`_ .
             :param scopes: A list of scopes.
             :param server_certificates: The list of server certificates to use for inbound SSL/TLS inspection.
@@ -5967,7 +5969,7 @@ class CfnTLSInspectionConfiguration(
             - You can use CA certificates that you imported into ACM, but you can't generate CA certificates with ACM.
             - You can't use certificates issued by AWS Private Certificate Authority .
 
-            For more information about configuring certificates for outbound inspection, see `Using SSL/TLS certificates with certificates with TLS inspection configurations <https://docs.aws.amazon.com/network-firewall/latest/developerguide/tls-inspection-certificate-requirements.html>`_ in the *AWS Network Firewall Developer Guide* .
+            For more information about configuring certificates for outbound inspection, see `Using SSL/TLS certificates with TLS inspection configurations <https://docs.aws.amazon.com/network-firewall/latest/developerguide/tls-inspection-certificate-requirements.html>`_ in the *AWS Network Firewall Developer Guide* .
 
             For information about working with certificates in ACM, see `Importing certificates <https://docs.aws.amazon.com/acm/latest/userguide/import-certificate.html>`_ in the *AWS Certificate Manager User Guide* .
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: skypilot-nightly
-Version: 1.0.0.dev20250630
+Version: 1.0.0.dev20250701
 Summary: SkyPilot: Run AI on Any Infra — Unified, Faster, Cheaper.
 Author: SkyPilot Team
 License: Apache 2.0
@@ -53,6 +53,7 @@ Requires-Dist: casbin
 Requires-Dist: sqlalchemy_adapter
 Requires-Dist: prometheus_client>=0.8.0
 Requires-Dist: passlib
+Requires-Dist: pyjwt
 Provides-Extra: aws
 Requires-Dist: awscli>=1.27.10; extra == "aws"
 Requires-Dist: botocore>=1.29.10; extra == "aws"
@@ -126,6 +127,7 @@ Provides-Extra: server
 Requires-Dist: casbin; extra == "server"
 Requires-Dist: sqlalchemy_adapter; extra == "server"
 Requires-Dist: passlib; extra == "server"
+Requires-Dist: pyjwt; extra == "server"
 Provides-Extra: all
 Requires-Dist: awscli>=1.27.10; extra == "all"
 Requires-Dist: botocore>=1.29.10; extra == "all"
@@ -178,6 +180,7 @@ Requires-Dist: colorama<0.4.5; extra == "all"
 Requires-Dist: casbin; extra == "all"
 Requires-Dist: sqlalchemy_adapter; extra == "all"
 Requires-Dist: passlib; extra == "all"
+Requires-Dist: pyjwt; extra == "all"
 Dynamic: author
 Dynamic: classifier
 Dynamic: description

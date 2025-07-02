@@ -1,7 +1,7 @@
 r'''
 # `google_artifact_registry_repository`
 
-Refer to the Terraform Registry for docs: [`google_artifact_registry_repository`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository).
+Refer to the Terraform Registry for docs: [`google_artifact_registry_repository`](https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleArtifactRegistryRepository(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleArtifactRegistryRepository.GoogleArtifactRegistryRepository",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository google_artifact_registry_repository}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository google_artifact_registry_repository}.'''
 
     def __init__(
         self,
@@ -76,27 +76,27 @@ class GoogleArtifactRegistryRepository(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository google_artifact_registry_repository} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository google_artifact_registry_repository} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param format: The format of packages that are stored in the repository. Supported formats can be found `here <https://cloud.google.com/artifact-registry/docs/supported-formats>`_. You can only create alpha formats if you are a member of the `alpha user group <https://cloud.google.com/artifact-registry/docs/supported-formats#alpha-access>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#format GoogleArtifactRegistryRepository#format}
-        :param repository_id: The last part of the repository name, for example: "repo1". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#repository_id GoogleArtifactRegistryRepository#repository_id}
-        :param cleanup_policies: cleanup_policies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#cleanup_policies GoogleArtifactRegistryRepository#cleanup_policies}
-        :param cleanup_policy_dry_run: If true, the cleanup pipeline is prevented from deleting versions in this repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#cleanup_policy_dry_run GoogleArtifactRegistryRepository#cleanup_policy_dry_run}
-        :param description: The user-provided description of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#description GoogleArtifactRegistryRepository#description}
-        :param docker_config: docker_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#docker_config GoogleArtifactRegistryRepository#docker_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#id GoogleArtifactRegistryRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_key_name: The Cloud KMS resource name of the customer managed encryption key that’s used to encrypt the contents of the Repository. Has the form: 'projects/my-project/locations/my-region/keyRings/my-kr/cryptoKeys/my-key'. This value may not be changed after the Repository has been created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#kms_key_name GoogleArtifactRegistryRepository#kms_key_name}
-        :param labels: Labels with user-defined metadata. This field may contain up to 64 entries. Label keys and values may be no longer than 63 characters. Label keys must begin with a lowercase letter and may only contain lowercase letters, numeric characters, underscores, and dashes. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#labels GoogleArtifactRegistryRepository#labels}
-        :param location: The name of the repository's location. In addition to specific regions, special values for multi-region locations are 'asia', 'europe', and 'us'. See `here <https://cloud.google.com/artifact-registry/docs/repositories/repo-locations>`_, or use the `google_artifact_registry_locations <https://registry.terraform.io/providers/hashicorp/google/latest/docs/data-sources/artifact_registry_locations>`_ data source for possible values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#location GoogleArtifactRegistryRepository#location}
-        :param maven_config: maven_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#maven_config GoogleArtifactRegistryRepository#maven_config}
-        :param mode: The mode configures the repository to serve artifacts from different sources. Default value: "STANDARD_REPOSITORY" Possible values: ["STANDARD_REPOSITORY", "VIRTUAL_REPOSITORY", "REMOTE_REPOSITORY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#mode GoogleArtifactRegistryRepository#mode}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#project GoogleArtifactRegistryRepository#project}.
-        :param remote_repository_config: remote_repository_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#remote_repository_config GoogleArtifactRegistryRepository#remote_repository_config}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#timeouts GoogleArtifactRegistryRepository#timeouts}
-        :param virtual_repository_config: virtual_repository_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#virtual_repository_config GoogleArtifactRegistryRepository#virtual_repository_config}
-        :param vulnerability_scanning_config: vulnerability_scanning_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#vulnerability_scanning_config GoogleArtifactRegistryRepository#vulnerability_scanning_config}
+        :param format: The format of packages that are stored in the repository. Supported formats can be found `here <https://cloud.google.com/artifact-registry/docs/supported-formats>`_. You can only create alpha formats if you are a member of the `alpha user group <https://cloud.google.com/artifact-registry/docs/supported-formats#alpha-access>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#format GoogleArtifactRegistryRepository#format}
+        :param repository_id: The last part of the repository name, for example: "repo1". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#repository_id GoogleArtifactRegistryRepository#repository_id}
+        :param cleanup_policies: cleanup_policies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#cleanup_policies GoogleArtifactRegistryRepository#cleanup_policies}
+        :param cleanup_policy_dry_run: If true, the cleanup pipeline is prevented from deleting versions in this repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#cleanup_policy_dry_run GoogleArtifactRegistryRepository#cleanup_policy_dry_run}
+        :param description: The user-provided description of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#description GoogleArtifactRegistryRepository#description}
+        :param docker_config: docker_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#docker_config GoogleArtifactRegistryRepository#docker_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#id GoogleArtifactRegistryRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kms_key_name: The Cloud KMS resource name of the customer managed encryption key that’s used to encrypt the contents of the Repository. Has the form: 'projects/my-project/locations/my-region/keyRings/my-kr/cryptoKeys/my-key'. This value may not be changed after the Repository has been created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#kms_key_name GoogleArtifactRegistryRepository#kms_key_name}
+        :param labels: Labels with user-defined metadata. This field may contain up to 64 entries. Label keys and values may be no longer than 63 characters. Label keys must begin with a lowercase letter and may only contain lowercase letters, numeric characters, underscores, and dashes. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#labels GoogleArtifactRegistryRepository#labels}
+        :param location: The name of the repository's location. In addition to specific regions, special values for multi-region locations are 'asia', 'europe', and 'us'. See `here <https://cloud.google.com/artifact-registry/docs/repositories/repo-locations>`_, or use the `google_artifact_registry_locations <https://registry.terraform.io/providers/hashicorp/google/latest/docs/data-sources/artifact_registry_locations>`_ data source for possible values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#location GoogleArtifactRegistryRepository#location}
+        :param maven_config: maven_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#maven_config GoogleArtifactRegistryRepository#maven_config}
+        :param mode: The mode configures the repository to serve artifacts from different sources. Default value: "STANDARD_REPOSITORY" Possible values: ["STANDARD_REPOSITORY", "VIRTUAL_REPOSITORY", "REMOTE_REPOSITORY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#mode GoogleArtifactRegistryRepository#mode}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#project GoogleArtifactRegistryRepository#project}.
+        :param remote_repository_config: remote_repository_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#remote_repository_config GoogleArtifactRegistryRepository#remote_repository_config}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#timeouts GoogleArtifactRegistryRepository#timeouts}
+        :param virtual_repository_config: virtual_repository_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#virtual_repository_config GoogleArtifactRegistryRepository#virtual_repository_config}
+        :param vulnerability_scanning_config: vulnerability_scanning_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#vulnerability_scanning_config GoogleArtifactRegistryRepository#vulnerability_scanning_config}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -151,7 +151,7 @@ class GoogleArtifactRegistryRepository(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleArtifactRegistryRepository to import.
-        :param import_from_id: The id of the existing GoogleArtifactRegistryRepository that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleArtifactRegistryRepository that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleArtifactRegistryRepository to import is found.
         '''
         if __debug__:
@@ -182,7 +182,7 @@ class GoogleArtifactRegistryRepository(
         immutable_tags: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param immutable_tags: The repository which enabled this flag prevents all tags from being modified, moved or deleted. This does not prevent tags from being created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#immutable_tags GoogleArtifactRegistryRepository#immutable_tags}
+        :param immutable_tags: The repository which enabled this flag prevents all tags from being modified, moved or deleted. This does not prevent tags from being created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#immutable_tags GoogleArtifactRegistryRepository#immutable_tags}
         '''
         value = GoogleArtifactRegistryRepositoryDockerConfig(
             immutable_tags=immutable_tags
@@ -198,8 +198,8 @@ class GoogleArtifactRegistryRepository(
         version_policy: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param allow_snapshot_overwrites: The repository with this flag will allow publishing the same snapshot versions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#allow_snapshot_overwrites GoogleArtifactRegistryRepository#allow_snapshot_overwrites}
-        :param version_policy: Version policy defines the versions that the registry will accept. Default value: "VERSION_POLICY_UNSPECIFIED" Possible values: ["VERSION_POLICY_UNSPECIFIED", "RELEASE", "SNAPSHOT"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#version_policy GoogleArtifactRegistryRepository#version_policy}
+        :param allow_snapshot_overwrites: The repository with this flag will allow publishing the same snapshot versions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#allow_snapshot_overwrites GoogleArtifactRegistryRepository#allow_snapshot_overwrites}
+        :param version_policy: Version policy defines the versions that the registry will accept. Default value: "VERSION_POLICY_UNSPECIFIED" Possible values: ["VERSION_POLICY_UNSPECIFIED", "RELEASE", "SNAPSHOT"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#version_policy GoogleArtifactRegistryRepository#version_policy}
         '''
         value = GoogleArtifactRegistryRepositoryMavenConfig(
             allow_snapshot_overwrites=allow_snapshot_overwrites,
@@ -224,16 +224,16 @@ class GoogleArtifactRegistryRepository(
         yum_repository: typing.Optional[typing.Union["GoogleArtifactRegistryRepositoryRemoteRepositoryConfigYumRepository", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param apt_repository: apt_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#apt_repository GoogleArtifactRegistryRepository#apt_repository}
-        :param common_repository: common_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#common_repository GoogleArtifactRegistryRepository#common_repository}
-        :param description: The description of the remote source. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#description GoogleArtifactRegistryRepository#description}
-        :param disable_upstream_validation: If true, the remote repository upstream and upstream credentials will not be validated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#disable_upstream_validation GoogleArtifactRegistryRepository#disable_upstream_validation}
-        :param docker_repository: docker_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#docker_repository GoogleArtifactRegistryRepository#docker_repository}
-        :param maven_repository: maven_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#maven_repository GoogleArtifactRegistryRepository#maven_repository}
-        :param npm_repository: npm_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#npm_repository GoogleArtifactRegistryRepository#npm_repository}
-        :param python_repository: python_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#python_repository GoogleArtifactRegistryRepository#python_repository}
-        :param upstream_credentials: upstream_credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#upstream_credentials GoogleArtifactRegistryRepository#upstream_credentials}
-        :param yum_repository: yum_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#yum_repository GoogleArtifactRegistryRepository#yum_repository}
+        :param apt_repository: apt_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#apt_repository GoogleArtifactRegistryRepository#apt_repository}
+        :param common_repository: common_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#common_repository GoogleArtifactRegistryRepository#common_repository}
+        :param description: The description of the remote source. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#description GoogleArtifactRegistryRepository#description}
+        :param disable_upstream_validation: If true, the remote repository upstream and upstream credentials will not be validated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#disable_upstream_validation GoogleArtifactRegistryRepository#disable_upstream_validation}
+        :param docker_repository: docker_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#docker_repository GoogleArtifactRegistryRepository#docker_repository}
+        :param maven_repository: maven_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#maven_repository GoogleArtifactRegistryRepository#maven_repository}
+        :param npm_repository: npm_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#npm_repository GoogleArtifactRegistryRepository#npm_repository}
+        :param python_repository: python_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#python_repository GoogleArtifactRegistryRepository#python_repository}
+        :param upstream_credentials: upstream_credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#upstream_credentials GoogleArtifactRegistryRepository#upstream_credentials}
+        :param yum_repository: yum_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#yum_repository GoogleArtifactRegistryRepository#yum_repository}
         '''
         value = GoogleArtifactRegistryRepositoryRemoteRepositoryConfig(
             apt_repository=apt_repository,
@@ -259,9 +259,9 @@ class GoogleArtifactRegistryRepository(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#create GoogleArtifactRegistryRepository#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#delete GoogleArtifactRegistryRepository#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#update GoogleArtifactRegistryRepository#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#create GoogleArtifactRegistryRepository#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#delete GoogleArtifactRegistryRepository#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#update GoogleArtifactRegistryRepository#update}.
         '''
         value = GoogleArtifactRegistryRepositoryTimeouts(
             create=create, delete=delete, update=update
@@ -276,7 +276,7 @@ class GoogleArtifactRegistryRepository(
         upstream_policies: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleArtifactRegistryRepositoryVirtualRepositoryConfigUpstreamPolicies", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param upstream_policies: upstream_policies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#upstream_policies GoogleArtifactRegistryRepository#upstream_policies}
+        :param upstream_policies: upstream_policies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#upstream_policies GoogleArtifactRegistryRepository#upstream_policies}
         '''
         value = GoogleArtifactRegistryRepositoryVirtualRepositoryConfig(
             upstream_policies=upstream_policies
@@ -291,7 +291,7 @@ class GoogleArtifactRegistryRepository(
         enablement_config: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enablement_config: This configures whether vulnerability scanning is automatically performed for artifacts pushed to this repository. Possible values: ["INHERITED", "DISABLED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#enablement_config GoogleArtifactRegistryRepository#enablement_config}
+        :param enablement_config: This configures whether vulnerability scanning is automatically performed for artifacts pushed to this repository. Possible values: ["INHERITED", "DISABLED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#enablement_config GoogleArtifactRegistryRepository#enablement_config}
         '''
         value = GoogleArtifactRegistryRepositoryVulnerabilityScanningConfig(
             enablement_config=enablement_config
@@ -691,10 +691,10 @@ class GoogleArtifactRegistryRepositoryCleanupPolicies:
         most_recent_versions: typing.Optional[typing.Union["GoogleArtifactRegistryRepositoryCleanupPoliciesMostRecentVersions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#id GoogleArtifactRegistryRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param action: Policy action. Possible values: ["DELETE", "KEEP"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#action GoogleArtifactRegistryRepository#action}
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#condition GoogleArtifactRegistryRepository#condition}
-        :param most_recent_versions: most_recent_versions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#most_recent_versions GoogleArtifactRegistryRepository#most_recent_versions}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#id GoogleArtifactRegistryRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param action: Policy action. Possible values: ["DELETE", "KEEP"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#action GoogleArtifactRegistryRepository#action}
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#condition GoogleArtifactRegistryRepository#condition}
+        :param most_recent_versions: most_recent_versions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#most_recent_versions GoogleArtifactRegistryRepository#most_recent_versions}
         '''
         if isinstance(condition, dict):
             condition = GoogleArtifactRegistryRepositoryCleanupPoliciesCondition(**condition)
@@ -718,7 +718,7 @@ class GoogleArtifactRegistryRepositoryCleanupPolicies:
 
     @builtins.property
     def id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#id GoogleArtifactRegistryRepository#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#id GoogleArtifactRegistryRepository#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -731,7 +731,7 @@ class GoogleArtifactRegistryRepositoryCleanupPolicies:
     def action(self) -> typing.Optional[builtins.str]:
         '''Policy action. Possible values: ["DELETE", "KEEP"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#action GoogleArtifactRegistryRepository#action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#action GoogleArtifactRegistryRepository#action}
         '''
         result = self._values.get("action")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -742,7 +742,7 @@ class GoogleArtifactRegistryRepositoryCleanupPolicies:
     ) -> typing.Optional["GoogleArtifactRegistryRepositoryCleanupPoliciesCondition"]:
         '''condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#condition GoogleArtifactRegistryRepository#condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#condition GoogleArtifactRegistryRepository#condition}
         '''
         result = self._values.get("condition")
         return typing.cast(typing.Optional["GoogleArtifactRegistryRepositoryCleanupPoliciesCondition"], result)
@@ -753,7 +753,7 @@ class GoogleArtifactRegistryRepositoryCleanupPolicies:
     ) -> typing.Optional["GoogleArtifactRegistryRepositoryCleanupPoliciesMostRecentVersions"]:
         '''most_recent_versions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#most_recent_versions GoogleArtifactRegistryRepository#most_recent_versions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#most_recent_versions GoogleArtifactRegistryRepository#most_recent_versions}
         '''
         result = self._values.get("most_recent_versions")
         return typing.cast(typing.Optional["GoogleArtifactRegistryRepositoryCleanupPoliciesMostRecentVersions"], result)
@@ -794,12 +794,12 @@ class GoogleArtifactRegistryRepositoryCleanupPoliciesCondition:
         version_name_prefixes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param newer_than: Match versions newer than a duration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#newer_than GoogleArtifactRegistryRepository#newer_than}
-        :param older_than: Match versions older than a duration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#older_than GoogleArtifactRegistryRepository#older_than}
-        :param package_name_prefixes: Match versions by package prefix. Applied on any prefix match. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#package_name_prefixes GoogleArtifactRegistryRepository#package_name_prefixes}
-        :param tag_prefixes: Match versions by tag prefix. Applied on any prefix match. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#tag_prefixes GoogleArtifactRegistryRepository#tag_prefixes}
-        :param tag_state: Match versions by tag status. Default value: "ANY" Possible values: ["TAGGED", "UNTAGGED", "ANY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#tag_state GoogleArtifactRegistryRepository#tag_state}
-        :param version_name_prefixes: Match versions by version name prefix. Applied on any prefix match. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#version_name_prefixes GoogleArtifactRegistryRepository#version_name_prefixes}
+        :param newer_than: Match versions newer than a duration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#newer_than GoogleArtifactRegistryRepository#newer_than}
+        :param older_than: Match versions older than a duration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#older_than GoogleArtifactRegistryRepository#older_than}
+        :param package_name_prefixes: Match versions by package prefix. Applied on any prefix match. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#package_name_prefixes GoogleArtifactRegistryRepository#package_name_prefixes}
+        :param tag_prefixes: Match versions by tag prefix. Applied on any prefix match. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#tag_prefixes GoogleArtifactRegistryRepository#tag_prefixes}
+        :param tag_state: Match versions by tag status. Default value: "ANY" Possible values: ["TAGGED", "UNTAGGED", "ANY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#tag_state GoogleArtifactRegistryRepository#tag_state}
+        :param version_name_prefixes: Match versions by version name prefix. Applied on any prefix match. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#version_name_prefixes GoogleArtifactRegistryRepository#version_name_prefixes}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2084459b9314767a18ef25c7569e01b1db52b810852e0cf8f76f555d3b84b0ea)
@@ -827,7 +827,7 @@ class GoogleArtifactRegistryRepositoryCleanupPoliciesCondition:
     def newer_than(self) -> typing.Optional[builtins.str]:
         '''Match versions newer than a duration.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#newer_than GoogleArtifactRegistryRepository#newer_than}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#newer_than GoogleArtifactRegistryRepository#newer_than}
         '''
         result = self._values.get("newer_than")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -836,7 +836,7 @@ class GoogleArtifactRegistryRepositoryCleanupPoliciesCondition:
     def older_than(self) -> typing.Optional[builtins.str]:
         '''Match versions older than a duration.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#older_than GoogleArtifactRegistryRepository#older_than}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#older_than GoogleArtifactRegistryRepository#older_than}
         '''
         result = self._values.get("older_than")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -845,7 +845,7 @@ class GoogleArtifactRegistryRepositoryCleanupPoliciesCondition:
     def package_name_prefixes(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Match versions by package prefix. Applied on any prefix match.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#package_name_prefixes GoogleArtifactRegistryRepository#package_name_prefixes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#package_name_prefixes GoogleArtifactRegistryRepository#package_name_prefixes}
         '''
         result = self._values.get("package_name_prefixes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -854,7 +854,7 @@ class GoogleArtifactRegistryRepositoryCleanupPoliciesCondition:
     def tag_prefixes(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Match versions by tag prefix. Applied on any prefix match.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#tag_prefixes GoogleArtifactRegistryRepository#tag_prefixes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#tag_prefixes GoogleArtifactRegistryRepository#tag_prefixes}
         '''
         result = self._values.get("tag_prefixes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -863,7 +863,7 @@ class GoogleArtifactRegistryRepositoryCleanupPoliciesCondition:
     def tag_state(self) -> typing.Optional[builtins.str]:
         '''Match versions by tag status. Default value: "ANY" Possible values: ["TAGGED", "UNTAGGED", "ANY"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#tag_state GoogleArtifactRegistryRepository#tag_state}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#tag_state GoogleArtifactRegistryRepository#tag_state}
         '''
         result = self._values.get("tag_state")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -872,7 +872,7 @@ class GoogleArtifactRegistryRepositoryCleanupPoliciesCondition:
     def version_name_prefixes(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Match versions by version name prefix. Applied on any prefix match.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#version_name_prefixes GoogleArtifactRegistryRepository#version_name_prefixes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#version_name_prefixes GoogleArtifactRegistryRepository#version_name_prefixes}
         '''
         result = self._values.get("version_name_prefixes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1162,8 +1162,8 @@ class GoogleArtifactRegistryRepositoryCleanupPoliciesMostRecentVersions:
         package_name_prefixes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param keep_count: Minimum number of versions to keep. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#keep_count GoogleArtifactRegistryRepository#keep_count}
-        :param package_name_prefixes: Match versions by package prefix. Applied on any prefix match. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#package_name_prefixes GoogleArtifactRegistryRepository#package_name_prefixes}
+        :param keep_count: Minimum number of versions to keep. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#keep_count GoogleArtifactRegistryRepository#keep_count}
+        :param package_name_prefixes: Match versions by package prefix. Applied on any prefix match. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#package_name_prefixes GoogleArtifactRegistryRepository#package_name_prefixes}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3b7657fe489f32895823c6607261ddf44c9fcb882d93a5bc66ad5bc4c38d11d9)
@@ -1179,7 +1179,7 @@ class GoogleArtifactRegistryRepositoryCleanupPoliciesMostRecentVersions:
     def keep_count(self) -> typing.Optional[jsii.Number]:
         '''Minimum number of versions to keep.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#keep_count GoogleArtifactRegistryRepository#keep_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#keep_count GoogleArtifactRegistryRepository#keep_count}
         '''
         result = self._values.get("keep_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1188,7 +1188,7 @@ class GoogleArtifactRegistryRepositoryCleanupPoliciesMostRecentVersions:
     def package_name_prefixes(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Match versions by package prefix. Applied on any prefix match.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#package_name_prefixes GoogleArtifactRegistryRepository#package_name_prefixes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#package_name_prefixes GoogleArtifactRegistryRepository#package_name_prefixes}
         '''
         result = self._values.get("package_name_prefixes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1323,12 +1323,12 @@ class GoogleArtifactRegistryRepositoryCleanupPoliciesOutputReference(
         version_name_prefixes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param newer_than: Match versions newer than a duration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#newer_than GoogleArtifactRegistryRepository#newer_than}
-        :param older_than: Match versions older than a duration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#older_than GoogleArtifactRegistryRepository#older_than}
-        :param package_name_prefixes: Match versions by package prefix. Applied on any prefix match. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#package_name_prefixes GoogleArtifactRegistryRepository#package_name_prefixes}
-        :param tag_prefixes: Match versions by tag prefix. Applied on any prefix match. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#tag_prefixes GoogleArtifactRegistryRepository#tag_prefixes}
-        :param tag_state: Match versions by tag status. Default value: "ANY" Possible values: ["TAGGED", "UNTAGGED", "ANY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#tag_state GoogleArtifactRegistryRepository#tag_state}
-        :param version_name_prefixes: Match versions by version name prefix. Applied on any prefix match. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#version_name_prefixes GoogleArtifactRegistryRepository#version_name_prefixes}
+        :param newer_than: Match versions newer than a duration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#newer_than GoogleArtifactRegistryRepository#newer_than}
+        :param older_than: Match versions older than a duration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#older_than GoogleArtifactRegistryRepository#older_than}
+        :param package_name_prefixes: Match versions by package prefix. Applied on any prefix match. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#package_name_prefixes GoogleArtifactRegistryRepository#package_name_prefixes}
+        :param tag_prefixes: Match versions by tag prefix. Applied on any prefix match. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#tag_prefixes GoogleArtifactRegistryRepository#tag_prefixes}
+        :param tag_state: Match versions by tag status. Default value: "ANY" Possible values: ["TAGGED", "UNTAGGED", "ANY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#tag_state GoogleArtifactRegistryRepository#tag_state}
+        :param version_name_prefixes: Match versions by version name prefix. Applied on any prefix match. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#version_name_prefixes GoogleArtifactRegistryRepository#version_name_prefixes}
         '''
         value = GoogleArtifactRegistryRepositoryCleanupPoliciesCondition(
             newer_than=newer_than,
@@ -1349,8 +1349,8 @@ class GoogleArtifactRegistryRepositoryCleanupPoliciesOutputReference(
         package_name_prefixes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param keep_count: Minimum number of versions to keep. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#keep_count GoogleArtifactRegistryRepository#keep_count}
-        :param package_name_prefixes: Match versions by package prefix. Applied on any prefix match. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#package_name_prefixes GoogleArtifactRegistryRepository#package_name_prefixes}
+        :param keep_count: Minimum number of versions to keep. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#keep_count GoogleArtifactRegistryRepository#keep_count}
+        :param package_name_prefixes: Match versions by package prefix. Applied on any prefix match. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#package_name_prefixes GoogleArtifactRegistryRepository#package_name_prefixes}
         '''
         value = GoogleArtifactRegistryRepositoryCleanupPoliciesMostRecentVersions(
             keep_count=keep_count, package_name_prefixes=package_name_prefixes
@@ -1517,23 +1517,23 @@ class GoogleArtifactRegistryRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArgume
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param format: The format of packages that are stored in the repository. Supported formats can be found `here <https://cloud.google.com/artifact-registry/docs/supported-formats>`_. You can only create alpha formats if you are a member of the `alpha user group <https://cloud.google.com/artifact-registry/docs/supported-formats#alpha-access>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#format GoogleArtifactRegistryRepository#format}
-        :param repository_id: The last part of the repository name, for example: "repo1". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#repository_id GoogleArtifactRegistryRepository#repository_id}
-        :param cleanup_policies: cleanup_policies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#cleanup_policies GoogleArtifactRegistryRepository#cleanup_policies}
-        :param cleanup_policy_dry_run: If true, the cleanup pipeline is prevented from deleting versions in this repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#cleanup_policy_dry_run GoogleArtifactRegistryRepository#cleanup_policy_dry_run}
-        :param description: The user-provided description of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#description GoogleArtifactRegistryRepository#description}
-        :param docker_config: docker_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#docker_config GoogleArtifactRegistryRepository#docker_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#id GoogleArtifactRegistryRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_key_name: The Cloud KMS resource name of the customer managed encryption key that’s used to encrypt the contents of the Repository. Has the form: 'projects/my-project/locations/my-region/keyRings/my-kr/cryptoKeys/my-key'. This value may not be changed after the Repository has been created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#kms_key_name GoogleArtifactRegistryRepository#kms_key_name}
-        :param labels: Labels with user-defined metadata. This field may contain up to 64 entries. Label keys and values may be no longer than 63 characters. Label keys must begin with a lowercase letter and may only contain lowercase letters, numeric characters, underscores, and dashes. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#labels GoogleArtifactRegistryRepository#labels}
-        :param location: The name of the repository's location. In addition to specific regions, special values for multi-region locations are 'asia', 'europe', and 'us'. See `here <https://cloud.google.com/artifact-registry/docs/repositories/repo-locations>`_, or use the `google_artifact_registry_locations <https://registry.terraform.io/providers/hashicorp/google/latest/docs/data-sources/artifact_registry_locations>`_ data source for possible values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#location GoogleArtifactRegistryRepository#location}
-        :param maven_config: maven_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#maven_config GoogleArtifactRegistryRepository#maven_config}
-        :param mode: The mode configures the repository to serve artifacts from different sources. Default value: "STANDARD_REPOSITORY" Possible values: ["STANDARD_REPOSITORY", "VIRTUAL_REPOSITORY", "REMOTE_REPOSITORY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#mode GoogleArtifactRegistryRepository#mode}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#project GoogleArtifactRegistryRepository#project}.
-        :param remote_repository_config: remote_repository_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#remote_repository_config GoogleArtifactRegistryRepository#remote_repository_config}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#timeouts GoogleArtifactRegistryRepository#timeouts}
-        :param virtual_repository_config: virtual_repository_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#virtual_repository_config GoogleArtifactRegistryRepository#virtual_repository_config}
-        :param vulnerability_scanning_config: vulnerability_scanning_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#vulnerability_scanning_config GoogleArtifactRegistryRepository#vulnerability_scanning_config}
+        :param format: The format of packages that are stored in the repository. Supported formats can be found `here <https://cloud.google.com/artifact-registry/docs/supported-formats>`_. You can only create alpha formats if you are a member of the `alpha user group <https://cloud.google.com/artifact-registry/docs/supported-formats#alpha-access>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#format GoogleArtifactRegistryRepository#format}
+        :param repository_id: The last part of the repository name, for example: "repo1". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#repository_id GoogleArtifactRegistryRepository#repository_id}
+        :param cleanup_policies: cleanup_policies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#cleanup_policies GoogleArtifactRegistryRepository#cleanup_policies}
+        :param cleanup_policy_dry_run: If true, the cleanup pipeline is prevented from deleting versions in this repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#cleanup_policy_dry_run GoogleArtifactRegistryRepository#cleanup_policy_dry_run}
+        :param description: The user-provided description of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#description GoogleArtifactRegistryRepository#description}
+        :param docker_config: docker_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#docker_config GoogleArtifactRegistryRepository#docker_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#id GoogleArtifactRegistryRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kms_key_name: The Cloud KMS resource name of the customer managed encryption key that’s used to encrypt the contents of the Repository. Has the form: 'projects/my-project/locations/my-region/keyRings/my-kr/cryptoKeys/my-key'. This value may not be changed after the Repository has been created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#kms_key_name GoogleArtifactRegistryRepository#kms_key_name}
+        :param labels: Labels with user-defined metadata. This field may contain up to 64 entries. Label keys and values may be no longer than 63 characters. Label keys must begin with a lowercase letter and may only contain lowercase letters, numeric characters, underscores, and dashes. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#labels GoogleArtifactRegistryRepository#labels}
+        :param location: The name of the repository's location. In addition to specific regions, special values for multi-region locations are 'asia', 'europe', and 'us'. See `here <https://cloud.google.com/artifact-registry/docs/repositories/repo-locations>`_, or use the `google_artifact_registry_locations <https://registry.terraform.io/providers/hashicorp/google/latest/docs/data-sources/artifact_registry_locations>`_ data source for possible values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#location GoogleArtifactRegistryRepository#location}
+        :param maven_config: maven_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#maven_config GoogleArtifactRegistryRepository#maven_config}
+        :param mode: The mode configures the repository to serve artifacts from different sources. Default value: "STANDARD_REPOSITORY" Possible values: ["STANDARD_REPOSITORY", "VIRTUAL_REPOSITORY", "REMOTE_REPOSITORY"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#mode GoogleArtifactRegistryRepository#mode}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#project GoogleArtifactRegistryRepository#project}.
+        :param remote_repository_config: remote_repository_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#remote_repository_config GoogleArtifactRegistryRepository#remote_repository_config}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#timeouts GoogleArtifactRegistryRepository#timeouts}
+        :param virtual_repository_config: virtual_repository_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#virtual_repository_config GoogleArtifactRegistryRepository#virtual_repository_config}
+        :param vulnerability_scanning_config: vulnerability_scanning_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#vulnerability_scanning_config GoogleArtifactRegistryRepository#vulnerability_scanning_config}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1697,7 +1697,7 @@ class GoogleArtifactRegistryRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArgume
         You can only create alpha formats if you are a member of the
         `alpha user group <https://cloud.google.com/artifact-registry/docs/supported-formats#alpha-access>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#format GoogleArtifactRegistryRepository#format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#format GoogleArtifactRegistryRepository#format}
         '''
         result = self._values.get("format")
         assert result is not None, "Required property 'format' is missing"
@@ -1707,7 +1707,7 @@ class GoogleArtifactRegistryRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArgume
     def repository_id(self) -> builtins.str:
         '''The last part of the repository name, for example: "repo1".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#repository_id GoogleArtifactRegistryRepository#repository_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#repository_id GoogleArtifactRegistryRepository#repository_id}
         '''
         result = self._values.get("repository_id")
         assert result is not None, "Required property 'repository_id' is missing"
@@ -1719,7 +1719,7 @@ class GoogleArtifactRegistryRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArgume
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[GoogleArtifactRegistryRepositoryCleanupPolicies]]]:
         '''cleanup_policies block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#cleanup_policies GoogleArtifactRegistryRepository#cleanup_policies}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#cleanup_policies GoogleArtifactRegistryRepository#cleanup_policies}
         '''
         result = self._values.get("cleanup_policies")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[GoogleArtifactRegistryRepositoryCleanupPolicies]]], result)
@@ -1730,7 +1730,7 @@ class GoogleArtifactRegistryRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArgume
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true, the cleanup pipeline is prevented from deleting versions in this repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#cleanup_policy_dry_run GoogleArtifactRegistryRepository#cleanup_policy_dry_run}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#cleanup_policy_dry_run GoogleArtifactRegistryRepository#cleanup_policy_dry_run}
         '''
         result = self._values.get("cleanup_policy_dry_run")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1739,7 +1739,7 @@ class GoogleArtifactRegistryRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArgume
     def description(self) -> typing.Optional[builtins.str]:
         '''The user-provided description of the repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#description GoogleArtifactRegistryRepository#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#description GoogleArtifactRegistryRepository#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1750,14 +1750,14 @@ class GoogleArtifactRegistryRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArgume
     ) -> typing.Optional["GoogleArtifactRegistryRepositoryDockerConfig"]:
         '''docker_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#docker_config GoogleArtifactRegistryRepository#docker_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#docker_config GoogleArtifactRegistryRepository#docker_config}
         '''
         result = self._values.get("docker_config")
         return typing.cast(typing.Optional["GoogleArtifactRegistryRepositoryDockerConfig"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#id GoogleArtifactRegistryRepository#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#id GoogleArtifactRegistryRepository#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1773,7 +1773,7 @@ class GoogleArtifactRegistryRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArgume
         'projects/my-project/locations/my-region/keyRings/my-kr/cryptoKeys/my-key'.
         This value may not be changed after the Repository has been created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#kms_key_name GoogleArtifactRegistryRepository#kms_key_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#kms_key_name GoogleArtifactRegistryRepository#kms_key_name}
         '''
         result = self._values.get("kms_key_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1790,7 +1790,7 @@ class GoogleArtifactRegistryRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArgume
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#labels GoogleArtifactRegistryRepository#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#labels GoogleArtifactRegistryRepository#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1806,7 +1806,7 @@ class GoogleArtifactRegistryRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArgume
         `google_artifact_registry_locations <https://registry.terraform.io/providers/hashicorp/google/latest/docs/data-sources/artifact_registry_locations>`_
         data source for possible values.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#location GoogleArtifactRegistryRepository#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#location GoogleArtifactRegistryRepository#location}
         '''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1817,7 +1817,7 @@ class GoogleArtifactRegistryRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArgume
     ) -> typing.Optional["GoogleArtifactRegistryRepositoryMavenConfig"]:
         '''maven_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#maven_config GoogleArtifactRegistryRepository#maven_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#maven_config GoogleArtifactRegistryRepository#maven_config}
         '''
         result = self._values.get("maven_config")
         return typing.cast(typing.Optional["GoogleArtifactRegistryRepositoryMavenConfig"], result)
@@ -1826,14 +1826,14 @@ class GoogleArtifactRegistryRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArgume
     def mode(self) -> typing.Optional[builtins.str]:
         '''The mode configures the repository to serve artifacts from different sources. Default value: "STANDARD_REPOSITORY" Possible values: ["STANDARD_REPOSITORY", "VIRTUAL_REPOSITORY", "REMOTE_REPOSITORY"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#mode GoogleArtifactRegistryRepository#mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#mode GoogleArtifactRegistryRepository#mode}
         '''
         result = self._values.get("mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#project GoogleArtifactRegistryRepository#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#project GoogleArtifactRegistryRepository#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1843,7 +1843,7 @@ class GoogleArtifactRegistryRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArgume
     ) -> typing.Optional["GoogleArtifactRegistryRepositoryRemoteRepositoryConfig"]:
         '''remote_repository_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#remote_repository_config GoogleArtifactRegistryRepository#remote_repository_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#remote_repository_config GoogleArtifactRegistryRepository#remote_repository_config}
         '''
         result = self._values.get("remote_repository_config")
         return typing.cast(typing.Optional["GoogleArtifactRegistryRepositoryRemoteRepositoryConfig"], result)
@@ -1852,7 +1852,7 @@ class GoogleArtifactRegistryRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArgume
     def timeouts(self) -> typing.Optional["GoogleArtifactRegistryRepositoryTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#timeouts GoogleArtifactRegistryRepository#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#timeouts GoogleArtifactRegistryRepository#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleArtifactRegistryRepositoryTimeouts"], result)
@@ -1863,7 +1863,7 @@ class GoogleArtifactRegistryRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArgume
     ) -> typing.Optional["GoogleArtifactRegistryRepositoryVirtualRepositoryConfig"]:
         '''virtual_repository_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#virtual_repository_config GoogleArtifactRegistryRepository#virtual_repository_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#virtual_repository_config GoogleArtifactRegistryRepository#virtual_repository_config}
         '''
         result = self._values.get("virtual_repository_config")
         return typing.cast(typing.Optional["GoogleArtifactRegistryRepositoryVirtualRepositoryConfig"], result)
@@ -1874,7 +1874,7 @@ class GoogleArtifactRegistryRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArgume
     ) -> typing.Optional["GoogleArtifactRegistryRepositoryVulnerabilityScanningConfig"]:
         '''vulnerability_scanning_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#vulnerability_scanning_config GoogleArtifactRegistryRepository#vulnerability_scanning_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#vulnerability_scanning_config GoogleArtifactRegistryRepository#vulnerability_scanning_config}
         '''
         result = self._values.get("vulnerability_scanning_config")
         return typing.cast(typing.Optional["GoogleArtifactRegistryRepositoryVulnerabilityScanningConfig"], result)
@@ -1903,7 +1903,7 @@ class GoogleArtifactRegistryRepositoryDockerConfig:
         immutable_tags: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param immutable_tags: The repository which enabled this flag prevents all tags from being modified, moved or deleted. This does not prevent tags from being created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#immutable_tags GoogleArtifactRegistryRepository#immutable_tags}
+        :param immutable_tags: The repository which enabled this flag prevents all tags from being modified, moved or deleted. This does not prevent tags from being created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#immutable_tags GoogleArtifactRegistryRepository#immutable_tags}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__77f5546da03f0a36d2ba2086fd28a4f0bedd4adcb91d34687fd23ec31d9340c6)
@@ -1920,7 +1920,7 @@ class GoogleArtifactRegistryRepositoryDockerConfig:
 
         This does not prevent tags from being created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#immutable_tags GoogleArtifactRegistryRepository#immutable_tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#immutable_tags GoogleArtifactRegistryRepository#immutable_tags}
         '''
         result = self._values.get("immutable_tags")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2019,8 +2019,8 @@ class GoogleArtifactRegistryRepositoryMavenConfig:
         version_policy: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param allow_snapshot_overwrites: The repository with this flag will allow publishing the same snapshot versions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#allow_snapshot_overwrites GoogleArtifactRegistryRepository#allow_snapshot_overwrites}
-        :param version_policy: Version policy defines the versions that the registry will accept. Default value: "VERSION_POLICY_UNSPECIFIED" Possible values: ["VERSION_POLICY_UNSPECIFIED", "RELEASE", "SNAPSHOT"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#version_policy GoogleArtifactRegistryRepository#version_policy}
+        :param allow_snapshot_overwrites: The repository with this flag will allow publishing the same snapshot versions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#allow_snapshot_overwrites GoogleArtifactRegistryRepository#allow_snapshot_overwrites}
+        :param version_policy: Version policy defines the versions that the registry will accept. Default value: "VERSION_POLICY_UNSPECIFIED" Possible values: ["VERSION_POLICY_UNSPECIFIED", "RELEASE", "SNAPSHOT"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#version_policy GoogleArtifactRegistryRepository#version_policy}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b86106113cd2326dfa091d75b12f264666750a8e018f6f9dd440d5671916a28f)
@@ -2038,7 +2038,7 @@ class GoogleArtifactRegistryRepositoryMavenConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''The repository with this flag will allow publishing the same snapshot versions.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#allow_snapshot_overwrites GoogleArtifactRegistryRepository#allow_snapshot_overwrites}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#allow_snapshot_overwrites GoogleArtifactRegistryRepository#allow_snapshot_overwrites}
         '''
         result = self._values.get("allow_snapshot_overwrites")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2047,7 +2047,7 @@ class GoogleArtifactRegistryRepositoryMavenConfig:
     def version_policy(self) -> typing.Optional[builtins.str]:
         '''Version policy defines the versions that the registry will accept. Default value: "VERSION_POLICY_UNSPECIFIED" Possible values: ["VERSION_POLICY_UNSPECIFIED", "RELEASE", "SNAPSHOT"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#version_policy GoogleArtifactRegistryRepository#version_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#version_policy GoogleArtifactRegistryRepository#version_policy}
         '''
         result = self._values.get("version_policy")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2183,16 +2183,16 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfig:
         yum_repository: typing.Optional[typing.Union["GoogleArtifactRegistryRepositoryRemoteRepositoryConfigYumRepository", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param apt_repository: apt_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#apt_repository GoogleArtifactRegistryRepository#apt_repository}
-        :param common_repository: common_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#common_repository GoogleArtifactRegistryRepository#common_repository}
-        :param description: The description of the remote source. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#description GoogleArtifactRegistryRepository#description}
-        :param disable_upstream_validation: If true, the remote repository upstream and upstream credentials will not be validated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#disable_upstream_validation GoogleArtifactRegistryRepository#disable_upstream_validation}
-        :param docker_repository: docker_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#docker_repository GoogleArtifactRegistryRepository#docker_repository}
-        :param maven_repository: maven_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#maven_repository GoogleArtifactRegistryRepository#maven_repository}
-        :param npm_repository: npm_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#npm_repository GoogleArtifactRegistryRepository#npm_repository}
-        :param python_repository: python_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#python_repository GoogleArtifactRegistryRepository#python_repository}
-        :param upstream_credentials: upstream_credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#upstream_credentials GoogleArtifactRegistryRepository#upstream_credentials}
-        :param yum_repository: yum_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#yum_repository GoogleArtifactRegistryRepository#yum_repository}
+        :param apt_repository: apt_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#apt_repository GoogleArtifactRegistryRepository#apt_repository}
+        :param common_repository: common_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#common_repository GoogleArtifactRegistryRepository#common_repository}
+        :param description: The description of the remote source. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#description GoogleArtifactRegistryRepository#description}
+        :param disable_upstream_validation: If true, the remote repository upstream and upstream credentials will not be validated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#disable_upstream_validation GoogleArtifactRegistryRepository#disable_upstream_validation}
+        :param docker_repository: docker_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#docker_repository GoogleArtifactRegistryRepository#docker_repository}
+        :param maven_repository: maven_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#maven_repository GoogleArtifactRegistryRepository#maven_repository}
+        :param npm_repository: npm_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#npm_repository GoogleArtifactRegistryRepository#npm_repository}
+        :param python_repository: python_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#python_repository GoogleArtifactRegistryRepository#python_repository}
+        :param upstream_credentials: upstream_credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#upstream_credentials GoogleArtifactRegistryRepository#upstream_credentials}
+        :param yum_repository: yum_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#yum_repository GoogleArtifactRegistryRepository#yum_repository}
         '''
         if isinstance(apt_repository, dict):
             apt_repository = GoogleArtifactRegistryRepositoryRemoteRepositoryConfigAptRepository(**apt_repository)
@@ -2250,7 +2250,7 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfig:
     ) -> typing.Optional["GoogleArtifactRegistryRepositoryRemoteRepositoryConfigAptRepository"]:
         '''apt_repository block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#apt_repository GoogleArtifactRegistryRepository#apt_repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#apt_repository GoogleArtifactRegistryRepository#apt_repository}
         '''
         result = self._values.get("apt_repository")
         return typing.cast(typing.Optional["GoogleArtifactRegistryRepositoryRemoteRepositoryConfigAptRepository"], result)
@@ -2261,7 +2261,7 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfig:
     ) -> typing.Optional["GoogleArtifactRegistryRepositoryRemoteRepositoryConfigCommonRepository"]:
         '''common_repository block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#common_repository GoogleArtifactRegistryRepository#common_repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#common_repository GoogleArtifactRegistryRepository#common_repository}
         '''
         result = self._values.get("common_repository")
         return typing.cast(typing.Optional["GoogleArtifactRegistryRepositoryRemoteRepositoryConfigCommonRepository"], result)
@@ -2270,7 +2270,7 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfig:
     def description(self) -> typing.Optional[builtins.str]:
         '''The description of the remote source.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#description GoogleArtifactRegistryRepository#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#description GoogleArtifactRegistryRepository#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2281,7 +2281,7 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true, the remote repository upstream and upstream credentials will not be validated.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#disable_upstream_validation GoogleArtifactRegistryRepository#disable_upstream_validation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#disable_upstream_validation GoogleArtifactRegistryRepository#disable_upstream_validation}
         '''
         result = self._values.get("disable_upstream_validation")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2292,7 +2292,7 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfig:
     ) -> typing.Optional["GoogleArtifactRegistryRepositoryRemoteRepositoryConfigDockerRepository"]:
         '''docker_repository block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#docker_repository GoogleArtifactRegistryRepository#docker_repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#docker_repository GoogleArtifactRegistryRepository#docker_repository}
         '''
         result = self._values.get("docker_repository")
         return typing.cast(typing.Optional["GoogleArtifactRegistryRepositoryRemoteRepositoryConfigDockerRepository"], result)
@@ -2303,7 +2303,7 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfig:
     ) -> typing.Optional["GoogleArtifactRegistryRepositoryRemoteRepositoryConfigMavenRepository"]:
         '''maven_repository block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#maven_repository GoogleArtifactRegistryRepository#maven_repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#maven_repository GoogleArtifactRegistryRepository#maven_repository}
         '''
         result = self._values.get("maven_repository")
         return typing.cast(typing.Optional["GoogleArtifactRegistryRepositoryRemoteRepositoryConfigMavenRepository"], result)
@@ -2314,7 +2314,7 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfig:
     ) -> typing.Optional["GoogleArtifactRegistryRepositoryRemoteRepositoryConfigNpmRepository"]:
         '''npm_repository block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#npm_repository GoogleArtifactRegistryRepository#npm_repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#npm_repository GoogleArtifactRegistryRepository#npm_repository}
         '''
         result = self._values.get("npm_repository")
         return typing.cast(typing.Optional["GoogleArtifactRegistryRepositoryRemoteRepositoryConfigNpmRepository"], result)
@@ -2325,7 +2325,7 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfig:
     ) -> typing.Optional["GoogleArtifactRegistryRepositoryRemoteRepositoryConfigPythonRepository"]:
         '''python_repository block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#python_repository GoogleArtifactRegistryRepository#python_repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#python_repository GoogleArtifactRegistryRepository#python_repository}
         '''
         result = self._values.get("python_repository")
         return typing.cast(typing.Optional["GoogleArtifactRegistryRepositoryRemoteRepositoryConfigPythonRepository"], result)
@@ -2336,7 +2336,7 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfig:
     ) -> typing.Optional["GoogleArtifactRegistryRepositoryRemoteRepositoryConfigUpstreamCredentials"]:
         '''upstream_credentials block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#upstream_credentials GoogleArtifactRegistryRepository#upstream_credentials}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#upstream_credentials GoogleArtifactRegistryRepository#upstream_credentials}
         '''
         result = self._values.get("upstream_credentials")
         return typing.cast(typing.Optional["GoogleArtifactRegistryRepositoryRemoteRepositoryConfigUpstreamCredentials"], result)
@@ -2347,7 +2347,7 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfig:
     ) -> typing.Optional["GoogleArtifactRegistryRepositoryRemoteRepositoryConfigYumRepository"]:
         '''yum_repository block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#yum_repository GoogleArtifactRegistryRepository#yum_repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#yum_repository GoogleArtifactRegistryRepository#yum_repository}
         '''
         result = self._values.get("yum_repository")
         return typing.cast(typing.Optional["GoogleArtifactRegistryRepositoryRemoteRepositoryConfigYumRepository"], result)
@@ -2376,7 +2376,7 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigAptRepository:
         public_repository: typing.Optional[typing.Union["GoogleArtifactRegistryRepositoryRemoteRepositoryConfigAptRepositoryPublicRepository", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param public_repository: public_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#public_repository GoogleArtifactRegistryRepository#public_repository}
+        :param public_repository: public_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#public_repository GoogleArtifactRegistryRepository#public_repository}
         '''
         if isinstance(public_repository, dict):
             public_repository = GoogleArtifactRegistryRepositoryRemoteRepositoryConfigAptRepositoryPublicRepository(**public_repository)
@@ -2393,7 +2393,7 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigAptRepository:
     ) -> typing.Optional["GoogleArtifactRegistryRepositoryRemoteRepositoryConfigAptRepositoryPublicRepository"]:
         '''public_repository block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#public_repository GoogleArtifactRegistryRepository#public_repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#public_repository GoogleArtifactRegistryRepository#public_repository}
         '''
         result = self._values.get("public_repository")
         return typing.cast(typing.Optional["GoogleArtifactRegistryRepositoryRemoteRepositoryConfigAptRepositoryPublicRepository"], result)
@@ -2438,8 +2438,8 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigAptRepositoryOutputR
         repository_path: builtins.str,
     ) -> None:
         '''
-        :param repository_base: A common public repository base for Apt, e.g. '"debian/dists/buster"' Possible values: ["DEBIAN", "UBUNTU", "DEBIAN_SNAPSHOT"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#repository_base GoogleArtifactRegistryRepository#repository_base}
-        :param repository_path: Specific repository from the base. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#repository_path GoogleArtifactRegistryRepository#repository_path}
+        :param repository_base: A common public repository base for Apt, e.g. '"debian/dists/buster"' Possible values: ["DEBIAN", "UBUNTU", "DEBIAN_SNAPSHOT"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#repository_base GoogleArtifactRegistryRepository#repository_base}
+        :param repository_path: Specific repository from the base. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#repository_path GoogleArtifactRegistryRepository#repository_path}
         '''
         value = GoogleArtifactRegistryRepositoryRemoteRepositoryConfigAptRepositoryPublicRepository(
             repository_base=repository_base, repository_path=repository_path
@@ -2499,8 +2499,8 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigAptRepositoryPublicR
         repository_path: builtins.str,
     ) -> None:
         '''
-        :param repository_base: A common public repository base for Apt, e.g. '"debian/dists/buster"' Possible values: ["DEBIAN", "UBUNTU", "DEBIAN_SNAPSHOT"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#repository_base GoogleArtifactRegistryRepository#repository_base}
-        :param repository_path: Specific repository from the base. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#repository_path GoogleArtifactRegistryRepository#repository_path}
+        :param repository_base: A common public repository base for Apt, e.g. '"debian/dists/buster"' Possible values: ["DEBIAN", "UBUNTU", "DEBIAN_SNAPSHOT"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#repository_base GoogleArtifactRegistryRepository#repository_base}
+        :param repository_path: Specific repository from the base. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#repository_path GoogleArtifactRegistryRepository#repository_path}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a18b06196991ef20227e05d2ccd0d64da3ee90e55552f2bf52995cc0c0bdca10)
@@ -2515,7 +2515,7 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigAptRepositoryPublicR
     def repository_base(self) -> builtins.str:
         '''A common public repository base for Apt, e.g. '"debian/dists/buster"' Possible values: ["DEBIAN", "UBUNTU", "DEBIAN_SNAPSHOT"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#repository_base GoogleArtifactRegistryRepository#repository_base}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#repository_base GoogleArtifactRegistryRepository#repository_base}
         '''
         result = self._values.get("repository_base")
         assert result is not None, "Required property 'repository_base' is missing"
@@ -2525,7 +2525,7 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigAptRepositoryPublicR
     def repository_path(self) -> builtins.str:
         '''Specific repository from the base.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#repository_path GoogleArtifactRegistryRepository#repository_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#repository_path GoogleArtifactRegistryRepository#repository_path}
         '''
         result = self._values.get("repository_path")
         assert result is not None, "Required property 'repository_path' is missing"
@@ -2623,7 +2623,7 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigAptRepositoryPublicR
 class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigCommonRepository:
     def __init__(self, *, uri: builtins.str) -> None:
         '''
-        :param uri: One of: a. Artifact Registry Repository resource, e.g. 'projects/UPSTREAM_PROJECT_ID/locations/REGION/repositories/UPSTREAM_REPOSITORY' b. URI to the registry, e.g. '"https://registry-1.docker.io"' c. URI to Artifact Registry Repository, e.g. '"https://REGION-docker.pkg.dev/UPSTREAM_PROJECT_ID/UPSTREAM_REPOSITORY"' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#uri GoogleArtifactRegistryRepository#uri}
+        :param uri: One of: a. Artifact Registry Repository resource, e.g. 'projects/UPSTREAM_PROJECT_ID/locations/REGION/repositories/UPSTREAM_REPOSITORY' b. URI to the registry, e.g. '"https://registry-1.docker.io"' c. URI to Artifact Registry Repository, e.g. '"https://REGION-docker.pkg.dev/UPSTREAM_PROJECT_ID/UPSTREAM_REPOSITORY"' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#uri GoogleArtifactRegistryRepository#uri}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5416e6d3d30e6e9d116c2e47af1ca0719c0836babd651bd3a98ae0516c3bc699)
@@ -2640,7 +2640,7 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigCommonRepository:
         b. URI to the registry, e.g. '"https://registry-1.docker.io"'
         c. URI to Artifact Registry Repository, e.g. '"https://REGION-docker.pkg.dev/UPSTREAM_PROJECT_ID/UPSTREAM_REPOSITORY"'
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#uri GoogleArtifactRegistryRepository#uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#uri GoogleArtifactRegistryRepository#uri}
         '''
         result = self._values.get("uri")
         assert result is not None, "Required property 'uri' is missing"
@@ -2729,8 +2729,8 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigDockerRepository:
         public_repository: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param custom_repository: custom_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#custom_repository GoogleArtifactRegistryRepository#custom_repository}
-        :param public_repository: Address of the remote repository. Default value: "DOCKER_HUB" Possible values: ["DOCKER_HUB"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#public_repository GoogleArtifactRegistryRepository#public_repository}
+        :param custom_repository: custom_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#custom_repository GoogleArtifactRegistryRepository#custom_repository}
+        :param public_repository: Address of the remote repository. Default value: "DOCKER_HUB" Possible values: ["DOCKER_HUB"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#public_repository GoogleArtifactRegistryRepository#public_repository}
         '''
         if isinstance(custom_repository, dict):
             custom_repository = GoogleArtifactRegistryRepositoryRemoteRepositoryConfigDockerRepositoryCustomRepository(**custom_repository)
@@ -2750,7 +2750,7 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigDockerRepository:
     ) -> typing.Optional["GoogleArtifactRegistryRepositoryRemoteRepositoryConfigDockerRepositoryCustomRepository"]:
         '''custom_repository block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#custom_repository GoogleArtifactRegistryRepository#custom_repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#custom_repository GoogleArtifactRegistryRepository#custom_repository}
         '''
         result = self._values.get("custom_repository")
         return typing.cast(typing.Optional["GoogleArtifactRegistryRepositoryRemoteRepositoryConfigDockerRepositoryCustomRepository"], result)
@@ -2759,7 +2759,7 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigDockerRepository:
     def public_repository(self) -> typing.Optional[builtins.str]:
         '''Address of the remote repository. Default value: "DOCKER_HUB" Possible values: ["DOCKER_HUB"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#public_repository GoogleArtifactRegistryRepository#public_repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#public_repository GoogleArtifactRegistryRepository#public_repository}
         '''
         result = self._values.get("public_repository")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2784,7 +2784,7 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigDockerRepository:
 class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigDockerRepositoryCustomRepository:
     def __init__(self, *, uri: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param uri: Specific uri to the registry, e.g. '"https://registry-1.docker.io"'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#uri GoogleArtifactRegistryRepository#uri}
+        :param uri: Specific uri to the registry, e.g. '"https://registry-1.docker.io"'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#uri GoogleArtifactRegistryRepository#uri}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__68c654deba80c25bb018f35a53e6c1fd60e5812a729d693551393fa3c8caf083)
@@ -2797,7 +2797,7 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigDockerRepositoryCust
     def uri(self) -> typing.Optional[builtins.str]:
         '''Specific uri to the registry, e.g. '"https://registry-1.docker.io"'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#uri GoogleArtifactRegistryRepository#uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#uri GoogleArtifactRegistryRepository#uri}
         '''
         result = self._values.get("uri")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2900,7 +2900,7 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigDockerRepositoryOutp
         uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param uri: Specific uri to the registry, e.g. '"https://registry-1.docker.io"'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#uri GoogleArtifactRegistryRepository#uri}
+        :param uri: Specific uri to the registry, e.g. '"https://registry-1.docker.io"'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#uri GoogleArtifactRegistryRepository#uri}
         '''
         value = GoogleArtifactRegistryRepositoryRemoteRepositoryConfigDockerRepositoryCustomRepository(
             uri=uri
@@ -2981,8 +2981,8 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigMavenRepository:
         public_repository: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param custom_repository: custom_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#custom_repository GoogleArtifactRegistryRepository#custom_repository}
-        :param public_repository: Address of the remote repository. Default value: "MAVEN_CENTRAL" Possible values: ["MAVEN_CENTRAL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#public_repository GoogleArtifactRegistryRepository#public_repository}
+        :param custom_repository: custom_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#custom_repository GoogleArtifactRegistryRepository#custom_repository}
+        :param public_repository: Address of the remote repository. Default value: "MAVEN_CENTRAL" Possible values: ["MAVEN_CENTRAL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#public_repository GoogleArtifactRegistryRepository#public_repository}
         '''
         if isinstance(custom_repository, dict):
             custom_repository = GoogleArtifactRegistryRepositoryRemoteRepositoryConfigMavenRepositoryCustomRepository(**custom_repository)
@@ -3002,7 +3002,7 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigMavenRepository:
     ) -> typing.Optional["GoogleArtifactRegistryRepositoryRemoteRepositoryConfigMavenRepositoryCustomRepository"]:
         '''custom_repository block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#custom_repository GoogleArtifactRegistryRepository#custom_repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#custom_repository GoogleArtifactRegistryRepository#custom_repository}
         '''
         result = self._values.get("custom_repository")
         return typing.cast(typing.Optional["GoogleArtifactRegistryRepositoryRemoteRepositoryConfigMavenRepositoryCustomRepository"], result)
@@ -3011,7 +3011,7 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigMavenRepository:
     def public_repository(self) -> typing.Optional[builtins.str]:
         '''Address of the remote repository. Default value: "MAVEN_CENTRAL" Possible values: ["MAVEN_CENTRAL"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#public_repository GoogleArtifactRegistryRepository#public_repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#public_repository GoogleArtifactRegistryRepository#public_repository}
         '''
         result = self._values.get("public_repository")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3036,7 +3036,7 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigMavenRepository:
 class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigMavenRepositoryCustomRepository:
     def __init__(self, *, uri: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param uri: Specific uri to the registry, e.g. '"https://repo.maven.apache.org/maven2"'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#uri GoogleArtifactRegistryRepository#uri}
+        :param uri: Specific uri to the registry, e.g. '"https://repo.maven.apache.org/maven2"'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#uri GoogleArtifactRegistryRepository#uri}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__18b6cee98bfe8df617df15db462157405f642b3d1ea77af7c70d757126db1fe0)
@@ -3049,7 +3049,7 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigMavenRepositoryCusto
     def uri(self) -> typing.Optional[builtins.str]:
         '''Specific uri to the registry, e.g. '"https://repo.maven.apache.org/maven2"'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#uri GoogleArtifactRegistryRepository#uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#uri GoogleArtifactRegistryRepository#uri}
         '''
         result = self._values.get("uri")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3152,7 +3152,7 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigMavenRepositoryOutpu
         uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param uri: Specific uri to the registry, e.g. '"https://repo.maven.apache.org/maven2"'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#uri GoogleArtifactRegistryRepository#uri}
+        :param uri: Specific uri to the registry, e.g. '"https://repo.maven.apache.org/maven2"'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#uri GoogleArtifactRegistryRepository#uri}
         '''
         value = GoogleArtifactRegistryRepositoryRemoteRepositoryConfigMavenRepositoryCustomRepository(
             uri=uri
@@ -3233,8 +3233,8 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigNpmRepository:
         public_repository: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param custom_repository: custom_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#custom_repository GoogleArtifactRegistryRepository#custom_repository}
-        :param public_repository: Address of the remote repository. Default value: "NPMJS" Possible values: ["NPMJS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#public_repository GoogleArtifactRegistryRepository#public_repository}
+        :param custom_repository: custom_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#custom_repository GoogleArtifactRegistryRepository#custom_repository}
+        :param public_repository: Address of the remote repository. Default value: "NPMJS" Possible values: ["NPMJS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#public_repository GoogleArtifactRegistryRepository#public_repository}
         '''
         if isinstance(custom_repository, dict):
             custom_repository = GoogleArtifactRegistryRepositoryRemoteRepositoryConfigNpmRepositoryCustomRepository(**custom_repository)
@@ -3254,7 +3254,7 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigNpmRepository:
     ) -> typing.Optional["GoogleArtifactRegistryRepositoryRemoteRepositoryConfigNpmRepositoryCustomRepository"]:
         '''custom_repository block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#custom_repository GoogleArtifactRegistryRepository#custom_repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#custom_repository GoogleArtifactRegistryRepository#custom_repository}
         '''
         result = self._values.get("custom_repository")
         return typing.cast(typing.Optional["GoogleArtifactRegistryRepositoryRemoteRepositoryConfigNpmRepositoryCustomRepository"], result)
@@ -3263,7 +3263,7 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigNpmRepository:
     def public_repository(self) -> typing.Optional[builtins.str]:
         '''Address of the remote repository. Default value: "NPMJS" Possible values: ["NPMJS"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#public_repository GoogleArtifactRegistryRepository#public_repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#public_repository GoogleArtifactRegistryRepository#public_repository}
         '''
         result = self._values.get("public_repository")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3288,7 +3288,7 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigNpmRepository:
 class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigNpmRepositoryCustomRepository:
     def __init__(self, *, uri: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param uri: Specific uri to the registry, e.g. '"https://registry.npmjs.org"'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#uri GoogleArtifactRegistryRepository#uri}
+        :param uri: Specific uri to the registry, e.g. '"https://registry.npmjs.org"'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#uri GoogleArtifactRegistryRepository#uri}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9c2abae1225bf51aaf0e05bf6cdc01afa1108441e15d436f28cb6aba82f532fa)
@@ -3301,7 +3301,7 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigNpmRepositoryCustomR
     def uri(self) -> typing.Optional[builtins.str]:
         '''Specific uri to the registry, e.g. '"https://registry.npmjs.org"'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#uri GoogleArtifactRegistryRepository#uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#uri GoogleArtifactRegistryRepository#uri}
         '''
         result = self._values.get("uri")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3404,7 +3404,7 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigNpmRepositoryOutputR
         uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param uri: Specific uri to the registry, e.g. '"https://registry.npmjs.org"'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#uri GoogleArtifactRegistryRepository#uri}
+        :param uri: Specific uri to the registry, e.g. '"https://registry.npmjs.org"'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#uri GoogleArtifactRegistryRepository#uri}
         '''
         value = GoogleArtifactRegistryRepositoryRemoteRepositoryConfigNpmRepositoryCustomRepository(
             uri=uri
@@ -3496,7 +3496,7 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigOutputReference(
         public_repository: typing.Optional[typing.Union[GoogleArtifactRegistryRepositoryRemoteRepositoryConfigAptRepositoryPublicRepository, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param public_repository: public_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#public_repository GoogleArtifactRegistryRepository#public_repository}
+        :param public_repository: public_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#public_repository GoogleArtifactRegistryRepository#public_repository}
         '''
         value = GoogleArtifactRegistryRepositoryRemoteRepositoryConfigAptRepository(
             public_repository=public_repository
@@ -3507,7 +3507,7 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigOutputReference(
     @jsii.member(jsii_name="putCommonRepository")
     def put_common_repository(self, *, uri: builtins.str) -> None:
         '''
-        :param uri: One of: a. Artifact Registry Repository resource, e.g. 'projects/UPSTREAM_PROJECT_ID/locations/REGION/repositories/UPSTREAM_REPOSITORY' b. URI to the registry, e.g. '"https://registry-1.docker.io"' c. URI to Artifact Registry Repository, e.g. '"https://REGION-docker.pkg.dev/UPSTREAM_PROJECT_ID/UPSTREAM_REPOSITORY"' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#uri GoogleArtifactRegistryRepository#uri}
+        :param uri: One of: a. Artifact Registry Repository resource, e.g. 'projects/UPSTREAM_PROJECT_ID/locations/REGION/repositories/UPSTREAM_REPOSITORY' b. URI to the registry, e.g. '"https://registry-1.docker.io"' c. URI to Artifact Registry Repository, e.g. '"https://REGION-docker.pkg.dev/UPSTREAM_PROJECT_ID/UPSTREAM_REPOSITORY"' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#uri GoogleArtifactRegistryRepository#uri}
         '''
         value = GoogleArtifactRegistryRepositoryRemoteRepositoryConfigCommonRepository(
             uri=uri
@@ -3523,8 +3523,8 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigOutputReference(
         public_repository: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param custom_repository: custom_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#custom_repository GoogleArtifactRegistryRepository#custom_repository}
-        :param public_repository: Address of the remote repository. Default value: "DOCKER_HUB" Possible values: ["DOCKER_HUB"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#public_repository GoogleArtifactRegistryRepository#public_repository}
+        :param custom_repository: custom_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#custom_repository GoogleArtifactRegistryRepository#custom_repository}
+        :param public_repository: Address of the remote repository. Default value: "DOCKER_HUB" Possible values: ["DOCKER_HUB"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#public_repository GoogleArtifactRegistryRepository#public_repository}
         '''
         value = GoogleArtifactRegistryRepositoryRemoteRepositoryConfigDockerRepository(
             custom_repository=custom_repository, public_repository=public_repository
@@ -3540,8 +3540,8 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigOutputReference(
         public_repository: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param custom_repository: custom_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#custom_repository GoogleArtifactRegistryRepository#custom_repository}
-        :param public_repository: Address of the remote repository. Default value: "MAVEN_CENTRAL" Possible values: ["MAVEN_CENTRAL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#public_repository GoogleArtifactRegistryRepository#public_repository}
+        :param custom_repository: custom_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#custom_repository GoogleArtifactRegistryRepository#custom_repository}
+        :param public_repository: Address of the remote repository. Default value: "MAVEN_CENTRAL" Possible values: ["MAVEN_CENTRAL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#public_repository GoogleArtifactRegistryRepository#public_repository}
         '''
         value = GoogleArtifactRegistryRepositoryRemoteRepositoryConfigMavenRepository(
             custom_repository=custom_repository, public_repository=public_repository
@@ -3557,8 +3557,8 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigOutputReference(
         public_repository: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param custom_repository: custom_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#custom_repository GoogleArtifactRegistryRepository#custom_repository}
-        :param public_repository: Address of the remote repository. Default value: "NPMJS" Possible values: ["NPMJS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#public_repository GoogleArtifactRegistryRepository#public_repository}
+        :param custom_repository: custom_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#custom_repository GoogleArtifactRegistryRepository#custom_repository}
+        :param public_repository: Address of the remote repository. Default value: "NPMJS" Possible values: ["NPMJS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#public_repository GoogleArtifactRegistryRepository#public_repository}
         '''
         value = GoogleArtifactRegistryRepositoryRemoteRepositoryConfigNpmRepository(
             custom_repository=custom_repository, public_repository=public_repository
@@ -3574,8 +3574,8 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigOutputReference(
         public_repository: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param custom_repository: custom_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#custom_repository GoogleArtifactRegistryRepository#custom_repository}
-        :param public_repository: Address of the remote repository. Default value: "PYPI" Possible values: ["PYPI"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#public_repository GoogleArtifactRegistryRepository#public_repository}
+        :param custom_repository: custom_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#custom_repository GoogleArtifactRegistryRepository#custom_repository}
+        :param public_repository: Address of the remote repository. Default value: "PYPI" Possible values: ["PYPI"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#public_repository GoogleArtifactRegistryRepository#public_repository}
         '''
         value = GoogleArtifactRegistryRepositoryRemoteRepositoryConfigPythonRepository(
             custom_repository=custom_repository, public_repository=public_repository
@@ -3590,7 +3590,7 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigOutputReference(
         username_password_credentials: typing.Optional[typing.Union["GoogleArtifactRegistryRepositoryRemoteRepositoryConfigUpstreamCredentialsUsernamePasswordCredentials", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param username_password_credentials: username_password_credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#username_password_credentials GoogleArtifactRegistryRepository#username_password_credentials}
+        :param username_password_credentials: username_password_credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#username_password_credentials GoogleArtifactRegistryRepository#username_password_credentials}
         '''
         value = GoogleArtifactRegistryRepositoryRemoteRepositoryConfigUpstreamCredentials(
             username_password_credentials=username_password_credentials
@@ -3605,7 +3605,7 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigOutputReference(
         public_repository: typing.Optional[typing.Union["GoogleArtifactRegistryRepositoryRemoteRepositoryConfigYumRepositoryPublicRepository", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param public_repository: public_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#public_repository GoogleArtifactRegistryRepository#public_repository}
+        :param public_repository: public_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#public_repository GoogleArtifactRegistryRepository#public_repository}
         '''
         value = GoogleArtifactRegistryRepositoryRemoteRepositoryConfigYumRepository(
             public_repository=public_repository
@@ -3840,8 +3840,8 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigPythonRepository:
         public_repository: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param custom_repository: custom_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#custom_repository GoogleArtifactRegistryRepository#custom_repository}
-        :param public_repository: Address of the remote repository. Default value: "PYPI" Possible values: ["PYPI"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#public_repository GoogleArtifactRegistryRepository#public_repository}
+        :param custom_repository: custom_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#custom_repository GoogleArtifactRegistryRepository#custom_repository}
+        :param public_repository: Address of the remote repository. Default value: "PYPI" Possible values: ["PYPI"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#public_repository GoogleArtifactRegistryRepository#public_repository}
         '''
         if isinstance(custom_repository, dict):
             custom_repository = GoogleArtifactRegistryRepositoryRemoteRepositoryConfigPythonRepositoryCustomRepository(**custom_repository)
@@ -3861,7 +3861,7 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigPythonRepository:
     ) -> typing.Optional["GoogleArtifactRegistryRepositoryRemoteRepositoryConfigPythonRepositoryCustomRepository"]:
         '''custom_repository block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#custom_repository GoogleArtifactRegistryRepository#custom_repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#custom_repository GoogleArtifactRegistryRepository#custom_repository}
         '''
         result = self._values.get("custom_repository")
         return typing.cast(typing.Optional["GoogleArtifactRegistryRepositoryRemoteRepositoryConfigPythonRepositoryCustomRepository"], result)
@@ -3870,7 +3870,7 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigPythonRepository:
     def public_repository(self) -> typing.Optional[builtins.str]:
         '''Address of the remote repository. Default value: "PYPI" Possible values: ["PYPI"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#public_repository GoogleArtifactRegistryRepository#public_repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#public_repository GoogleArtifactRegistryRepository#public_repository}
         '''
         result = self._values.get("public_repository")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3895,7 +3895,7 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigPythonRepository:
 class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigPythonRepositoryCustomRepository:
     def __init__(self, *, uri: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param uri: Specific uri to the registry, e.g. '"https://pypi.io"'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#uri GoogleArtifactRegistryRepository#uri}
+        :param uri: Specific uri to the registry, e.g. '"https://pypi.io"'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#uri GoogleArtifactRegistryRepository#uri}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7850726c63be6fa0d56184f4fba6aee275df4ecf011fd220b43598cb7f6bf98e)
@@ -3908,7 +3908,7 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigPythonRepositoryCust
     def uri(self) -> typing.Optional[builtins.str]:
         '''Specific uri to the registry, e.g. '"https://pypi.io"'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#uri GoogleArtifactRegistryRepository#uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#uri GoogleArtifactRegistryRepository#uri}
         '''
         result = self._values.get("uri")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4011,7 +4011,7 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigPythonRepositoryOutp
         uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param uri: Specific uri to the registry, e.g. '"https://pypi.io"'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#uri GoogleArtifactRegistryRepository#uri}
+        :param uri: Specific uri to the registry, e.g. '"https://pypi.io"'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#uri GoogleArtifactRegistryRepository#uri}
         '''
         value = GoogleArtifactRegistryRepositoryRemoteRepositoryConfigPythonRepositoryCustomRepository(
             uri=uri
@@ -4088,7 +4088,7 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigUpstreamCredentials:
         username_password_credentials: typing.Optional[typing.Union["GoogleArtifactRegistryRepositoryRemoteRepositoryConfigUpstreamCredentialsUsernamePasswordCredentials", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param username_password_credentials: username_password_credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#username_password_credentials GoogleArtifactRegistryRepository#username_password_credentials}
+        :param username_password_credentials: username_password_credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#username_password_credentials GoogleArtifactRegistryRepository#username_password_credentials}
         '''
         if isinstance(username_password_credentials, dict):
             username_password_credentials = GoogleArtifactRegistryRepositoryRemoteRepositoryConfigUpstreamCredentialsUsernamePasswordCredentials(**username_password_credentials)
@@ -4105,7 +4105,7 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigUpstreamCredentials:
     ) -> typing.Optional["GoogleArtifactRegistryRepositoryRemoteRepositoryConfigUpstreamCredentialsUsernamePasswordCredentials"]:
         '''username_password_credentials block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#username_password_credentials GoogleArtifactRegistryRepository#username_password_credentials}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#username_password_credentials GoogleArtifactRegistryRepository#username_password_credentials}
         '''
         result = self._values.get("username_password_credentials")
         return typing.cast(typing.Optional["GoogleArtifactRegistryRepositoryRemoteRepositoryConfigUpstreamCredentialsUsernamePasswordCredentials"], result)
@@ -4150,8 +4150,8 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigUpstreamCredentialsO
         username: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param password_secret_version: The Secret Manager key version that holds the password to access the remote repository. Must be in the format of 'projects/{project}/secrets/{secret}/versions/{version}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#password_secret_version GoogleArtifactRegistryRepository#password_secret_version}
-        :param username: The username to access the remote repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#username GoogleArtifactRegistryRepository#username}
+        :param password_secret_version: The Secret Manager key version that holds the password to access the remote repository. Must be in the format of 'projects/{project}/secrets/{secret}/versions/{version}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#password_secret_version GoogleArtifactRegistryRepository#password_secret_version}
+        :param username: The username to access the remote repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#username GoogleArtifactRegistryRepository#username}
         '''
         value = GoogleArtifactRegistryRepositoryRemoteRepositoryConfigUpstreamCredentialsUsernamePasswordCredentials(
             password_secret_version=password_secret_version, username=username
@@ -4211,8 +4211,8 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigUpstreamCredentialsU
         username: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param password_secret_version: The Secret Manager key version that holds the password to access the remote repository. Must be in the format of 'projects/{project}/secrets/{secret}/versions/{version}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#password_secret_version GoogleArtifactRegistryRepository#password_secret_version}
-        :param username: The username to access the remote repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#username GoogleArtifactRegistryRepository#username}
+        :param password_secret_version: The Secret Manager key version that holds the password to access the remote repository. Must be in the format of 'projects/{project}/secrets/{secret}/versions/{version}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#password_secret_version GoogleArtifactRegistryRepository#password_secret_version}
+        :param username: The username to access the remote repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#username GoogleArtifactRegistryRepository#username}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b1fa0b5a018a1983f06ab08990abcbc2b6c3c1030fab226bf2b4c642ab58b3db)
@@ -4228,7 +4228,7 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigUpstreamCredentialsU
     def password_secret_version(self) -> typing.Optional[builtins.str]:
         '''The Secret Manager key version that holds the password to access the remote repository. Must be in the format of 'projects/{project}/secrets/{secret}/versions/{version}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#password_secret_version GoogleArtifactRegistryRepository#password_secret_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#password_secret_version GoogleArtifactRegistryRepository#password_secret_version}
         '''
         result = self._values.get("password_secret_version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4237,7 +4237,7 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigUpstreamCredentialsU
     def username(self) -> typing.Optional[builtins.str]:
         '''The username to access the remote repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#username GoogleArtifactRegistryRepository#username}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#username GoogleArtifactRegistryRepository#username}
         '''
         result = self._values.get("username")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4346,7 +4346,7 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigYumRepository:
         public_repository: typing.Optional[typing.Union["GoogleArtifactRegistryRepositoryRemoteRepositoryConfigYumRepositoryPublicRepository", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param public_repository: public_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#public_repository GoogleArtifactRegistryRepository#public_repository}
+        :param public_repository: public_repository block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#public_repository GoogleArtifactRegistryRepository#public_repository}
         '''
         if isinstance(public_repository, dict):
             public_repository = GoogleArtifactRegistryRepositoryRemoteRepositoryConfigYumRepositoryPublicRepository(**public_repository)
@@ -4363,7 +4363,7 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigYumRepository:
     ) -> typing.Optional["GoogleArtifactRegistryRepositoryRemoteRepositoryConfigYumRepositoryPublicRepository"]:
         '''public_repository block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#public_repository GoogleArtifactRegistryRepository#public_repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#public_repository GoogleArtifactRegistryRepository#public_repository}
         '''
         result = self._values.get("public_repository")
         return typing.cast(typing.Optional["GoogleArtifactRegistryRepositoryRemoteRepositoryConfigYumRepositoryPublicRepository"], result)
@@ -4408,8 +4408,8 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigYumRepositoryOutputR
         repository_path: builtins.str,
     ) -> None:
         '''
-        :param repository_base: A common public repository base for Yum. Possible values: ["CENTOS", "CENTOS_DEBUG", "CENTOS_VAULT", "CENTOS_STREAM", "ROCKY", "EPEL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#repository_base GoogleArtifactRegistryRepository#repository_base}
-        :param repository_path: Specific repository from the base, e.g. '"pub/rocky/9/BaseOS/x86_64/os"'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#repository_path GoogleArtifactRegistryRepository#repository_path}
+        :param repository_base: A common public repository base for Yum. Possible values: ["CENTOS", "CENTOS_DEBUG", "CENTOS_VAULT", "CENTOS_STREAM", "ROCKY", "EPEL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#repository_base GoogleArtifactRegistryRepository#repository_base}
+        :param repository_path: Specific repository from the base, e.g. '"pub/rocky/9/BaseOS/x86_64/os"'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#repository_path GoogleArtifactRegistryRepository#repository_path}
         '''
         value = GoogleArtifactRegistryRepositoryRemoteRepositoryConfigYumRepositoryPublicRepository(
             repository_base=repository_base, repository_path=repository_path
@@ -4469,8 +4469,8 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigYumRepositoryPublicR
         repository_path: builtins.str,
     ) -> None:
         '''
-        :param repository_base: A common public repository base for Yum. Possible values: ["CENTOS", "CENTOS_DEBUG", "CENTOS_VAULT", "CENTOS_STREAM", "ROCKY", "EPEL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#repository_base GoogleArtifactRegistryRepository#repository_base}
-        :param repository_path: Specific repository from the base, e.g. '"pub/rocky/9/BaseOS/x86_64/os"'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#repository_path GoogleArtifactRegistryRepository#repository_path}
+        :param repository_base: A common public repository base for Yum. Possible values: ["CENTOS", "CENTOS_DEBUG", "CENTOS_VAULT", "CENTOS_STREAM", "ROCKY", "EPEL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#repository_base GoogleArtifactRegistryRepository#repository_base}
+        :param repository_path: Specific repository from the base, e.g. '"pub/rocky/9/BaseOS/x86_64/os"'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#repository_path GoogleArtifactRegistryRepository#repository_path}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__65757f82129cde51169f63138c4c2af18f5d99a6214dda433a6c56063083e0bb)
@@ -4485,7 +4485,7 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigYumRepositoryPublicR
     def repository_base(self) -> builtins.str:
         '''A common public repository base for Yum. Possible values: ["CENTOS", "CENTOS_DEBUG", "CENTOS_VAULT", "CENTOS_STREAM", "ROCKY", "EPEL"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#repository_base GoogleArtifactRegistryRepository#repository_base}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#repository_base GoogleArtifactRegistryRepository#repository_base}
         '''
         result = self._values.get("repository_base")
         assert result is not None, "Required property 'repository_base' is missing"
@@ -4495,7 +4495,7 @@ class GoogleArtifactRegistryRepositoryRemoteRepositoryConfigYumRepositoryPublicR
     def repository_path(self) -> builtins.str:
         '''Specific repository from the base, e.g. '"pub/rocky/9/BaseOS/x86_64/os"'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#repository_path GoogleArtifactRegistryRepository#repository_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#repository_path GoogleArtifactRegistryRepository#repository_path}
         '''
         result = self._values.get("repository_path")
         assert result is not None, "Required property 'repository_path' is missing"
@@ -4599,9 +4599,9 @@ class GoogleArtifactRegistryRepositoryTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#create GoogleArtifactRegistryRepository#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#delete GoogleArtifactRegistryRepository#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#update GoogleArtifactRegistryRepository#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#create GoogleArtifactRegistryRepository#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#delete GoogleArtifactRegistryRepository#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#update GoogleArtifactRegistryRepository#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7a87291b666e4d5e7af926365b36a8b7d1dfc8e95b71a557f90667e16421eb3e)
@@ -4618,19 +4618,19 @@ class GoogleArtifactRegistryRepositoryTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#create GoogleArtifactRegistryRepository#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#create GoogleArtifactRegistryRepository#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#delete GoogleArtifactRegistryRepository#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#delete GoogleArtifactRegistryRepository#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#update GoogleArtifactRegistryRepository#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#update GoogleArtifactRegistryRepository#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4759,7 +4759,7 @@ class GoogleArtifactRegistryRepositoryVirtualRepositoryConfig:
         upstream_policies: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleArtifactRegistryRepositoryVirtualRepositoryConfigUpstreamPolicies", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param upstream_policies: upstream_policies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#upstream_policies GoogleArtifactRegistryRepository#upstream_policies}
+        :param upstream_policies: upstream_policies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#upstream_policies GoogleArtifactRegistryRepository#upstream_policies}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7412e9b1a0ff648494d7a4c082c89fc7466c9b14504d0e412ef8908402210284)
@@ -4774,7 +4774,7 @@ class GoogleArtifactRegistryRepositoryVirtualRepositoryConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleArtifactRegistryRepositoryVirtualRepositoryConfigUpstreamPolicies"]]]:
         '''upstream_policies block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#upstream_policies GoogleArtifactRegistryRepository#upstream_policies}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#upstream_policies GoogleArtifactRegistryRepository#upstream_policies}
         '''
         result = self._values.get("upstream_policies")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleArtifactRegistryRepositoryVirtualRepositoryConfigUpstreamPolicies"]]], result)
@@ -4874,9 +4874,9 @@ class GoogleArtifactRegistryRepositoryVirtualRepositoryConfigUpstreamPolicies:
         repository: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param id: The user-provided ID of the upstream policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#id GoogleArtifactRegistryRepository#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param priority: Entries with a greater priority value take precedence in the pull order. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#priority GoogleArtifactRegistryRepository#priority}
-        :param repository: A reference to the repository resource, for example: "projects/p1/locations/us-central1/repository/repo1". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#repository GoogleArtifactRegistryRepository#repository}
+        :param id: The user-provided ID of the upstream policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#id GoogleArtifactRegistryRepository#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param priority: Entries with a greater priority value take precedence in the pull order. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#priority GoogleArtifactRegistryRepository#priority}
+        :param repository: A reference to the repository resource, for example: "projects/p1/locations/us-central1/repository/repo1". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#repository GoogleArtifactRegistryRepository#repository}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ed8b0c183eb7336d234999f54eb5166c437a9c201e0e0acdccca0d04b09ab542)
@@ -4895,7 +4895,7 @@ class GoogleArtifactRegistryRepositoryVirtualRepositoryConfigUpstreamPolicies:
     def id(self) -> typing.Optional[builtins.str]:
         '''The user-provided ID of the upstream policy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#id GoogleArtifactRegistryRepository#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#id GoogleArtifactRegistryRepository#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -4907,7 +4907,7 @@ class GoogleArtifactRegistryRepositoryVirtualRepositoryConfigUpstreamPolicies:
     def priority(self) -> typing.Optional[jsii.Number]:
         '''Entries with a greater priority value take precedence in the pull order.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#priority GoogleArtifactRegistryRepository#priority}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#priority GoogleArtifactRegistryRepository#priority}
         '''
         result = self._values.get("priority")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4916,7 +4916,7 @@ class GoogleArtifactRegistryRepositoryVirtualRepositoryConfigUpstreamPolicies:
     def repository(self) -> typing.Optional[builtins.str]:
         '''A reference to the repository resource, for example: "projects/p1/locations/us-central1/repository/repo1".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#repository GoogleArtifactRegistryRepository#repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#repository GoogleArtifactRegistryRepository#repository}
         '''
         result = self._values.get("repository")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5145,7 +5145,7 @@ class GoogleArtifactRegistryRepositoryVulnerabilityScanningConfig:
         enablement_config: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enablement_config: This configures whether vulnerability scanning is automatically performed for artifacts pushed to this repository. Possible values: ["INHERITED", "DISABLED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#enablement_config GoogleArtifactRegistryRepository#enablement_config}
+        :param enablement_config: This configures whether vulnerability scanning is automatically performed for artifacts pushed to this repository. Possible values: ["INHERITED", "DISABLED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#enablement_config GoogleArtifactRegistryRepository#enablement_config}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c62f1e94c664fef0c336adfeb6f8eee06febc39d35977d59fe99fa11b7c4b2ef)
@@ -5158,7 +5158,7 @@ class GoogleArtifactRegistryRepositoryVulnerabilityScanningConfig:
     def enablement_config(self) -> typing.Optional[builtins.str]:
         '''This configures whether vulnerability scanning is automatically performed for artifacts pushed to this repository. Possible values: ["INHERITED", "DISABLED"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_artifact_registry_repository#enablement_config GoogleArtifactRegistryRepository#enablement_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_artifact_registry_repository#enablement_config GoogleArtifactRegistryRepository#enablement_config}
         '''
         result = self._values.get("enablement_config")
         return typing.cast(typing.Optional[builtins.str], result)

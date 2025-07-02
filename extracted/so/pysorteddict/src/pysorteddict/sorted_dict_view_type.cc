@@ -107,7 +107,7 @@ PyObject* SortedDictViewType::repr(char const* name, PyObject* ob)
 
 Py_ssize_t SortedDictViewType::len(void)
 {
-    return this->sd->map->size();
+    return this->sd->len();
 }
 
 PyObject* SortedDictViewType::iter(PyTypeObject* type)

@@ -67,7 +67,7 @@ class AQLResponseProxy(BaseAQLResponseProxy["Locator"]):
 
         ```py
         {
-        "query_field": "text content of the corresponding web element"
+            "query_field": "text content of the corresponding web element"
         }
         ```
         """
@@ -92,9 +92,7 @@ class AQLResponseProxy(BaseAQLResponseProxy["Locator"]):
             results[child_name] = self._to_data_node(child_data, child_query_tree)
         return results
 
-    def _to_data_container_list_node(
-        self, response_data: dict, query_tree_node: ContainerListNode
-    ) -> list:
+    def _to_data_container_list_node(self, response_data: dict, query_tree_node: ContainerListNode) -> list:
         return [self._to_data_container_node(item, query_tree_node) for item in response_data]
 
     def _to_data_id_node(self, response_data: dict) -> Union[dict, str, None]:
@@ -114,11 +112,7 @@ class AQLResponseProxy(BaseAQLResponseProxy["Locator"]):
         return name
 
     def _to_data_id_list_node(self, response_data: list) -> list:
-        return [
-            node
-            for node in (self._to_data_id_node(item) for item in response_data)
-            if node is not None
-        ]
+        return [node for node in (self._to_data_id_node(item) for item in response_data) if node is not None]
 
 
 class Locator(_Locator):
@@ -147,15 +141,11 @@ class PaginationInfo:
 
     def navigate_to_next_page(self, force_click: bool = DEFAULT_PAGINATION_CLICK_FORCE):
         if not self._next_page_element:
-            log.error(
-                "Attempting to navigate to the next page while no pagination element is present."
-            )
+            log.error("Attempting to navigate to the next page while no pagination element is present.")
         else:
             try:
                 log.info("Clicking on the pagination element...")
-                self._next_page_element.click(
-                    force=force_click, timeout=DEFAULT_PAGINATION_CLICK_TIMEOUT_MS
-                )
+                self._next_page_element.click(force=force_click, timeout=DEFAULT_PAGINATION_CLICK_TIMEOUT_MS)
             except PlaywrightTimeoutError:
                 log.exception(
                     f"Timeout of {DEFAULT_PAGINATION_CLICK_TIMEOUT_MS}ms exceeded while clicking on the pagination element."

@@ -20,7 +20,7 @@ import orjson
 import structlog
 from langgraph.checkpoint.serde.jsonplus import _msgpack_ext_hook_to_json
 from langgraph.pregel.debug import CheckpointPayload
-from langgraph.pregel.types import StateSnapshot
+from langgraph.types import StateSnapshot
 from langgraph_sdk import Auth
 from starlette.exceptions import HTTPException
 
@@ -1316,7 +1316,7 @@ class Threads(Authenticated):
         ) -> ThreadUpdateResponse:
             """Update a thread with a batch of state updates."""
 
-            from langgraph.pregel.types import StateUpdate
+            from langgraph.types import StateUpdate
             from langgraph_api.command import map_cmd
             from langgraph_api.graph import get_graph
             from langgraph_api.schema import ThreadUpdateResponse

@@ -1,6 +1,7 @@
 from setuptools import setup, find_namespace_packages
 
-version = "0.2.2"
+with open("metaflow_extensions/obcheckpoint/toplevel/version.py", mode="r") as f:
+    version = f.read().splitlines()[0].split("=")[1].strip(" \"'")
 
 
 def get_long_description() -> str:
@@ -9,7 +10,7 @@ def get_long_description() -> str:
 
 
 setup(
-    name="metaflow-checkpoint",
+    name="metaflow_checkpoint",
     version=version,
     description="An EXPERIMENTAL checkpoint decorator for Metaflow",
     author="Valay Dave",

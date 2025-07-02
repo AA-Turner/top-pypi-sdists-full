@@ -12,7 +12,7 @@ LONG_DESCRIPTION = (Path(__file__).parent / "README.md").read_text()
 
 setup(
     name="types-boto3-full",
-    version="1.39.0",
+    version="1.39.1",
     packages=[
         "types_boto3_accessanalyzer",
         "types_boto3_account",
@@ -288,6 +288,7 @@ setup(
         "types_boto3_notificationscontacts",
         "types_boto3_oam",
         "types_boto3_observabilityadmin",
+        "types_boto3_odb",
         "types_boto3_omics",
         "types_boto3_opensearch",
         "types_boto3_opensearchserverless",
@@ -427,7 +428,7 @@ setup(
     license="MIT License",
     author="Vlad Emelianov",
     author_email="vlad.emelianov.nz@gmail.com",
-    description="All-in-one type annotations for boto3 1.39.0 generated with mypy-boto3-builder 8.11.0",
+    description="All-in-one type annotations for boto3 1.39.1 generated with mypy-boto3-builder 8.11.0",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
@@ -725,6 +726,7 @@ setup(
         "types_boto3_notificationscontacts": ["py.typed", "*.pyi"],
         "types_boto3_oam": ["py.typed", "*.pyi"],
         "types_boto3_observabilityadmin": ["py.typed", "*.pyi"],
+        "types_boto3_odb": ["py.typed", "*.pyi"],
         "types_boto3_omics": ["py.typed", "*.pyi"],
         "types_boto3_opensearch": ["py.typed", "*.pyi"],
         "types_boto3_opensearchserverless": ["py.typed", "*.pyi"],

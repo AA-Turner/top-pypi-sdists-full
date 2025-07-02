@@ -23172,18 +23172,17 @@ class CfnGuardrail(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_bedrock.CfnGuardrail",
 ):
-    '''Creates a guardrail to block topics and to implement safeguards for your generative AI applications.
+    '''Creates a guardrail to detect and filter harmful content in your generative AI application.
 
-    You can configure the following policies in a guardrail to avoid undesirable and harmful content, filter out denied topics and words, and remove sensitive information for privacy protection.
+    Amazon Bedrock Guardrails provides the following safeguards (also known as policies) to detect and filter harmful content:
 
-    - *Content filters* - Adjust filter strengths to block input prompts or model responses containing harmful content.
-    - *Denied topics* - Define a set of topics that are undesirable in the context of your application. These topics will be blocked if detected in user queries or model responses.
-    - *Word filters* - Configure filters to block undesirable words, phrases, and profanity. Such words can include offensive terms, competitor names etc.
-    - *Sensitive information filters* - Block or mask sensitive information such as personally identifiable information (PII) or custom regex in user inputs and model responses.
+    - *Content filters* - Detect and filter harmful text or image content in input prompts or model responses. Filtering is done based on detection of certain predefined harmful content categories: Hate, Insults, Sexual, Violence, Misconduct and Prompt Attack. You also can adjust the filter strength for each of these categories.
+    - *Denied topics* - Define a set of topics that are undesirable in the context of your application. The filter will help block them if detected in user queries or model responses.
+    - *Word filters* - Configure filters to help block undesirable words, phrases, and profanity (exact match). Such words can include offensive terms, competitor names, etc.
+    - *Sensitive information filters* - Configure filters to help block or mask sensitive information, such as personally identifiable information (PII), or custom regex in user inputs and model responses. Blocking or masking is done based on probabilistic detection of sensitive information in standard formats in entities such as SSN number, Date of Birth, address, etc. This also allows configuring regular expression based detection of patterns for identifiers.
+    - *Contextual grounding check* - Help detect and filter hallucinations in model responses based on grounding in a source and relevance to the user query.
 
-    In addition to the above policies, you can also configure the messages to be returned to the user if a user input or model response is in violation of the policies defined in the guardrail.
-
-    For more information, see `Amazon Bedrock Guardrails <https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails.html>`_ in the *Amazon Bedrock User Guide* .
+    For more information, see `How Amazon Bedrock Guardrails works <https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-how.html>`_ .
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-guardrail.html
     :cloudformationResource: AWS::Bedrock::Guardrail
@@ -23225,6 +23224,9 @@ class CfnGuardrail(
                     action="action",
                     enabled=False
                 )]
+            ),
+            cross_region_config=bedrock.CfnGuardrail.GuardrailCrossRegionConfigProperty(
+                guardrail_profile_arn="guardrailProfileArn"
             ),
             description="description",
             kms_key_arn="kmsKeyArn",
@@ -23303,6 +23305,7 @@ class CfnGuardrail(
         name: builtins.str,
         content_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGuardrail.ContentPolicyConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         contextual_grounding_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGuardrail.ContextualGroundingPolicyConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cross_region_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGuardrail.GuardrailCrossRegionConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
         kms_key_arn: typing.Optional[builtins.str] = None,
         sensitive_information_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGuardrail.SensitiveInformationPolicyConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -23318,6 +23321,7 @@ class CfnGuardrail(
         :param name: The name of the guardrail.
         :param content_policy_config: The content filter policies to configure for the guardrail.
         :param contextual_grounding_policy_config: Contextual grounding policy config for a guardrail.
+        :param cross_region_config: The system-defined guardrail profile that you’re using with your guardrail.
         :param description: A description of the guardrail.
         :param kms_key_arn: The ARN of the AWS KMS key that you use to encrypt the guardrail.
         :param sensitive_information_policy_config: The sensitive information policy to configure for the guardrail.
@@ -23335,6 +23339,7 @@ class CfnGuardrail(
             name=name,
             content_policy_config=content_policy_config,
             contextual_grounding_policy_config=contextual_grounding_policy_config,
+            cross_region_config=cross_region_config,
             description=description,
             kms_key_arn=kms_key_arn,
             sensitive_information_policy_config=sensitive_information_policy_config,
@@ -23538,6 +23543,24 @@ class CfnGuardrail(
             type_hints = typing.get_type_hints(_typecheckingstub__29a839fbc0601b618610155b48ee9218004ce69e661c5a6ece3134c2d842f2c1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "contextualGroundingPolicyConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="crossRegionConfig")
+    def cross_region_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGuardrail.GuardrailCrossRegionConfigProperty"]]:
+        '''The system-defined guardrail profile that you’re using with your guardrail.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGuardrail.GuardrailCrossRegionConfigProperty"]], jsii.get(self, "crossRegionConfig"))
+
+    @cross_region_config.setter
+    def cross_region_config(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGuardrail.GuardrailCrossRegionConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__738f62e02da692a490500cccb2eda020a67df3595057e975d05d96eddbe0a385)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "crossRegionConfig", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -24075,6 +24098,62 @@ class CfnGuardrail(
 
         def __repr__(self) -> str:
             return "ContextualGroundingPolicyConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnGuardrail.GuardrailCrossRegionConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"guardrail_profile_arn": "guardrailProfileArn"},
+    )
+    class GuardrailCrossRegionConfigProperty:
+        def __init__(self, *, guardrail_profile_arn: builtins.str) -> None:
+            '''The system-defined guardrail profile that you're using with your guardrail.
+
+            Guardrail profiles define the destination AWS Regions where guardrail inference requests can be automatically routed. Using guardrail profiles helps maintain guardrail performance and reliability when demand increases.
+
+            For more information, see the `Amazon Bedrock User Guide <https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-cross-region.html>`_ .
+
+            :param guardrail_profile_arn: The Amazon Resource Name (ARN) of the guardrail profile.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-guardrailcrossregionconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                guardrail_cross_region_config_property = bedrock.CfnGuardrail.GuardrailCrossRegionConfigProperty(
+                    guardrail_profile_arn="guardrailProfileArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__84d9f9f431f00c6a380b4a84fcf4f5afa289233b23a3ff0d96c0cbe447ad3877)
+                check_type(argname="argument guardrail_profile_arn", value=guardrail_profile_arn, expected_type=type_hints["guardrail_profile_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "guardrail_profile_arn": guardrail_profile_arn,
+            }
+
+        @builtins.property
+        def guardrail_profile_arn(self) -> builtins.str:
+            '''The Amazon Resource Name (ARN) of the guardrail profile.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-guardrailcrossregionconfig.html#cfn-bedrock-guardrail-guardrailcrossregionconfig-guardrailprofilearn
+            '''
+            result = self._values.get("guardrail_profile_arn")
+            assert result is not None, "Required property 'guardrail_profile_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "GuardrailCrossRegionConfigProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -25224,6 +25303,7 @@ class CfnGuardrail(
         "name": "name",
         "content_policy_config": "contentPolicyConfig",
         "contextual_grounding_policy_config": "contextualGroundingPolicyConfig",
+        "cross_region_config": "crossRegionConfig",
         "description": "description",
         "kms_key_arn": "kmsKeyArn",
         "sensitive_information_policy_config": "sensitiveInformationPolicyConfig",
@@ -25241,6 +25321,7 @@ class CfnGuardrailProps:
         name: builtins.str,
         content_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardrail.ContentPolicyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
         contextual_grounding_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardrail.ContextualGroundingPolicyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        cross_region_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardrail.GuardrailCrossRegionConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
         kms_key_arn: typing.Optional[builtins.str] = None,
         sensitive_information_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardrail.SensitiveInformationPolicyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -25255,6 +25336,7 @@ class CfnGuardrailProps:
         :param name: The name of the guardrail.
         :param content_policy_config: The content filter policies to configure for the guardrail.
         :param contextual_grounding_policy_config: Contextual grounding policy config for a guardrail.
+        :param cross_region_config: The system-defined guardrail profile that you’re using with your guardrail.
         :param description: A description of the guardrail.
         :param kms_key_arn: The ARN of the AWS KMS key that you use to encrypt the guardrail.
         :param sensitive_information_policy_config: The sensitive information policy to configure for the guardrail.
@@ -25301,6 +25383,9 @@ class CfnGuardrailProps:
                         action="action",
                         enabled=False
                     )]
+                ),
+                cross_region_config=bedrock.CfnGuardrail.GuardrailCrossRegionConfigProperty(
+                    guardrail_profile_arn="guardrailProfileArn"
                 ),
                 description="description",
                 kms_key_arn="kmsKeyArn",
@@ -25375,6 +25460,7 @@ class CfnGuardrailProps:
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument content_policy_config", value=content_policy_config, expected_type=type_hints["content_policy_config"])
             check_type(argname="argument contextual_grounding_policy_config", value=contextual_grounding_policy_config, expected_type=type_hints["contextual_grounding_policy_config"])
+            check_type(argname="argument cross_region_config", value=cross_region_config, expected_type=type_hints["cross_region_config"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
             check_type(argname="argument sensitive_information_policy_config", value=sensitive_information_policy_config, expected_type=type_hints["sensitive_information_policy_config"])
@@ -25390,6 +25476,8 @@ class CfnGuardrailProps:
             self._values["content_policy_config"] = content_policy_config
         if contextual_grounding_policy_config is not None:
             self._values["contextual_grounding_policy_config"] = contextual_grounding_policy_config
+        if cross_region_config is not None:
+            self._values["cross_region_config"] = cross_region_config
         if description is not None:
             self._values["description"] = description
         if kms_key_arn is not None:
@@ -25454,6 +25542,17 @@ class CfnGuardrailProps:
         '''
         result = self._values.get("contextual_grounding_policy_config")
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGuardrail.ContextualGroundingPolicyConfigProperty]], result)
+
+    @builtins.property
+    def cross_region_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGuardrail.GuardrailCrossRegionConfigProperty]]:
+        '''The system-defined guardrail profile that you’re using with your guardrail.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-guardrail.html#cfn-bedrock-guardrail-crossregionconfig
+        '''
+        result = self._values.get("cross_region_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGuardrail.GuardrailCrossRegionConfigProperty]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -38835,6 +38934,7 @@ def _typecheckingstub__2043b4e3280827dde584095cdad9778bf2076242696d52ba5a39dc96c
     name: builtins.str,
     content_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardrail.ContentPolicyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     contextual_grounding_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardrail.ContextualGroundingPolicyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cross_region_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardrail.GuardrailCrossRegionConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
     kms_key_arn: typing.Optional[builtins.str] = None,
     sensitive_information_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardrail.SensitiveInformationPolicyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -38883,6 +38983,12 @@ def _typecheckingstub__a2352c360e9d740d982528265b1e13ef0cbbc639f4ce7a9811f5347cf
 
 def _typecheckingstub__29a839fbc0601b618610155b48ee9218004ce69e661c5a6ece3134c2d842f2c1(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGuardrail.ContextualGroundingPolicyConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__738f62e02da692a490500cccb2eda020a67df3595057e975d05d96eddbe0a385(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGuardrail.GuardrailCrossRegionConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -38958,6 +39064,13 @@ def _typecheckingstub__7abffe970440d23a158f6e9ee12d25267eea84e0dde20b28718ce3f67
 def _typecheckingstub__435d1e3a7256d29079fd26306b6743fafa097d90223f38213c35ad0ef21738f6(
     *,
     filters_config: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardrail.ContextualGroundingFilterConfigProperty, typing.Dict[builtins.str, typing.Any]]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__84d9f9f431f00c6a380b4a84fcf4f5afa289233b23a3ff0d96c0cbe447ad3877(
+    *,
+    guardrail_profile_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -39054,6 +39167,7 @@ def _typecheckingstub__e16800cc7473874d0d58b13a772dade51a596e19ff440f95ad243d236
     name: builtins.str,
     content_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardrail.ContentPolicyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     contextual_grounding_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardrail.ContextualGroundingPolicyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cross_region_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardrail.GuardrailCrossRegionConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
     kms_key_arn: typing.Optional[builtins.str] = None,
     sensitive_information_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardrail.SensitiveInformationPolicyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,

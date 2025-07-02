@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=67.0.0",
+requires = ["setuptools>=77.0.3",
             "wheel",
             "oldest-supported-numpy; python_version=='3.8'",
             "numpy >=2.0.0rc1; python_version>='3.9'"]
@@ -19,12 +19,11 @@ maintainers = [
 description = "GDAL: Geospatial Data Abstraction Library"
 readme = "README.rst"
 keywords = ["gis", "raster", "vector"]
-license = {text = "MIT"}
+license = "MIT"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: C",

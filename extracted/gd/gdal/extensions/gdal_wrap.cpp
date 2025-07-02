@@ -6242,7 +6242,14 @@ SWIGINTERN OGRFieldDomainShadow *GDALDatasetShadow_GetFieldDomain(GDALDatasetSha
     return (OGRFieldDomainShadow*) GDALDatasetGetFieldDomain(self, name);
   }
 SWIGINTERN bool GDALDatasetShadow_AddFieldDomain(GDALDatasetShadow *self,OGRFieldDomainShadow *fieldDomain){
-      return GDALDatasetAddFieldDomain(self, (OGRFieldDomainH)fieldDomain, NULL);
+      char* pszReason = NULL;
+      if( !GDALDatasetAddFieldDomain(self, (OGRFieldDomainH)fieldDomain, &pszReason) )
+      {
+          CPLError(CE_Failure, CPLE_AppDefined, "%s", pszReason);
+          CPLFree(pszReason);
+          return false;
+      }
+      return true;
   }
 SWIGINTERN bool GDALDatasetShadow_DeleteFieldDomain(GDALDatasetShadow *self,char const *name){
       return GDALDatasetDeleteFieldDomain(self, name, NULL);
@@ -7948,7 +7955,7 @@ SWIGINTERN GDALRasterBandShadow *GDALRasterBandShadow_GetOverview(GDALRasterBand
     return (GDALRasterBandShadow*) GDALGetOverview( self, i );
   }
 SWIGINTERN GDALRasterBandShadow *GDALRasterBandShadow_GetSampleOverview(GDALRasterBandShadow *self,GUIntBig nDesiredSamples){
-    return (GDALRasterBandShadow*) GDALGetRasterSampleOverview( self, nDesiredSamples );
+    return (GDALRasterBandShadow*) GDALGetRasterSampleOverviewEx( self, nDesiredSamples );
   }
 SWIGINTERN int GDALRasterBandShadow_Checksum(GDALRasterBandShadow *self,int xoff=0,int yoff=0,int *xsize=0,int *ysize=0){
     int nxsize = (xsize!=0) ? *xsize : GDALGetRasterBandXSize( self );
@@ -43252,10 +43259,8 @@ SWIGINTERN PyObject *_wrap_Band_GetDefaultHistogram(PyObject *self, PyObject *ar
   void *arg8 = (void *) NULL ;
   void *argp1 = 0 ;
   int res1 = 0 ;
-  void *argp2 = 0 ;
-  int res2 = 0 ;
-  void *argp3 = 0 ;
-  int res3 = 0 ;
+  double val2 ;
+  double val3 ;
   void *argp4 = 0 ;
   int res4 = 0 ;
   void *argp5 = 0 ;
@@ -43298,18 +43303,34 @@ SWIGINTERN PyObject *_wrap_Band_GetDefaultHistogram(PyObject *self, PyObject *ar
   }
   arg1 = reinterpret_cast< GDALRasterBandShadow * >(argp1);
   if (obj1) {
-    res2 = SWIG_ConvertPtr(obj1, &argp2,SWIGTYPE_p_double, 0 |  0 );
-    if (!SWIG_IsOK(res2)) {
-      SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "Band_GetDefaultHistogram" "', argument " "2"" of type '" "double *""'"); 
+    {
+      /* %typemap(in) (double *optional_##double) */
+      if ( obj1 == Py_None ) {
+        arg2 = 0;
+      }
+      else if ( PyArg_Parse( obj1,"d" ,&val2 ) ) {
+        arg2 = (double *) &val2;
+      }
+      else {
+        PyErr_SetString( PyExc_TypeError, "Invalid Parameter" );
+        SWIG_fail;
+      }
     }
-    arg2 = reinterpret_cast< double * >(argp2);
   }
   if (obj2) {
-    res3 = SWIG_ConvertPtr(obj2, &argp3,SWIGTYPE_p_double, 0 |  0 );
-    if (!SWIG_IsOK(res3)) {
-      SWIG_exception_fail(SWIG_ArgError(res3), "in method '" "Band_GetDefaultHistogram" "', argument " "3"" of type '" "double *""'"); 
+    {
+      /* %typemap(in) (double *optional_##double) */
+      if ( obj2 == Py_None ) {
+        arg3 = 0;
+      }
+      else if ( PyArg_Parse( obj2,"d" ,&val3 ) ) {
+        arg3 = (double *) &val3;
+      }
+      else {
+        PyErr_SetString( PyExc_TypeError, "Invalid Parameter" );
+        SWIG_fail;
+      }
     }
-    arg3 = reinterpret_cast< double * >(argp3);
   }
   if (obj3) {
     res4 = SWIG_ConvertPtr(obj3, &argp4,SWIGTYPE_p_int, 0 |  0 );

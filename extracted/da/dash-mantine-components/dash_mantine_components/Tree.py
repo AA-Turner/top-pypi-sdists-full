@@ -37,6 +37,9 @@ Keyword arguments:
 - bd (string | number; optional):
     Border.
 
+- bdrs (number; optional):
+    BorderRadius, theme key: theme.radius.
+
 - bg (optional):
     Background, theme key: theme.colors.
 
@@ -63,6 +66,7 @@ Keyword arguments:
 
 - checkboxes (boolean; optional):
     Determines if checkboxes should be rendered, `False` by default.
+    Ignored when using a custom `renderNode` function.
 
 - checked (list of strings; optional):
     Determines checked nodes as a list of values (note that only
@@ -79,7 +83,8 @@ Keyword arguments:
     outside of the tree, `False` by default.
 
 - collapsedIcon (a list of or a singular dash component, string or number; optional):
-    Collapsed state icon.
+    Collapsed state icon. Ignored when using a custom `renderNode`
+    function.
 
 - darkHidden (boolean; optional):
     Determines whether component should be hidden in dark color scheme
@@ -116,7 +121,8 @@ Keyword arguments:
     `[]` by default.
 
 - expandedIcon (a list of or a singular dash component, string or number; default <AccordionChevron />):
-    Expanded state icon.
+    Expanded state icon. Ignored when using a custom `renderNode`
+    function.
 
 - ff (optional):
     FontFamily.
@@ -141,7 +147,7 @@ Keyword arguments:
 
 - iconSide (a value equal to: 'left', 'right', 'none'; default 'left'):
     Side to display expanded/collapsed state icon on, `'left'` by
-    default.
+    default. Ignored when using a custom `renderNode` function.
 
 - inset (string | number; optional)
 
@@ -251,6 +257,11 @@ Keyword arguments:
 - py (number; optional):
     PaddingBlock, theme key: theme.spacing.
 
+- renderNode (boolean | number | string | dict | list; optional):
+    A function to render the tree node label. Replaces the default
+    component rendering  See
+    https://www.dash-mantine-components.com/functions-as-props.
+
 - right (string | number; optional)
 
 - selectOnClick (boolean; optional):
@@ -330,6 +341,7 @@ Keyword arguments:
         expandedIcon: typing.Optional[ComponentType] = None,
         collapsedIcon: typing.Optional[ComponentType] = None,
         iconSide: typing.Optional[Literal["left", "right", "none"]] = None,
+        renderNode: typing.Optional[typing.Any] = None,
         className: typing.Optional[str] = None,
         style: typing.Optional[typing.Any] = None,
         hiddenFrom: typing.Optional[typing.Union[Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
@@ -356,6 +368,7 @@ Keyword arguments:
         pl: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         pr: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         bd: typing.Optional[typing.Union[str, NumberType]] = None,
+        bdrs: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         bg: typing.Optional[typing.Union[Literal["blue"], Literal["cyan"], Literal["gray"], Literal["green"], Literal["indigo"], Literal["lime"], Literal["orange"], Literal["pink"], Literal["red"], Literal["teal"], Literal["violet"], Literal["yellow"], Literal["dark"], Literal["grape"]]] = None,
         c: typing.Optional[typing.Union[Literal["blue"], Literal["cyan"], Literal["gray"], Literal["green"], Literal["indigo"], Literal["lime"], Literal["orange"], Literal["pink"], Literal["red"], Literal["teal"], Literal["violet"], Literal["yellow"], Literal["dark"], Literal["grape"]]] = None,
         opacity: typing.Optional[typing.Union[Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"]]] = None,
@@ -395,9 +408,9 @@ Keyword arguments:
         loading_state: typing.Optional["LoadingState"] = None,
         **kwargs
     ):
-        self._prop_names = ['id', 'allowRangeSelection', 'aria-*', 'bd', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'checkOnSpace', 'checkboxes', 'checked', 'className', 'classNames', 'clearSelectionOnOutsideClick', 'collapsedIcon', 'darkHidden', 'data', 'data-*', 'display', 'expandOnClick', 'expandOnSpace', 'expanded', 'expandedIcon', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'iconSide', 'inset', 'left', 'levelOffset', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'selectOnClick', 'selected', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w']
+        self._prop_names = ['id', 'allowRangeSelection', 'aria-*', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'checkOnSpace', 'checkboxes', 'checked', 'className', 'classNames', 'clearSelectionOnOutsideClick', 'collapsedIcon', 'darkHidden', 'data', 'data-*', 'display', 'expandOnClick', 'expandOnSpace', 'expanded', 'expandedIcon', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'iconSide', 'inset', 'left', 'levelOffset', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'renderNode', 'right', 'selectOnClick', 'selected', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w']
         self._valid_wildcard_attributes =            ['data-', 'aria-']
-        self.available_properties = ['id', 'allowRangeSelection', 'aria-*', 'bd', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'checkOnSpace', 'checkboxes', 'checked', 'className', 'classNames', 'clearSelectionOnOutsideClick', 'collapsedIcon', 'darkHidden', 'data', 'data-*', 'display', 'expandOnClick', 'expandOnSpace', 'expanded', 'expandedIcon', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'iconSide', 'inset', 'left', 'levelOffset', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'selectOnClick', 'selected', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w']
+        self.available_properties = ['id', 'allowRangeSelection', 'aria-*', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'checkOnSpace', 'checkboxes', 'checked', 'className', 'classNames', 'clearSelectionOnOutsideClick', 'collapsedIcon', 'darkHidden', 'data', 'data-*', 'display', 'expandOnClick', 'expandOnSpace', 'expanded', 'expandedIcon', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'iconSide', 'inset', 'left', 'levelOffset', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'renderNode', 'right', 'selectOnClick', 'selected', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w']
         self.available_wildcard_properties =            ['data-', 'aria-']
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

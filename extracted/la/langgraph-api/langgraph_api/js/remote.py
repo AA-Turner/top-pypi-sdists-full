@@ -22,9 +22,8 @@ from langchain_core.runnables.schema import (
     StreamEvent,
 )
 from langgraph.checkpoint.serde.base import SerializerProtocol
-from langgraph.pregel.types import PregelTask, StateSnapshot
 from langgraph.store.base import GetOp, Item, ListNamespacesOp, PutOp, SearchOp
-from langgraph.types import Command, Interrupt, Send
+from langgraph.types import Command, Interrupt, PregelTask, Send, StateSnapshot
 from langgraph_sdk import Auth
 from pydantic import BaseModel
 from starlette import types

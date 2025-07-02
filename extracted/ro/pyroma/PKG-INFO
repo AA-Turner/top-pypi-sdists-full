@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pyroma
-Version: 4.2
+Version: 4.3.1
 Summary: Test your project's packaging friendliness
 Home-page: https://github.com/regebro/pyroma
 Author: Lennart Regebro
@@ -8,24 +8,33 @@ Author-email: regebro@gmail.com
 License: MIT
 Project-URL: Source Code, https://github.com/regebro/pyroma
 Keywords: pypi,quality,testing
-Platform: UNKNOWN
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Python: >=3.7
-Provides-Extra: test
+Requires-Python: >=3.9
 License-File: LICENSE.txt
+Requires-Dist: build>=0.7.0
+Requires-Dist: docutils
+Requires-Dist: packaging
+Requires-Dist: pygments
+Requires-Dist: requests
+Requires-Dist: setuptools>=42
+Requires-Dist: trove-classifiers>=2022.6.26
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: setuptools>=60; extra == "test"
+Requires-Dist: zest.releaser[recommended]; extra == "test"
 
 pyroma
 ======
@@ -164,6 +173,34 @@ Contributors:
 
 Changelog
 =========
+
+4.3.1 (2025-07-01)
+------------------
+
+- Deprecation warnings? For the packaging configuration? What was I thinking?
+  I'm instead adding a rating telling people that they should add a
+  pyproject.toml. Much nicer.
+
+
+4.3 (2025-07-01)
+----------------
+
+- Added a --skip-tests parameter to allow skipping of certain tests.
+  You shouldn't skip tests, of course, but now you can. This is actually
+  only implemented so that I can add a test using check-manifest and
+  skip it when run from the zest.releaser hook.
+
+- If you also have check-manifest installed, pyroma will run that as a test.
+  No longer do you need to call it separately! However, if Pyroma is invoked
+  from zest.releaser, it will not be run, because check-manifest has a separate
+  hook for zest.releaser, so that would run it twice.
+
+- Allow private classifiers [hugovk]
+
+- Using tox to run tests [hugovk]
+
+- Deperating the support for setup.py
+
 
 4.2 (2023-02-25)
 ----------------
@@ -552,5 +589,3 @@ Changelog
 ------------------
 
 - Initial release
-
-

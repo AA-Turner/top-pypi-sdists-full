@@ -1,7 +1,7 @@
 r'''
 # `azurerm_function_app_function`
 
-Refer to the Terraform Registry for docs: [`azurerm_function_app_function`](https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_function).
+Refer to the Terraform Registry for docs: [`azurerm_function_app_function`](https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/function_app_function).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class FunctionAppFunction(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.functionAppFunction.FunctionAppFunction",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_function azurerm_function_app_function}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/function_app_function azurerm_function_app_function}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class FunctionAppFunction(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_function azurerm_function_app_function} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/function_app_function azurerm_function_app_function} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param config_json: The config for this Function in JSON format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_function#config_json FunctionAppFunction#config_json}
-        :param function_app_id: The ID of the Function App in which this function should reside. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_function#function_app_id FunctionAppFunction#function_app_id}
-        :param name: The name of the function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_function#name FunctionAppFunction#name}
-        :param enabled: Should this function be enabled. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_function#enabled FunctionAppFunction#enabled}
-        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_function#file FunctionAppFunction#file}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_function#id FunctionAppFunction#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param language: The language the Function is written in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_function#language FunctionAppFunction#language}
-        :param test_data: The test data for the function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_function#test_data FunctionAppFunction#test_data}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_function#timeouts FunctionAppFunction#timeouts}
+        :param config_json: The config for this Function in JSON format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/function_app_function#config_json FunctionAppFunction#config_json}
+        :param function_app_id: The ID of the Function App in which this function should reside. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/function_app_function#function_app_id FunctionAppFunction#function_app_id}
+        :param name: The name of the function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/function_app_function#name FunctionAppFunction#name}
+        :param enabled: Should this function be enabled. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/function_app_function#enabled FunctionAppFunction#enabled}
+        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/function_app_function#file FunctionAppFunction#file}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/function_app_function#id FunctionAppFunction#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param language: The language the Function is written in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/function_app_function#language FunctionAppFunction#language}
+        :param test_data: The test data for the function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/function_app_function#test_data FunctionAppFunction#test_data}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/function_app_function#timeouts FunctionAppFunction#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class FunctionAppFunction(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the FunctionAppFunction to import.
-        :param import_from_id: The id of the existing FunctionAppFunction that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_function#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing FunctionAppFunction that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/function_app_function#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the FunctionAppFunction to import is found.
         '''
         if __debug__:
@@ -161,10 +161,10 @@ class FunctionAppFunction(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_function#create FunctionAppFunction#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_function#delete FunctionAppFunction#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_function#read FunctionAppFunction#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_function#update FunctionAppFunction#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/function_app_function#create FunctionAppFunction#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/function_app_function#delete FunctionAppFunction#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/function_app_function#read FunctionAppFunction#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/function_app_function#update FunctionAppFunction#update}.
         '''
         value = FunctionAppFunctionTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -444,15 +444,15 @@ class FunctionAppFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param config_json: The config for this Function in JSON format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_function#config_json FunctionAppFunction#config_json}
-        :param function_app_id: The ID of the Function App in which this function should reside. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_function#function_app_id FunctionAppFunction#function_app_id}
-        :param name: The name of the function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_function#name FunctionAppFunction#name}
-        :param enabled: Should this function be enabled. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_function#enabled FunctionAppFunction#enabled}
-        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_function#file FunctionAppFunction#file}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_function#id FunctionAppFunction#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param language: The language the Function is written in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_function#language FunctionAppFunction#language}
-        :param test_data: The test data for the function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_function#test_data FunctionAppFunction#test_data}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_function#timeouts FunctionAppFunction#timeouts}
+        :param config_json: The config for this Function in JSON format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/function_app_function#config_json FunctionAppFunction#config_json}
+        :param function_app_id: The ID of the Function App in which this function should reside. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/function_app_function#function_app_id FunctionAppFunction#function_app_id}
+        :param name: The name of the function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/function_app_function#name FunctionAppFunction#name}
+        :param enabled: Should this function be enabled. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/function_app_function#enabled FunctionAppFunction#enabled}
+        :param file: file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/function_app_function#file FunctionAppFunction#file}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/function_app_function#id FunctionAppFunction#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param language: The language the Function is written in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/function_app_function#language FunctionAppFunction#language}
+        :param test_data: The test data for the function. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/function_app_function#test_data FunctionAppFunction#test_data}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/function_app_function#timeouts FunctionAppFunction#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -576,7 +576,7 @@ class FunctionAppFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def config_json(self) -> builtins.str:
         '''The config for this Function in JSON format.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_function#config_json FunctionAppFunction#config_json}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/function_app_function#config_json FunctionAppFunction#config_json}
         '''
         result = self._values.get("config_json")
         assert result is not None, "Required property 'config_json' is missing"
@@ -586,7 +586,7 @@ class FunctionAppFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def function_app_id(self) -> builtins.str:
         '''The ID of the Function App in which this function should reside.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_function#function_app_id FunctionAppFunction#function_app_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/function_app_function#function_app_id FunctionAppFunction#function_app_id}
         '''
         result = self._values.get("function_app_id")
         assert result is not None, "Required property 'function_app_id' is missing"
@@ -596,7 +596,7 @@ class FunctionAppFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the function.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_function#name FunctionAppFunction#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/function_app_function#name FunctionAppFunction#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -608,7 +608,7 @@ class FunctionAppFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Should this function be enabled. Defaults to ``true``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_function#enabled FunctionAppFunction#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/function_app_function#enabled FunctionAppFunction#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -619,14 +619,14 @@ class FunctionAppFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["FunctionAppFunctionFile"]]]:
         '''file block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_function#file FunctionAppFunction#file}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/function_app_function#file FunctionAppFunction#file}
         '''
         result = self._values.get("file")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["FunctionAppFunctionFile"]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_function#id FunctionAppFunction#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/function_app_function#id FunctionAppFunction#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -638,7 +638,7 @@ class FunctionAppFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def language(self) -> typing.Optional[builtins.str]:
         '''The language the Function is written in.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_function#language FunctionAppFunction#language}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/function_app_function#language FunctionAppFunction#language}
         '''
         result = self._values.get("language")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -647,7 +647,7 @@ class FunctionAppFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def test_data(self) -> typing.Optional[builtins.str]:
         '''The test data for the function.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_function#test_data FunctionAppFunction#test_data}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/function_app_function#test_data FunctionAppFunction#test_data}
         '''
         result = self._values.get("test_data")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -656,7 +656,7 @@ class FunctionAppFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["FunctionAppFunctionTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_function#timeouts FunctionAppFunction#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/function_app_function#timeouts FunctionAppFunction#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["FunctionAppFunctionTimeouts"], result)
@@ -681,8 +681,8 @@ class FunctionAppFunctionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class FunctionAppFunctionFile:
     def __init__(self, *, content: builtins.str, name: builtins.str) -> None:
         '''
-        :param content: The content of the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_function#content FunctionAppFunction#content}
-        :param name: The filename of the file to be uploaded. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_function#name FunctionAppFunction#name}
+        :param content: The content of the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/function_app_function#content FunctionAppFunction#content}
+        :param name: The filename of the file to be uploaded. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/function_app_function#name FunctionAppFunction#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0b6df1cc9d3fef54eabb54f44ee25218cb1d33d761d5162cbba415fbc1efb8a7)
@@ -697,7 +697,7 @@ class FunctionAppFunctionFile:
     def content(self) -> builtins.str:
         '''The content of the file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_function#content FunctionAppFunction#content}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/function_app_function#content FunctionAppFunction#content}
         '''
         result = self._values.get("content")
         assert result is not None, "Required property 'content' is missing"
@@ -707,7 +707,7 @@ class FunctionAppFunctionFile:
     def name(self) -> builtins.str:
         '''The filename of the file to be uploaded.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_function#name FunctionAppFunction#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/function_app_function#name FunctionAppFunction#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -913,10 +913,10 @@ class FunctionAppFunctionTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_function#create FunctionAppFunction#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_function#delete FunctionAppFunction#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_function#read FunctionAppFunction#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_function#update FunctionAppFunction#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/function_app_function#create FunctionAppFunction#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/function_app_function#delete FunctionAppFunction#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/function_app_function#read FunctionAppFunction#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/function_app_function#update FunctionAppFunction#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c847fd4283f96e4daf9649e84b84988d6ff545b11ce5bc602030c0af07a05eed)
@@ -936,25 +936,25 @@ class FunctionAppFunctionTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_function#create FunctionAppFunction#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/function_app_function#create FunctionAppFunction#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_function#delete FunctionAppFunction#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/function_app_function#delete FunctionAppFunction#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_function#read FunctionAppFunction#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/function_app_function#read FunctionAppFunction#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/function_app_function#update FunctionAppFunction#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/function_app_function#update FunctionAppFunction#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -190,6 +190,7 @@ class PrivateJobSDK(WorkloadSDK):
                 compute_config_id=compute_config_id,
                 max_concurrency=provided_job_queue_spec.max_concurrency,
                 idle_timeout_sec=provided_job_queue_spec.idle_timeout_s,
+                auto_termination_threshold_job_count=provided_job_queue_spec.auto_termination_threshold_job_count,
             )
 
         job_queue_config = CreateJobQueueConfig(

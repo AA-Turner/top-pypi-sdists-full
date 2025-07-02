@@ -1,7 +1,7 @@
 r'''
 # `data_google_cloud_run_v2_job`
 
-Refer to the Terraform Registry for docs: [`data_google_cloud_run_v2_job`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_cloud_run_v2_job).
+Refer to the Terraform Registry for docs: [`data_google_cloud_run_v2_job`](https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/data-sources/google_cloud_run_v2_job).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataGoogleCloudRunV2Job(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.dataGoogleCloudRunV2Job.DataGoogleCloudRunV2Job",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_cloud_run_v2_job google_cloud_run_v2_job}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/data-sources/google_cloud_run_v2_job google_cloud_run_v2_job}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class DataGoogleCloudRunV2Job(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_cloud_run_v2_job google_cloud_run_v2_job} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/data-sources/google_cloud_run_v2_job google_cloud_run_v2_job} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Name of the Job. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_cloud_run_v2_job#name DataGoogleCloudRunV2Job#name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_cloud_run_v2_job#id DataGoogleCloudRunV2Job#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location: The location of the cloud run job. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_cloud_run_v2_job#location DataGoogleCloudRunV2Job#location}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_cloud_run_v2_job#project DataGoogleCloudRunV2Job#project}.
+        :param name: Name of the Job. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/data-sources/google_cloud_run_v2_job#name DataGoogleCloudRunV2Job#name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/data-sources/google_cloud_run_v2_job#id DataGoogleCloudRunV2Job#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: The location of the cloud run job. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/data-sources/google_cloud_run_v2_job#location DataGoogleCloudRunV2Job#location}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/data-sources/google_cloud_run_v2_job#project DataGoogleCloudRunV2Job#project}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class DataGoogleCloudRunV2Job(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataGoogleCloudRunV2Job to import.
-        :param import_from_id: The id of the existing DataGoogleCloudRunV2Job that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_cloud_run_v2_job#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataGoogleCloudRunV2Job that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/data-sources/google_cloud_run_v2_job#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataGoogleCloudRunV2Job to import is found.
         '''
         if __debug__:
@@ -735,10 +735,10 @@ class DataGoogleCloudRunV2JobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Name of the Job. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_cloud_run_v2_job#name DataGoogleCloudRunV2Job#name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_cloud_run_v2_job#id DataGoogleCloudRunV2Job#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location: The location of the cloud run job. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_cloud_run_v2_job#location DataGoogleCloudRunV2Job#location}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_cloud_run_v2_job#project DataGoogleCloudRunV2Job#project}.
+        :param name: Name of the Job. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/data-sources/google_cloud_run_v2_job#name DataGoogleCloudRunV2Job#name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/data-sources/google_cloud_run_v2_job#id DataGoogleCloudRunV2Job#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: The location of the cloud run job. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/data-sources/google_cloud_run_v2_job#location DataGoogleCloudRunV2Job#location}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/data-sources/google_cloud_run_v2_job#project DataGoogleCloudRunV2Job#project}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -847,7 +847,7 @@ class DataGoogleCloudRunV2JobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''Name of the Job.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_cloud_run_v2_job#name DataGoogleCloudRunV2Job#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/data-sources/google_cloud_run_v2_job#name DataGoogleCloudRunV2Job#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -855,7 +855,7 @@ class DataGoogleCloudRunV2JobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_cloud_run_v2_job#id DataGoogleCloudRunV2Job#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/data-sources/google_cloud_run_v2_job#id DataGoogleCloudRunV2Job#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -867,14 +867,14 @@ class DataGoogleCloudRunV2JobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> typing.Optional[builtins.str]:
         '''The location of the cloud run job.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_cloud_run_v2_job#location DataGoogleCloudRunV2Job#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/data-sources/google_cloud_run_v2_job#location DataGoogleCloudRunV2Job#location}
         '''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/data-sources/google_cloud_run_v2_job#project DataGoogleCloudRunV2Job#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/data-sources/google_cloud_run_v2_job#project DataGoogleCloudRunV2Job#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3202,6 +3202,152 @@ class DataGoogleCloudRunV2JobTemplateTemplateList(
         jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
 
 
+@jsii.data_type(
+    jsii_type="@cdktf/provider-google-beta.dataGoogleCloudRunV2Job.DataGoogleCloudRunV2JobTemplateTemplateNodeSelector",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class DataGoogleCloudRunV2JobTemplateTemplateNodeSelector:
+    def __init__(self) -> None:
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DataGoogleCloudRunV2JobTemplateTemplateNodeSelector(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class DataGoogleCloudRunV2JobTemplateTemplateNodeSelectorList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-google-beta.dataGoogleCloudRunV2Job.DataGoogleCloudRunV2JobTemplateTemplateNodeSelectorList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b3ace51c3fd827a5c3e90c1d1b90b2c68444938fef78b243c000109dcc397eb3)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "DataGoogleCloudRunV2JobTemplateTemplateNodeSelectorOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bfae01d78a2e0e97b97b836d37699d82814331f0887aa1a0a5b19229e07bc463)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("DataGoogleCloudRunV2JobTemplateTemplateNodeSelectorOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__958fa3d48543709383be65b49da8c7ee4c82c2da8982269a142a65461c9aa52b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__34c94324976c70c6cf57e30ad8e0c454220e2868805bcbe3f478bbb24e956177)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8c48ea2ba3d3445c6ad3f2aa424302745dfee3bc18b4c211bb30d32d9d829d26)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+
+class DataGoogleCloudRunV2JobTemplateTemplateNodeSelectorOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-google-beta.dataGoogleCloudRunV2Job.DataGoogleCloudRunV2JobTemplateTemplateNodeSelectorOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__21c61f94746fd539715ce7b19e56cd8fca5dd0d4fd597218ede8569c5ca5528a)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @builtins.property
+    @jsii.member(jsii_name="accelerator")
+    def accelerator(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "accelerator"))
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[DataGoogleCloudRunV2JobTemplateTemplateNodeSelector]:
+        return typing.cast(typing.Optional[DataGoogleCloudRunV2JobTemplateTemplateNodeSelector], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[DataGoogleCloudRunV2JobTemplateTemplateNodeSelector],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__745f1f2fd34bb7382aa094214ba702dea28c9dde309d9c5b98c810f3f4bb0432)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
 class DataGoogleCloudRunV2JobTemplateTemplateOutputReference(
     _cdktf_9a9027ec.ComplexObject,
     metaclass=jsii.JSIIMeta,
@@ -3247,6 +3393,11 @@ class DataGoogleCloudRunV2JobTemplateTemplateOutputReference(
     @jsii.member(jsii_name="maxRetries")
     def max_retries(self) -> jsii.Number:
         return typing.cast(jsii.Number, jsii.get(self, "maxRetries"))
+
+    @builtins.property
+    @jsii.member(jsii_name="nodeSelector")
+    def node_selector(self) -> DataGoogleCloudRunV2JobTemplateTemplateNodeSelectorList:
+        return typing.cast(DataGoogleCloudRunV2JobTemplateTemplateNodeSelectorList, jsii.get(self, "nodeSelector"))
 
     @builtins.property
     @jsii.member(jsii_name="serviceAccount")
@@ -4928,6 +5079,9 @@ __all__ = [
     "DataGoogleCloudRunV2JobTemplateTemplateContainersVolumeMountsList",
     "DataGoogleCloudRunV2JobTemplateTemplateContainersVolumeMountsOutputReference",
     "DataGoogleCloudRunV2JobTemplateTemplateList",
+    "DataGoogleCloudRunV2JobTemplateTemplateNodeSelector",
+    "DataGoogleCloudRunV2JobTemplateTemplateNodeSelectorList",
+    "DataGoogleCloudRunV2JobTemplateTemplateNodeSelectorOutputReference",
     "DataGoogleCloudRunV2JobTemplateTemplateOutputReference",
     "DataGoogleCloudRunV2JobTemplateTemplateVolumes",
     "DataGoogleCloudRunV2JobTemplateTemplateVolumesCloudSqlInstance",
@@ -5812,6 +5966,53 @@ def _typecheckingstub__ef3011112e673d9fe6fc9a7547483b5d1aeb30b737f07c7984d692a92
 
 def _typecheckingstub__5af9b77ae5ff8f343ff55c1b3770a3aaf18d9f47b2d889c5434c82c7a5a1f5bc(
     value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b3ace51c3fd827a5c3e90c1d1b90b2c68444938fef78b243c000109dcc397eb3(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bfae01d78a2e0e97b97b836d37699d82814331f0887aa1a0a5b19229e07bc463(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__958fa3d48543709383be65b49da8c7ee4c82c2da8982269a142a65461c9aa52b(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__34c94324976c70c6cf57e30ad8e0c454220e2868805bcbe3f478bbb24e956177(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8c48ea2ba3d3445c6ad3f2aa424302745dfee3bc18b4c211bb30d32d9d829d26(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__21c61f94746fd539715ce7b19e56cd8fca5dd0d4fd597218ede8569c5ca5528a(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__745f1f2fd34bb7382aa094214ba702dea28c9dde309d9c5b98c810f3f4bb0432(
+    value: typing.Optional[DataGoogleCloudRunV2JobTemplateTemplateNodeSelector],
 ) -> None:
     """Type checking stubs"""
     pass

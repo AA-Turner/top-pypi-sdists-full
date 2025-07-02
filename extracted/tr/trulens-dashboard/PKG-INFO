@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: trulens-dashboard
-Version: 1.5.2
+Version: 1.5.3
 Summary: Library to systematically track and evaluate LLM based applications.
 License: MIT
 Author: Snowflake Inc.

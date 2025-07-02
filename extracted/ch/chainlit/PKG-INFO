@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: chainlit
-Version: 2.5.5
+Version: 2.6.0
 Summary: Build Conversational AI.
 Home-page: https://chainlit.io/
 License: Apache-2.0
@@ -20,7 +20,7 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: User Interfaces
 Requires-Dist: aiofiles (>=23.1.0,<25.0.0)
-Requires-Dist: asyncer (>=0.0.7,<0.0.8)
+Requires-Dist: asyncer (>=0.0.8,<0.0.9)
 Requires-Dist: click (>=8.1.3,<9.0.0)
 Requires-Dist: dataclasses_json (>=0.6.7,<0.7.0)
 Requires-Dist: fastapi (>=0.115.3,<0.116)
@@ -36,7 +36,7 @@ Requires-Dist: pyjwt (>=2.8.0,<3.0.0)
 Requires-Dist: python-dotenv (>=1.0.0,<2.0.0)
 Requires-Dist: python-multipart (>=0.0.18,<0.0.19)
 Requires-Dist: python-socketio (>=5.11.0,<6.0.0)
-Requires-Dist: starlette (>=0.41.2,<0.42.0)
+Requires-Dist: starlette (>=0.41.2)
 Requires-Dist: syncer (>=2.0.3,<3.0.0)
 Requires-Dist: tomli (>=2.0.1,<3.0.0)
 Requires-Dist: uptrace (>=1.29.0,<2.0.0)
@@ -46,7 +46,7 @@ Project-URL: Documentation, https://docs.chainlit.io/
 Project-URL: Repository, https://github.com/Chainlit/chainlit
 Description-Content-Type: text/markdown
 
-<h1 align="center">Welcome to Chainlit by Literal AI 👋</h1>
+<h1 align="center">Welcome to Chainlit 👋</h1>
 
 <p align="center">
 <b>Build python production-ready conversational AI applications in minutes, not weeks ⚡️</b>
@@ -59,6 +59,15 @@ Description-Content-Type: text/markdown
         <a href="https://github.com/chainlit/chainlit/graphs/contributors" rel="nofollow"><img alt="Contributors" src="https://img.shields.io/github/contributors/chainlit/chainlit" style="max-width:100%;"></a>
     <a href="https://github.com/Chainlit/chainlit/actions/workflows/ci.yaml" rel="nofollow"><img alt="CI" src="https://github.com/Chainlit/chainlit/actions/workflows/ci.yaml/badge.svg" style="max-width:100%;"></a>
 </p>
+
+> ⚠️ **Notice:** Chainlit is now community-maintained.
+>
+> As of May 1st 2025, the original Chainlit team has stepped back from active development. The project is maintained by @Chainlit/chainlit-maintainers under a formal Maintainer Agreement.
+>
+> Maintainers are responsible for code review, releases, and security.  
+> Chainlit SAS provides no warranties on future updates.
+>
+> Want to help maintain? [Apply here →](https://docs.google.com/forms/d/e/1FAIpQLSf6CllNWnKBnDIoj0m-DnHU6b0dj8HYFGixKy-_qNi_rD4iNA/viewform)
 
 <p align="center">
     <a href="https://chainlit.io"><b>Website</b></a>  •  
@@ -73,8 +82,6 @@ Description-Content-Type: text/markdown
 
 https://github.com/user-attachments/assets/b3738aba-55c0-42fa-ac00-6efd1ee0d148
 
-> [!NOTE]
-> Chainlit is maintained by [Literal AI](https://literalai.com), an LLMOps platform to monitor and evaluate LLM applications! It works with any Python or TypeScript applications and [seamlessly](https://docs.chainlit.io/llmops/literalai) with Chainlit. For enterprise support, please fill this [form](https://docs.google.com/forms/d/e/1FAIpQLSdPVGqfuaWSC2DfunR6cY4C7kUHl0c2W7DnhzsF9bmMxrVpkg/viewform?usp=header).
 
 ## Installation
 

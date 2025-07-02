@@ -6824,35 +6824,42 @@ OGRFieldDomainShadow* CreateRangeFieldDomain( const char *name,
                                               const char* description,
                                               OGRFieldType type,
                                               OGRFieldSubType subtype,
-                                              double min,
+                                              double* min,
                                               bool minIsInclusive,
-                                              double max,
-                                              double maxIsInclusive) {
+                                              double* max,
+                                              bool maxIsInclusive) {
   OGRField sMin;
-  if( type == OFTInteger )
-      sMin.Integer = static_cast<int>(min);
-  else if( type == OFTInteger64 )
-      sMin.Integer64 = static_cast<GIntBig>(min);
-  else if( type == OFTReal )
-      sMin.Real = min;
-  else
-      return NULL;
+  if (min )
+  {
+      if( type == OFTInteger )
+          sMin.Integer = static_cast<int>(*min);
+      else if( type == OFTInteger64 )
+          sMin.Integer64 = static_cast<GIntBig>(*min);
+      else if( type == OFTReal )
+          sMin.Real = *min;
+      else
+          return NULL;
+  }
+
   OGRField sMax;
-  if( type == OFTInteger )
-      sMax.Integer = static_cast<int>(max);
-  else if( type == OFTInteger64 )
-      sMax.Integer64 = static_cast<GIntBig>(max);
-  else if( type == OFTReal )
-      sMax.Real = max;
-  else
-      return NULL;
+  if( max )
+  {
+      if( type == OFTInteger )
+          sMax.Integer = static_cast<int>(*max);
+      else if( type == OFTInteger64 )
+          sMax.Integer64 = static_cast<GIntBig>(*max);
+      else if( type == OFTReal )
+          sMax.Real = *max;
+      else
+          return NULL;
+  }
   return (OGRFieldDomainShadow*) OGR_RangeFldDomain_Create( name,
                                                             description,
                                                             type,
                                                             subtype,
-                                                            &sMin,
+                                                            min ? &sMin : NULL,
                                                             minIsInclusive,
-                                                            &sMax,
+                                                            max ? &sMax : NULL,
                                                             maxIsInclusive );
 }
 
@@ -6866,14 +6873,14 @@ OGRFieldDomainShadow* CreateRangeFieldDomainDateTime( const char *name,
                                               double maxIsInclusive) {
   OGRField sMin;
   OGRField sMax;
-  if( !OGRParseXMLDateTime(min, &sMin))
+  if( min && !OGRParseXMLDateTime(min, &sMin))
   {
     CPLError(CE_Failure, CPLE_AppDefined,
              "Invalid min: %s",
              min);
     return NULL;
   }
-  if( !OGRParseXMLDateTime(max, &sMax))
+  if( max && !OGRParseXMLDateTime(max, &sMax))
   {
     CPLError(CE_Failure, CPLE_AppDefined,
              "Invalid max: %s",
@@ -6884,9 +6891,9 @@ OGRFieldDomainShadow* CreateRangeFieldDomainDateTime( const char *name,
                                                             description,
                                                             OFTDateTime,
                                                             OFSTNone,
-                                                            &sMin,
+                                                            min ? &sMin : NULL,
                                                             minIsInclusive,
-                                                            &sMax,
+                                                            max ? &sMax : NULL,
                                                             maxIsInclusive );
 }
 
@@ -34046,10 +34053,10 @@ SWIGINTERN PyObject *_wrap_CreateRangeFieldDomain(PyObject *self, PyObject *args
   char *arg2 = (char *) 0 ;
   OGRFieldType arg3 ;
   OGRFieldSubType arg4 ;
-  double arg5 ;
+  double *arg5 = (double *) 0 ;
   bool arg6 ;
-  double arg7 ;
-  double arg8 ;
+  double *arg7 = (double *) 0 ;
+  bool arg8 ;
   int res1 ;
   char *buf1 = 0 ;
   int alloc1 = 0 ;
@@ -34061,12 +34068,10 @@ SWIGINTERN PyObject *_wrap_CreateRangeFieldDomain(PyObject *self, PyObject *args
   int val4 ;
   int ecode4 = 0 ;
   double val5 ;
-  int ecode5 = 0 ;
   bool val6 ;
   int ecode6 = 0 ;
   double val7 ;
-  int ecode7 = 0 ;
-  double val8 ;
+  bool val8 ;
   int ecode8 = 0 ;
   PyObject *swig_obj[8] ;
   OGRFieldDomainShadow *result = 0 ;
@@ -34093,26 +34098,42 @@ SWIGINTERN PyObject *_wrap_CreateRangeFieldDomain(PyObject *self, PyObject *args
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "CreateRangeFieldDomain" "', argument " "4"" of type '" "OGRFieldSubType""'");
   } 
   arg4 = static_cast< OGRFieldSubType >(val4);
-  ecode5 = SWIG_AsVal_double(swig_obj[4], &val5);
-  if (!SWIG_IsOK(ecode5)) {
-    SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "CreateRangeFieldDomain" "', argument " "5"" of type '" "double""'");
-  } 
-  arg5 = static_cast< double >(val5);
+  {
+    /* %typemap(in) (double *optional_##double) */
+    if ( swig_obj[4] == Py_None ) {
+      arg5 = 0;
+    }
+    else if ( PyArg_Parse( swig_obj[4],"d" ,&val5 ) ) {
+      arg5 = (double *) &val5;
+    }
+    else {
+      PyErr_SetString( PyExc_TypeError, "Invalid Parameter" );
+      SWIG_fail;
+    }
+  }
   ecode6 = SWIG_AsVal_bool(swig_obj[5], &val6);
   if (!SWIG_IsOK(ecode6)) {
     SWIG_exception_fail(SWIG_ArgError(ecode6), "in method '" "CreateRangeFieldDomain" "', argument " "6"" of type '" "bool""'");
   } 
   arg6 = static_cast< bool >(val6);
-  ecode7 = SWIG_AsVal_double(swig_obj[6], &val7);
-  if (!SWIG_IsOK(ecode7)) {
-    SWIG_exception_fail(SWIG_ArgError(ecode7), "in method '" "CreateRangeFieldDomain" "', argument " "7"" of type '" "double""'");
-  } 
-  arg7 = static_cast< double >(val7);
-  ecode8 = SWIG_AsVal_double(swig_obj[7], &val8);
+  {
+    /* %typemap(in) (double *optional_##double) */
+    if ( swig_obj[6] == Py_None ) {
+      arg7 = 0;
+    }
+    else if ( PyArg_Parse( swig_obj[6],"d" ,&val7 ) ) {
+      arg7 = (double *) &val7;
+    }
+    else {
+      PyErr_SetString( PyExc_TypeError, "Invalid Parameter" );
+      SWIG_fail;
+    }
+  }
+  ecode8 = SWIG_AsVal_bool(swig_obj[7], &val8);
   if (!SWIG_IsOK(ecode8)) {
-    SWIG_exception_fail(SWIG_ArgError(ecode8), "in method '" "CreateRangeFieldDomain" "', argument " "8"" of type '" "double""'");
+    SWIG_exception_fail(SWIG_ArgError(ecode8), "in method '" "CreateRangeFieldDomain" "', argument " "8"" of type '" "bool""'");
   } 
-  arg8 = static_cast< double >(val8);
+  arg8 = static_cast< bool >(val8);
   {
     if (!arg1) {
       SWIG_exception(SWIG_NullReferenceError,"Received a NULL pointer.");
@@ -40062,7 +40083,8 @@ static PyMethodDef SwigMethods[] = {
 		"Returns\n"
 		"--------\n"
 		"int:\n"
-		"    True if the geometry has no points, otherwise False.\n"
+		"    True if the coordinates of the geometry form a ring, by checking length\n"
+		"    and closure (self-intersection is not checked), otherwise False.\n"
 		"\n"
 		""},
 	 { "Geometry_Intersects", _wrap_Geometry_Intersects, METH_VARARGS, "\n"
@@ -40797,7 +40819,7 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		""},
 	 { "CreateRangeFieldDomain", _wrap_CreateRangeFieldDomain, METH_VARARGS, "\n"
-		"CreateRangeFieldDomain(char const * name, char const * description, OGRFieldType type, OGRFieldSubType subtype, double min, bool minIsInclusive, double max, double maxIsInclusive) -> FieldDomain\n"
+		"CreateRangeFieldDomain(char const * name, char const * description, OGRFieldType type, OGRFieldSubType subtype, double * min, bool minIsInclusive, double * max, bool maxIsInclusive) -> FieldDomain\n"
 		"\n"
 		"Creates a new range field domain.\n"
 		"\n"

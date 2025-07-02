@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: maleo-metadata
-Version: 0.1.43
+Version: 0.1.45
 Summary: MaleoMetadata service package
 Author-email: Agra Bima Yuda <agra@nexmedis.com>
 License: MIT
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown
-Requires-Dist: maleo_foundation>=0.3.29
+Requires-Dist: maleo_foundation>=0.3.31
 
 # README #
 

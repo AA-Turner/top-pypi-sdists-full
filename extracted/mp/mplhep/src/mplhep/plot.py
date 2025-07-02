@@ -9,7 +9,10 @@ from typing import TYPE_CHECKING, Any, NamedTuple, Union
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.lines import Line2D
 from matplotlib.offsetbox import AnchoredText
+from matplotlib.patches import Patch, Rectangle
+from matplotlib.text import Text
 from matplotlib.transforms import Bbox
 from mpl_toolkits.axes_grid1 import axes_size, make_axes_locatable
 
@@ -85,6 +88,7 @@ def histplot(
     sort=None,
     edges=True,
     binticks=False,
+    xoffsets=None,
     ax: mpl.axes.Axes | None = None,
     flow="hint",
     **kwargs,
@@ -147,6 +151,8 @@ def histplot(
             Specifies whether to draw first and last edges of the histogram
         binticks : bool, default: False, optional
             Attempts to draw x-axis ticks coinciding with bin boundaries if feasible.
+        xoffsets: bool, default: False,
+            If True, the bin "centers" of plotted histograms will be offset within their bin.
         ax : matplotlib.axes.Axes, optional
             Axes object (if None, last one is fetched or one is created)
         flow :  str, optional { "show", "sum", "hint", "none"}
@@ -227,15 +233,15 @@ def histplot(
         _chunked_kwargs.append({})
     for kwarg, kwarg_content in kwargs.items():
         # Check if iterable
-        if iterable_not_string(kwargs[kwarg]):
+        if iterable_not_string(kwarg_content):
             # Check if tuple of floats or ints (can be used for colors)
-            if isinstance(kwargs[kwarg], tuple) and all(
+            if isinstance(kwarg_content, tuple) and all(
                 isinstance(x, (int, float)) for x in kwarg_content
             ):
                 for i in range(len(_chunked_kwargs)):
                     _chunked_kwargs[i][kwarg] = kwarg_content
             else:
-                for i, kw in enumerate(kwargs[kwarg]):
+                for i, kw in enumerate(kwarg_content):
                     _chunked_kwargs[i][kwarg] = kw
         else:
             for i in range(len(_chunked_kwargs)):
@@ -273,6 +279,7 @@ def histplot(
         density=density,
         binwnorm=binwnorm,
         flow=flow,
+        xoffsets=xoffsets,
     )
     flow_bins, underflow, overflow = flow_info
 
@@ -312,7 +319,8 @@ def histplot(
     if "step" in histtype:
         for i in range(len(plottables)):
             do_errors = yerr is not False and (
-                (yerr is not None or w2 is not None) or plottables[i]._has_variances
+                (yerr is not None or w2 is not None)
+                or plottables[i].variances() is not None
             )
 
             _kwargs = _chunked_kwargs[i]
@@ -342,6 +350,7 @@ def histplot(
                     _ls = _kwargs.pop("linestyle", "-")
                     _kwargs["linestyle"] = "none"
                     _plot_info = plottables[i].to_errorbar()
+                    del _plot_info["xerr"]
                     _e = ax.errorbar(
                         **_plot_info,
                         **_kwargs,
@@ -373,7 +382,7 @@ def histplot(
 
                 _b = ax.bar(
                     plottables[i].centers + _shift[i],
-                    plottables[i].values,
+                    plottables[i].values(),
                     width=_full_bin_width / len(plottables),
                     label=_step_label,
                     align="center",
@@ -418,7 +427,7 @@ def histplot(
 
             _b = ax.bar(
                 plottables[i].centers + _shift[i],
-                plottables[i].values,
+                plottables[i].values(),
                 width=_full_bin_width / len(plottables),
                 label=_labels[i],
                 align="center",
@@ -477,7 +486,12 @@ def histplot(
             _plot_info = plottables[i].to_errorbar()
             if yerr is False:
                 _plot_info["yerr"] = None
-            _plot_info["xerr"] = _xerr
+            if not xerr:
+                del _plot_info["xerr"]
+            if isinstance(xerr, (int, float)) and not isinstance(xerr, bool):
+                _plot_info["xerr"] = xerr
+            elif isinstance(xerr, (np.ndarray, list)):
+                _plot_info["xerr"] = xerr[i]
             _e = ax.errorbar(
                 **_plot_info,
                 label=_labels[i],
@@ -565,7 +579,7 @@ def histplot(
                 xticklabels = _xticklabels
 
         lw = ax.spines["bottom"].get_linewidth()
-        _edges = plottables[0].edges
+        _edges = plottables[0].edges_1d()
         _centers = plottables[0].centers
         _marker_size = (
             20
@@ -808,7 +822,7 @@ def hist2dplot(
         except TypeError as error:
             if "got an unexpected keyword argument 'flow'" in str(error):
                 msg = (
-                    f"The histograms value method {h!r} does not take a 'flow' argument. UHI Plottable doesn't require this to have, but it is required for this function."
+                    f"The histograms value method {h!r} does not take a 'flow' argument. UHI PlottableHistogram doesn't require this to have, but it is required for this function."
                     f" Implementations like hist/boost-histogram support this argument."
                 )
                 raise TypeError(msg) from error
@@ -999,9 +1013,11 @@ def hist2dplot(
                     ax.text(
                         xc,
                         yc,
-                        _labels[iy, ix].round(labels_round)
-                        if labels_round is not None
-                        else _labels[iy, ix],  # type: ignore[arg-type]
+                        (
+                            _labels[iy, ix].round(labels_round)  # type: ignore[arg-type]
+                            if labels_round is not None
+                            else _labels[iy, ix]
+                        ),
                         ha="center",
                         va="center",
                         color=color,
@@ -1018,9 +1034,6 @@ def overlap(ax, bbox, get_vertices=False):
     """
     Find overlap of bbox for drawn elements an axes.
     """
-    from matplotlib.lines import Line2D
-    from matplotlib.patches import Patch, Rectangle
-    from matplotlib.text import Text
 
     # From
     # https://github.com/matplotlib/matplotlib/blob/08008d5cb4d1f27692e9aead9a76396adc8f0b19/lib/matplotlib/legend.py#L845
@@ -1358,13 +1371,13 @@ def append_axes(ax, size=0.1, pad=0.1, position="right", extend=False):
                 fig.get_size_inches()[1],
             )
         elif position in ["left"]:
-            divider.set_horizontal(xsizes[::-1] + [axes_size.Fixed(width)])
+            divider.set_horizontal([*xsizes[::-1], axes_size.Fixed(width)])
             fig.set_size_inches(
                 fig.get_size_inches()[0] * extend_ratio(ax, yhax)[0],
                 fig.get_size_inches()[1],
             )
         elif position in ["top"]:
-            divider.set_vertical([axes_size.Fixed(height)] + xsizes[::-1])
+            divider.set_vertical([axes_size.Fixed(height), *xsizes[::-1]])
             fig.set_size_inches(
                 fig.get_size_inches()[0],
                 fig.get_size_inches()[1] * extend_ratio(ax, yhax)[1],
@@ -1384,8 +1397,6 @@ def append_axes(ax, size=0.1, pad=0.1, position="right", extend=False):
 ####################
 # Legend Helpers
 def hist_legend(ax=None, **kwargs):
-    from matplotlib.lines import Line2D
-
     if ax is None:
         ax = plt.gca()
 

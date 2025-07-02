@@ -740,7 +740,6 @@ class _WandbInit:
         drun._config.update(config.sweep_no_artifacts)
         drun._config.update(config.base_no_artifacts)
         drun.summary = SummaryDisabled()  # type: ignore
-        drun._Run__metadata = wandb.sdk.wandb_metadata.Metadata()
 
         # methods
         drun.log = lambda data, *_, **__: drun.summary.update(data)  # type: ignore[method-assign]
@@ -925,8 +924,6 @@ class _WandbInit:
                 tel.feature.flow_control_disabled = True
             if settings.x_flow_control_custom:
                 tel.feature.flow_control_custom = True
-            if not settings.x_require_legacy_service:
-                tel.feature.core = True
             if settings._shared:
                 wandb.termwarn(
                     "The `shared` mode feature is experimental and may change. "
@@ -1367,7 +1364,7 @@ def init(  # noqa: C901
             the UI.
             If resuming a run, the tags provided here will replace any existing
             tags. To add tags to a resumed run without overwriting the current
-            tags, use `run.tags += ["new_tag"]` after calling `run = wandb.init()`.
+            tags, use `run.tags += ("new_tag",)` after calling `run = wandb.init()`.
         config: Sets `wandb.config`, a dictionary-like object for storing input
             parameters to your run, such as model hyperparameters or data
             preprocessing settings.
@@ -1621,4 +1618,3 @@ def init(  # noqa: C901
         # Need to build delay into this sentry capture because our exit hooks
         # mess with sentry's ability to send out errors before the program ends.
         wandb._sentry.reraise(e)
-        raise AssertionError()  # should never get here

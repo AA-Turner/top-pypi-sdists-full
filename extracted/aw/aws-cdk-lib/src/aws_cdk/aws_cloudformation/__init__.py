@@ -744,7 +744,7 @@ class CfnGuardHook(
         ) -> None:
             '''Specifies the S3 location where your Guard rules or input parameters are located.
 
-            :param uri: Specifies the S3 path to the file containing your Guard rules or input parameters (in the form ``s3://<bucket name>/<file name>`` ). For Guard rules, the object stored in S3 must have one of the following file extensions: ``.guard`` , ``.zip`` , or ``.tar.gz`` . For input parameters, the object stored in S3 must have one of the following file extensions: ``.yaml`` , ``.json`` , ``.zip`` , or ``.tar.gz`` .
+            :param uri: Specifies the S3 path to the file that contains your Guard rules or input parameters (in the form ``s3://<bucket name>/<file name>`` ). For Guard rules, the object stored in S3 must have one of the following file extensions: ``.guard`` , ``.zip`` , or ``.tar.gz`` . For input parameters, the object stored in S3 must have one of the following file extensions: ``.yaml`` , ``.json`` , ``.zip`` , or ``.tar.gz`` .
             :param version_id: For S3 buckets with versioning enabled, specifies the unique ID of the S3 object version to download your Guard rules or input parameters from. The Guard Hook downloads files from S3 every time the Hook is invoked. To prevent accidental changes or deletions, we recommend using a version when configuring your Guard Hook.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudformation-guardhook-s3location.html
@@ -775,7 +775,7 @@ class CfnGuardHook(
 
         @builtins.property
         def uri(self) -> builtins.str:
-            '''Specifies the S3 path to the file containing your Guard rules or input parameters (in the form ``s3://<bucket name>/<file name>`` ).
+            '''Specifies the S3 path to the file that contains your Guard rules or input parameters (in the form ``s3://<bucket name>/<file name>`` ).
 
             For Guard rules, the object stored in S3 must have one of the following file extensions: ``.guard`` , ``.zip`` , or ``.tar.gz`` .
 
@@ -2034,7 +2034,7 @@ class CfnHookVersion(
         '''
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param schema_handler_package: A URL to the Amazon S3 bucket containing the Hook project package that contains the necessary files for the Hook you want to register. For information on generating a schema handler package, see `Modeling custom CloudFormation Hooks <https://docs.aws.amazon.com/cloudformation-cli/latest/hooks-userguide/hooks-model.html>`_ in the *AWS CloudFormation Hooks User Guide* . .. epigraph:: To register the Hook, you must have ``s3:GetObject`` permissions to access the S3 objects.
+        :param schema_handler_package: A URL to the Amazon S3 bucket for the Hook project package that contains the necessary files for the Hook you want to register. For information on generating a schema handler package, see `Modeling custom CloudFormation Hooks <https://docs.aws.amazon.com/cloudformation-cli/latest/hooks-userguide/hooks-model.html>`_ in the *AWS CloudFormation Hooks User Guide* . .. epigraph:: To register the Hook, you must have ``s3:GetObject`` permissions to access the S3 objects.
         :param type_name: The unique name for your hook. Specifies a three-part namespace for your hook, with a recommended pattern of ``Organization::Service::Hook`` . .. epigraph:: The following organization namespaces are reserved and can't be used in your hook type names: - ``Alexa`` - ``AMZN`` - ``Amazon`` - ``ASK`` - ``AWS`` - ``Custom`` - ``Dev``
         :param execution_role_arn: The Amazon Resource Name (ARN) of the task execution role that grants the Hook permission.
         :param logging_config: Contains logging configuration information for an extension.
@@ -2138,7 +2138,7 @@ class CfnHookVersion(
     @builtins.property
     @jsii.member(jsii_name="schemaHandlerPackage")
     def schema_handler_package(self) -> builtins.str:
-        '''A URL to the Amazon S3 bucket containing the Hook project package that contains the necessary files for the Hook you want to register.'''
+        '''A URL to the Amazon S3 bucket for the Hook project package that contains the necessary files for the Hook you want to register.'''
         return typing.cast(builtins.str, jsii.get(self, "schemaHandlerPackage"))
 
     @schema_handler_package.setter
@@ -2284,7 +2284,7 @@ class CfnHookVersionProps:
     ) -> None:
         '''Properties for defining a ``CfnHookVersion``.
 
-        :param schema_handler_package: A URL to the Amazon S3 bucket containing the Hook project package that contains the necessary files for the Hook you want to register. For information on generating a schema handler package, see `Modeling custom CloudFormation Hooks <https://docs.aws.amazon.com/cloudformation-cli/latest/hooks-userguide/hooks-model.html>`_ in the *AWS CloudFormation Hooks User Guide* . .. epigraph:: To register the Hook, you must have ``s3:GetObject`` permissions to access the S3 objects.
+        :param schema_handler_package: A URL to the Amazon S3 bucket for the Hook project package that contains the necessary files for the Hook you want to register. For information on generating a schema handler package, see `Modeling custom CloudFormation Hooks <https://docs.aws.amazon.com/cloudformation-cli/latest/hooks-userguide/hooks-model.html>`_ in the *AWS CloudFormation Hooks User Guide* . .. epigraph:: To register the Hook, you must have ``s3:GetObject`` permissions to access the S3 objects.
         :param type_name: The unique name for your hook. Specifies a three-part namespace for your hook, with a recommended pattern of ``Organization::Service::Hook`` . .. epigraph:: The following organization namespaces are reserved and can't be used in your hook type names: - ``Alexa`` - ``AMZN`` - ``Amazon`` - ``ASK`` - ``AWS`` - ``Custom`` - ``Dev``
         :param execution_role_arn: The Amazon Resource Name (ARN) of the task execution role that grants the Hook permission.
         :param logging_config: Contains logging configuration information for an extension.
@@ -2327,7 +2327,7 @@ class CfnHookVersionProps:
 
     @builtins.property
     def schema_handler_package(self) -> builtins.str:
-        '''A URL to the Amazon S3 bucket containing the Hook project package that contains the necessary files for the Hook you want to register.
+        '''A URL to the Amazon S3 bucket for the Hook project package that contains the necessary files for the Hook you want to register.
 
         For information on generating a schema handler package, see `Modeling custom CloudFormation Hooks <https://docs.aws.amazon.com/cloudformation-cli/latest/hooks-userguide/hooks-model.html>`_ in the *AWS CloudFormation Hooks User Guide* .
         .. epigraph::
@@ -3936,7 +3936,7 @@ class CfnModuleVersion(
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param module_name: The name of the module being registered.
-        :param module_package: A URL to the S3 bucket containing the package that contains the template fragment and schema files for the module version to register. For more information, see `Module structure and requirements <https://docs.aws.amazon.com/cloudformation-cli/latest/userguide/modules-structure.html>`_ in the *AWS CloudFormation Command Line Interface (CLI) User Guide* . .. epigraph:: To register the module version, you must have ``s3:GetObject`` permissions to access the S3 objects.
+        :param module_package: A URL to the S3 bucket for the package that contains the template fragment and schema files for the module version to register. For more information, see `Module structure and requirements <https://docs.aws.amazon.com/cloudformation-cli/latest/userguide/modules-structure.html>`_ in the *AWS CloudFormation Command Line Interface (CLI) User Guide* . .. epigraph:: To register the module version, you must have ``s3:GetObject`` permissions to access the S3 objects.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__50da97e251a6b1bacc1202d70f10c857ca74139ea4e8bcc35b2ff47e8b8b2729)
@@ -4076,7 +4076,7 @@ class CfnModuleVersion(
     @builtins.property
     @jsii.member(jsii_name="modulePackage")
     def module_package(self) -> builtins.str:
-        '''A URL to the S3 bucket containing the package that contains the template fragment and schema files for the module version to register.'''
+        '''A URL to the S3 bucket for the package that contains the template fragment and schema files for the module version to register.'''
         return typing.cast(builtins.str, jsii.get(self, "modulePackage"))
 
     @module_package.setter
@@ -4102,7 +4102,7 @@ class CfnModuleVersionProps:
         '''Properties for defining a ``CfnModuleVersion``.
 
         :param module_name: The name of the module being registered.
-        :param module_package: A URL to the S3 bucket containing the package that contains the template fragment and schema files for the module version to register. For more information, see `Module structure and requirements <https://docs.aws.amazon.com/cloudformation-cli/latest/userguide/modules-structure.html>`_ in the *AWS CloudFormation Command Line Interface (CLI) User Guide* . .. epigraph:: To register the module version, you must have ``s3:GetObject`` permissions to access the S3 objects.
+        :param module_package: A URL to the S3 bucket for the package that contains the template fragment and schema files for the module version to register. For more information, see `Module structure and requirements <https://docs.aws.amazon.com/cloudformation-cli/latest/userguide/modules-structure.html>`_ in the *AWS CloudFormation Command Line Interface (CLI) User Guide* . .. epigraph:: To register the module version, you must have ``s3:GetObject`` permissions to access the S3 objects.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-moduleversion.html
         :exampleMetadata: fixture=_generated
@@ -4139,7 +4139,7 @@ class CfnModuleVersionProps:
 
     @builtins.property
     def module_package(self) -> builtins.str:
-        '''A URL to the S3 bucket containing the package that contains the template fragment and schema files for the module version to register.
+        '''A URL to the S3 bucket for the package that contains the template fragment and schema files for the module version to register.
 
         For more information, see `Module structure and requirements <https://docs.aws.amazon.com/cloudformation-cli/latest/userguide/modules-structure.html>`_ in the *AWS CloudFormation Command Line Interface (CLI) User Guide* .
         .. epigraph::
@@ -5049,7 +5049,7 @@ class CfnResourceVersion(
         '''
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param schema_handler_package: A URL to the S3 bucket containing the resource project package that contains the necessary files for the resource you want to register. For information on generating a schema handler package, see `Modeling resource types to use with AWS CloudFormation <https://docs.aws.amazon.com/cloudformation-cli/latest/userguide/resource-type-model.html>`_ in the *AWS CloudFormation Command Line Interface (CLI) User Guide* . .. epigraph:: To register the resource version, you must have ``s3:GetObject`` permissions to access the S3 objects.
+        :param schema_handler_package: A URL to the S3 bucket for the resource project package that contains the necessary files for the resource you want to register. For information on generating a schema handler package, see `Modeling resource types to use with AWS CloudFormation <https://docs.aws.amazon.com/cloudformation-cli/latest/userguide/resource-type-model.html>`_ in the *AWS CloudFormation Command Line Interface (CLI) User Guide* . .. epigraph:: To register the resource version, you must have ``s3:GetObject`` permissions to access the S3 objects.
         :param type_name: The name of the resource being registered. We recommend that resource names adhere to the following pattern: *company_or_organization* :: *service* :: *type* . .. epigraph:: The following organization namespaces are reserved and can't be used in your resource names: - ``Alexa`` - ``AMZN`` - ``Amazon`` - ``AWS`` - ``Custom`` - ``Dev``
         :param execution_role_arn: The Amazon Resource Name (ARN) of the IAM role for CloudFormation to assume when invoking the resource. If your resource calls AWS APIs in any of its handlers, you must create an IAM execution role that includes the necessary permissions to call those AWS APIs, and provision that execution role in your account. When CloudFormation needs to invoke the resource type handler, CloudFormation assumes this execution role to create a temporary session token, which it then passes to the resource type handler, thereby supplying your resource type with the appropriate credentials.
         :param logging_config: Logging configuration information for a resource.
@@ -5177,7 +5177,7 @@ class CfnResourceVersion(
     @builtins.property
     @jsii.member(jsii_name="schemaHandlerPackage")
     def schema_handler_package(self) -> builtins.str:
-        '''A URL to the S3 bucket containing the resource project package that contains the necessary files for the resource you want to register.'''
+        '''A URL to the S3 bucket for the resource project package that contains the necessary files for the resource you want to register.'''
         return typing.cast(builtins.str, jsii.get(self, "schemaHandlerPackage"))
 
     @schema_handler_package.setter
@@ -5323,7 +5323,7 @@ class CfnResourceVersionProps:
     ) -> None:
         '''Properties for defining a ``CfnResourceVersion``.
 
-        :param schema_handler_package: A URL to the S3 bucket containing the resource project package that contains the necessary files for the resource you want to register. For information on generating a schema handler package, see `Modeling resource types to use with AWS CloudFormation <https://docs.aws.amazon.com/cloudformation-cli/latest/userguide/resource-type-model.html>`_ in the *AWS CloudFormation Command Line Interface (CLI) User Guide* . .. epigraph:: To register the resource version, you must have ``s3:GetObject`` permissions to access the S3 objects.
+        :param schema_handler_package: A URL to the S3 bucket for the resource project package that contains the necessary files for the resource you want to register. For information on generating a schema handler package, see `Modeling resource types to use with AWS CloudFormation <https://docs.aws.amazon.com/cloudformation-cli/latest/userguide/resource-type-model.html>`_ in the *AWS CloudFormation Command Line Interface (CLI) User Guide* . .. epigraph:: To register the resource version, you must have ``s3:GetObject`` permissions to access the S3 objects.
         :param type_name: The name of the resource being registered. We recommend that resource names adhere to the following pattern: *company_or_organization* :: *service* :: *type* . .. epigraph:: The following organization namespaces are reserved and can't be used in your resource names: - ``Alexa`` - ``AMZN`` - ``Amazon`` - ``AWS`` - ``Custom`` - ``Dev``
         :param execution_role_arn: The Amazon Resource Name (ARN) of the IAM role for CloudFormation to assume when invoking the resource. If your resource calls AWS APIs in any of its handlers, you must create an IAM execution role that includes the necessary permissions to call those AWS APIs, and provision that execution role in your account. When CloudFormation needs to invoke the resource type handler, CloudFormation assumes this execution role to create a temporary session token, which it then passes to the resource type handler, thereby supplying your resource type with the appropriate credentials.
         :param logging_config: Logging configuration information for a resource.
@@ -5366,7 +5366,7 @@ class CfnResourceVersionProps:
 
     @builtins.property
     def schema_handler_package(self) -> builtins.str:
-        '''A URL to the S3 bucket containing the resource project package that contains the necessary files for the resource you want to register.
+        '''A URL to the S3 bucket for the resource project package that contains the necessary files for the resource you want to register.
 
         For information on generating a schema handler package, see `Modeling resource types to use with AWS CloudFormation <https://docs.aws.amazon.com/cloudformation-cli/latest/userguide/resource-type-model.html>`_ in the *AWS CloudFormation Command Line Interface (CLI) User Guide* .
         .. epigraph::
@@ -5529,7 +5529,7 @@ class CfnStack(
         :param notification_arns: The Amazon SNS topic ARNs to publish stack related events. You can find your Amazon SNS topic ARNs using the Amazon SNS console or your Command Line Interface (CLI).
         :param parameters: The set value pairs that represent the parameters passed to CloudFormation when this nested stack is created. Each parameter has a name corresponding to a parameter defined in the embedded template and a value representing the value that you want to set for the parameter. .. epigraph:: If you use the ``Ref`` function to pass a parameter value to a nested stack, comma-delimited list parameters must be of type ``String`` . In other words, you can't pass values that are of type ``CommaDelimitedList`` to nested stacks. Required if the nested stack requires input parameters. Whether an update causes interruptions depends on the resources that are being updated. An update never causes a nested stack to be replaced.
         :param tags: Key-value pairs to associate with this stack. CloudFormation also propagates these tags to the resources created in the stack. A maximum number of 50 tags can be specified.
-        :param template_url: The URL of a file containing the template body. The URL must point to a template (max size: 1 MB) that's located in an Amazon S3 bucket. The location for an Amazon S3 bucket must start with ``https://`` . Whether an update causes interruptions depends on the resources that are being updated. An update never causes a nested stack to be replaced.
+        :param template_url: The URL of a file that contains the template body. The URL must point to a template (max size: 1 MB) that's located in an Amazon S3 bucket. The location for an Amazon S3 bucket must start with ``https://`` . Whether an update causes interruptions depends on the resources that are being updated. An update never causes a nested stack to be replaced.
         :param timeout_in_minutes: The length of time, in minutes, that CloudFormation waits for the nested stack to reach the ``CREATE_COMPLETE`` state. The default is no timeout. When CloudFormation detects that the nested stack has reached the ``CREATE_COMPLETE`` state, it marks the nested stack resource as ``CREATE_COMPLETE`` in the parent stack and resumes creating the parent stack. If the timeout period expires before the nested stack reaches ``CREATE_COMPLETE`` , CloudFormation marks the nested stack as failed and rolls back both the nested stack and parent stack. Updates aren't supported.
         '''
         if __debug__:
@@ -5713,7 +5713,7 @@ class CfnStack(
     @builtins.property
     @jsii.member(jsii_name="templateUrl")
     def template_url(self) -> typing.Optional[builtins.str]:
-        '''The URL of a file containing the template body.'''
+        '''The URL of a file that contains the template body.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "templateUrl"))
 
     @template_url.setter
@@ -5868,7 +5868,7 @@ class CfnStackProps:
         :param notification_arns: The Amazon SNS topic ARNs to publish stack related events. You can find your Amazon SNS topic ARNs using the Amazon SNS console or your Command Line Interface (CLI).
         :param parameters: The set value pairs that represent the parameters passed to CloudFormation when this nested stack is created. Each parameter has a name corresponding to a parameter defined in the embedded template and a value representing the value that you want to set for the parameter. .. epigraph:: If you use the ``Ref`` function to pass a parameter value to a nested stack, comma-delimited list parameters must be of type ``String`` . In other words, you can't pass values that are of type ``CommaDelimitedList`` to nested stacks. Required if the nested stack requires input parameters. Whether an update causes interruptions depends on the resources that are being updated. An update never causes a nested stack to be replaced.
         :param tags: Key-value pairs to associate with this stack. CloudFormation also propagates these tags to the resources created in the stack. A maximum number of 50 tags can be specified.
-        :param template_url: The URL of a file containing the template body. The URL must point to a template (max size: 1 MB) that's located in an Amazon S3 bucket. The location for an Amazon S3 bucket must start with ``https://`` . Whether an update causes interruptions depends on the resources that are being updated. An update never causes a nested stack to be replaced.
+        :param template_url: The URL of a file that contains the template body. The URL must point to a template (max size: 1 MB) that's located in an Amazon S3 bucket. The location for an Amazon S3 bucket must start with ``https://`` . Whether an update causes interruptions depends on the resources that are being updated. An update never causes a nested stack to be replaced.
         :param timeout_in_minutes: The length of time, in minutes, that CloudFormation waits for the nested stack to reach the ``CREATE_COMPLETE`` state. The default is no timeout. When CloudFormation detects that the nested stack has reached the ``CREATE_COMPLETE`` state, it marks the nested stack resource as ``CREATE_COMPLETE`` in the parent stack and resumes creating the parent stack. If the timeout period expires before the nested stack reaches ``CREATE_COMPLETE`` , CloudFormation marks the nested stack as failed and rolls back both the nested stack and parent stack. Updates aren't supported.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stack.html
@@ -5956,7 +5956,7 @@ class CfnStackProps:
 
     @builtins.property
     def template_url(self) -> typing.Optional[builtins.str]:
-        '''The URL of a file containing the template body.
+        '''The URL of a file that contains the template body.
 
         The URL must point to a template (max size: 1 MB) that's located in an Amazon S3 bucket. The location for an Amazon S3 bucket must start with ``https://`` .
 
@@ -6106,8 +6106,8 @@ class CfnStackSet(
         :param parameters: The input parameters for the stack set template.
         :param stack_instances_group: A group of stack instances with parameters in some specific accounts and Regions.
         :param tags: Key-value pairs to associate with this stack. CloudFormation also propagates these tags to supported resources in the stack. You can specify a maximum number of 50 tags. If you don't specify this parameter, CloudFormation doesn't modify the stack's tags. If you specify an empty value, CloudFormation removes all associated tags.
-        :param template_body: The structure that contains the template body, with a minimum length of 1 byte and a maximum length of 51,200 bytes. You must include either ``TemplateURL`` or ``TemplateBody`` in a StackSet, but you can't use both. Dynamic references in the ``TemplateBody`` may not work correctly in all cases. It's recommended to pass templates containing dynamic references through ``TemplateUrl`` instead.
-        :param template_url: The URL of a file containing the template body. The URL must point to a template (max size: 1 MB) that's located in an Amazon S3 bucket or a Systems Manager document. The location for an Amazon S3 bucket must start with ``https://`` . Conditional: You must specify only one of the following parameters: ``TemplateBody`` , ``TemplateURL`` .
+        :param template_body: The structure that contains the template body, with a minimum length of 1 byte and a maximum length of 51,200 bytes. You must include either ``TemplateURL`` or ``TemplateBody`` in a StackSet, but you can't use both. Dynamic references in the ``TemplateBody`` may not work correctly in all cases. It's recommended to pass templates that contain dynamic references through ``TemplateUrl`` instead.
+        :param template_url: The URL of a file that contains the template body. The URL must point to a template (max size: 1 MB) that's located in an Amazon S3 bucket or a Systems Manager document. The location for an Amazon S3 bucket must start with ``https://`` . Conditional: You must specify only one of the following parameters: ``TemplateBody`` , ``TemplateURL`` .
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6d9c85250c99fa8473d88e65c23c7c33031b75b34da26e2bece38ee28bd4570d)
@@ -6388,7 +6388,7 @@ class CfnStackSet(
     @builtins.property
     @jsii.member(jsii_name="templateUrl")
     def template_url(self) -> typing.Optional[builtins.str]:
-        '''The URL of a file containing the template body.'''
+        '''The URL of a file that contains the template body.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "templateUrl"))
 
     @template_url.setter
@@ -7084,8 +7084,8 @@ class CfnStackSetProps:
         :param parameters: The input parameters for the stack set template.
         :param stack_instances_group: A group of stack instances with parameters in some specific accounts and Regions.
         :param tags: Key-value pairs to associate with this stack. CloudFormation also propagates these tags to supported resources in the stack. You can specify a maximum number of 50 tags. If you don't specify this parameter, CloudFormation doesn't modify the stack's tags. If you specify an empty value, CloudFormation removes all associated tags.
-        :param template_body: The structure that contains the template body, with a minimum length of 1 byte and a maximum length of 51,200 bytes. You must include either ``TemplateURL`` or ``TemplateBody`` in a StackSet, but you can't use both. Dynamic references in the ``TemplateBody`` may not work correctly in all cases. It's recommended to pass templates containing dynamic references through ``TemplateUrl`` instead.
-        :param template_url: The URL of a file containing the template body. The URL must point to a template (max size: 1 MB) that's located in an Amazon S3 bucket or a Systems Manager document. The location for an Amazon S3 bucket must start with ``https://`` . Conditional: You must specify only one of the following parameters: ``TemplateBody`` , ``TemplateURL`` .
+        :param template_body: The structure that contains the template body, with a minimum length of 1 byte and a maximum length of 51,200 bytes. You must include either ``TemplateURL`` or ``TemplateBody`` in a StackSet, but you can't use both. Dynamic references in the ``TemplateBody`` may not work correctly in all cases. It's recommended to pass templates that contain dynamic references through ``TemplateUrl`` instead.
+        :param template_url: The URL of a file that contains the template body. The URL must point to a template (max size: 1 MB) that's located in an Amazon S3 bucket or a Systems Manager document. The location for an Amazon S3 bucket must start with ``https://`` . Conditional: You must specify only one of the following parameters: ``TemplateBody`` , ``TemplateURL`` .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stackset.html
         :exampleMetadata: fixture=_generated
@@ -7375,7 +7375,7 @@ class CfnStackSetProps:
     def template_body(self) -> typing.Optional[builtins.str]:
         '''The structure that contains the template body, with a minimum length of 1 byte and a maximum length of 51,200 bytes.
 
-        You must include either ``TemplateURL`` or ``TemplateBody`` in a StackSet, but you can't use both. Dynamic references in the ``TemplateBody`` may not work correctly in all cases. It's recommended to pass templates containing dynamic references through ``TemplateUrl`` instead.
+        You must include either ``TemplateURL`` or ``TemplateBody`` in a StackSet, but you can't use both. Dynamic references in the ``TemplateBody`` may not work correctly in all cases. It's recommended to pass templates that contain dynamic references through ``TemplateUrl`` instead.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stackset.html#cfn-cloudformation-stackset-templatebody
         '''
@@ -7384,7 +7384,7 @@ class CfnStackSetProps:
 
     @builtins.property
     def template_url(self) -> typing.Optional[builtins.str]:
-        '''The URL of a file containing the template body.
+        '''The URL of a file that contains the template body.
 
         The URL must point to a template (max size: 1 MB) that's located in an Amazon S3 bucket or a Systems Manager document. The location for an Amazon S3 bucket must start with ``https://`` .
 
@@ -8025,7 +8025,7 @@ class CfnWaitCondition(
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param count: The number of success signals that CloudFormation must receive before it continues the stack creation process. When the wait condition receives the requisite number of success signals, CloudFormation resumes the creation of the stack. If the wait condition doesn't receive the specified number of success signals before the Timeout period expires, CloudFormation assumes that the wait condition has failed and rolls the stack back. Updates aren't supported.
-        :param handle: A reference to the wait condition handle used to signal this wait condition. Use the ``Ref`` intrinsic function to specify an `AWS::CloudFormation::WaitConditionHandle <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-waitconditionhandle.html>`_ resource. Anytime you add a ``WaitCondition`` resource during a stack update, you must associate the wait condition with a new WaitConditionHandle resource. Don't reuse an old wait condition handle that has already been defined in the template. If you reuse a wait condition handle, the wait condition might evaluate old signals from a previous create or update stack command. Updates aren't supported.
+        :param handle: A reference to the wait condition handle used to signal this wait condition. Use the ``Ref`` intrinsic function to specify an `AWS::CloudFormation::WaitConditionHandle <https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-cloudformation-waitconditionhandle.html>`_ resource. Anytime you add a ``WaitCondition`` resource during a stack update, you must associate the wait condition with a new WaitConditionHandle resource. Don't reuse an old wait condition handle that has already been defined in the template. If you reuse a wait condition handle, the wait condition might evaluate old signals from a previous create or update stack command. Updates aren't supported.
         :param timeout: The length of time (in seconds) to wait for the number of signals that the ``Count`` property specifies. ``Timeout`` is a minimum-bound property, meaning the timeout occurs no sooner than the time you specify, but can occur shortly thereafter. The maximum time that can be specified for this property is 12 hours (43200 seconds). Updates aren't supported.
         '''
         if __debug__:
@@ -8264,7 +8264,7 @@ class CfnWaitConditionProps:
         '''Properties for defining a ``CfnWaitCondition``.
 
         :param count: The number of success signals that CloudFormation must receive before it continues the stack creation process. When the wait condition receives the requisite number of success signals, CloudFormation resumes the creation of the stack. If the wait condition doesn't receive the specified number of success signals before the Timeout period expires, CloudFormation assumes that the wait condition has failed and rolls the stack back. Updates aren't supported.
-        :param handle: A reference to the wait condition handle used to signal this wait condition. Use the ``Ref`` intrinsic function to specify an `AWS::CloudFormation::WaitConditionHandle <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-waitconditionhandle.html>`_ resource. Anytime you add a ``WaitCondition`` resource during a stack update, you must associate the wait condition with a new WaitConditionHandle resource. Don't reuse an old wait condition handle that has already been defined in the template. If you reuse a wait condition handle, the wait condition might evaluate old signals from a previous create or update stack command. Updates aren't supported.
+        :param handle: A reference to the wait condition handle used to signal this wait condition. Use the ``Ref`` intrinsic function to specify an `AWS::CloudFormation::WaitConditionHandle <https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-cloudformation-waitconditionhandle.html>`_ resource. Anytime you add a ``WaitCondition`` resource during a stack update, you must associate the wait condition with a new WaitConditionHandle resource. Don't reuse an old wait condition handle that has already been defined in the template. If you reuse a wait condition handle, the wait condition might evaluate old signals from a previous create or update stack command. Updates aren't supported.
         :param timeout: The length of time (in seconds) to wait for the number of signals that the ``Count`` property specifies. ``Timeout`` is a minimum-bound property, meaning the timeout occurs no sooner than the time you specify, but can occur shortly thereafter. The maximum time that can be specified for this property is 12 hours (43200 seconds). Updates aren't supported.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-waitcondition.html
@@ -8312,7 +8312,7 @@ class CfnWaitConditionProps:
     def handle(self) -> typing.Optional[builtins.str]:
         '''A reference to the wait condition handle used to signal this wait condition.
 
-        Use the ``Ref`` intrinsic function to specify an `AWS::CloudFormation::WaitConditionHandle <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-waitconditionhandle.html>`_ resource.
+        Use the ``Ref`` intrinsic function to specify an `AWS::CloudFormation::WaitConditionHandle <https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-cloudformation-waitconditionhandle.html>`_ resource.
 
         Anytime you add a ``WaitCondition`` resource during a stack update, you must associate the wait condition with a new WaitConditionHandle resource. Don't reuse an old wait condition handle that has already been defined in the template. If you reuse a wait condition handle, the wait condition might evaluate old signals from a previous create or update stack command.
 

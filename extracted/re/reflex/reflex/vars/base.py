@@ -14,11 +14,14 @@ import re
 import string
 import uuid
 import warnings
+from abc import ABCMeta
 from collections.abc import Callable, Coroutine, Iterable, Mapping, Sequence
+from dataclasses import _MISSING_TYPE, MISSING
 from decimal import Decimal
 from types import CodeType, FunctionType
 from typing import (  # noqa: UP035
     TYPE_CHECKING,
+    Annotated,
     Any,
     ClassVar,
     Dict,
@@ -40,11 +43,12 @@ from typing import (  # noqa: UP035
 )
 
 from rich.markup import escape
-from typing_extensions import deprecated, override
+from typing_extensions import dataclass_transform, override
 
 from reflex import constants
 from reflex.base import Base
 from reflex.constants.compiler import Hooks
+from reflex.constants.state import FIELD_MARKER
 from reflex.utils import console, exceptions, imports, serializers, types
 from reflex.utils.exceptions import (
     ComputedVarSignatureError,
@@ -417,37 +421,6 @@ class Var(Generic[VAR_TYPE], metaclass=MetaclassVar):
         return False
 
     @property
-    @deprecated("Use `_js_expr` instead.")
-    def _var_name(self) -> str:
-        """The name of the var.
-
-        Returns:
-            The name of the var.
-        """
-        return self._js_expr
-
-    @property
-    def _var_field_name(self) -> str:
-        """The name of the field.
-
-        Returns:
-            The name of the field.
-        """
-        var_data = self._get_all_var_data()
-        field_name = var_data.field_name if var_data else None
-        return field_name or self._js_expr
-
-    @property
-    @deprecated("Use `_js_expr` instead.")
-    def _var_name_unwrapped(self) -> str:
-        """The name of the var without extra curly braces.
-
-        Returns:
-            The name of the var.
-        """
-        return self._js_expr
-
-    @property
     def _var_is_string(self) -> bool:
         """Whether the var is a string literal.
 
@@ -727,24 +700,6 @@ class Var(Generic[VAR_TYPE], metaclass=MetaclassVar):
 
         return LiteralVar.create(value, _var_data=_var_data)
 
-    @classmethod
-    @deprecated("Use `.create()` instead.")
-    def create_safe(
-        cls,
-        *args: Any,
-        **kwargs: Any,
-    ) -> Var:
-        """Create a var from a value.
-
-        Args:
-            *args: The arguments to create the var from.
-            **kwargs: The keyword arguments to create the var from.
-
-        Returns:
-            The var.
-        """
-        return cls.create(*args, **kwargs)
-
     def __format__(self, format_spec: str) -> str:
         """Format the var into a Javascript equivalent to an f-string.
 
@@ -952,72 +907,29 @@ class Var(Generic[VAR_TYPE], metaclass=MetaclassVar):
 
         return self
 
-    def _get_default_value(self) -> Any:
-        """Get the default value of the var.
-
-        Returns:
-            The default value of the var.
-
-        Raises:
-            ImportError: If the var is a dataframe and pandas is not installed.
-        """
-        if types.is_optional(self._var_type):
-            return None
-
-        type_ = (
-            get_origin(self._var_type)
-            if types.is_generic_alias(self._var_type)
-            else self._var_type
-        )
-        if type_ is Literal:
-            args = get_args(self._var_type)
-            return args[0] if args else None
-        if safe_issubclass(type_, str):
-            return ""
-        if safe_issubclass(type_, types.get_args(int | float)):
-            return 0
-        if safe_issubclass(type_, bool):
-            return False
-        if safe_issubclass(type_, list):
-            return []
-        if safe_issubclass(type_, Mapping):
-            return {}
-        if safe_issubclass(type_, tuple):
-            return ()
-        if types.is_dataframe(type_):
-            try:
-                import pandas as pd
-
-                return pd.DataFrame()
-            except ImportError as e:
-                msg = "Please install pandas to use dataframes in your app."
-                raise ImportError(msg) from e
-        return set() if safe_issubclass(type_, set) else None
-
-    def _get_setter_name(self, include_state: bool = True) -> str:
+    @staticmethod
+    def _get_setter_name_for_name(
+        name: str,
+    ) -> str:
         """Get the name of the var's generated setter function.
 
         Args:
-            include_state: Whether to include the state name in the setter name.
+            name: The name of the var.
 
         Returns:
             The name of the setter function.
         """
-        setter = constants.SETTER_PREFIX + self._var_field_name
-        var_data = self._get_all_var_data()
-        if var_data is None:
-            return setter
-        if not include_state or var_data.state == "":
-            return setter
-        return var_data.state + "." + setter
+        return constants.SETTER_PREFIX + name
 
-    def _get_setter(self) -> Callable[[BaseState, Any], None]:
+    def _get_setter(self, name: str) -> Callable[[BaseState, Any], None]:
         """Get the var's setter function.
+
+        Args:
+            name: The name of the var.
 
         Returns:
             A function that that creates a setter for the var.
         """
-        actual_name = self._var_field_name
 
         def setter(state: Any, value: Any):
             """Get the setter for the var.
@@ -1029,17 +941,17 @@ class Var(Generic[VAR_TYPE], metaclass=MetaclassVar):
             if self._var_type in [int, float]:
                 try:
                     value = self._var_type(value)
-                    setattr(state, actual_name, value)
+                    setattr(state, name, value)
                 except ValueError:
                     console.debug(
                         f"{type(state).__name__}.{self._js_expr}: Failed conversion of {value!s} to '{self._var_type.__name__}'. Value not set.",
                     )
             else:
-                setattr(state, actual_name, value)
+                setattr(state, name, value)
 
         setter.__annotations__["value"] = self._var_type
 
-        setter.__qualname__ = self._get_setter_name()
+        setter.__qualname__ = Var._get_setter_name_for_name(name)
 
         return setter
 
@@ -1217,18 +1129,6 @@ class Var(Generic[VAR_TYPE], metaclass=MetaclassVar):
             ),
         ).to(ObjectVar, Mapping[str, str])
         return refs[LiteralVar.create(str(self))]
-
-    @deprecated("Use `.js_type()` instead.")
-    def _type(self) -> StringVar:
-        """Returns the type of the object.
-
-        This method uses the `typeof` function from the `FunctionStringVar` class
-        to determine the type of the object.
-
-        Returns:
-            StringVar: A string variable representing the type of the object.
-        """
-        return self.js_type()
 
     def js_type(self) -> StringVar:
         """Returns the javascript type of the object.
@@ -2111,6 +2011,8 @@ class ComputedVar(Var[RETURN_TYPE]):
         default_factory=lambda: lambda _: None
     )  # pyright: ignore [reportAssignmentType]
 
+    _name: str = dataclasses.field(default="")
+
     def __init__(
         self,
         fget: Callable[[BASE_STATE], RETURN_TYPE],
@@ -2144,14 +2046,18 @@ class ComputedVar(Var[RETURN_TYPE]):
 
         if hint is Any:
             raise UntypedComputedVarError(var_name=fget.__name__)
-        kwargs.setdefault("_js_expr", fget.__name__)
+        is_using_fget_name = "_js_expr" not in kwargs
+        js_expr = kwargs.pop("_js_expr", fget.__name__ + FIELD_MARKER)
         kwargs.setdefault("_var_type", hint)
 
         Var.__init__(
             self,
-            _js_expr=kwargs.pop("_js_expr"),
+            _js_expr=js_expr,
             _var_type=kwargs.pop("_var_type"),
-            _var_data=kwargs.pop("_var_data", None),
+            _var_data=kwargs.pop(
+                "_var_data",
+                VarData(field_name=fget.__name__) if is_using_fget_name else None,
+            ),
         )
 
         if kwargs:
@@ -2164,6 +2070,7 @@ class ComputedVar(Var[RETURN_TYPE]):
         object.__setattr__(self, "_backend", backend)
         object.__setattr__(self, "_initial_value", initial_value)
         object.__setattr__(self, "_cache", cache)
+        object.__setattr__(self, "_name", fget.__name__)
 
         if isinstance(interval, int):
             interval = datetime.timedelta(seconds=interval)
@@ -2395,7 +2302,7 @@ class ComputedVar(Var[RETURN_TYPE]):
         """
         if instance is None:
             state_where_defined = owner
-            while self._js_expr in state_where_defined.inherited_vars:
+            while self._name in state_where_defined.inherited_vars:
                 state_where_defined = state_where_defined.get_parent_state()
 
             field_name = (
@@ -2406,7 +2313,7 @@ class ComputedVar(Var[RETURN_TYPE]):
 
             return dispatch(
                 field_name,
-                var_data=VarData.from_state(state_where_defined, self._js_expr),
+                var_data=VarData.from_state(state_where_defined, self._name),
                 result_var_type=self._var_type,
                 existing_var=self,
             )
@@ -2518,7 +2425,7 @@ class ComputedVar(Var[RETURN_TYPE]):
                     objclass.get_root_state().get_class_substate(
                         state_name
                     )._var_dependencies.setdefault(var_name, set()).add(
-                        (objclass.get_full_name(), self._js_expr)
+                        (objclass.get_full_name(), self._name)
                     )
                     return
         msg = (
@@ -3382,19 +3289,106 @@ if TYPE_CHECKING:
     MAPPING_TYPE = TypeVar("MAPPING_TYPE", bound=Mapping | None)
     V = TypeVar("V")
 
+
 FIELD_TYPE = TypeVar("FIELD_TYPE")
 
 
 class Field(Generic[FIELD_TYPE]):
-    """Shadow class for Var to allow for type hinting in the IDE."""
+    """A field for a state."""
 
-    def __set__(self, instance: Any, value: FIELD_TYPE):
-        """Set the Var.
+    if TYPE_CHECKING:
+        type_: GenericType
+        default: FIELD_TYPE | _MISSING_TYPE
+        default_factory: Callable[[], FIELD_TYPE] | None
+
+    def __init__(
+        self,
+        default: FIELD_TYPE | _MISSING_TYPE = MISSING,
+        default_factory: Callable[[], FIELD_TYPE] | None = None,
+        is_var: bool = True,
+        annotated_type: GenericType  # pyright: ignore [reportRedeclaration]
+        | _MISSING_TYPE = MISSING,
+    ) -> None:
+        """Initialize the field.
 
         Args:
-            instance: The instance of the class setting the Var.
-            value: The value to set the Var to.
+            default: The default value for the field.
+            default_factory: The default factory for the field.
+            is_var: Whether the field is a Var.
+            annotated_type: The annotated type for the field.
         """
+        self.default = default
+        self.default_factory = default_factory
+        self.is_var = is_var
+        if annotated_type is not MISSING:
+            type_origin = get_origin(annotated_type) or annotated_type
+            if type_origin is Field and (
+                args := getattr(annotated_type, "__args__", None)
+            ):
+                annotated_type: GenericType = args[0]
+                type_origin = get_origin(annotated_type) or annotated_type
+
+            if self.default is MISSING and self.default_factory is None:
+                default_value = types.get_default_value_for_type(annotated_type)
+                if default_value is None and not types.is_optional(annotated_type):
+                    annotated_type = annotated_type | None
+                if types.is_immutable(default_value):
+                    self.default = default_value
+                else:
+                    self.default_factory = functools.partial(
+                        copy.deepcopy, default_value
+                    )
+            self.outer_type_ = self.annotated_type = annotated_type
+
+            if type_origin is Annotated:
+                type_origin = annotated_type.__origin__  # pyright: ignore [reportAttributeAccessIssue]
+
+            self.type_ = self.type_origin = type_origin
+        else:
+            self.outer_type_ = self.annotated_type = self.type_ = self.type_origin = Any
+
+    def default_value(self) -> FIELD_TYPE:
+        """Get the default value for the field.
+
+        Returns:
+            The default value for the field.
+
+        Raises:
+            ValueError: If no default value or factory is provided.
+        """
+        if self.default is not MISSING:
+            return self.default
+        if self.default_factory is not None:
+            return self.default_factory()
+        msg = "No default value or factory provided."
+        raise ValueError(msg)
+
+    def __repr__(self) -> str:
+        """Represent the field in a readable format.
+
+        Returns:
+            The string representation of the field.
+        """
+        annotated_type_str = (
+            f", annotated_type={self.annotated_type!r}"
+            if self.annotated_type is not MISSING
+            else ""
+        )
+        if self.default is not MISSING:
+            return f"Field(default={self.default!r}, is_var={self.is_var}{annotated_type_str})"
+        return f"Field(default_factory={self.default_factory!r}, is_var={self.is_var}{annotated_type_str})"
+
+    if TYPE_CHECKING:
+
+        def __set__(self, instance: Any, value: FIELD_TYPE):
+            """Set the Var.
+
+            Args:
+                instance: The instance of the class setting the Var.
+                value: The value to set the Var to.
+
+            # noqa: DAR101 self
+            """
 
     @overload
     def __get__(self: Field[None], instance: None, owner: Any) -> NoneVar: ...
@@ -3484,13 +3478,252 @@ class Field(Generic[FIELD_TYPE]):
         """
 
 
-def field(value: FIELD_TYPE) -> Field[FIELD_TYPE]:
-    """Create a Field with a value.
+@overload
+def field(
+    default: FIELD_TYPE | _MISSING_TYPE = MISSING,
+    *,
+    is_var: Literal[False],
+    default_factory: Callable[[], FIELD_TYPE] | None = None,
+) -> FIELD_TYPE: ...
+
+
+@overload
+def field(
+    default: FIELD_TYPE | _MISSING_TYPE = MISSING,
+    *,
+    default_factory: Callable[[], FIELD_TYPE] | None = None,
+    is_var: Literal[True] = True,
+) -> Field[FIELD_TYPE]: ...
+
+
+def field(
+    default: FIELD_TYPE | _MISSING_TYPE = MISSING,
+    *,
+    default_factory: Callable[[], FIELD_TYPE] | None = None,
+    is_var: bool = True,
+) -> Field[FIELD_TYPE] | FIELD_TYPE:
+    """Create a field for a state.
 
     Args:
-        value: The value of the Field.
+        default: The default value for the field.
+        default_factory: The default factory for the field.
+        is_var: Whether the field is a Var.
 
     Returns:
-        The Field.
+        The field for the state.
+
+    Raises:
+        ValueError: If both default and default_factory are specified.
     """
-    return value  # pyright: ignore [reportReturnType]
+    if default is not MISSING and default_factory is not None:
+        msg = "cannot specify both default and default_factory"
+        raise ValueError(msg)
+    if default is not MISSING and not types.is_immutable(default):
+        console.warn(
+            "Mutable default values are not recommended. "
+            "Use default_factory instead to avoid unexpected behavior."
+        )
+        return Field(
+            default_factory=functools.partial(copy.deepcopy, default),
+            is_var=is_var,
+        )
+    return Field(
+        default=default,
+        default_factory=default_factory,
+        is_var=is_var,
+    )
+
+
+@dataclass_transform(kw_only_default=True, field_specifiers=(field,))
+class BaseStateMeta(ABCMeta):
+    """Meta class for BaseState."""
+
+    if TYPE_CHECKING:
+        __inherited_fields__: Mapping[str, Field]
+        __own_fields__: dict[str, Field]
+        __fields__: dict[str, Field]
+
+        # Whether this state class is a mixin and should not be instantiated.
+        _mixin: bool = False
+
+    def __new__(
+        cls,
+        name: str,
+        bases: tuple[type],
+        namespace: dict[str, Any],
+        mixin: bool = False,
+    ) -> type:
+        """Create a new class.
+
+        Args:
+            name: The name of the class.
+            bases: The bases of the class.
+            namespace: The namespace of the class.
+            mixin: Whether the class is a mixin and should not be instantiated.
+
+        Returns:
+            The new class.
+        """
+        state_bases = [
+            base for base in bases if issubclass(base, EvenMoreBasicBaseState)
+        ]
+        mixin = mixin or (
+            bool(state_bases) and all(base._mixin for base in state_bases)
+        )
+        # Add the field to the class
+        inherited_fields: dict[str, Field] = {}
+        own_fields: dict[str, Field] = {}
+        resolved_annotations = types.resolve_annotations(
+            namespace.get("__annotations__", {}), namespace["__module__"]
+        )
+
+        for base in bases[::-1]:
+            if hasattr(base, "__inherited_fields__"):
+                inherited_fields.update(base.__inherited_fields__)
+        for base in bases[::-1]:
+            if hasattr(base, "__own_fields__"):
+                inherited_fields.update(base.__own_fields__)
+
+        for key, value in [
+            (key, value)
+            for key, value in namespace.items()
+            if key not in resolved_annotations
+        ]:
+            if isinstance(value, Field):
+                if value.annotated_type is not Any:
+                    new_value = value
+                elif value.default is not MISSING:
+                    new_value = Field(
+                        default=value.default,
+                        is_var=value.is_var,
+                        annotated_type=figure_out_type(value.default),
+                    )
+                else:
+                    new_value = Field(
+                        default_factory=value.default_factory,
+                        is_var=value.is_var,
+                        annotated_type=Any,
+                    )
+            elif (
+                not key.startswith("__")
+                and not callable(value)
+                and not isinstance(value, (staticmethod, classmethod, property, Var))
+            ):
+                if types.is_immutable(value):
+                    new_value = Field(
+                        default=value,
+                        annotated_type=figure_out_type(value),
+                    )
+                else:
+                    new_value = Field(
+                        default_factory=functools.partial(copy.deepcopy, value),
+                        annotated_type=figure_out_type(value),
+                    )
+            else:
+                continue
+
+            own_fields[key] = new_value
+
+        for key, annotation in resolved_annotations.items():
+            value = namespace.get(key, MISSING)
+
+            if types.is_classvar(annotation):
+                # If the annotation is a classvar, skip it.
+                continue
+
+            if value is MISSING:
+                value = Field(
+                    annotated_type=annotation,
+                )
+            elif not isinstance(value, Field):
+                if types.is_immutable(value):
+                    value = Field(
+                        default=value,
+                        annotated_type=annotation,
+                    )
+                else:
+                    value = Field(
+                        default_factory=functools.partial(copy.deepcopy, value),
+                        annotated_type=annotation,
+                    )
+            else:
+                value = Field(
+                    default=value.default,
+                    default_factory=value.default_factory,
+                    is_var=value.is_var,
+                    annotated_type=annotation,
+                )
+
+            own_fields[key] = value
+
+        namespace["__own_fields__"] = own_fields
+        namespace["__inherited_fields__"] = inherited_fields
+        namespace["__fields__"] = inherited_fields | own_fields
+        namespace["_mixin"] = mixin
+        return super().__new__(cls, name, bases, namespace)
+
+
+class EvenMoreBasicBaseState(metaclass=BaseStateMeta):
+    """A simplified base state class that provides basic functionality."""
+
+    def __init__(
+        self,
+        **kwargs,
+    ):
+        """Initialize the state with the given kwargs.
+
+        Args:
+            **kwargs: The kwargs to pass to the state.
+        """
+        super().__init__()
+        for key, value in kwargs.items():
+            object.__setattr__(self, key, value)
+        for name, value in type(self).get_fields().items():
+            if name not in kwargs:
+                default_value = value.default_value()
+                object.__setattr__(self, name, default_value)
+
+    def set(self, **kwargs):
+        """Mutate the state by setting the given kwargs. Returns the state.
+
+        Args:
+            **kwargs: The kwargs to set.
+
+        Returns:
+            The state with the fields set to the given kwargs.
+        """
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+        return self
+
+    @classmethod
+    def get_fields(cls) -> Mapping[str, Field]:
+        """Get the fields of the component.
+
+        Returns:
+            The fields of the component.
+        """
+        return cls.__fields__
+
+    @classmethod
+    def add_field(cls, name: str, var: Var, default_value: Any):
+        """Add a field to the class after class definition.
+
+        Used by State.add_var() to correctly handle the new variable.
+
+        Args:
+            name: The name of the field to add.
+            var: The variable to add a field for.
+            default_value: The default value of the field.
+        """
+        if types.is_immutable(default_value):
+            new_field = Field(
+                default=default_value,
+                annotated_type=var._var_type,
+            )
+        else:
+            new_field = Field(
+                default_factory=functools.partial(copy.deepcopy, default_value),
+                annotated_type=var._var_type,
+            )
+        cls.__fields__[name] = new_field

@@ -1,20 +1,20 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.15.18.1+obcheckpoint(0.2.1);ob(v1)                                                   #
-# Generated on 2025-06-26T22:38:03.210913                                                            #
+# MF version: 2.15.18.1+obcheckpoint(0.2.4);ob(v1)                                                   #
+# Generated on 2025-07-01T15:21:03.642277                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import typing
 import metaflow
+import typing
 if typing.TYPE_CHECKING:
+    import metaflow.runner.deployer
+    import metaflow.plugins.argo.argo_workflows_deployer_objects
+    import metaflow.plugins.argo.argo_workflows_deployer
+    import metaflow.plugins.aws.step_functions.step_functions_deployer
     import metaflow.plugins.aws.step_functions.step_functions_deployer_objects
     import metaflow
-    import metaflow.plugins.aws.step_functions.step_functions_deployer
-    import metaflow.runner.deployer
-    import metaflow.plugins.argo.argo_workflows_deployer
-    import metaflow.plugins.argo.argo_workflows_deployer_objects
 
 from ..exception import MetaflowNotFound as MetaflowNotFound
 
@@ -58,16 +58,6 @@ class Deployer(object, metaclass=DeployerMeta):
     """
     def __init__(self, flow_file: str, show_output: bool = True, profile: typing.Optional[str] = None, env: typing.Optional[typing.Dict] = None, cwd: typing.Optional[str] = None, file_read_timeout: int = 3600, **kwargs):
         ...
-    def step_functions(self, *, name: typing.Optional[str] = None) -> "metaflow.plugins.aws.step_functions.step_functions_deployer.StepFunctionsDeployer":
-        """
-        Deployer implementation for AWS Step Functions.
-        
-        Parameters
-        ----------
-        name : str, optional, default None
-            State Machine name. The flow name is used instead if this option is not specified.
-        """
-        ...
     def argo_workflows(self, *, name: typing.Optional[str] = None) -> "metaflow.plugins.argo.argo_workflows_deployer.ArgoWorkflowsDeployer":
         """
         Deployer implementation for Argo Workflows.
@@ -76,6 +66,16 @@ class Deployer(object, metaclass=DeployerMeta):
         ----------
         name : str, optional, default None
             Argo workflow name. The flow name is used instead if this option is not specified.
+        """
+        ...
+    def step_functions(self, *, name: typing.Optional[str] = None) -> "metaflow.plugins.aws.step_functions.step_functions_deployer.StepFunctionsDeployer":
+        """
+        Deployer implementation for AWS Step Functions.
+        
+        Parameters
+        ----------
+        name : str, optional, default None
+            State Machine name. The flow name is used instead if this option is not specified.
         """
         ...
     ...
@@ -162,24 +162,6 @@ class DeployedFlow(object, metaclass=DeployedFlowMeta):
         """
         ...
     @classmethod
-    def from_step_functions(cls) -> "metaflow.plugins.aws.step_functions.step_functions_deployer_objects.StepFunctionsDeployedFlow":
-        """
-        This method is not currently implemented for Step Functions.
-        
-        Raises
-        ------
-        NotImplementedError
-            This method is not implemented for Step Functions.
-        
-        Parameters
-        ----------
-        
-        
-        Returns
-        -------
-        """
-        ...
-    @classmethod
     def from_argo_workflows(cls, *, identifier: str, metadata: typing.Optional[str] = None) -> "metaflow.plugins.argo.argo_workflows_deployer_objects.ArgoWorkflowsDeployedFlow":
         """
         Retrieves a `ArgoWorkflowsDeployedFlow` object from an identifier and optional
@@ -201,6 +183,24 @@ class DeployedFlow(object, metaclass=DeployedFlowMeta):
         ArgoWorkflowsDeployedFlow
             A `ArgoWorkflowsDeployedFlow` object representing the
             deployed flow on argo workflows.
+        """
+        ...
+    @classmethod
+    def from_step_functions(cls) -> "metaflow.plugins.aws.step_functions.step_functions_deployer_objects.StepFunctionsDeployedFlow":
+        """
+        This method is not currently implemented for Step Functions.
+        
+        Raises
+        ------
+        NotImplementedError
+            This method is not implemented for Step Functions.
+        
+        Parameters
+        ----------
+        
+        
+        Returns
+        -------
         """
         ...
     ...

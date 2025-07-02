@@ -7167,6 +7167,129 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
+    def add_high_narrowing_even(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svuint8_t svaddhnb[_u16](svuint16_t op1, svuint16_t op2)
+          ADDHNB Zresult.B, Zop1.H, Zop2.H
+        """
+        ...
+
+    @staticmethod
+    def add_high_narrowing_odd(even: System.Numerics.Vector[int], left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svuint8_t svaddhnt[_u16](svuint8_t even, svuint16_t op1, svuint16_t op2)
+          ADDHNT Ztied.B, Zop1.H, Zop2.H
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def add_pairwise(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svuint8_t svaddp[_u8]_m(svbool_t pg, svuint8_t op1, svuint8_t op2)
+        svuint8_t svaddp[_u8]_x(svbool_t pg, svuint8_t op1, svuint8_t op2)
+          ADDP Ztied1.B, Pg/M, Ztied1.B, Zop2.B
+          ADDP Ztied1.B, Pg/M, Ztied1.B, Zop2.B
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def add_pairwise(left: System.Numerics.Vector[float], right: System.Numerics.Vector[float]) -> System.Numerics.Vector[float]:
+        """
+        svfloat64_t svaddp[_f64]_m(svbool_t pg, svfloat64_t op1, svfloat64_t op2)
+        svfloat64_t svaddp[_f64]_x(svbool_t pg, svfloat64_t op1, svfloat64_t op2)
+          FADDP Ztied1.D, Pg/M, Ztied1.D, Zop2.D
+          FADDP Ztied1.D, Pg/M, Ztied1.D, Zop2.D
+        """
+        ...
+
+    @staticmethod
+    def add_pairwise_widening(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svint16_t svadalp[_s16]_m(svbool_t pg, svint16_t op1, svint8_t op2)
+        svint16_t svadalp[_s16]_x(svbool_t pg, svint16_t op1, svint8_t op2)
+        svint16_t svadalp[_s16]_z(svbool_t pg, svint16_t op1, svint8_t op2)
+          SADALP Ztied1.H, Pg/M, Zop2.B
+          SADALP Ztied1.H, Pg/M, Zop2.B
+        """
+        ...
+
+    @staticmethod
+    def add_saturate(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svuint8_t svqadd[_u8]_m(svbool_t pg, svuint8_t op1, svuint8_t op2)
+        svuint8_t svqadd[_u8]_x(svbool_t pg, svuint8_t op1, svuint8_t op2)
+        svuint8_t svqadd[_u8]_z(svbool_t pg, svuint8_t op1, svuint8_t op2)
+          UQADD Ztied1.B, Pg/M, Ztied1.B, Zop2.B
+          UQADD Ztied2.B, Pg/M, Ztied2.B, Zop1.B
+          UQADD Zresult.B, Zop1.B, Zop2.B
+        """
+        ...
+
+    @staticmethod
+    def add_saturate_with_signed_addend(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svuint8_t svsqadd[_u8]_m(svbool_t pg, svuint8_t op1, svint8_t op2)
+        svuint8_t svsqadd[_u8]_x(svbool_t pg, svuint8_t op1, svint8_t op2)
+        svuint8_t svsqadd[_u8]_z(svbool_t pg, svuint8_t op1, svint8_t op2)
+          USQADD Ztied1.B, Pg/M, Ztied1.B, Zop2.B
+          USQADD Ztied1.B, Pg/M, Ztied1.B, Zop2.B
+        """
+        ...
+
+    @staticmethod
+    def add_saturate_with_unsigned_addend(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svint8_t svuqadd[_s8]_m(svbool_t pg, svint8_t op1, svuint8_t op2)
+        svint8_t svuqadd[_s8]_x(svbool_t pg, svint8_t op1, svuint8_t op2)
+        svint8_t svuqadd[_s8]_z(svbool_t pg, svint8_t op1, svuint8_t op2)
+          SUQADD Ztied1.B, Pg/M, Ztied1.B, Zop2.B
+          SUQADD Ztied1.B, Pg/M, Ztied1.B, Zop2.B
+        """
+        ...
+
+    @staticmethod
+    def add_wide_lower(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svint16_t svaddwb[_s16](svint16_t op1, svint8_t op2)
+          SADDWB Zresult.H, Zop1.H, Zop2.B
+        """
+        ...
+
+    @staticmethod
+    def add_widening_lower(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svint16_t svaddlb[_s16](svint8_t op1, svint8_t op2)
+          SADDLB Zresult.H, Zop1.B, Zop2.B
+        """
+        ...
+
+    @staticmethod
+    def add_widening_lower_upper(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svint16_t svaddlbt[_s16](svint8_t op1, svint8_t op2)
+          SADDLBT Zresult.H, Zop1.B, Zop2.B
+        """
+        ...
+
+    @staticmethod
+    def add_widening_upper(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svint16_t svaddlt[_s16](svint8_t op1, svint8_t op2)
+          SADDLT Zresult.H, Zop1.B, Zop2.B
+        """
+        ...
+
+    @staticmethod
+    def add_wide_upper(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svint16_t svaddwt[_s16](svint16_t op1, svint8_t op2)
+          SADDWT Zresult.H, Zop1.H, Zop2.B
+        """
+        ...
+
+    @staticmethod
     def bitwise_clear_xor(xor: System.Numerics.Vector[int], value: System.Numerics.Vector[int], mask: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
         """
         svuint8_t svbcax[_u8](svuint8_t op1, svuint8_t op2, svuint8_t op3)
@@ -7459,6 +7582,42 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
         """
         svuint8_t svqrshrnt[_n_u16](svuint8_t even, svuint16_t op1, uint64_t imm2)
           UQRSHRNT Ztied.B, Zop1.H, #imm2
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def vector_table_lookup(table: System.ValueTuple[System.Numerics.Vector[int], System.Numerics.Vector[int]], indices: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svuint8_t svtbl2[_u8](svuint8x2_t data, svuint8_t indices)
+          TBL Zd.B, { Zn1.B, Zn2.B }, Zm.B
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def vector_table_lookup(table: System.ValueTuple[System.Numerics.Vector[float], System.Numerics.Vector[float]], indices: System.Numerics.Vector[int]) -> System.Numerics.Vector[float]:
+        """
+        svfloat32_t svtbl2[_f32](svfloat32x2_t data, svuint32_t indices)
+          TBL Zd.S, { Zn1.S, Zn2.S }, Zm.S
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def vector_table_lookup_extension(default_values: System.Numerics.Vector[int], data: System.Numerics.Vector[int], indices: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svuint8_t svtbx[_u8](svuint8_t fallback, svuint8_t data, svuint8_t indices)
+          TBX Zd.B, Zn.B, Zm.B
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def vector_table_lookup_extension(default_values: System.Numerics.Vector[float], data: System.Numerics.Vector[float], indices: System.Numerics.Vector[int]) -> System.Numerics.Vector[float]:
+        """
+        svfloat32_t svtbx[_f32](svfloat32_t fallback, svfloat32_t data, svuint32_t indices)
+          TBX Zd.S, Zn.S, Zm.S
         """
         ...
 

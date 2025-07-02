@@ -70,6 +70,262 @@ from .. import (
 
 
 @jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+class CfnAggregatorV2(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_securityhub.CfnAggregatorV2",
+):
+    '''Enables aggregation across AWS Regions .
+
+    This API is in private preview and subject to change.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-aggregatorv2.html
+    :cloudformationResource: AWS::SecurityHub::AggregatorV2
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_securityhub as securityhub
+        
+        cfn_aggregator_v2 = securityhub.CfnAggregatorV2(self, "MyCfnAggregatorV2",
+            linked_regions=["linkedRegions"],
+            region_linking_mode="regionLinkingMode",
+        
+            # the properties below are optional
+            tags={
+                "tags_key": "tags"
+            }
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        linked_regions: typing.Sequence[builtins.str],
+        region_linking_mode: builtins.str,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param linked_regions: The list of Regions that are linked to the aggregation Region.
+        :param region_linking_mode: Determines how Regions are linked to an Aggregator V2.
+        :param tags: A list of key-value pairs to be applied to the AggregatorV2.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a48a2a082be753c7ff9a23ae8720fc6090537bc7754b3949c569c91cc2d97185)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnAggregatorV2Props(
+            linked_regions=linked_regions,
+            region_linking_mode=region_linking_mode,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__faa540694e43a0e61feeb3f53848b1f6e9494b6ed7da21b25aac134881132c39)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e6872b5e370c8e8f4d83602fa651c03fde81b36e7c5bc3b28fa097f66a87ee66)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAggregationRegion")
+    def attr_aggregation_region(self) -> builtins.str:
+        '''The AWS Region where data is aggregated.
+
+        :cloudformationAttribute: AggregationRegion
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAggregationRegion"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAggregatorV2Arn")
+    def attr_aggregator_v2_arn(self) -> builtins.str:
+        '''The ARN of the AggregatorV2.
+
+        :cloudformationAttribute: AggregatorV2Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAggregatorV2Arn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="linkedRegions")
+    def linked_regions(self) -> typing.List[builtins.str]:
+        '''The list of Regions that are linked to the aggregation Region.'''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "linkedRegions"))
+
+    @linked_regions.setter
+    def linked_regions(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__73719aabf2def1251bbcce62564af2561a7db568f2cc383d665c93c84e03855c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "linkedRegions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="regionLinkingMode")
+    def region_linking_mode(self) -> builtins.str:
+        '''Determines how Regions are linked to an Aggregator V2.'''
+        return typing.cast(builtins.str, jsii.get(self, "regionLinkingMode"))
+
+    @region_linking_mode.setter
+    def region_linking_mode(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3f12f6fa7491c9cf6429ed03592fa2e0b84dd1df61b65fe9caf3ffa327ed324f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "regionLinkingMode", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''A list of key-value pairs to be applied to the AggregatorV2.'''
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e47a206d80ca672182e6fba3a9c614bda1d391a22aa37078d5b442ce9858a656)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_securityhub.CfnAggregatorV2Props",
+    jsii_struct_bases=[],
+    name_mapping={
+        "linked_regions": "linkedRegions",
+        "region_linking_mode": "regionLinkingMode",
+        "tags": "tags",
+    },
+)
+class CfnAggregatorV2Props:
+    def __init__(
+        self,
+        *,
+        linked_regions: typing.Sequence[builtins.str],
+        region_linking_mode: builtins.str,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAggregatorV2``.
+
+        :param linked_regions: The list of Regions that are linked to the aggregation Region.
+        :param region_linking_mode: Determines how Regions are linked to an Aggregator V2.
+        :param tags: A list of key-value pairs to be applied to the AggregatorV2.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-aggregatorv2.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_securityhub as securityhub
+            
+            cfn_aggregator_v2_props = securityhub.CfnAggregatorV2Props(
+                linked_regions=["linkedRegions"],
+                region_linking_mode="regionLinkingMode",
+            
+                # the properties below are optional
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ba603e1d6925ab7babf45e555f2f6c66e3573a9e5841cd7b5ebf0d444664667e)
+            check_type(argname="argument linked_regions", value=linked_regions, expected_type=type_hints["linked_regions"])
+            check_type(argname="argument region_linking_mode", value=region_linking_mode, expected_type=type_hints["region_linking_mode"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "linked_regions": linked_regions,
+            "region_linking_mode": region_linking_mode,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def linked_regions(self) -> typing.List[builtins.str]:
+        '''The list of Regions that are linked to the aggregation Region.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-aggregatorv2.html#cfn-securityhub-aggregatorv2-linkedregions
+        '''
+        result = self._values.get("linked_regions")
+        assert result is not None, "Required property 'linked_regions' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def region_linking_mode(self) -> builtins.str:
+        '''Determines how Regions are linked to an Aggregator V2.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-aggregatorv2.html#cfn-securityhub-aggregatorv2-regionlinkingmode
+        '''
+        result = self._values.get("region_linking_mode")
+        assert result is not None, "Required property 'region_linking_mode' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''A list of key-value pairs to be applied to the AggregatorV2.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-aggregatorv2.html#cfn-securityhub-aggregatorv2-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAggregatorV2Props(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
 class CfnAutomationRule(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2352,7 +2608,7 @@ class CfnAutomationRule(
         def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
             '''A string filter for filtering AWS Security Hub findings.
 
-            :param comparison: The condition to apply to a string value when filtering Security Hub findings. To search for values that have the filter value, use one of the following comparison operators: - To search for values that include the filter value, use ``CONTAINS`` . For example, the filter ``Title CONTAINS CloudFront`` matches findings that have a ``Title`` that includes the string CloudFront. - To search for values that exactly match the filter value, use ``EQUALS`` . For example, the filter ``AwsAccountId EQUALS 123456789012`` only matches findings that have an account ID of ``123456789012`` . - To search for values that start with the filter value, use ``PREFIX`` . For example, the filter ``ResourceRegion PREFIX us`` matches findings that have a ``ResourceRegion`` that starts with ``us`` . A ``ResourceRegion`` that starts with a different value, such as ``af`` , ``ap`` , or ``ca`` , doesn't match. ``CONTAINS`` , ``EQUALS`` , and ``PREFIX`` filters on the same field are joined by ``OR`` . A finding matches if it matches any one of those filters. For example, the filters ``Title CONTAINS CloudFront OR Title CONTAINS CloudWatch`` match a finding that includes either ``CloudFront`` , ``CloudWatch`` , or both strings in the title. To search for values that don’t have the filter value, use one of the following comparison operators: - To search for values that exclude the filter value, use ``NOT_CONTAINS`` . For example, the filter ``Title NOT_CONTAINS CloudFront`` matches findings that have a ``Title`` that excludes the string CloudFront. - To search for values other than the filter value, use ``NOT_EQUALS`` . For example, the filter ``AwsAccountId NOT_EQUALS 123456789012`` only matches findings that have an account ID other than ``123456789012`` . - To search for values that don't start with the filter value, use ``PREFIX_NOT_EQUALS`` . For example, the filter ``ResourceRegion PREFIX_NOT_EQUALS us`` matches findings with a ``ResourceRegion`` that starts with a value other than ``us`` . ``NOT_CONTAINS`` , ``NOT_EQUALS`` , and ``PREFIX_NOT_EQUALS`` filters on the same field are joined by ``AND`` . A finding matches only if it matches all of those filters. For example, the filters ``Title NOT_CONTAINS CloudFront AND Title NOT_CONTAINS CloudWatch`` match a finding that excludes both ``CloudFront`` and ``CloudWatch`` in the title. You can’t have both a ``CONTAINS`` filter and a ``NOT_CONTAINS`` filter on the same field. Similarly, you can't provide both an ``EQUALS`` filter and a ``NOT_EQUALS`` or ``PREFIX_NOT_EQUALS`` filter on the same field. Combining filters in this way returns an error. ``CONTAINS`` filters can only be used with other ``CONTAINS`` filters. ``NOT_CONTAINS`` filters can only be used with other ``NOT_CONTAINS`` filters. You can combine ``PREFIX`` filters with ``NOT_EQUALS`` or ``PREFIX_NOT_EQUALS`` filters for the same field. Security Hub first processes the ``PREFIX`` filters, and then the ``NOT_EQUALS`` or ``PREFIX_NOT_EQUALS`` filters. For example, for the following filters, Security Hub first identifies findings that have resource types that start with either ``AwsIam`` or ``AwsEc2`` . It then excludes findings that have a resource type of ``AwsIamPolicy`` and findings that have a resource type of ``AwsEc2NetworkInterface`` . - ``ResourceType PREFIX AwsIam`` - ``ResourceType PREFIX AwsEc2`` - ``ResourceType NOT_EQUALS AwsIamPolicy`` - ``ResourceType NOT_EQUALS AwsEc2NetworkInterface`` ``CONTAINS`` and ``NOT_CONTAINS`` operators can be used only with automation rules. For more information, see `Automation rules <https://docs.aws.amazon.com/securityhub/latest/userguide/automation-rules.html>`_ in the *AWS Security Hub User Guide* .
+            :param comparison: The condition to apply to a string value when filtering Security Hub findings. To search for values that have the filter value, use one of the following comparison operators: - To search for values that include the filter value, use ``CONTAINS`` . For example, the filter ``Title CONTAINS CloudFront`` matches findings that have a ``Title`` that includes the string CloudFront. - To search for values that exactly match the filter value, use ``EQUALS`` . For example, the filter ``AwsAccountId EQUALS 123456789012`` only matches findings that have an account ID of ``123456789012`` . - To search for values that start with the filter value, use ``PREFIX`` . For example, the filter ``ResourceRegion PREFIX us`` matches findings that have a ``ResourceRegion`` that starts with ``us`` . A ``ResourceRegion`` that starts with a different value, such as ``af`` , ``ap`` , or ``ca`` , doesn't match. ``CONTAINS`` , ``EQUALS`` , and ``PREFIX`` filters on the same field are joined by ``OR`` . A finding matches if it matches any one of those filters. For example, the filters ``Title CONTAINS CloudFront OR Title CONTAINS CloudWatch`` match a finding that includes either ``CloudFront`` , ``CloudWatch`` , or both strings in the title. To search for values that don’t have the filter value, use one of the following comparison operators: - To search for values that exclude the filter value, use ``NOT_CONTAINS`` . For example, the filter ``Title NOT_CONTAINS CloudFront`` matches findings that have a ``Title`` that excludes the string CloudFront. - To search for values other than the filter value, use ``NOT_EQUALS`` . For example, the filter ``AwsAccountId NOT_EQUALS 123456789012`` only matches findings that have an account ID other than ``123456789012`` . - To search for values that don't start with the filter value, use ``PREFIX_NOT_EQUALS`` . For example, the filter ``ResourceRegion PREFIX_NOT_EQUALS us`` matches findings with a ``ResourceRegion`` that starts with a value other than ``us`` . ``NOT_CONTAINS`` , ``NOT_EQUALS`` , and ``PREFIX_NOT_EQUALS`` filters on the same field are joined by ``AND`` . A finding matches only if it matches all of those filters. For example, the filters ``Title NOT_CONTAINS CloudFront AND Title NOT_CONTAINS CloudWatch`` match a finding that excludes both ``CloudFront`` and ``CloudWatch`` in the title. You can’t have both a ``CONTAINS`` filter and a ``NOT_CONTAINS`` filter on the same field. Similarly, you can't provide both an ``EQUALS`` filter and a ``NOT_EQUALS`` or ``PREFIX_NOT_EQUALS`` filter on the same field. Combining filters in this way returns an error. ``CONTAINS`` filters can only be used with other ``CONTAINS`` filters. ``NOT_CONTAINS`` filters can only be used with other ``NOT_CONTAINS`` filters. You can combine ``PREFIX`` filters with ``NOT_EQUALS`` or ``PREFIX_NOT_EQUALS`` filters for the same field. Security Hub first processes the ``PREFIX`` filters, and then the ``NOT_EQUALS`` or ``PREFIX_NOT_EQUALS`` filters. For example, for the following filters, Security Hub first identifies findings that have resource types that start with either ``AwsIam`` or ``AwsEc2`` . It then excludes findings that have a resource type of ``AwsIamPolicy`` and findings that have a resource type of ``AwsEc2NetworkInterface`` . - ``ResourceType PREFIX AwsIam`` - ``ResourceType PREFIX AwsEc2`` - ``ResourceType NOT_EQUALS AwsIamPolicy`` - ``ResourceType NOT_EQUALS AwsEc2NetworkInterface`` ``CONTAINS`` and ``NOT_CONTAINS`` operators can be used only with automation rules V1. ``CONTAINS_WORD`` operator is only supported in ``GetFindingsV2`` , ``GetFindingStatisticsV2`` , ``GetResourcesV2`` , and ``GetResourceStatisticsV2`` APIs. For more information, see `Automation rules <https://docs.aws.amazon.com/securityhub/latest/userguide/automation-rules.html>`_ in the *AWS Security Hub User Guide* .
             :param value: The string filter value. Filter values are case sensitive. For example, the product name for control-based findings is ``Security Hub`` . If you provide ``security hub`` as the filter value, there's no match.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrule-stringfilter.html
@@ -2409,7 +2665,7 @@ class CfnAutomationRule(
             - ``ResourceType NOT_EQUALS AwsIamPolicy``
             - ``ResourceType NOT_EQUALS AwsEc2NetworkInterface``
 
-            ``CONTAINS`` and ``NOT_CONTAINS`` operators can be used only with automation rules. For more information, see `Automation rules <https://docs.aws.amazon.com/securityhub/latest/userguide/automation-rules.html>`_ in the *AWS Security Hub User Guide* .
+            ``CONTAINS`` and ``NOT_CONTAINS`` operators can be used only with automation rules V1. ``CONTAINS_WORD`` operator is only supported in ``GetFindingsV2`` , ``GetFindingStatisticsV2`` , ``GetResourcesV2`` , and ``GetResourceStatisticsV2`` APIs. For more information, see `Automation rules <https://docs.aws.amazon.com/securityhub/latest/userguide/automation-rules.html>`_ in the *AWS Security Hub User Guide* .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrule-stringfilter.html#cfn-securityhub-automationrule-stringfilter-comparison
             '''
@@ -2883,6 +3139,2086 @@ class CfnAutomationRuleProps:
 
     def __repr__(self) -> str:
         return "CfnAutomationRuleProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+class CfnAutomationRuleV2(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_securityhub.CfnAutomationRuleV2",
+):
+    '''Creates a V2 automation rule.
+
+    This API is in private preview and subject to change.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-automationrulev2.html
+    :cloudformationResource: AWS::SecurityHub::AutomationRuleV2
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_securityhub as securityhub
+        
+        cfn_automation_rule_v2 = securityhub.CfnAutomationRuleV2(self, "MyCfnAutomationRuleV2",
+            actions=[securityhub.CfnAutomationRuleV2.AutomationRulesActionV2Property(
+                type="type",
+        
+                # the properties below are optional
+                external_integration_configuration=securityhub.CfnAutomationRuleV2.ExternalIntegrationConfigurationProperty(
+                    connector_arn="connectorArn"
+                ),
+                finding_fields_update=securityhub.CfnAutomationRuleV2.AutomationRulesFindingFieldsUpdateV2Property(
+                    comment="comment",
+                    severity_id=123,
+                    status_id=123
+                )
+            )],
+            criteria=securityhub.CfnAutomationRuleV2.CriteriaProperty(
+                ocsf_finding_criteria=securityhub.CfnAutomationRuleV2.OcsfFindingFiltersProperty(
+                    composite_filters=[securityhub.CfnAutomationRuleV2.CompositeFilterProperty(
+                        boolean_filters=[securityhub.CfnAutomationRuleV2.OcsfBooleanFilterProperty(
+                            field_name="fieldName",
+                            filter=securityhub.CfnAutomationRuleV2.BooleanFilterProperty(
+                                value=False
+                            )
+                        )],
+                        date_filters=[securityhub.CfnAutomationRuleV2.OcsfDateFilterProperty(
+                            field_name="fieldName",
+                            filter=securityhub.CfnAutomationRuleV2.DateFilterProperty(
+                                date_range=securityhub.CfnAutomationRuleV2.DateRangeProperty(
+                                    unit="unit",
+                                    value=123
+                                ),
+                                end="end",
+                                start="start"
+                            )
+                        )],
+                        map_filters=[securityhub.CfnAutomationRuleV2.OcsfMapFilterProperty(
+                            field_name="fieldName",
+                            filter=securityhub.CfnAutomationRuleV2.MapFilterProperty(
+                                comparison="comparison",
+                                key="key",
+                                value="value"
+                            )
+                        )],
+                        number_filters=[securityhub.CfnAutomationRuleV2.OcsfNumberFilterProperty(
+                            field_name="fieldName",
+                            filter=securityhub.CfnAutomationRuleV2.NumberFilterProperty(
+                                eq=123,
+                                gte=123,
+                                lte=123
+                            )
+                        )],
+                        operator="operator",
+                        string_filters=[securityhub.CfnAutomationRuleV2.OcsfStringFilterProperty(
+                            field_name="fieldName",
+                            filter=securityhub.CfnAutomationRuleV2.StringFilterProperty(
+                                comparison="comparison",
+                                value="value"
+                            )
+                        )]
+                    )],
+                    composite_operator="compositeOperator"
+                )
+            ),
+            description="description",
+            rule_name="ruleName",
+            rule_order=123,
+        
+            # the properties below are optional
+            rule_status="ruleStatus",
+            tags={
+                "tags_key": "tags"
+            }
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        actions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAutomationRuleV2.AutomationRulesActionV2Property", typing.Dict[builtins.str, typing.Any]]]]],
+        criteria: typing.Union[_IResolvable_da3f097b, typing.Union["CfnAutomationRuleV2.CriteriaProperty", typing.Dict[builtins.str, typing.Any]]],
+        description: builtins.str,
+        rule_name: builtins.str,
+        rule_order: jsii.Number,
+        rule_status: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param actions: A list of actions to be performed when the rule criteria is met.
+        :param criteria: The filtering type and configuration of the automation rule.
+        :param description: A description of the V2 automation rule.
+        :param rule_name: The name of the V2 automation rule.
+        :param rule_order: The value for the rule priority.
+        :param rule_status: The status of the V2 automation rule.
+        :param tags: A list of key-value pairs associated with the V2 automation rule.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d67bab57d18f8318b1f3e5e5aee0425c6d6ad2a73c3def328f22c6e22aa173d4)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnAutomationRuleV2Props(
+            actions=actions,
+            criteria=criteria,
+            description=description,
+            rule_name=rule_name,
+            rule_order=rule_order,
+            rule_status=rule_status,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__148b5ad52f495a944fc188c33e9ce4790af9aae05ed5382a214fb325dffaf8bb)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2f9d1f99336eb3a75c15b25a178234de86a8bfdf4875bf0ce1cd38b114f64593)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The timestamp when the V2 automation rule was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRuleArn")
+    def attr_rule_arn(self) -> builtins.str:
+        '''The ARN of the V2 automation rule.
+
+        :cloudformationAttribute: RuleArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRuleArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRuleId")
+    def attr_rule_id(self) -> builtins.str:
+        '''The ID of the V2 automation rule.
+
+        :cloudformationAttribute: RuleId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRuleId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''The timestamp when the V2 automation rule was updated.
+
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="actions")
+    def actions(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAutomationRuleV2.AutomationRulesActionV2Property"]]]:
+        '''A list of actions to be performed when the rule criteria is met.'''
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAutomationRuleV2.AutomationRulesActionV2Property"]]], jsii.get(self, "actions"))
+
+    @actions.setter
+    def actions(
+        self,
+        value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAutomationRuleV2.AutomationRulesActionV2Property"]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6347d27f0ba2cf053f67fe33ad975271c9a681e994a3d68259bee4b4cecff923)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "actions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="criteria")
+    def criteria(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnAutomationRuleV2.CriteriaProperty"]:
+        '''The filtering type and configuration of the automation rule.'''
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnAutomationRuleV2.CriteriaProperty"], jsii.get(self, "criteria"))
+
+    @criteria.setter
+    def criteria(
+        self,
+        value: typing.Union[_IResolvable_da3f097b, "CfnAutomationRuleV2.CriteriaProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a5adb921eebdd2ef5c8fd115e4be769f443780102c814dd43fe745285e68ab8e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "criteria", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> builtins.str:
+        '''A description of the V2 automation rule.'''
+        return typing.cast(builtins.str, jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__125c937bc05766b550dc71a5d1d56e19a69b4ef80f88b4ef38e2e5e003477882)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="ruleName")
+    def rule_name(self) -> builtins.str:
+        '''The name of the V2 automation rule.'''
+        return typing.cast(builtins.str, jsii.get(self, "ruleName"))
+
+    @rule_name.setter
+    def rule_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d67119779ecc92e0cdf9224e19bbf9519a8b3464aefe9656b42f750f87734d6a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "ruleName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="ruleOrder")
+    def rule_order(self) -> jsii.Number:
+        '''The value for the rule priority.'''
+        return typing.cast(jsii.Number, jsii.get(self, "ruleOrder"))
+
+    @rule_order.setter
+    def rule_order(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0756c118bad7b3ecf44f8e5b333e1b12ae1f8fcc93cfb9994a9b01b1e420c800)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "ruleOrder", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="ruleStatus")
+    def rule_status(self) -> typing.Optional[builtins.str]:
+        '''The status of the V2 automation rule.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "ruleStatus"))
+
+    @rule_status.setter
+    def rule_status(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9d3ccd09d54183efd7f79c4f4fa028ef4ff9dcf82d873ad68a9b84292b42fca1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "ruleStatus", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''A list of key-value pairs associated with the V2 automation rule.'''
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c4cafeb60a0ac8c7088697f2b7bd61bc6887761dd3405c6d9a418c848d6a35ed)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_securityhub.CfnAutomationRuleV2.AutomationRulesActionV2Property",
+        jsii_struct_bases=[],
+        name_mapping={
+            "type": "type",
+            "external_integration_configuration": "externalIntegrationConfiguration",
+            "finding_fields_update": "findingFieldsUpdate",
+        },
+    )
+    class AutomationRulesActionV2Property:
+        def __init__(
+            self,
+            *,
+            type: builtins.str,
+            external_integration_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAutomationRuleV2.ExternalIntegrationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            finding_fields_update: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAutomationRuleV2.AutomationRulesFindingFieldsUpdateV2Property", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Allows you to configure automated responses.
+
+            :param type: Specifies the type of action that Security Hub takes when a finding matches the defined criteria of a rule.
+            :param external_integration_configuration: The settings for integrating automation rule actions with external systems or service.
+            :param finding_fields_update: Specifies that the automation rule action is an update to a finding field.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-automationrulesactionv2.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_securityhub as securityhub
+                
+                automation_rules_action_v2_property = securityhub.CfnAutomationRuleV2.AutomationRulesActionV2Property(
+                    type="type",
+                
+                    # the properties below are optional
+                    external_integration_configuration=securityhub.CfnAutomationRuleV2.ExternalIntegrationConfigurationProperty(
+                        connector_arn="connectorArn"
+                    ),
+                    finding_fields_update=securityhub.CfnAutomationRuleV2.AutomationRulesFindingFieldsUpdateV2Property(
+                        comment="comment",
+                        severity_id=123,
+                        status_id=123
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__c5861ee659ea2189f4b0d18349855ec99f8b11ef0e6bc925783f2b7a3911d61f)
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+                check_type(argname="argument external_integration_configuration", value=external_integration_configuration, expected_type=type_hints["external_integration_configuration"])
+                check_type(argname="argument finding_fields_update", value=finding_fields_update, expected_type=type_hints["finding_fields_update"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "type": type,
+            }
+            if external_integration_configuration is not None:
+                self._values["external_integration_configuration"] = external_integration_configuration
+            if finding_fields_update is not None:
+                self._values["finding_fields_update"] = finding_fields_update
+
+        @builtins.property
+        def type(self) -> builtins.str:
+            '''Specifies the type of action that Security Hub takes when a finding matches the defined criteria of a rule.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-automationrulesactionv2.html#cfn-securityhub-automationrulev2-automationrulesactionv2-type
+            '''
+            result = self._values.get("type")
+            assert result is not None, "Required property 'type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def external_integration_configuration(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAutomationRuleV2.ExternalIntegrationConfigurationProperty"]]:
+            '''The settings for integrating automation rule actions with external systems or service.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-automationrulesactionv2.html#cfn-securityhub-automationrulev2-automationrulesactionv2-externalintegrationconfiguration
+            '''
+            result = self._values.get("external_integration_configuration")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAutomationRuleV2.ExternalIntegrationConfigurationProperty"]], result)
+
+        @builtins.property
+        def finding_fields_update(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAutomationRuleV2.AutomationRulesFindingFieldsUpdateV2Property"]]:
+            '''Specifies that the automation rule action is an update to a finding field.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-automationrulesactionv2.html#cfn-securityhub-automationrulev2-automationrulesactionv2-findingfieldsupdate
+            '''
+            result = self._values.get("finding_fields_update")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAutomationRuleV2.AutomationRulesFindingFieldsUpdateV2Property"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AutomationRulesActionV2Property(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_securityhub.CfnAutomationRuleV2.AutomationRulesFindingFieldsUpdateV2Property",
+        jsii_struct_bases=[],
+        name_mapping={
+            "comment": "comment",
+            "severity_id": "severityId",
+            "status_id": "statusId",
+        },
+    )
+    class AutomationRulesFindingFieldsUpdateV2Property:
+        def __init__(
+            self,
+            *,
+            comment: typing.Optional[builtins.str] = None,
+            severity_id: typing.Optional[jsii.Number] = None,
+            status_id: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Allows you to define the structure for modifying specific fields in security findings.
+
+            :param comment: Notes or contextual information for findings that are modified by the automation rule.
+            :param severity_id: The severity level to be assigned to findings that match the automation rule criteria.
+            :param status_id: The status to be applied to findings that match automation rule criteria.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-automationrulesfindingfieldsupdatev2.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_securityhub as securityhub
+                
+                automation_rules_finding_fields_update_v2_property = securityhub.CfnAutomationRuleV2.AutomationRulesFindingFieldsUpdateV2Property(
+                    comment="comment",
+                    severity_id=123,
+                    status_id=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__4f90f98d77f04ef40f0534b1d8b8660117e52394e43158b5d7f298d3bc8625cc)
+                check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
+                check_type(argname="argument severity_id", value=severity_id, expected_type=type_hints["severity_id"])
+                check_type(argname="argument status_id", value=status_id, expected_type=type_hints["status_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if comment is not None:
+                self._values["comment"] = comment
+            if severity_id is not None:
+                self._values["severity_id"] = severity_id
+            if status_id is not None:
+                self._values["status_id"] = status_id
+
+        @builtins.property
+        def comment(self) -> typing.Optional[builtins.str]:
+            '''Notes or contextual information for findings that are modified by the automation rule.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-automationrulesfindingfieldsupdatev2.html#cfn-securityhub-automationrulev2-automationrulesfindingfieldsupdatev2-comment
+            '''
+            result = self._values.get("comment")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def severity_id(self) -> typing.Optional[jsii.Number]:
+            '''The severity level to be assigned to findings that match the automation rule criteria.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-automationrulesfindingfieldsupdatev2.html#cfn-securityhub-automationrulev2-automationrulesfindingfieldsupdatev2-severityid
+            '''
+            result = self._values.get("severity_id")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def status_id(self) -> typing.Optional[jsii.Number]:
+            '''The status to be applied to findings that match automation rule criteria.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-automationrulesfindingfieldsupdatev2.html#cfn-securityhub-automationrulev2-automationrulesfindingfieldsupdatev2-statusid
+            '''
+            result = self._values.get("status_id")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AutomationRulesFindingFieldsUpdateV2Property(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_securityhub.CfnAutomationRuleV2.BooleanFilterProperty",
+        jsii_struct_bases=[],
+        name_mapping={"value": "value"},
+    )
+    class BooleanFilterProperty:
+        def __init__(
+            self,
+            *,
+            value: typing.Union[builtins.bool, _IResolvable_da3f097b],
+        ) -> None:
+            '''Boolean filter for querying findings.
+
+            :param value: The value of the boolean.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-booleanfilter.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_securityhub as securityhub
+                
+                boolean_filter_property = securityhub.CfnAutomationRuleV2.BooleanFilterProperty(
+                    value=False
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__bf1f4033b6ab73724f96c846c6e76e7a50093a23574134c07515d9390346e33b)
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "value": value,
+            }
+
+        @builtins.property
+        def value(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+            '''The value of the boolean.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-booleanfilter.html#cfn-securityhub-automationrulev2-booleanfilter-value
+            '''
+            result = self._values.get("value")
+            assert result is not None, "Required property 'value' is missing"
+            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "BooleanFilterProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_securityhub.CfnAutomationRuleV2.CompositeFilterProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "boolean_filters": "booleanFilters",
+            "date_filters": "dateFilters",
+            "map_filters": "mapFilters",
+            "number_filters": "numberFilters",
+            "operator": "operator",
+            "string_filters": "stringFilters",
+        },
+    )
+    class CompositeFilterProperty:
+        def __init__(
+            self,
+            *,
+            boolean_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAutomationRuleV2.OcsfBooleanFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            date_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAutomationRuleV2.OcsfDateFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            map_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAutomationRuleV2.OcsfMapFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            number_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAutomationRuleV2.OcsfNumberFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            operator: typing.Optional[builtins.str] = None,
+            string_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAutomationRuleV2.OcsfStringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''Enables the creation of filtering criteria for security findings.
+
+            :param boolean_filters: Enables filtering based on boolean field values.
+            :param date_filters: Enables filtering based on date and timestamp fields.
+            :param map_filters: Enables the creation of filtering criteria for security findings.
+            :param number_filters: Enables filtering based on numerical field values.
+            :param operator: The logical operator used to combine multiple filter conditions.
+            :param string_filters: Enables filtering based on string field values.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-compositefilter.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_securityhub as securityhub
+                
+                composite_filter_property = securityhub.CfnAutomationRuleV2.CompositeFilterProperty(
+                    boolean_filters=[securityhub.CfnAutomationRuleV2.OcsfBooleanFilterProperty(
+                        field_name="fieldName",
+                        filter=securityhub.CfnAutomationRuleV2.BooleanFilterProperty(
+                            value=False
+                        )
+                    )],
+                    date_filters=[securityhub.CfnAutomationRuleV2.OcsfDateFilterProperty(
+                        field_name="fieldName",
+                        filter=securityhub.CfnAutomationRuleV2.DateFilterProperty(
+                            date_range=securityhub.CfnAutomationRuleV2.DateRangeProperty(
+                                unit="unit",
+                                value=123
+                            ),
+                            end="end",
+                            start="start"
+                        )
+                    )],
+                    map_filters=[securityhub.CfnAutomationRuleV2.OcsfMapFilterProperty(
+                        field_name="fieldName",
+                        filter=securityhub.CfnAutomationRuleV2.MapFilterProperty(
+                            comparison="comparison",
+                            key="key",
+                            value="value"
+                        )
+                    )],
+                    number_filters=[securityhub.CfnAutomationRuleV2.OcsfNumberFilterProperty(
+                        field_name="fieldName",
+                        filter=securityhub.CfnAutomationRuleV2.NumberFilterProperty(
+                            eq=123,
+                            gte=123,
+                            lte=123
+                        )
+                    )],
+                    operator="operator",
+                    string_filters=[securityhub.CfnAutomationRuleV2.OcsfStringFilterProperty(
+                        field_name="fieldName",
+                        filter=securityhub.CfnAutomationRuleV2.StringFilterProperty(
+                            comparison="comparison",
+                            value="value"
+                        )
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__ef5252b213e349428bc417b1dd29e26751fcc25bde34b016a3eaf19d58151f2e)
+                check_type(argname="argument boolean_filters", value=boolean_filters, expected_type=type_hints["boolean_filters"])
+                check_type(argname="argument date_filters", value=date_filters, expected_type=type_hints["date_filters"])
+                check_type(argname="argument map_filters", value=map_filters, expected_type=type_hints["map_filters"])
+                check_type(argname="argument number_filters", value=number_filters, expected_type=type_hints["number_filters"])
+                check_type(argname="argument operator", value=operator, expected_type=type_hints["operator"])
+                check_type(argname="argument string_filters", value=string_filters, expected_type=type_hints["string_filters"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if boolean_filters is not None:
+                self._values["boolean_filters"] = boolean_filters
+            if date_filters is not None:
+                self._values["date_filters"] = date_filters
+            if map_filters is not None:
+                self._values["map_filters"] = map_filters
+            if number_filters is not None:
+                self._values["number_filters"] = number_filters
+            if operator is not None:
+                self._values["operator"] = operator
+            if string_filters is not None:
+                self._values["string_filters"] = string_filters
+
+        @builtins.property
+        def boolean_filters(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAutomationRuleV2.OcsfBooleanFilterProperty"]]]]:
+            '''Enables filtering based on boolean field values.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-compositefilter.html#cfn-securityhub-automationrulev2-compositefilter-booleanfilters
+            '''
+            result = self._values.get("boolean_filters")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAutomationRuleV2.OcsfBooleanFilterProperty"]]]], result)
+
+        @builtins.property
+        def date_filters(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAutomationRuleV2.OcsfDateFilterProperty"]]]]:
+            '''Enables filtering based on date and timestamp fields.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-compositefilter.html#cfn-securityhub-automationrulev2-compositefilter-datefilters
+            '''
+            result = self._values.get("date_filters")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAutomationRuleV2.OcsfDateFilterProperty"]]]], result)
+
+        @builtins.property
+        def map_filters(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAutomationRuleV2.OcsfMapFilterProperty"]]]]:
+            '''Enables the creation of filtering criteria for security findings.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-compositefilter.html#cfn-securityhub-automationrulev2-compositefilter-mapfilters
+            '''
+            result = self._values.get("map_filters")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAutomationRuleV2.OcsfMapFilterProperty"]]]], result)
+
+        @builtins.property
+        def number_filters(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAutomationRuleV2.OcsfNumberFilterProperty"]]]]:
+            '''Enables filtering based on numerical field values.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-compositefilter.html#cfn-securityhub-automationrulev2-compositefilter-numberfilters
+            '''
+            result = self._values.get("number_filters")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAutomationRuleV2.OcsfNumberFilterProperty"]]]], result)
+
+        @builtins.property
+        def operator(self) -> typing.Optional[builtins.str]:
+            '''The logical operator used to combine multiple filter conditions.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-compositefilter.html#cfn-securityhub-automationrulev2-compositefilter-operator
+            '''
+            result = self._values.get("operator")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def string_filters(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAutomationRuleV2.OcsfStringFilterProperty"]]]]:
+            '''Enables filtering based on string field values.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-compositefilter.html#cfn-securityhub-automationrulev2-compositefilter-stringfilters
+            '''
+            result = self._values.get("string_filters")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAutomationRuleV2.OcsfStringFilterProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CompositeFilterProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_securityhub.CfnAutomationRuleV2.CriteriaProperty",
+        jsii_struct_bases=[],
+        name_mapping={"ocsf_finding_criteria": "ocsfFindingCriteria"},
+    )
+    class CriteriaProperty:
+        def __init__(
+            self,
+            *,
+            ocsf_finding_criteria: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAutomationRuleV2.OcsfFindingFiltersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''The filtering type and configuration of the automation rule.
+
+            :param ocsf_finding_criteria: The filtering conditions that align with OCSF standards.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-criteria.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_securityhub as securityhub
+                
+                criteria_property = securityhub.CfnAutomationRuleV2.CriteriaProperty(
+                    ocsf_finding_criteria=securityhub.CfnAutomationRuleV2.OcsfFindingFiltersProperty(
+                        composite_filters=[securityhub.CfnAutomationRuleV2.CompositeFilterProperty(
+                            boolean_filters=[securityhub.CfnAutomationRuleV2.OcsfBooleanFilterProperty(
+                                field_name="fieldName",
+                                filter=securityhub.CfnAutomationRuleV2.BooleanFilterProperty(
+                                    value=False
+                                )
+                            )],
+                            date_filters=[securityhub.CfnAutomationRuleV2.OcsfDateFilterProperty(
+                                field_name="fieldName",
+                                filter=securityhub.CfnAutomationRuleV2.DateFilterProperty(
+                                    date_range=securityhub.CfnAutomationRuleV2.DateRangeProperty(
+                                        unit="unit",
+                                        value=123
+                                    ),
+                                    end="end",
+                                    start="start"
+                                )
+                            )],
+                            map_filters=[securityhub.CfnAutomationRuleV2.OcsfMapFilterProperty(
+                                field_name="fieldName",
+                                filter=securityhub.CfnAutomationRuleV2.MapFilterProperty(
+                                    comparison="comparison",
+                                    key="key",
+                                    value="value"
+                                )
+                            )],
+                            number_filters=[securityhub.CfnAutomationRuleV2.OcsfNumberFilterProperty(
+                                field_name="fieldName",
+                                filter=securityhub.CfnAutomationRuleV2.NumberFilterProperty(
+                                    eq=123,
+                                    gte=123,
+                                    lte=123
+                                )
+                            )],
+                            operator="operator",
+                            string_filters=[securityhub.CfnAutomationRuleV2.OcsfStringFilterProperty(
+                                field_name="fieldName",
+                                filter=securityhub.CfnAutomationRuleV2.StringFilterProperty(
+                                    comparison="comparison",
+                                    value="value"
+                                )
+                            )]
+                        )],
+                        composite_operator="compositeOperator"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__1ba9d632d542a300365cf2fd23759ae4458525cb9c085d0a969ca6b488962b63)
+                check_type(argname="argument ocsf_finding_criteria", value=ocsf_finding_criteria, expected_type=type_hints["ocsf_finding_criteria"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if ocsf_finding_criteria is not None:
+                self._values["ocsf_finding_criteria"] = ocsf_finding_criteria
+
+        @builtins.property
+        def ocsf_finding_criteria(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAutomationRuleV2.OcsfFindingFiltersProperty"]]:
+            '''The filtering conditions that align with OCSF standards.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-criteria.html#cfn-securityhub-automationrulev2-criteria-ocsffindingcriteria
+            '''
+            result = self._values.get("ocsf_finding_criteria")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAutomationRuleV2.OcsfFindingFiltersProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CriteriaProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_securityhub.CfnAutomationRuleV2.DateFilterProperty",
+        jsii_struct_bases=[],
+        name_mapping={"date_range": "dateRange", "end": "end", "start": "start"},
+    )
+    class DateFilterProperty:
+        def __init__(
+            self,
+            *,
+            date_range: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAutomationRuleV2.DateRangeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            end: typing.Optional[builtins.str] = None,
+            start: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''A date filter for querying findings.
+
+            :param date_range: A date range for the date filter.
+            :param end: A timestamp that provides the end date for the date filter. For more information about the validation and formatting of timestamp fields in AWS Security Hub , see `Timestamps <https://docs.aws.amazon.com/securityhub/1.0/APIReference/Welcome.html#timestamps>`_ .
+            :param start: A timestamp that provides the start date for the date filter. For more information about the validation and formatting of timestamp fields in AWS Security Hub , see `Timestamps <https://docs.aws.amazon.com/securityhub/1.0/APIReference/Welcome.html#timestamps>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-datefilter.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_securityhub as securityhub
+                
+                date_filter_property = securityhub.CfnAutomationRuleV2.DateFilterProperty(
+                    date_range=securityhub.CfnAutomationRuleV2.DateRangeProperty(
+                        unit="unit",
+                        value=123
+                    ),
+                    end="end",
+                    start="start"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__3d21b2c9e81f0b05c0b5eae1aed977679e202dd65257b012d2ffca3404d4bce2)
+                check_type(argname="argument date_range", value=date_range, expected_type=type_hints["date_range"])
+                check_type(argname="argument end", value=end, expected_type=type_hints["end"])
+                check_type(argname="argument start", value=start, expected_type=type_hints["start"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if date_range is not None:
+                self._values["date_range"] = date_range
+            if end is not None:
+                self._values["end"] = end
+            if start is not None:
+                self._values["start"] = start
+
+        @builtins.property
+        def date_range(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAutomationRuleV2.DateRangeProperty"]]:
+            '''A date range for the date filter.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-datefilter.html#cfn-securityhub-automationrulev2-datefilter-daterange
+            '''
+            result = self._values.get("date_range")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAutomationRuleV2.DateRangeProperty"]], result)
+
+        @builtins.property
+        def end(self) -> typing.Optional[builtins.str]:
+            '''A timestamp that provides the end date for the date filter.
+
+            For more information about the validation and formatting of timestamp fields in AWS Security Hub , see `Timestamps <https://docs.aws.amazon.com/securityhub/1.0/APIReference/Welcome.html#timestamps>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-datefilter.html#cfn-securityhub-automationrulev2-datefilter-end
+            '''
+            result = self._values.get("end")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def start(self) -> typing.Optional[builtins.str]:
+            '''A timestamp that provides the start date for the date filter.
+
+            For more information about the validation and formatting of timestamp fields in AWS Security Hub , see `Timestamps <https://docs.aws.amazon.com/securityhub/1.0/APIReference/Welcome.html#timestamps>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-datefilter.html#cfn-securityhub-automationrulev2-datefilter-start
+            '''
+            result = self._values.get("start")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DateFilterProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_securityhub.CfnAutomationRuleV2.DateRangeProperty",
+        jsii_struct_bases=[],
+        name_mapping={"unit": "unit", "value": "value"},
+    )
+    class DateRangeProperty:
+        def __init__(self, *, unit: builtins.str, value: jsii.Number) -> None:
+            '''A date range for the date filter.
+
+            :param unit: A date range unit for the date filter.
+            :param value: A date range value for the date filter.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-daterange.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_securityhub as securityhub
+                
+                date_range_property = securityhub.CfnAutomationRuleV2.DateRangeProperty(
+                    unit="unit",
+                    value=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__6cd41336e92eb03ceeaab0c8bb04ecdcbaa676b6a22a3cd4a1f8ba069311dc05)
+                check_type(argname="argument unit", value=unit, expected_type=type_hints["unit"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "unit": unit,
+                "value": value,
+            }
+
+        @builtins.property
+        def unit(self) -> builtins.str:
+            '''A date range unit for the date filter.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-daterange.html#cfn-securityhub-automationrulev2-daterange-unit
+            '''
+            result = self._values.get("unit")
+            assert result is not None, "Required property 'unit' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def value(self) -> jsii.Number:
+            '''A date range value for the date filter.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-daterange.html#cfn-securityhub-automationrulev2-daterange-value
+            '''
+            result = self._values.get("value")
+            assert result is not None, "Required property 'value' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DateRangeProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_securityhub.CfnAutomationRuleV2.ExternalIntegrationConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"connector_arn": "connectorArn"},
+    )
+    class ExternalIntegrationConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            connector_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The settings for integrating automation rule actions with external systems or service.
+
+            :param connector_arn: The ARN of the connector that establishes the integration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-externalintegrationconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_securityhub as securityhub
+                
+                external_integration_configuration_property = securityhub.CfnAutomationRuleV2.ExternalIntegrationConfigurationProperty(
+                    connector_arn="connectorArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__a2fd9a1462ca1711dacb92a0d07d564ed40fe787a40d0cfcdebf274371c09173)
+                check_type(argname="argument connector_arn", value=connector_arn, expected_type=type_hints["connector_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if connector_arn is not None:
+                self._values["connector_arn"] = connector_arn
+
+        @builtins.property
+        def connector_arn(self) -> typing.Optional[builtins.str]:
+            '''The ARN of the connector that establishes the integration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-externalintegrationconfiguration.html#cfn-securityhub-automationrulev2-externalintegrationconfiguration-connectorarn
+            '''
+            result = self._values.get("connector_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ExternalIntegrationConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_securityhub.CfnAutomationRuleV2.MapFilterProperty",
+        jsii_struct_bases=[],
+        name_mapping={"comparison": "comparison", "key": "key", "value": "value"},
+    )
+    class MapFilterProperty:
+        def __init__(
+            self,
+            *,
+            comparison: builtins.str,
+            key: builtins.str,
+            value: builtins.str,
+        ) -> None:
+            '''A map filter for filtering AWS Security Hub findings.
+
+            Each map filter provides the field to check for, the value to check for, and the comparison operator.
+
+            :param comparison: The condition to apply to the key value when filtering Security Hub findings with a map filter. To search for values that have the filter value, use one of the following comparison operators: - To search for values that include the filter value, use ``CONTAINS`` . For example, for the ``ResourceTags`` field, the filter ``Department CONTAINS Security`` matches findings that include the value ``Security`` for the ``Department`` tag. In the same example, a finding with a value of ``Security team`` for the ``Department`` tag is a match. - To search for values that exactly match the filter value, use ``EQUALS`` . For example, for the ``ResourceTags`` field, the filter ``Department EQUALS Security`` matches findings that have the value ``Security`` for the ``Department`` tag. ``CONTAINS`` and ``EQUALS`` filters on the same field are joined by ``OR`` . A finding matches if it matches any one of those filters. For example, the filters ``Department CONTAINS Security OR Department CONTAINS Finance`` match a finding that includes either ``Security`` , ``Finance`` , or both values. To search for values that don't have the filter value, use one of the following comparison operators: - To search for values that exclude the filter value, use ``NOT_CONTAINS`` . For example, for the ``ResourceTags`` field, the filter ``Department NOT_CONTAINS Finance`` matches findings that exclude the value ``Finance`` for the ``Department`` tag. - To search for values other than the filter value, use ``NOT_EQUALS`` . For example, for the ``ResourceTags`` field, the filter ``Department NOT_EQUALS Finance`` matches findings that don’t have the value ``Finance`` for the ``Department`` tag. ``NOT_CONTAINS`` and ``NOT_EQUALS`` filters on the same field are joined by ``AND`` . A finding matches only if it matches all of those filters. For example, the filters ``Department NOT_CONTAINS Security AND Department NOT_CONTAINS Finance`` match a finding that excludes both the ``Security`` and ``Finance`` values. ``CONTAINS`` filters can only be used with other ``CONTAINS`` filters. ``NOT_CONTAINS`` filters can only be used with other ``NOT_CONTAINS`` filters. You can’t have both a ``CONTAINS`` filter and a ``NOT_CONTAINS`` filter on the same field. Similarly, you can’t have both an ``EQUALS`` filter and a ``NOT_EQUALS`` filter on the same field. Combining filters in this way returns an error. ``CONTAINS`` and ``NOT_CONTAINS`` operators can be used only with automation rules. For more information, see `Automation rules <https://docs.aws.amazon.com/securityhub/latest/userguide/automation-rules.html>`_ in the *AWS Security Hub User Guide* .
+            :param key: The key of the map filter. For example, for ``ResourceTags`` , ``Key`` identifies the name of the tag. For ``UserDefinedFields`` , ``Key`` is the name of the field.
+            :param value: The value for the key in the map filter. Filter values are case sensitive. For example, one of the values for a tag called ``Department`` might be ``Security`` . If you provide ``security`` as the filter value, then there's no match.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-mapfilter.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_securityhub as securityhub
+                
+                map_filter_property = securityhub.CfnAutomationRuleV2.MapFilterProperty(
+                    comparison="comparison",
+                    key="key",
+                    value="value"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__3ce382a730a7d946b88f0a9bbc8ee839e8cc4048403520f61f9601274312c198)
+                check_type(argname="argument comparison", value=comparison, expected_type=type_hints["comparison"])
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "comparison": comparison,
+                "key": key,
+                "value": value,
+            }
+
+        @builtins.property
+        def comparison(self) -> builtins.str:
+            '''The condition to apply to the key value when filtering Security Hub findings with a map filter.
+
+            To search for values that have the filter value, use one of the following comparison operators:
+
+            - To search for values that include the filter value, use ``CONTAINS`` . For example, for the ``ResourceTags`` field, the filter ``Department CONTAINS Security`` matches findings that include the value ``Security`` for the ``Department`` tag. In the same example, a finding with a value of ``Security team`` for the ``Department`` tag is a match.
+            - To search for values that exactly match the filter value, use ``EQUALS`` . For example, for the ``ResourceTags`` field, the filter ``Department EQUALS Security`` matches findings that have the value ``Security`` for the ``Department`` tag.
+
+            ``CONTAINS`` and ``EQUALS`` filters on the same field are joined by ``OR`` . A finding matches if it matches any one of those filters. For example, the filters ``Department CONTAINS Security OR Department CONTAINS Finance`` match a finding that includes either ``Security`` , ``Finance`` , or both values.
+
+            To search for values that don't have the filter value, use one of the following comparison operators:
+
+            - To search for values that exclude the filter value, use ``NOT_CONTAINS`` . For example, for the ``ResourceTags`` field, the filter ``Department NOT_CONTAINS Finance`` matches findings that exclude the value ``Finance`` for the ``Department`` tag.
+            - To search for values other than the filter value, use ``NOT_EQUALS`` . For example, for the ``ResourceTags`` field, the filter ``Department NOT_EQUALS Finance`` matches findings that don’t have the value ``Finance`` for the ``Department`` tag.
+
+            ``NOT_CONTAINS`` and ``NOT_EQUALS`` filters on the same field are joined by ``AND`` . A finding matches only if it matches all of those filters. For example, the filters ``Department NOT_CONTAINS Security AND Department NOT_CONTAINS Finance`` match a finding that excludes both the ``Security`` and ``Finance`` values.
+
+            ``CONTAINS`` filters can only be used with other ``CONTAINS`` filters. ``NOT_CONTAINS`` filters can only be used with other ``NOT_CONTAINS`` filters.
+
+            You can’t have both a ``CONTAINS`` filter and a ``NOT_CONTAINS`` filter on the same field. Similarly, you can’t have both an ``EQUALS`` filter and a ``NOT_EQUALS`` filter on the same field. Combining filters in this way returns an error.
+
+            ``CONTAINS`` and ``NOT_CONTAINS`` operators can be used only with automation rules. For more information, see `Automation rules <https://docs.aws.amazon.com/securityhub/latest/userguide/automation-rules.html>`_ in the *AWS Security Hub User Guide* .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-mapfilter.html#cfn-securityhub-automationrulev2-mapfilter-comparison
+            '''
+            result = self._values.get("comparison")
+            assert result is not None, "Required property 'comparison' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def key(self) -> builtins.str:
+            '''The key of the map filter.
+
+            For example, for ``ResourceTags`` , ``Key`` identifies the name of the tag. For ``UserDefinedFields`` , ``Key`` is the name of the field.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-mapfilter.html#cfn-securityhub-automationrulev2-mapfilter-key
+            '''
+            result = self._values.get("key")
+            assert result is not None, "Required property 'key' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def value(self) -> builtins.str:
+            '''The value for the key in the map filter.
+
+            Filter values are case sensitive. For example, one of the values for a tag called ``Department`` might be ``Security`` . If you provide ``security`` as the filter value, then there's no match.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-mapfilter.html#cfn-securityhub-automationrulev2-mapfilter-value
+            '''
+            result = self._values.get("value")
+            assert result is not None, "Required property 'value' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MapFilterProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_securityhub.CfnAutomationRuleV2.NumberFilterProperty",
+        jsii_struct_bases=[],
+        name_mapping={"eq": "eq", "gte": "gte", "lte": "lte"},
+    )
+    class NumberFilterProperty:
+        def __init__(
+            self,
+            *,
+            eq: typing.Optional[jsii.Number] = None,
+            gte: typing.Optional[jsii.Number] = None,
+            lte: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''A number filter for querying findings.
+
+            :param eq: The equal-to condition to be applied to a single field when querying for findings.
+            :param gte: The greater-than-equal condition to be applied to a single field when querying for findings.
+            :param lte: The less-than-equal condition to be applied to a single field when querying for findings.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-numberfilter.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_securityhub as securityhub
+                
+                number_filter_property = securityhub.CfnAutomationRuleV2.NumberFilterProperty(
+                    eq=123,
+                    gte=123,
+                    lte=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__647dc97c620209dca2753ac34dae13a3a6afc9916dad52290296e2565ad48048)
+                check_type(argname="argument eq", value=eq, expected_type=type_hints["eq"])
+                check_type(argname="argument gte", value=gte, expected_type=type_hints["gte"])
+                check_type(argname="argument lte", value=lte, expected_type=type_hints["lte"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if eq is not None:
+                self._values["eq"] = eq
+            if gte is not None:
+                self._values["gte"] = gte
+            if lte is not None:
+                self._values["lte"] = lte
+
+        @builtins.property
+        def eq(self) -> typing.Optional[jsii.Number]:
+            '''The equal-to condition to be applied to a single field when querying for findings.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-numberfilter.html#cfn-securityhub-automationrulev2-numberfilter-eq
+            '''
+            result = self._values.get("eq")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def gte(self) -> typing.Optional[jsii.Number]:
+            '''The greater-than-equal condition to be applied to a single field when querying for findings.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-numberfilter.html#cfn-securityhub-automationrulev2-numberfilter-gte
+            '''
+            result = self._values.get("gte")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def lte(self) -> typing.Optional[jsii.Number]:
+            '''The less-than-equal condition to be applied to a single field when querying for findings.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-numberfilter.html#cfn-securityhub-automationrulev2-numberfilter-lte
+            '''
+            result = self._values.get("lte")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "NumberFilterProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_securityhub.CfnAutomationRuleV2.OcsfBooleanFilterProperty",
+        jsii_struct_bases=[],
+        name_mapping={"field_name": "fieldName", "filter": "filter"},
+    )
+    class OcsfBooleanFilterProperty:
+        def __init__(
+            self,
+            *,
+            field_name: builtins.str,
+            filter: typing.Union[_IResolvable_da3f097b, typing.Union["CfnAutomationRuleV2.BooleanFilterProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''Enables filtering of security findings based on boolean field values in OCSF.
+
+            :param field_name: The name of the field.
+            :param filter: Enables filtering of security findings based on boolean field values in OCSF.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-ocsfbooleanfilter.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_securityhub as securityhub
+                
+                ocsf_boolean_filter_property = securityhub.CfnAutomationRuleV2.OcsfBooleanFilterProperty(
+                    field_name="fieldName",
+                    filter=securityhub.CfnAutomationRuleV2.BooleanFilterProperty(
+                        value=False
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__a42eba30c4eef0c19b5165ead711c40b18983e8c78c7eaafba9deb680ec94bfd)
+                check_type(argname="argument field_name", value=field_name, expected_type=type_hints["field_name"])
+                check_type(argname="argument filter", value=filter, expected_type=type_hints["filter"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "field_name": field_name,
+                "filter": filter,
+            }
+
+        @builtins.property
+        def field_name(self) -> builtins.str:
+            '''The name of the field.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-ocsfbooleanfilter.html#cfn-securityhub-automationrulev2-ocsfbooleanfilter-fieldname
+            '''
+            result = self._values.get("field_name")
+            assert result is not None, "Required property 'field_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def filter(
+            self,
+        ) -> typing.Union[_IResolvable_da3f097b, "CfnAutomationRuleV2.BooleanFilterProperty"]:
+            '''Enables filtering of security findings based on boolean field values in OCSF.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-ocsfbooleanfilter.html#cfn-securityhub-automationrulev2-ocsfbooleanfilter-filter
+            '''
+            result = self._values.get("filter")
+            assert result is not None, "Required property 'filter' is missing"
+            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnAutomationRuleV2.BooleanFilterProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "OcsfBooleanFilterProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_securityhub.CfnAutomationRuleV2.OcsfDateFilterProperty",
+        jsii_struct_bases=[],
+        name_mapping={"field_name": "fieldName", "filter": "filter"},
+    )
+    class OcsfDateFilterProperty:
+        def __init__(
+            self,
+            *,
+            field_name: builtins.str,
+            filter: typing.Union[_IResolvable_da3f097b, typing.Union["CfnAutomationRuleV2.DateFilterProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''Enables filtering of security findings based on date and timestamp fields in OCSF.
+
+            :param field_name: The name of the field.
+            :param filter: Enables filtering of security findings based on date and timestamp fields in OCSF.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-ocsfdatefilter.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_securityhub as securityhub
+                
+                ocsf_date_filter_property = securityhub.CfnAutomationRuleV2.OcsfDateFilterProperty(
+                    field_name="fieldName",
+                    filter=securityhub.CfnAutomationRuleV2.DateFilterProperty(
+                        date_range=securityhub.CfnAutomationRuleV2.DateRangeProperty(
+                            unit="unit",
+                            value=123
+                        ),
+                        end="end",
+                        start="start"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__0835da7838d6730412395869f245eb4865e7ae2b63a637022d4a3475231c342f)
+                check_type(argname="argument field_name", value=field_name, expected_type=type_hints["field_name"])
+                check_type(argname="argument filter", value=filter, expected_type=type_hints["filter"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "field_name": field_name,
+                "filter": filter,
+            }
+
+        @builtins.property
+        def field_name(self) -> builtins.str:
+            '''The name of the field.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-ocsfdatefilter.html#cfn-securityhub-automationrulev2-ocsfdatefilter-fieldname
+            '''
+            result = self._values.get("field_name")
+            assert result is not None, "Required property 'field_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def filter(
+            self,
+        ) -> typing.Union[_IResolvable_da3f097b, "CfnAutomationRuleV2.DateFilterProperty"]:
+            '''Enables filtering of security findings based on date and timestamp fields in OCSF.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-ocsfdatefilter.html#cfn-securityhub-automationrulev2-ocsfdatefilter-filter
+            '''
+            result = self._values.get("filter")
+            assert result is not None, "Required property 'filter' is missing"
+            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnAutomationRuleV2.DateFilterProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "OcsfDateFilterProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_securityhub.CfnAutomationRuleV2.OcsfFindingFiltersProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "composite_filters": "compositeFilters",
+            "composite_operator": "compositeOperator",
+        },
+    )
+    class OcsfFindingFiltersProperty:
+        def __init__(
+            self,
+            *,
+            composite_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAutomationRuleV2.CompositeFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            composite_operator: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Specifies the filtering criteria for security findings using OCSF.
+
+            :param composite_filters: Enables the creation of complex filtering conditions by combining filter criteria.
+            :param composite_operator: The logical operators used to combine the filtering on multiple ``CompositeFilters`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-ocsffindingfilters.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_securityhub as securityhub
+                
+                ocsf_finding_filters_property = securityhub.CfnAutomationRuleV2.OcsfFindingFiltersProperty(
+                    composite_filters=[securityhub.CfnAutomationRuleV2.CompositeFilterProperty(
+                        boolean_filters=[securityhub.CfnAutomationRuleV2.OcsfBooleanFilterProperty(
+                            field_name="fieldName",
+                            filter=securityhub.CfnAutomationRuleV2.BooleanFilterProperty(
+                                value=False
+                            )
+                        )],
+                        date_filters=[securityhub.CfnAutomationRuleV2.OcsfDateFilterProperty(
+                            field_name="fieldName",
+                            filter=securityhub.CfnAutomationRuleV2.DateFilterProperty(
+                                date_range=securityhub.CfnAutomationRuleV2.DateRangeProperty(
+                                    unit="unit",
+                                    value=123
+                                ),
+                                end="end",
+                                start="start"
+                            )
+                        )],
+                        map_filters=[securityhub.CfnAutomationRuleV2.OcsfMapFilterProperty(
+                            field_name="fieldName",
+                            filter=securityhub.CfnAutomationRuleV2.MapFilterProperty(
+                                comparison="comparison",
+                                key="key",
+                                value="value"
+                            )
+                        )],
+                        number_filters=[securityhub.CfnAutomationRuleV2.OcsfNumberFilterProperty(
+                            field_name="fieldName",
+                            filter=securityhub.CfnAutomationRuleV2.NumberFilterProperty(
+                                eq=123,
+                                gte=123,
+                                lte=123
+                            )
+                        )],
+                        operator="operator",
+                        string_filters=[securityhub.CfnAutomationRuleV2.OcsfStringFilterProperty(
+                            field_name="fieldName",
+                            filter=securityhub.CfnAutomationRuleV2.StringFilterProperty(
+                                comparison="comparison",
+                                value="value"
+                            )
+                        )]
+                    )],
+                    composite_operator="compositeOperator"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__67b27a03af9c079f8cc42cdfa5f8df4adc151b555e1080317dfc2e8c5873519c)
+                check_type(argname="argument composite_filters", value=composite_filters, expected_type=type_hints["composite_filters"])
+                check_type(argname="argument composite_operator", value=composite_operator, expected_type=type_hints["composite_operator"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if composite_filters is not None:
+                self._values["composite_filters"] = composite_filters
+            if composite_operator is not None:
+                self._values["composite_operator"] = composite_operator
+
+        @builtins.property
+        def composite_filters(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAutomationRuleV2.CompositeFilterProperty"]]]]:
+            '''Enables the creation of complex filtering conditions by combining filter criteria.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-ocsffindingfilters.html#cfn-securityhub-automationrulev2-ocsffindingfilters-compositefilters
+            '''
+            result = self._values.get("composite_filters")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAutomationRuleV2.CompositeFilterProperty"]]]], result)
+
+        @builtins.property
+        def composite_operator(self) -> typing.Optional[builtins.str]:
+            '''The logical operators used to combine the filtering on multiple ``CompositeFilters`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-ocsffindingfilters.html#cfn-securityhub-automationrulev2-ocsffindingfilters-compositeoperator
+            '''
+            result = self._values.get("composite_operator")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "OcsfFindingFiltersProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_securityhub.CfnAutomationRuleV2.OcsfMapFilterProperty",
+        jsii_struct_bases=[],
+        name_mapping={"field_name": "fieldName", "filter": "filter"},
+    )
+    class OcsfMapFilterProperty:
+        def __init__(
+            self,
+            *,
+            field_name: builtins.str,
+            filter: typing.Union[_IResolvable_da3f097b, typing.Union["CfnAutomationRuleV2.MapFilterProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''Enables filtering of security findings based on map field values in OCSF.
+
+            :param field_name: The name of the field.
+            :param filter: Enables filtering of security findings based on map field values in OCSF.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-ocsfmapfilter.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_securityhub as securityhub
+                
+                ocsf_map_filter_property = securityhub.CfnAutomationRuleV2.OcsfMapFilterProperty(
+                    field_name="fieldName",
+                    filter=securityhub.CfnAutomationRuleV2.MapFilterProperty(
+                        comparison="comparison",
+                        key="key",
+                        value="value"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__b733ec921abf18e15f42cbdb443df518e81d6c48b4cf4b2397f4812a20240777)
+                check_type(argname="argument field_name", value=field_name, expected_type=type_hints["field_name"])
+                check_type(argname="argument filter", value=filter, expected_type=type_hints["filter"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "field_name": field_name,
+                "filter": filter,
+            }
+
+        @builtins.property
+        def field_name(self) -> builtins.str:
+            '''The name of the field.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-ocsfmapfilter.html#cfn-securityhub-automationrulev2-ocsfmapfilter-fieldname
+            '''
+            result = self._values.get("field_name")
+            assert result is not None, "Required property 'field_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def filter(
+            self,
+        ) -> typing.Union[_IResolvable_da3f097b, "CfnAutomationRuleV2.MapFilterProperty"]:
+            '''Enables filtering of security findings based on map field values in OCSF.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-ocsfmapfilter.html#cfn-securityhub-automationrulev2-ocsfmapfilter-filter
+            '''
+            result = self._values.get("filter")
+            assert result is not None, "Required property 'filter' is missing"
+            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnAutomationRuleV2.MapFilterProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "OcsfMapFilterProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_securityhub.CfnAutomationRuleV2.OcsfNumberFilterProperty",
+        jsii_struct_bases=[],
+        name_mapping={"field_name": "fieldName", "filter": "filter"},
+    )
+    class OcsfNumberFilterProperty:
+        def __init__(
+            self,
+            *,
+            field_name: builtins.str,
+            filter: typing.Union[_IResolvable_da3f097b, typing.Union["CfnAutomationRuleV2.NumberFilterProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''Enables filtering of security findings based on numerical field values in OCSF.
+
+            :param field_name: The name of the field.
+            :param filter: Enables filtering of security findings based on numerical field values in OCSF.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-ocsfnumberfilter.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_securityhub as securityhub
+                
+                ocsf_number_filter_property = securityhub.CfnAutomationRuleV2.OcsfNumberFilterProperty(
+                    field_name="fieldName",
+                    filter=securityhub.CfnAutomationRuleV2.NumberFilterProperty(
+                        eq=123,
+                        gte=123,
+                        lte=123
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__96733fb6348f5b5cd478197a8fee3f33665015a9b17eb4ce28d9ca28862964c7)
+                check_type(argname="argument field_name", value=field_name, expected_type=type_hints["field_name"])
+                check_type(argname="argument filter", value=filter, expected_type=type_hints["filter"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "field_name": field_name,
+                "filter": filter,
+            }
+
+        @builtins.property
+        def field_name(self) -> builtins.str:
+            '''The name of the field.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-ocsfnumberfilter.html#cfn-securityhub-automationrulev2-ocsfnumberfilter-fieldname
+            '''
+            result = self._values.get("field_name")
+            assert result is not None, "Required property 'field_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def filter(
+            self,
+        ) -> typing.Union[_IResolvable_da3f097b, "CfnAutomationRuleV2.NumberFilterProperty"]:
+            '''Enables filtering of security findings based on numerical field values in OCSF.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-ocsfnumberfilter.html#cfn-securityhub-automationrulev2-ocsfnumberfilter-filter
+            '''
+            result = self._values.get("filter")
+            assert result is not None, "Required property 'filter' is missing"
+            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnAutomationRuleV2.NumberFilterProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "OcsfNumberFilterProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_securityhub.CfnAutomationRuleV2.OcsfStringFilterProperty",
+        jsii_struct_bases=[],
+        name_mapping={"field_name": "fieldName", "filter": "filter"},
+    )
+    class OcsfStringFilterProperty:
+        def __init__(
+            self,
+            *,
+            field_name: builtins.str,
+            filter: typing.Union[_IResolvable_da3f097b, typing.Union["CfnAutomationRuleV2.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''Enables filtering of security findings based on string field values in OCSF.
+
+            :param field_name: The name of the field.
+            :param filter: Enables filtering of security findings based on string field values in OCSF.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-ocsfstringfilter.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_securityhub as securityhub
+                
+                ocsf_string_filter_property = securityhub.CfnAutomationRuleV2.OcsfStringFilterProperty(
+                    field_name="fieldName",
+                    filter=securityhub.CfnAutomationRuleV2.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__664006d14466473dd08a13af9d06be4f13672817d578a3e7b6c2e476b7e219f0)
+                check_type(argname="argument field_name", value=field_name, expected_type=type_hints["field_name"])
+                check_type(argname="argument filter", value=filter, expected_type=type_hints["filter"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "field_name": field_name,
+                "filter": filter,
+            }
+
+        @builtins.property
+        def field_name(self) -> builtins.str:
+            '''The name of the field.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-ocsfstringfilter.html#cfn-securityhub-automationrulev2-ocsfstringfilter-fieldname
+            '''
+            result = self._values.get("field_name")
+            assert result is not None, "Required property 'field_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def filter(
+            self,
+        ) -> typing.Union[_IResolvable_da3f097b, "CfnAutomationRuleV2.StringFilterProperty"]:
+            '''Enables filtering of security findings based on string field values in OCSF.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-ocsfstringfilter.html#cfn-securityhub-automationrulev2-ocsfstringfilter-filter
+            '''
+            result = self._values.get("filter")
+            assert result is not None, "Required property 'filter' is missing"
+            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnAutomationRuleV2.StringFilterProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "OcsfStringFilterProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_securityhub.CfnAutomationRuleV2.StringFilterProperty",
+        jsii_struct_bases=[],
+        name_mapping={"comparison": "comparison", "value": "value"},
+    )
+    class StringFilterProperty:
+        def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
+            '''A string filter for filtering AWS Security Hub findings.
+
+            :param comparison: The condition to apply to a string value when filtering Security Hub findings. To search for values that have the filter value, use one of the following comparison operators: - To search for values that include the filter value, use ``CONTAINS`` . For example, the filter ``Title CONTAINS CloudFront`` matches findings that have a ``Title`` that includes the string CloudFront. - To search for values that exactly match the filter value, use ``EQUALS`` . For example, the filter ``AwsAccountId EQUALS 123456789012`` only matches findings that have an account ID of ``123456789012`` . - To search for values that start with the filter value, use ``PREFIX`` . For example, the filter ``ResourceRegion PREFIX us`` matches findings that have a ``ResourceRegion`` that starts with ``us`` . A ``ResourceRegion`` that starts with a different value, such as ``af`` , ``ap`` , or ``ca`` , doesn't match. ``CONTAINS`` , ``EQUALS`` , and ``PREFIX`` filters on the same field are joined by ``OR`` . A finding matches if it matches any one of those filters. For example, the filters ``Title CONTAINS CloudFront OR Title CONTAINS CloudWatch`` match a finding that includes either ``CloudFront`` , ``CloudWatch`` , or both strings in the title. To search for values that don’t have the filter value, use one of the following comparison operators: - To search for values that exclude the filter value, use ``NOT_CONTAINS`` . For example, the filter ``Title NOT_CONTAINS CloudFront`` matches findings that have a ``Title`` that excludes the string CloudFront. - To search for values other than the filter value, use ``NOT_EQUALS`` . For example, the filter ``AwsAccountId NOT_EQUALS 123456789012`` only matches findings that have an account ID other than ``123456789012`` . - To search for values that don't start with the filter value, use ``PREFIX_NOT_EQUALS`` . For example, the filter ``ResourceRegion PREFIX_NOT_EQUALS us`` matches findings with a ``ResourceRegion`` that starts with a value other than ``us`` . ``NOT_CONTAINS`` , ``NOT_EQUALS`` , and ``PREFIX_NOT_EQUALS`` filters on the same field are joined by ``AND`` . A finding matches only if it matches all of those filters. For example, the filters ``Title NOT_CONTAINS CloudFront AND Title NOT_CONTAINS CloudWatch`` match a finding that excludes both ``CloudFront`` and ``CloudWatch`` in the title. You can’t have both a ``CONTAINS`` filter and a ``NOT_CONTAINS`` filter on the same field. Similarly, you can't provide both an ``EQUALS`` filter and a ``NOT_EQUALS`` or ``PREFIX_NOT_EQUALS`` filter on the same field. Combining filters in this way returns an error. ``CONTAINS`` filters can only be used with other ``CONTAINS`` filters. ``NOT_CONTAINS`` filters can only be used with other ``NOT_CONTAINS`` filters. You can combine ``PREFIX`` filters with ``NOT_EQUALS`` or ``PREFIX_NOT_EQUALS`` filters for the same field. Security Hub first processes the ``PREFIX`` filters, and then the ``NOT_EQUALS`` or ``PREFIX_NOT_EQUALS`` filters. For example, for the following filters, Security Hub first identifies findings that have resource types that start with either ``AwsIam`` or ``AwsEc2`` . It then excludes findings that have a resource type of ``AwsIamPolicy`` and findings that have a resource type of ``AwsEc2NetworkInterface`` . - ``ResourceType PREFIX AwsIam`` - ``ResourceType PREFIX AwsEc2`` - ``ResourceType NOT_EQUALS AwsIamPolicy`` - ``ResourceType NOT_EQUALS AwsEc2NetworkInterface`` ``CONTAINS`` and ``NOT_CONTAINS`` operators can be used only with automation rules V1. ``CONTAINS_WORD`` operator is only supported in ``GetFindingsV2`` , ``GetFindingStatisticsV2`` , ``GetResourcesV2`` , and ``GetResourceStatisticsV2`` APIs. For more information, see `Automation rules <https://docs.aws.amazon.com/securityhub/latest/userguide/automation-rules.html>`_ in the *AWS Security Hub User Guide* .
+            :param value: The string filter value. Filter values are case sensitive. For example, the product name for control-based findings is ``Security Hub`` . If you provide ``security hub`` as the filter value, there's no match.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-stringfilter.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_securityhub as securityhub
+                
+                string_filter_property = securityhub.CfnAutomationRuleV2.StringFilterProperty(
+                    comparison="comparison",
+                    value="value"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__5b950655292e8a1a447bc6fef9ec46917dffad72edcfb67f4bae7b7bdbd3100b)
+                check_type(argname="argument comparison", value=comparison, expected_type=type_hints["comparison"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "comparison": comparison,
+                "value": value,
+            }
+
+        @builtins.property
+        def comparison(self) -> builtins.str:
+            '''The condition to apply to a string value when filtering Security Hub findings.
+
+            To search for values that have the filter value, use one of the following comparison operators:
+
+            - To search for values that include the filter value, use ``CONTAINS`` . For example, the filter ``Title CONTAINS CloudFront`` matches findings that have a ``Title`` that includes the string CloudFront.
+            - To search for values that exactly match the filter value, use ``EQUALS`` . For example, the filter ``AwsAccountId EQUALS 123456789012`` only matches findings that have an account ID of ``123456789012`` .
+            - To search for values that start with the filter value, use ``PREFIX`` . For example, the filter ``ResourceRegion PREFIX us`` matches findings that have a ``ResourceRegion`` that starts with ``us`` . A ``ResourceRegion`` that starts with a different value, such as ``af`` , ``ap`` , or ``ca`` , doesn't match.
+
+            ``CONTAINS`` , ``EQUALS`` , and ``PREFIX`` filters on the same field are joined by ``OR`` . A finding matches if it matches any one of those filters. For example, the filters ``Title CONTAINS CloudFront OR Title CONTAINS CloudWatch`` match a finding that includes either ``CloudFront`` , ``CloudWatch`` , or both strings in the title.
+
+            To search for values that don’t have the filter value, use one of the following comparison operators:
+
+            - To search for values that exclude the filter value, use ``NOT_CONTAINS`` . For example, the filter ``Title NOT_CONTAINS CloudFront`` matches findings that have a ``Title`` that excludes the string CloudFront.
+            - To search for values other than the filter value, use ``NOT_EQUALS`` . For example, the filter ``AwsAccountId NOT_EQUALS 123456789012`` only matches findings that have an account ID other than ``123456789012`` .
+            - To search for values that don't start with the filter value, use ``PREFIX_NOT_EQUALS`` . For example, the filter ``ResourceRegion PREFIX_NOT_EQUALS us`` matches findings with a ``ResourceRegion`` that starts with a value other than ``us`` .
+
+            ``NOT_CONTAINS`` , ``NOT_EQUALS`` , and ``PREFIX_NOT_EQUALS`` filters on the same field are joined by ``AND`` . A finding matches only if it matches all of those filters. For example, the filters ``Title NOT_CONTAINS CloudFront AND Title NOT_CONTAINS CloudWatch`` match a finding that excludes both ``CloudFront`` and ``CloudWatch`` in the title.
+
+            You can’t have both a ``CONTAINS`` filter and a ``NOT_CONTAINS`` filter on the same field. Similarly, you can't provide both an ``EQUALS`` filter and a ``NOT_EQUALS`` or ``PREFIX_NOT_EQUALS`` filter on the same field. Combining filters in this way returns an error. ``CONTAINS`` filters can only be used with other ``CONTAINS`` filters. ``NOT_CONTAINS`` filters can only be used with other ``NOT_CONTAINS`` filters.
+
+            You can combine ``PREFIX`` filters with ``NOT_EQUALS`` or ``PREFIX_NOT_EQUALS`` filters for the same field. Security Hub first processes the ``PREFIX`` filters, and then the ``NOT_EQUALS`` or ``PREFIX_NOT_EQUALS`` filters.
+
+            For example, for the following filters, Security Hub first identifies findings that have resource types that start with either ``AwsIam`` or ``AwsEc2`` . It then excludes findings that have a resource type of ``AwsIamPolicy`` and findings that have a resource type of ``AwsEc2NetworkInterface`` .
+
+            - ``ResourceType PREFIX AwsIam``
+            - ``ResourceType PREFIX AwsEc2``
+            - ``ResourceType NOT_EQUALS AwsIamPolicy``
+            - ``ResourceType NOT_EQUALS AwsEc2NetworkInterface``
+
+            ``CONTAINS`` and ``NOT_CONTAINS`` operators can be used only with automation rules V1. ``CONTAINS_WORD`` operator is only supported in ``GetFindingsV2`` , ``GetFindingStatisticsV2`` , ``GetResourcesV2`` , and ``GetResourceStatisticsV2`` APIs. For more information, see `Automation rules <https://docs.aws.amazon.com/securityhub/latest/userguide/automation-rules.html>`_ in the *AWS Security Hub User Guide* .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-stringfilter.html#cfn-securityhub-automationrulev2-stringfilter-comparison
+            '''
+            result = self._values.get("comparison")
+            assert result is not None, "Required property 'comparison' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def value(self) -> builtins.str:
+            '''The string filter value.
+
+            Filter values are case sensitive. For example, the product name for control-based findings is ``Security Hub`` . If you provide ``security hub`` as the filter value, there's no match.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrulev2-stringfilter.html#cfn-securityhub-automationrulev2-stringfilter-value
+            '''
+            result = self._values.get("value")
+            assert result is not None, "Required property 'value' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "StringFilterProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_securityhub.CfnAutomationRuleV2Props",
+    jsii_struct_bases=[],
+    name_mapping={
+        "actions": "actions",
+        "criteria": "criteria",
+        "description": "description",
+        "rule_name": "ruleName",
+        "rule_order": "ruleOrder",
+        "rule_status": "ruleStatus",
+        "tags": "tags",
+    },
+)
+class CfnAutomationRuleV2Props:
+    def __init__(
+        self,
+        *,
+        actions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRuleV2.AutomationRulesActionV2Property, typing.Dict[builtins.str, typing.Any]]]]],
+        criteria: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRuleV2.CriteriaProperty, typing.Dict[builtins.str, typing.Any]]],
+        description: builtins.str,
+        rule_name: builtins.str,
+        rule_order: jsii.Number,
+        rule_status: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAutomationRuleV2``.
+
+        :param actions: A list of actions to be performed when the rule criteria is met.
+        :param criteria: The filtering type and configuration of the automation rule.
+        :param description: A description of the V2 automation rule.
+        :param rule_name: The name of the V2 automation rule.
+        :param rule_order: The value for the rule priority.
+        :param rule_status: The status of the V2 automation rule.
+        :param tags: A list of key-value pairs associated with the V2 automation rule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-automationrulev2.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_securityhub as securityhub
+            
+            cfn_automation_rule_v2_props = securityhub.CfnAutomationRuleV2Props(
+                actions=[securityhub.CfnAutomationRuleV2.AutomationRulesActionV2Property(
+                    type="type",
+            
+                    # the properties below are optional
+                    external_integration_configuration=securityhub.CfnAutomationRuleV2.ExternalIntegrationConfigurationProperty(
+                        connector_arn="connectorArn"
+                    ),
+                    finding_fields_update=securityhub.CfnAutomationRuleV2.AutomationRulesFindingFieldsUpdateV2Property(
+                        comment="comment",
+                        severity_id=123,
+                        status_id=123
+                    )
+                )],
+                criteria=securityhub.CfnAutomationRuleV2.CriteriaProperty(
+                    ocsf_finding_criteria=securityhub.CfnAutomationRuleV2.OcsfFindingFiltersProperty(
+                        composite_filters=[securityhub.CfnAutomationRuleV2.CompositeFilterProperty(
+                            boolean_filters=[securityhub.CfnAutomationRuleV2.OcsfBooleanFilterProperty(
+                                field_name="fieldName",
+                                filter=securityhub.CfnAutomationRuleV2.BooleanFilterProperty(
+                                    value=False
+                                )
+                            )],
+                            date_filters=[securityhub.CfnAutomationRuleV2.OcsfDateFilterProperty(
+                                field_name="fieldName",
+                                filter=securityhub.CfnAutomationRuleV2.DateFilterProperty(
+                                    date_range=securityhub.CfnAutomationRuleV2.DateRangeProperty(
+                                        unit="unit",
+                                        value=123
+                                    ),
+                                    end="end",
+                                    start="start"
+                                )
+                            )],
+                            map_filters=[securityhub.CfnAutomationRuleV2.OcsfMapFilterProperty(
+                                field_name="fieldName",
+                                filter=securityhub.CfnAutomationRuleV2.MapFilterProperty(
+                                    comparison="comparison",
+                                    key="key",
+                                    value="value"
+                                )
+                            )],
+                            number_filters=[securityhub.CfnAutomationRuleV2.OcsfNumberFilterProperty(
+                                field_name="fieldName",
+                                filter=securityhub.CfnAutomationRuleV2.NumberFilterProperty(
+                                    eq=123,
+                                    gte=123,
+                                    lte=123
+                                )
+                            )],
+                            operator="operator",
+                            string_filters=[securityhub.CfnAutomationRuleV2.OcsfStringFilterProperty(
+                                field_name="fieldName",
+                                filter=securityhub.CfnAutomationRuleV2.StringFilterProperty(
+                                    comparison="comparison",
+                                    value="value"
+                                )
+                            )]
+                        )],
+                        composite_operator="compositeOperator"
+                    )
+                ),
+                description="description",
+                rule_name="ruleName",
+                rule_order=123,
+            
+                # the properties below are optional
+                rule_status="ruleStatus",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__96bf6ac88f339a8dafdb0d899cf9e7c5353a67121a8a0b34137e9631c11f04a4)
+            check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
+            check_type(argname="argument criteria", value=criteria, expected_type=type_hints["criteria"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument rule_name", value=rule_name, expected_type=type_hints["rule_name"])
+            check_type(argname="argument rule_order", value=rule_order, expected_type=type_hints["rule_order"])
+            check_type(argname="argument rule_status", value=rule_status, expected_type=type_hints["rule_status"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "actions": actions,
+            "criteria": criteria,
+            "description": description,
+            "rule_name": rule_name,
+            "rule_order": rule_order,
+        }
+        if rule_status is not None:
+            self._values["rule_status"] = rule_status
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def actions(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAutomationRuleV2.AutomationRulesActionV2Property]]]:
+        '''A list of actions to be performed when the rule criteria is met.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-automationrulev2.html#cfn-securityhub-automationrulev2-actions
+        '''
+        result = self._values.get("actions")
+        assert result is not None, "Required property 'actions' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAutomationRuleV2.AutomationRulesActionV2Property]]], result)
+
+    @builtins.property
+    def criteria(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, CfnAutomationRuleV2.CriteriaProperty]:
+        '''The filtering type and configuration of the automation rule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-automationrulev2.html#cfn-securityhub-automationrulev2-criteria
+        '''
+        result = self._values.get("criteria")
+        assert result is not None, "Required property 'criteria' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnAutomationRuleV2.CriteriaProperty], result)
+
+    @builtins.property
+    def description(self) -> builtins.str:
+        '''A description of the V2 automation rule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-automationrulev2.html#cfn-securityhub-automationrulev2-description
+        '''
+        result = self._values.get("description")
+        assert result is not None, "Required property 'description' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def rule_name(self) -> builtins.str:
+        '''The name of the V2 automation rule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-automationrulev2.html#cfn-securityhub-automationrulev2-rulename
+        '''
+        result = self._values.get("rule_name")
+        assert result is not None, "Required property 'rule_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def rule_order(self) -> jsii.Number:
+        '''The value for the rule priority.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-automationrulev2.html#cfn-securityhub-automationrulev2-ruleorder
+        '''
+        result = self._values.get("rule_order")
+        assert result is not None, "Required property 'rule_order' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def rule_status(self) -> typing.Optional[builtins.str]:
+        '''The status of the V2 automation rule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-automationrulev2.html#cfn-securityhub-automationrulev2-rulestatus
+        '''
+        result = self._values.get("rule_status")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''A list of key-value pairs associated with the V2 automation rule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-automationrulev2.html#cfn-securityhub-automationrulev2-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAutomationRuleV2Props(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -4676,6 +7012,187 @@ class CfnHubProps:
 
     def __repr__(self) -> str:
         return "CfnHubProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+class CfnHubV2(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_securityhub.CfnHubV2",
+):
+    '''Returns details about the service resource in your account.
+
+    This API is in private preview and subject to change.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-hubv2.html
+    :cloudformationResource: AWS::SecurityHub::HubV2
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_securityhub as securityhub
+        
+        cfn_hub_v2 = securityhub.CfnHubV2(self, "MyCfnHubV2",
+            tags={
+                "tags_key": "tags"
+            }
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param tags: The tags to add to the hub V2 resource when you enable Security Hub.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8a938d6f02e5cc9357e7ae741d101719d29a8539be57e63f7148a944106dccc1)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnHubV2Props(tags=tags)
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e1dac3a23d94b8e2be0be6ae5d6d56142199c92d98f138b490e9a4036d9897ed)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f92498b56c6fcd7d027c6ff068634a704396d6376eee870869ddf3ffcd039b7a)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrHubV2Arn")
+    def attr_hub_v2_arn(self) -> builtins.str:
+        '''The ARN of the service resource.
+
+        :cloudformationAttribute: HubV2Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrHubV2Arn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSubscribedAt")
+    def attr_subscribed_at(self) -> builtins.str:
+        '''The date and time when the service was enabled in the account.
+
+        :cloudformationAttribute: SubscribedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSubscribedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''The tags to add to the hub V2 resource when you enable Security Hub.'''
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6e41e91c55f6f2a331ab968ca257da397cb59475bac947e28be333f8f3cdc7cb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_securityhub.CfnHubV2Props",
+    jsii_struct_bases=[],
+    name_mapping={"tags": "tags"},
+)
+class CfnHubV2Props:
+    def __init__(
+        self,
+        *,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnHubV2``.
+
+        :param tags: The tags to add to the hub V2 resource when you enable Security Hub.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-hubv2.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_securityhub as securityhub
+            
+            cfn_hub_v2_props = securityhub.CfnHubV2Props(
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5701f591c6bb91f50e9187f704248e0e20e49f80fdbb611b3664c43166095344)
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''The tags to add to the hub V2 resource when you enable Security Hub.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-hubv2.html#cfn-securityhub-hubv2-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnHubV2Props(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -8186,7 +10703,7 @@ class CfnInsight(
         def __init__(self, *, comparison: builtins.str, value: builtins.str) -> None:
             '''A string filter for filtering AWS Security Hub findings.
 
-            :param comparison: The condition to apply to a string value when filtering Security Hub findings. To search for values that have the filter value, use one of the following comparison operators: - To search for values that include the filter value, use ``CONTAINS`` . For example, the filter ``Title CONTAINS CloudFront`` matches findings that have a ``Title`` that includes the string CloudFront. - To search for values that exactly match the filter value, use ``EQUALS`` . For example, the filter ``AwsAccountId EQUALS 123456789012`` only matches findings that have an account ID of ``123456789012`` . - To search for values that start with the filter value, use ``PREFIX`` . For example, the filter ``ResourceRegion PREFIX us`` matches findings that have a ``ResourceRegion`` that starts with ``us`` . A ``ResourceRegion`` that starts with a different value, such as ``af`` , ``ap`` , or ``ca`` , doesn't match. ``CONTAINS`` , ``EQUALS`` , and ``PREFIX`` filters on the same field are joined by ``OR`` . A finding matches if it matches any one of those filters. For example, the filters ``Title CONTAINS CloudFront OR Title CONTAINS CloudWatch`` match a finding that includes either ``CloudFront`` , ``CloudWatch`` , or both strings in the title. To search for values that don’t have the filter value, use one of the following comparison operators: - To search for values that exclude the filter value, use ``NOT_CONTAINS`` . For example, the filter ``Title NOT_CONTAINS CloudFront`` matches findings that have a ``Title`` that excludes the string CloudFront. - To search for values other than the filter value, use ``NOT_EQUALS`` . For example, the filter ``AwsAccountId NOT_EQUALS 123456789012`` only matches findings that have an account ID other than ``123456789012`` . - To search for values that don't start with the filter value, use ``PREFIX_NOT_EQUALS`` . For example, the filter ``ResourceRegion PREFIX_NOT_EQUALS us`` matches findings with a ``ResourceRegion`` that starts with a value other than ``us`` . ``NOT_CONTAINS`` , ``NOT_EQUALS`` , and ``PREFIX_NOT_EQUALS`` filters on the same field are joined by ``AND`` . A finding matches only if it matches all of those filters. For example, the filters ``Title NOT_CONTAINS CloudFront AND Title NOT_CONTAINS CloudWatch`` match a finding that excludes both ``CloudFront`` and ``CloudWatch`` in the title. You can’t have both a ``CONTAINS`` filter and a ``NOT_CONTAINS`` filter on the same field. Similarly, you can't provide both an ``EQUALS`` filter and a ``NOT_EQUALS`` or ``PREFIX_NOT_EQUALS`` filter on the same field. Combining filters in this way returns an error. ``CONTAINS`` filters can only be used with other ``CONTAINS`` filters. ``NOT_CONTAINS`` filters can only be used with other ``NOT_CONTAINS`` filters. You can combine ``PREFIX`` filters with ``NOT_EQUALS`` or ``PREFIX_NOT_EQUALS`` filters for the same field. Security Hub first processes the ``PREFIX`` filters, and then the ``NOT_EQUALS`` or ``PREFIX_NOT_EQUALS`` filters. For example, for the following filters, Security Hub first identifies findings that have resource types that start with either ``AwsIam`` or ``AwsEc2`` . It then excludes findings that have a resource type of ``AwsIamPolicy`` and findings that have a resource type of ``AwsEc2NetworkInterface`` . - ``ResourceType PREFIX AwsIam`` - ``ResourceType PREFIX AwsEc2`` - ``ResourceType NOT_EQUALS AwsIamPolicy`` - ``ResourceType NOT_EQUALS AwsEc2NetworkInterface`` ``CONTAINS`` and ``NOT_CONTAINS`` operators can be used only with automation rules. For more information, see `Automation rules <https://docs.aws.amazon.com/securityhub/latest/userguide/automation-rules.html>`_ in the *AWS Security Hub User Guide* .
+            :param comparison: The condition to apply to a string value when filtering Security Hub findings. To search for values that have the filter value, use one of the following comparison operators: - To search for values that include the filter value, use ``CONTAINS`` . For example, the filter ``Title CONTAINS CloudFront`` matches findings that have a ``Title`` that includes the string CloudFront. - To search for values that exactly match the filter value, use ``EQUALS`` . For example, the filter ``AwsAccountId EQUALS 123456789012`` only matches findings that have an account ID of ``123456789012`` . - To search for values that start with the filter value, use ``PREFIX`` . For example, the filter ``ResourceRegion PREFIX us`` matches findings that have a ``ResourceRegion`` that starts with ``us`` . A ``ResourceRegion`` that starts with a different value, such as ``af`` , ``ap`` , or ``ca`` , doesn't match. ``CONTAINS`` , ``EQUALS`` , and ``PREFIX`` filters on the same field are joined by ``OR`` . A finding matches if it matches any one of those filters. For example, the filters ``Title CONTAINS CloudFront OR Title CONTAINS CloudWatch`` match a finding that includes either ``CloudFront`` , ``CloudWatch`` , or both strings in the title. To search for values that don’t have the filter value, use one of the following comparison operators: - To search for values that exclude the filter value, use ``NOT_CONTAINS`` . For example, the filter ``Title NOT_CONTAINS CloudFront`` matches findings that have a ``Title`` that excludes the string CloudFront. - To search for values other than the filter value, use ``NOT_EQUALS`` . For example, the filter ``AwsAccountId NOT_EQUALS 123456789012`` only matches findings that have an account ID other than ``123456789012`` . - To search for values that don't start with the filter value, use ``PREFIX_NOT_EQUALS`` . For example, the filter ``ResourceRegion PREFIX_NOT_EQUALS us`` matches findings with a ``ResourceRegion`` that starts with a value other than ``us`` . ``NOT_CONTAINS`` , ``NOT_EQUALS`` , and ``PREFIX_NOT_EQUALS`` filters on the same field are joined by ``AND`` . A finding matches only if it matches all of those filters. For example, the filters ``Title NOT_CONTAINS CloudFront AND Title NOT_CONTAINS CloudWatch`` match a finding that excludes both ``CloudFront`` and ``CloudWatch`` in the title. You can’t have both a ``CONTAINS`` filter and a ``NOT_CONTAINS`` filter on the same field. Similarly, you can't provide both an ``EQUALS`` filter and a ``NOT_EQUALS`` or ``PREFIX_NOT_EQUALS`` filter on the same field. Combining filters in this way returns an error. ``CONTAINS`` filters can only be used with other ``CONTAINS`` filters. ``NOT_CONTAINS`` filters can only be used with other ``NOT_CONTAINS`` filters. You can combine ``PREFIX`` filters with ``NOT_EQUALS`` or ``PREFIX_NOT_EQUALS`` filters for the same field. Security Hub first processes the ``PREFIX`` filters, and then the ``NOT_EQUALS`` or ``PREFIX_NOT_EQUALS`` filters. For example, for the following filters, Security Hub first identifies findings that have resource types that start with either ``AwsIam`` or ``AwsEc2`` . It then excludes findings that have a resource type of ``AwsIamPolicy`` and findings that have a resource type of ``AwsEc2NetworkInterface`` . - ``ResourceType PREFIX AwsIam`` - ``ResourceType PREFIX AwsEc2`` - ``ResourceType NOT_EQUALS AwsIamPolicy`` - ``ResourceType NOT_EQUALS AwsEc2NetworkInterface`` ``CONTAINS`` and ``NOT_CONTAINS`` operators can be used only with automation rules V1. ``CONTAINS_WORD`` operator is only supported in ``GetFindingsV2`` , ``GetFindingStatisticsV2`` , ``GetResourcesV2`` , and ``GetResourceStatisticsV2`` APIs. For more information, see `Automation rules <https://docs.aws.amazon.com/securityhub/latest/userguide/automation-rules.html>`_ in the *AWS Security Hub User Guide* .
             :param value: The string filter value. Filter values are case sensitive. For example, the product name for control-based findings is ``Security Hub`` . If you provide ``security hub`` as the filter value, there's no match.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-insight-stringfilter.html
@@ -8243,7 +10760,7 @@ class CfnInsight(
             - ``ResourceType NOT_EQUALS AwsIamPolicy``
             - ``ResourceType NOT_EQUALS AwsEc2NetworkInterface``
 
-            ``CONTAINS`` and ``NOT_CONTAINS`` operators can be used only with automation rules. For more information, see `Automation rules <https://docs.aws.amazon.com/securityhub/latest/userguide/automation-rules.html>`_ in the *AWS Security Hub User Guide* .
+            ``CONTAINS`` and ``NOT_CONTAINS`` operators can be used only with automation rules V1. ``CONTAINS_WORD`` operator is only supported in ``GetFindingsV2`` , ``GetFindingStatisticsV2`` , ``GetResourcesV2`` , and ``GetResourceStatisticsV2`` APIs. For more information, see `Automation rules <https://docs.aws.amazon.com/securityhub/latest/userguide/automation-rules.html>`_ in the *AWS Security Hub User Guide* .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-insight-stringfilter.html#cfn-securityhub-insight-stringfilter-comparison
             '''
@@ -10422,8 +12939,12 @@ class CfnStandardProps:
 
 
 __all__ = [
+    "CfnAggregatorV2",
+    "CfnAggregatorV2Props",
     "CfnAutomationRule",
     "CfnAutomationRuleProps",
+    "CfnAutomationRuleV2",
+    "CfnAutomationRuleV2Props",
     "CfnConfigurationPolicy",
     "CfnConfigurationPolicyProps",
     "CfnDelegatedAdmin",
@@ -10432,6 +12953,8 @@ __all__ = [
     "CfnFindingAggregatorProps",
     "CfnHub",
     "CfnHubProps",
+    "CfnHubV2",
+    "CfnHubV2Props",
     "CfnInsight",
     "CfnInsightProps",
     "CfnOrganizationConfiguration",
@@ -10447,6 +12970,56 @@ __all__ = [
 ]
 
 publication.publish()
+
+def _typecheckingstub__a48a2a082be753c7ff9a23ae8720fc6090537bc7754b3949c569c91cc2d97185(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    linked_regions: typing.Sequence[builtins.str],
+    region_linking_mode: builtins.str,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__faa540694e43a0e61feeb3f53848b1f6e9494b6ed7da21b25aac134881132c39(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e6872b5e370c8e8f4d83602fa651c03fde81b36e7c5bc3b28fa097f66a87ee66(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__73719aabf2def1251bbcce62564af2561a7db568f2cc383d665c93c84e03855c(
+    value: typing.List[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3f12f6fa7491c9cf6429ed03592fa2e0b84dd1df61b65fe9caf3ffa327ed324f(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e47a206d80ca672182e6fba3a9c614bda1d391a22aa37078d5b442ce9858a656(
+    value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ba603e1d6925ab7babf45e555f2f6c66e3573a9e5841cd7b5ebf0d444664667e(
+    *,
+    linked_regions: typing.Sequence[builtins.str],
+    region_linking_mode: builtins.str,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__90c663d2946359b509542feafdcb3d89f11ca9e30a214aae02ea3d6b354c9846(
     scope: _constructs_77d1e7e8.Construct,
@@ -10671,6 +13244,230 @@ def _typecheckingstub__221241b44c93ea569fcf69aaaade0ce7cf31b7343bc3d072d74ccd168
     rule_name: builtins.str,
     rule_order: jsii.Number,
     is_terminal: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    rule_status: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d67bab57d18f8318b1f3e5e5aee0425c6d6ad2a73c3def328f22c6e22aa173d4(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    actions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRuleV2.AutomationRulesActionV2Property, typing.Dict[builtins.str, typing.Any]]]]],
+    criteria: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRuleV2.CriteriaProperty, typing.Dict[builtins.str, typing.Any]]],
+    description: builtins.str,
+    rule_name: builtins.str,
+    rule_order: jsii.Number,
+    rule_status: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__148b5ad52f495a944fc188c33e9ce4790af9aae05ed5382a214fb325dffaf8bb(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2f9d1f99336eb3a75c15b25a178234de86a8bfdf4875bf0ce1cd38b114f64593(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6347d27f0ba2cf053f67fe33ad975271c9a681e994a3d68259bee4b4cecff923(
+    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAutomationRuleV2.AutomationRulesActionV2Property]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a5adb921eebdd2ef5c8fd115e4be769f443780102c814dd43fe745285e68ab8e(
+    value: typing.Union[_IResolvable_da3f097b, CfnAutomationRuleV2.CriteriaProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__125c937bc05766b550dc71a5d1d56e19a69b4ef80f88b4ef38e2e5e003477882(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d67119779ecc92e0cdf9224e19bbf9519a8b3464aefe9656b42f750f87734d6a(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0756c118bad7b3ecf44f8e5b333e1b12ae1f8fcc93cfb9994a9b01b1e420c800(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9d3ccd09d54183efd7f79c4f4fa028ef4ff9dcf82d873ad68a9b84292b42fca1(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c4cafeb60a0ac8c7088697f2b7bd61bc6887761dd3405c6d9a418c848d6a35ed(
+    value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c5861ee659ea2189f4b0d18349855ec99f8b11ef0e6bc925783f2b7a3911d61f(
+    *,
+    type: builtins.str,
+    external_integration_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRuleV2.ExternalIntegrationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    finding_fields_update: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRuleV2.AutomationRulesFindingFieldsUpdateV2Property, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4f90f98d77f04ef40f0534b1d8b8660117e52394e43158b5d7f298d3bc8625cc(
+    *,
+    comment: typing.Optional[builtins.str] = None,
+    severity_id: typing.Optional[jsii.Number] = None,
+    status_id: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bf1f4033b6ab73724f96c846c6e76e7a50093a23574134c07515d9390346e33b(
+    *,
+    value: typing.Union[builtins.bool, _IResolvable_da3f097b],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ef5252b213e349428bc417b1dd29e26751fcc25bde34b016a3eaf19d58151f2e(
+    *,
+    boolean_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRuleV2.OcsfBooleanFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    date_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRuleV2.OcsfDateFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    map_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRuleV2.OcsfMapFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    number_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRuleV2.OcsfNumberFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    operator: typing.Optional[builtins.str] = None,
+    string_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRuleV2.OcsfStringFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1ba9d632d542a300365cf2fd23759ae4458525cb9c085d0a969ca6b488962b63(
+    *,
+    ocsf_finding_criteria: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRuleV2.OcsfFindingFiltersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3d21b2c9e81f0b05c0b5eae1aed977679e202dd65257b012d2ffca3404d4bce2(
+    *,
+    date_range: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRuleV2.DateRangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    end: typing.Optional[builtins.str] = None,
+    start: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6cd41336e92eb03ceeaab0c8bb04ecdcbaa676b6a22a3cd4a1f8ba069311dc05(
+    *,
+    unit: builtins.str,
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a2fd9a1462ca1711dacb92a0d07d564ed40fe787a40d0cfcdebf274371c09173(
+    *,
+    connector_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3ce382a730a7d946b88f0a9bbc8ee839e8cc4048403520f61f9601274312c198(
+    *,
+    comparison: builtins.str,
+    key: builtins.str,
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__647dc97c620209dca2753ac34dae13a3a6afc9916dad52290296e2565ad48048(
+    *,
+    eq: typing.Optional[jsii.Number] = None,
+    gte: typing.Optional[jsii.Number] = None,
+    lte: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a42eba30c4eef0c19b5165ead711c40b18983e8c78c7eaafba9deb680ec94bfd(
+    *,
+    field_name: builtins.str,
+    filter: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRuleV2.BooleanFilterProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0835da7838d6730412395869f245eb4865e7ae2b63a637022d4a3475231c342f(
+    *,
+    field_name: builtins.str,
+    filter: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRuleV2.DateFilterProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__67b27a03af9c079f8cc42cdfa5f8df4adc151b555e1080317dfc2e8c5873519c(
+    *,
+    composite_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRuleV2.CompositeFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    composite_operator: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b733ec921abf18e15f42cbdb443df518e81d6c48b4cf4b2397f4812a20240777(
+    *,
+    field_name: builtins.str,
+    filter: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRuleV2.MapFilterProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__96733fb6348f5b5cd478197a8fee3f33665015a9b17eb4ce28d9ca28862964c7(
+    *,
+    field_name: builtins.str,
+    filter: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRuleV2.NumberFilterProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__664006d14466473dd08a13af9d06be4f13672817d578a3e7b6c2e476b7e219f0(
+    *,
+    field_name: builtins.str,
+    filter: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRuleV2.StringFilterProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5b950655292e8a1a447bc6fef9ec46917dffad72edcfb67f4bae7b7bdbd3100b(
+    *,
+    comparison: builtins.str,
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__96bf6ac88f339a8dafdb0d899cf9e7c5353a67121a8a0b34137e9631c11f04a4(
+    *,
+    actions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRuleV2.AutomationRulesActionV2Property, typing.Dict[builtins.str, typing.Any]]]]],
+    criteria: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRuleV2.CriteriaProperty, typing.Dict[builtins.str, typing.Any]]],
+    description: builtins.str,
+    rule_name: builtins.str,
+    rule_order: jsii.Number,
     rule_status: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
@@ -10920,6 +13717,40 @@ def _typecheckingstub__9a38c34c1f2742403521eb4af2098475d7afb878d3f9aba37048ae543
     control_finding_generator: typing.Optional[builtins.str] = None,
     enable_default_standards: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     tags: typing.Any = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8a938d6f02e5cc9357e7ae741d101719d29a8539be57e63f7148a944106dccc1(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e1dac3a23d94b8e2be0be6ae5d6d56142199c92d98f138b490e9a4036d9897ed(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f92498b56c6fcd7d027c6ff068634a704396d6376eee870869ddf3ffcd039b7a(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6e41e91c55f6f2a331ab968ca257da397cb59475bac947e28be333f8f3cdc7cb(
+    value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5701f591c6bb91f50e9187f704248e0e20e49f80fdbb611b3664c43166095344(
+    *,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

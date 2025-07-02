@@ -133,6 +133,26 @@ job_queue_spec:
                 f"'max_concurrency' must be an int (it is {type(max_concurrency)})."
             )
 
+    auto_termination_threshold_job_count: Optional[int] = field(
+        default=None,
+        metadata={
+            "docstring": "Maximum number of jobs the cluster can run before it "
+            "becomes eligible for termination"
+        },
+    )
+
+    def _validate_auto_termination_threshold_job_count(
+        self, auto_termination_threshold_job_count: Optional[int]
+    ):
+        if auto_termination_threshold_job_count is None:
+            return
+        if not isinstance(auto_termination_threshold_job_count, int):
+            raise TypeError(
+                f"'auto_termination_threshold_job_count' must be an int (it is {type(auto_termination_threshold_job_count)})."
+            )
+        if auto_termination_threshold_job_count <= 0:
+            raise ValueError("'auto_termination_threshold_job_count' should be > 0")
+
 
 @dataclass(frozen=True)
 class JobQueueConfig(ModelBase):

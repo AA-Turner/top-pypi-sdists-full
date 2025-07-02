@@ -38,7 +38,8 @@ class JobQueueSpec(object):
         'compute_config_id': 'str',
         'cluster_environment_build_id': 'str',
         'max_concurrency': 'int',
-        'idle_timeout_sec': 'int'
+        'idle_timeout_sec': 'int',
+        'auto_termination_threshold_job_count': 'int'
     }
 
     attribute_map = {
@@ -47,10 +48,11 @@ class JobQueueSpec(object):
         'compute_config_id': 'compute_config_id',
         'cluster_environment_build_id': 'cluster_environment_build_id',
         'max_concurrency': 'max_concurrency',
-        'idle_timeout_sec': 'idle_timeout_sec'
+        'idle_timeout_sec': 'idle_timeout_sec',
+        'auto_termination_threshold_job_count': 'auto_termination_threshold_job_count'
     }
 
-    def __init__(self, job_queue_name=None, execution_mode=None, compute_config_id=None, cluster_environment_build_id=None, max_concurrency=1, idle_timeout_sec=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, job_queue_name=None, execution_mode=None, compute_config_id=None, cluster_environment_build_id=None, max_concurrency=1, idle_timeout_sec=None, auto_termination_threshold_job_count=None, local_vars_configuration=None):  # noqa: E501
         """JobQueueSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -62,6 +64,7 @@ class JobQueueSpec(object):
         self._cluster_environment_build_id = None
         self._max_concurrency = None
         self._idle_timeout_sec = None
+        self._auto_termination_threshold_job_count = None
         self.discriminator = None
 
         if job_queue_name is not None:
@@ -75,6 +78,8 @@ class JobQueueSpec(object):
         if max_concurrency is not None:
             self.max_concurrency = max_concurrency
         self.idle_timeout_sec = idle_timeout_sec
+        if auto_termination_threshold_job_count is not None:
+            self.auto_termination_threshold_job_count = auto_termination_threshold_job_count
 
     @property
     def job_queue_name(self):
@@ -215,6 +220,29 @@ class JobQueueSpec(object):
             raise ValueError("Invalid value for `idle_timeout_sec`, must not be `None`")  # noqa: E501
 
         self._idle_timeout_sec = idle_timeout_sec
+
+    @property
+    def auto_termination_threshold_job_count(self):
+        """Gets the auto_termination_threshold_job_count of this JobQueueSpec.  # noqa: E501
+
+        Maximum number of jobs the cluster can run before it becomes eligible for termination.  # noqa: E501
+
+        :return: The auto_termination_threshold_job_count of this JobQueueSpec.  # noqa: E501
+        :rtype: int
+        """
+        return self._auto_termination_threshold_job_count
+
+    @auto_termination_threshold_job_count.setter
+    def auto_termination_threshold_job_count(self, auto_termination_threshold_job_count):
+        """Sets the auto_termination_threshold_job_count of this JobQueueSpec.
+
+        Maximum number of jobs the cluster can run before it becomes eligible for termination.  # noqa: E501
+
+        :param auto_termination_threshold_job_count: The auto_termination_threshold_job_count of this JobQueueSpec.  # noqa: E501
+        :type: int
+        """
+
+        self._auto_termination_threshold_job_count = auto_termination_threshold_job_count
 
     def to_dict(self):
         """Returns the model properties as a dict"""

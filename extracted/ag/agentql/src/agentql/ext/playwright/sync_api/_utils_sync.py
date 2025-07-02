@@ -28,9 +28,7 @@ Utility functions for playwright sync API.  Functions here are mirrored with _ut
 log = logging.getLogger(__name__)
 
 
-def add_request_event_listeners_for_page_monitor_shared(
-    page: Page, monitor: Union[PageActivityMonitor, None]
-):
+def add_request_event_listeners_for_page_monitor_shared(page: Page, monitor: Union[PageActivityMonitor, None]):
     if not monitor:
         raise PageMonitorNotInitializedError()
 
@@ -43,10 +41,7 @@ def add_request_event_listeners_for_page_monitor_shared(
     except Error:
         start_time = time.time()
         while True:
-            if (
-                monitor.get_load_status()
-                or time.time() - start_time > WEBSITE_AVG_LOAD_TIME_SECONDS
-            ):
+            if monitor.get_load_status() or time.time() - start_time > WEBSITE_AVG_LOAD_TIME_SECONDS:
                 break
             page.wait_for_timeout(200)
 
@@ -84,18 +79,13 @@ def determine_load_state_shared(
         # If the page is navigating, the evaluate function will raise an error. In this case, we wait for the page to load.
         except Error:
             while True:
-                if (
-                    monitor.get_load_status()
-                    or time.time() - start_time > WEBSITE_AVG_LOAD_TIME_SECONDS
-                ):
+                if monitor.get_load_status() or time.time() - start_time > WEBSITE_AVG_LOAD_TIME_SECONDS:
                     break
                 page.wait_for_timeout(200)
             # monitor.check_conditions() is expecting milliseconds
             last_updated_timestamp = time.time() * 1000
 
-        if monitor.is_page_ready(
-            start_time=start_time, last_active_dom_time_ms=last_updated_timestamp
-        ):
+        if monitor.is_page_ready(start_time=start_time, last_active_dom_time_ms=last_updated_timestamp):
             break
 
         if time.time() - start_time > timeout_seconds:
@@ -138,9 +128,7 @@ def _process_iframes(
         if iframe_path:
             iframe_path_to_send = f"{iframe_path}."
         iframe_path_to_send = f"{iframe_path_to_send}{iframe_id}"
-        iframe_accessibility_tree = _get_frame_accessibility_tree(
-            iframe, iframe_path_to_send, include_hidden
-        )
+        iframe_accessibility_tree = _get_frame_accessibility_tree(iframe, iframe_path_to_send, include_hidden)
 
         merge_iframe_tree_into_page(iframe_id, page_accessibility_tree, iframe_accessibility_tree)
 

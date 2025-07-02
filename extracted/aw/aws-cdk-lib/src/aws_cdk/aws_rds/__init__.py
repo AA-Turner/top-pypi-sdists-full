@@ -153,20 +153,6 @@ rds.DatabaseCluster(self, "DatabaseCluster",
 )
 ```
 
-To configure [the life cycle type of the cluster](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/extended-support.html), use the `engineLifecycleSupport` property:
-
-```python
-# vpc: ec2.IVpc
-
-
-rds.DatabaseCluster(self, "DatabaseCluster",
-    engine=rds.DatabaseClusterEngine.aurora_mysql(version=rds.AuroraMysqlEngineVersion.VER_3_07_0),
-    writer=rds.ClusterInstance.serverless_v2("writerInstance"),
-    vpc=vpc,
-    engine_lifecycle_support=rds.EngineLifecycleSupport.OPEN_SOURCE_RDS_EXTENDED_SUPPORT
-)
-```
-
 ### Updating the database instances in a cluster
 
 Database cluster instances may be updated in bulk or on a rolling basis.
@@ -1814,6 +1800,30 @@ rds.DatabaseCluster(self, "Cluster",
 )
 ```
 
+## Extended Support
+
+With Amazon RDS Extended Support, you can continue running your database on a major engine version past the RDS end of
+standard support date for an additional cost. To configure the life cycle type, use the `engineLifecycleSupport` property:
+
+```python
+# vpc: ec2.IVpc
+
+
+rds.DatabaseCluster(self, "DatabaseCluster",
+    engine=rds.DatabaseClusterEngine.aurora_mysql(version=rds.AuroraMysqlEngineVersion.VER_3_07_0),
+    writer=rds.ClusterInstance.serverless_v2("writerInstance"),
+    vpc=vpc,
+    engine_lifecycle_support=rds.EngineLifecycleSupport.OPEN_SOURCE_RDS_EXTENDED_SUPPORT
+)
+
+rds.DatabaseInstance(self, "DatabaseInstance",
+    engine=rds.DatabaseInstanceEngine.mysql(version=rds.MysqlEngineVersion.VER_8_0_39),
+    instance_type=ec2.InstanceType.of(ec2.InstanceClass.R7G, ec2.InstanceSize.LARGE),
+    vpc=vpc,
+    engine_lifecycle_support=rds.EngineLifecycleSupport.OPEN_SOURCE_RDS_EXTENDED_SUPPORT_DISABLED
+)
+```
+
 ## Importing existing DatabaseInstance
 
 ### Lookup DatabaseInstance by instanceIdentifier
@@ -2347,14 +2357,11 @@ class AuroraMysqlClusterEngineProps:
             
             cluster = rds.DatabaseCluster(self, "Database",
                 engine=rds.DatabaseClusterEngine.aurora_mysql(version=rds.AuroraMysqlEngineVersion.VER_3_01_0),
-                writer=rds.ClusterInstance.provisioned("writer",
-                    ca_certificate=rds.CaCertificate.RDS_CA_RSA2048_G1
+                writer=rds.ClusterInstance.provisioned("Instance",
+                    instance_type=ec2.InstanceType.of(ec2.InstanceClass.BURSTABLE3, ec2.InstanceSize.SMALL)
                 ),
-                readers=[
-                    rds.ClusterInstance.serverless_v2("reader",
-                        ca_certificate=rds.CaCertificate.of("custom-ca")
-                    )
-                ],
+                readers=[rds.ClusterInstance.provisioned("reader")],
+                instance_update_behaviour=rds.InstanceUpdateBehaviour.ROLLING,  # Optional - defaults to rds.InstanceUpdateBehaviour.BULK
                 vpc=vpc
             )
         '''
@@ -22529,18 +22536,19 @@ class DatabaseClusterProps:
             # vpc: ec2.Vpc
             
             cluster = rds.DatabaseCluster(self, "Database",
-                engine=rds.DatabaseClusterEngine.aurora_mysql(
-                    version=rds.AuroraMysqlEngineVersion.VER_3_03_0
+                engine=rds.DatabaseClusterEngine.aurora_mysql(version=rds.AuroraMysqlEngineVersion.VER_3_01_0),
+                credentials=rds.Credentials.from_generated_secret("clusteradmin"),  # Optional - will default to 'admin' username and generated password
+                writer=rds.ClusterInstance.provisioned("writer",
+                    publicly_accessible=False
                 ),
-                writer=rds.ClusterInstance.provisioned("writer"),
+                readers=[
+                    rds.ClusterInstance.provisioned("reader1", promotion_tier=1),
+                    rds.ClusterInstance.serverless_v2("reader2")
+                ],
+                vpc_subnets=ec2.SubnetSelection(
+                    subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS
+                ),
                 vpc=vpc
-            )
-            
-            proxy = rds.DatabaseProxy(self, "Proxy",
-                proxy_target=rds.ProxyTarget.from_cluster(cluster),
-                secrets=[cluster.secret],
-                vpc=vpc,
-                client_password_auth_type=rds.ClientPasswordAuthType.MYSQL_NATIVE_PASSWORD
             )
         '''
         if isinstance(backup, dict):
@@ -23842,6 +23850,7 @@ class DatabaseInstanceLookupOptions:
         "domain": "domain",
         "domain_role": "domainRole",
         "enable_performance_insights": "enablePerformanceInsights",
+        "engine_lifecycle_support": "engineLifecycleSupport",
         "iam_authentication": "iamAuthentication",
         "instance_identifier": "instanceIdentifier",
         "iops": "iops",
@@ -23890,6 +23899,7 @@ class DatabaseInstanceNewProps:
         domain: typing.Optional[builtins.str] = None,
         domain_role: typing.Optional[_IRole_235f5d8e] = None,
         enable_performance_insights: typing.Optional[builtins.bool] = None,
+        engine_lifecycle_support: typing.Optional["EngineLifecycleSupport"] = None,
         iam_authentication: typing.Optional[builtins.bool] = None,
         instance_identifier: typing.Optional[builtins.str] = None,
         iops: typing.Optional[jsii.Number] = None,
@@ -23935,6 +23945,7 @@ class DatabaseInstanceNewProps:
         :param domain: The Active Directory directory ID to create the DB instance in. Default: - Do not join domain
         :param domain_role: The IAM role to be used when making API calls to the Directory Service. The role needs the AWS-managed policy AmazonRDSDirectoryServiceAccess or equivalent. Default: - The role will be created for you if ``DatabaseInstanceNewProps#domain`` is specified
         :param enable_performance_insights: Whether to enable Performance Insights for the DB instance. Default: - false, unless ``performanceInsightRetention`` or ``performanceInsightEncryptionKey`` is set.
+        :param engine_lifecycle_support: The life cycle type for this DB instance. This setting applies only to RDS for MySQL and RDS for PostgreSQL. Default: undefined - AWS RDS default setting is ``EngineLifecycleSupport.OPEN_SOURCE_RDS_EXTENDED_SUPPORT``
         :param iam_authentication: Whether to enable mapping of AWS Identity and Access Management (IAM) accounts to database accounts. Default: false
         :param instance_identifier: A name for the DB instance. If you specify a name, AWS CloudFormation converts it to lowercase. Default: - a CloudFormation generated name
         :param iops: The number of I/O operations per second (IOPS) that the database provisions. The value must be equal to or greater than 1000. Default: - no provisioned iops if storage type is not specified. For GP3: 3,000 IOPS if allocated storage is less than 400 GiB for MariaDB, MySQL, and PostgreSQL, less than 200 GiB for Oracle and less than 20 GiB for SQL Server. 12,000 IOPS otherwise (except for SQL Server where the default is always 3,000 IOPS).
@@ -24007,6 +24018,7 @@ class DatabaseInstanceNewProps:
                 domain="domain",
                 domain_role=role,
                 enable_performance_insights=False,
+                engine_lifecycle_support=rds.EngineLifecycleSupport.OPEN_SOURCE_RDS_EXTENDED_SUPPORT,
                 iam_authentication=False,
                 instance_identifier="instanceIdentifier",
                 iops=123,
@@ -24067,6 +24079,7 @@ class DatabaseInstanceNewProps:
             check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
             check_type(argname="argument domain_role", value=domain_role, expected_type=type_hints["domain_role"])
             check_type(argname="argument enable_performance_insights", value=enable_performance_insights, expected_type=type_hints["enable_performance_insights"])
+            check_type(argname="argument engine_lifecycle_support", value=engine_lifecycle_support, expected_type=type_hints["engine_lifecycle_support"])
             check_type(argname="argument iam_authentication", value=iam_authentication, expected_type=type_hints["iam_authentication"])
             check_type(argname="argument instance_identifier", value=instance_identifier, expected_type=type_hints["instance_identifier"])
             check_type(argname="argument iops", value=iops, expected_type=type_hints["iops"])
@@ -24125,6 +24138,8 @@ class DatabaseInstanceNewProps:
             self._values["domain_role"] = domain_role
         if enable_performance_insights is not None:
             self._values["enable_performance_insights"] = enable_performance_insights
+        if engine_lifecycle_support is not None:
+            self._values["engine_lifecycle_support"] = engine_lifecycle_support
         if iam_authentication is not None:
             self._values["iam_authentication"] = iam_authentication
         if instance_identifier is not None:
@@ -24338,6 +24353,19 @@ class DatabaseInstanceNewProps:
         '''
         result = self._values.get("enable_performance_insights")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def engine_lifecycle_support(self) -> typing.Optional["EngineLifecycleSupport"]:
+        '''The life cycle type for this DB instance.
+
+        This setting applies only to RDS for MySQL and RDS for PostgreSQL.
+
+        :default: undefined - AWS RDS default setting is ``EngineLifecycleSupport.OPEN_SOURCE_RDS_EXTENDED_SUPPORT``
+
+        :see: https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/extended-support.html
+        '''
+        result = self._values.get("engine_lifecycle_support")
+        return typing.cast(typing.Optional["EngineLifecycleSupport"], result)
 
     @builtins.property
     def iam_authentication(self) -> typing.Optional[builtins.bool]:
@@ -24694,6 +24722,7 @@ class DatabaseInstanceNewProps:
         "domain": "domain",
         "domain_role": "domainRole",
         "enable_performance_insights": "enablePerformanceInsights",
+        "engine_lifecycle_support": "engineLifecycleSupport",
         "iam_authentication": "iamAuthentication",
         "instance_identifier": "instanceIdentifier",
         "iops": "iops",
@@ -24747,6 +24776,7 @@ class DatabaseInstanceReadReplicaProps(DatabaseInstanceNewProps):
         domain: typing.Optional[builtins.str] = None,
         domain_role: typing.Optional[_IRole_235f5d8e] = None,
         enable_performance_insights: typing.Optional[builtins.bool] = None,
+        engine_lifecycle_support: typing.Optional["EngineLifecycleSupport"] = None,
         iam_authentication: typing.Optional[builtins.bool] = None,
         instance_identifier: typing.Optional[builtins.str] = None,
         iops: typing.Optional[jsii.Number] = None,
@@ -24797,6 +24827,7 @@ class DatabaseInstanceReadReplicaProps(DatabaseInstanceNewProps):
         :param domain: The Active Directory directory ID to create the DB instance in. Default: - Do not join domain
         :param domain_role: The IAM role to be used when making API calls to the Directory Service. The role needs the AWS-managed policy AmazonRDSDirectoryServiceAccess or equivalent. Default: - The role will be created for you if ``DatabaseInstanceNewProps#domain`` is specified
         :param enable_performance_insights: Whether to enable Performance Insights for the DB instance. Default: - false, unless ``performanceInsightRetention`` or ``performanceInsightEncryptionKey`` is set.
+        :param engine_lifecycle_support: The life cycle type for this DB instance. This setting applies only to RDS for MySQL and RDS for PostgreSQL. Default: undefined - AWS RDS default setting is ``EngineLifecycleSupport.OPEN_SOURCE_RDS_EXTENDED_SUPPORT``
         :param iam_authentication: Whether to enable mapping of AWS Identity and Access Management (IAM) accounts to database accounts. Default: false
         :param instance_identifier: A name for the DB instance. If you specify a name, AWS CloudFormation converts it to lowercase. Default: - a CloudFormation generated name
         :param iops: The number of I/O operations per second (IOPS) that the database provisions. The value must be equal to or greater than 1000. Default: - no provisioned iops if storage type is not specified. For GP3: 3,000 IOPS if allocated storage is less than 400 GiB for MariaDB, MySQL, and PostgreSQL, less than 200 GiB for Oracle and less than 20 GiB for SQL Server. 12,000 IOPS otherwise (except for SQL Server where the default is always 3,000 IOPS).
@@ -24872,6 +24903,7 @@ class DatabaseInstanceReadReplicaProps(DatabaseInstanceNewProps):
             check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
             check_type(argname="argument domain_role", value=domain_role, expected_type=type_hints["domain_role"])
             check_type(argname="argument enable_performance_insights", value=enable_performance_insights, expected_type=type_hints["enable_performance_insights"])
+            check_type(argname="argument engine_lifecycle_support", value=engine_lifecycle_support, expected_type=type_hints["engine_lifecycle_support"])
             check_type(argname="argument iam_authentication", value=iam_authentication, expected_type=type_hints["iam_authentication"])
             check_type(argname="argument instance_identifier", value=instance_identifier, expected_type=type_hints["instance_identifier"])
             check_type(argname="argument iops", value=iops, expected_type=type_hints["iops"])
@@ -24937,6 +24969,8 @@ class DatabaseInstanceReadReplicaProps(DatabaseInstanceNewProps):
             self._values["domain_role"] = domain_role
         if enable_performance_insights is not None:
             self._values["enable_performance_insights"] = enable_performance_insights
+        if engine_lifecycle_support is not None:
+            self._values["engine_lifecycle_support"] = engine_lifecycle_support
         if iam_authentication is not None:
             self._values["iam_authentication"] = iam_authentication
         if instance_identifier is not None:
@@ -25156,6 +25190,19 @@ class DatabaseInstanceReadReplicaProps(DatabaseInstanceNewProps):
         '''
         result = self._values.get("enable_performance_insights")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def engine_lifecycle_support(self) -> typing.Optional["EngineLifecycleSupport"]:
+        '''The life cycle type for this DB instance.
+
+        This setting applies only to RDS for MySQL and RDS for PostgreSQL.
+
+        :default: undefined - AWS RDS default setting is ``EngineLifecycleSupport.OPEN_SOURCE_RDS_EXTENDED_SUPPORT``
+
+        :see: https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/extended-support.html
+        '''
+        result = self._values.get("engine_lifecycle_support")
+        return typing.cast(typing.Optional["EngineLifecycleSupport"], result)
 
     @builtins.property
     def iam_authentication(self) -> typing.Optional[builtins.bool]:
@@ -25557,6 +25604,7 @@ class DatabaseInstanceReadReplicaProps(DatabaseInstanceNewProps):
         "domain": "domain",
         "domain_role": "domainRole",
         "enable_performance_insights": "enablePerformanceInsights",
+        "engine_lifecycle_support": "engineLifecycleSupport",
         "iam_authentication": "iamAuthentication",
         "instance_identifier": "instanceIdentifier",
         "iops": "iops",
@@ -25613,6 +25661,7 @@ class DatabaseInstanceSourceProps(DatabaseInstanceNewProps):
         domain: typing.Optional[builtins.str] = None,
         domain_role: typing.Optional[_IRole_235f5d8e] = None,
         enable_performance_insights: typing.Optional[builtins.bool] = None,
+        engine_lifecycle_support: typing.Optional["EngineLifecycleSupport"] = None,
         iam_authentication: typing.Optional[builtins.bool] = None,
         instance_identifier: typing.Optional[builtins.str] = None,
         iops: typing.Optional[jsii.Number] = None,
@@ -25666,6 +25715,7 @@ class DatabaseInstanceSourceProps(DatabaseInstanceNewProps):
         :param domain: The Active Directory directory ID to create the DB instance in. Default: - Do not join domain
         :param domain_role: The IAM role to be used when making API calls to the Directory Service. The role needs the AWS-managed policy AmazonRDSDirectoryServiceAccess or equivalent. Default: - The role will be created for you if ``DatabaseInstanceNewProps#domain`` is specified
         :param enable_performance_insights: Whether to enable Performance Insights for the DB instance. Default: - false, unless ``performanceInsightRetention`` or ``performanceInsightEncryptionKey`` is set.
+        :param engine_lifecycle_support: The life cycle type for this DB instance. This setting applies only to RDS for MySQL and RDS for PostgreSQL. Default: undefined - AWS RDS default setting is ``EngineLifecycleSupport.OPEN_SOURCE_RDS_EXTENDED_SUPPORT``
         :param iam_authentication: Whether to enable mapping of AWS Identity and Access Management (IAM) accounts to database accounts. Default: false
         :param instance_identifier: A name for the DB instance. If you specify a name, AWS CloudFormation converts it to lowercase. Default: - a CloudFormation generated name
         :param iops: The number of I/O operations per second (IOPS) that the database provisions. The value must be equal to or greater than 1000. Default: - no provisioned iops if storage type is not specified. For GP3: 3,000 IOPS if allocated storage is less than 400 GiB for MariaDB, MySQL, and PostgreSQL, less than 200 GiB for Oracle and less than 20 GiB for SQL Server. 12,000 IOPS otherwise (except for SQL Server where the default is always 3,000 IOPS).
@@ -25752,6 +25802,7 @@ class DatabaseInstanceSourceProps(DatabaseInstanceNewProps):
                 domain="domain",
                 domain_role=role,
                 enable_performance_insights=False,
+                engine_lifecycle_support=rds.EngineLifecycleSupport.OPEN_SOURCE_RDS_EXTENDED_SUPPORT,
                 iam_authentication=False,
                 instance_identifier="instanceIdentifier",
                 instance_type=instance_type,
@@ -25818,6 +25869,7 @@ class DatabaseInstanceSourceProps(DatabaseInstanceNewProps):
             check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
             check_type(argname="argument domain_role", value=domain_role, expected_type=type_hints["domain_role"])
             check_type(argname="argument enable_performance_insights", value=enable_performance_insights, expected_type=type_hints["enable_performance_insights"])
+            check_type(argname="argument engine_lifecycle_support", value=engine_lifecycle_support, expected_type=type_hints["engine_lifecycle_support"])
             check_type(argname="argument iam_authentication", value=iam_authentication, expected_type=type_hints["iam_authentication"])
             check_type(argname="argument instance_identifier", value=instance_identifier, expected_type=type_hints["instance_identifier"])
             check_type(argname="argument iops", value=iops, expected_type=type_hints["iops"])
@@ -25885,6 +25937,8 @@ class DatabaseInstanceSourceProps(DatabaseInstanceNewProps):
             self._values["domain_role"] = domain_role
         if enable_performance_insights is not None:
             self._values["enable_performance_insights"] = enable_performance_insights
+        if engine_lifecycle_support is not None:
+            self._values["engine_lifecycle_support"] = engine_lifecycle_support
         if iam_authentication is not None:
             self._values["iam_authentication"] = iam_authentication
         if instance_identifier is not None:
@@ -26112,6 +26166,19 @@ class DatabaseInstanceSourceProps(DatabaseInstanceNewProps):
         '''
         result = self._values.get("enable_performance_insights")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def engine_lifecycle_support(self) -> typing.Optional["EngineLifecycleSupport"]:
+        '''The life cycle type for this DB instance.
+
+        This setting applies only to RDS for MySQL and RDS for PostgreSQL.
+
+        :default: undefined - AWS RDS default setting is ``EngineLifecycleSupport.OPEN_SOURCE_RDS_EXTENDED_SUPPORT``
+
+        :see: https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/extended-support.html
+        '''
+        result = self._values.get("engine_lifecycle_support")
+        return typing.cast(typing.Optional["EngineLifecycleSupport"], result)
 
     @builtins.property
     def iam_authentication(self) -> typing.Optional[builtins.bool]:
@@ -27699,6 +27766,13 @@ class EngineLifecycleSupport(enum.Enum):
             writer=rds.ClusterInstance.serverless_v2("writerInstance"),
             vpc=vpc,
             engine_lifecycle_support=rds.EngineLifecycleSupport.OPEN_SOURCE_RDS_EXTENDED_SUPPORT
+        )
+        
+        rds.DatabaseInstance(self, "DatabaseInstance",
+            engine=rds.DatabaseInstanceEngine.mysql(version=rds.MysqlEngineVersion.VER_8_0_39),
+            instance_type=ec2.InstanceType.of(ec2.InstanceClass.R7G, ec2.InstanceSize.LARGE),
+            vpc=vpc,
+            engine_lifecycle_support=rds.EngineLifecycleSupport.OPEN_SOURCE_RDS_EXTENDED_SUPPORT_DISABLED
         )
     '''
 
@@ -44083,6 +44157,7 @@ class DatabaseInstanceFromSnapshot(
         domain: typing.Optional[builtins.str] = None,
         domain_role: typing.Optional[_IRole_235f5d8e] = None,
         enable_performance_insights: typing.Optional[builtins.bool] = None,
+        engine_lifecycle_support: typing.Optional[EngineLifecycleSupport] = None,
         iam_authentication: typing.Optional[builtins.bool] = None,
         instance_identifier: typing.Optional[builtins.str] = None,
         iops: typing.Optional[jsii.Number] = None,
@@ -44140,6 +44215,7 @@ class DatabaseInstanceFromSnapshot(
         :param domain: The Active Directory directory ID to create the DB instance in. Default: - Do not join domain
         :param domain_role: The IAM role to be used when making API calls to the Directory Service. The role needs the AWS-managed policy AmazonRDSDirectoryServiceAccess or equivalent. Default: - The role will be created for you if ``DatabaseInstanceNewProps#domain`` is specified
         :param enable_performance_insights: Whether to enable Performance Insights for the DB instance. Default: - false, unless ``performanceInsightRetention`` or ``performanceInsightEncryptionKey`` is set.
+        :param engine_lifecycle_support: The life cycle type for this DB instance. This setting applies only to RDS for MySQL and RDS for PostgreSQL. Default: undefined - AWS RDS default setting is ``EngineLifecycleSupport.OPEN_SOURCE_RDS_EXTENDED_SUPPORT``
         :param iam_authentication: Whether to enable mapping of AWS Identity and Access Management (IAM) accounts to database accounts. Default: false
         :param instance_identifier: A name for the DB instance. If you specify a name, AWS CloudFormation converts it to lowercase. Default: - a CloudFormation generated name
         :param iops: The number of I/O operations per second (IOPS) that the database provisions. The value must be equal to or greater than 1000. Default: - no provisioned iops if storage type is not specified. For GP3: 3,000 IOPS if allocated storage is less than 400 GiB for MariaDB, MySQL, and PostgreSQL, less than 200 GiB for Oracle and less than 20 GiB for SQL Server. 12,000 IOPS otherwise (except for SQL Server where the default is always 3,000 IOPS).
@@ -44199,6 +44275,7 @@ class DatabaseInstanceFromSnapshot(
             domain=domain,
             domain_role=domain_role,
             enable_performance_insights=enable_performance_insights,
+            engine_lifecycle_support=engine_lifecycle_support,
             iam_authentication=iam_authentication,
             instance_identifier=instance_identifier,
             iops=iops,
@@ -44451,6 +44528,7 @@ class DatabaseInstanceFromSnapshot(
         "domain": "domain",
         "domain_role": "domainRole",
         "enable_performance_insights": "enablePerformanceInsights",
+        "engine_lifecycle_support": "engineLifecycleSupport",
         "iam_authentication": "iamAuthentication",
         "instance_identifier": "instanceIdentifier",
         "iops": "iops",
@@ -44510,6 +44588,7 @@ class DatabaseInstanceFromSnapshotProps(DatabaseInstanceSourceProps):
         domain: typing.Optional[builtins.str] = None,
         domain_role: typing.Optional[_IRole_235f5d8e] = None,
         enable_performance_insights: typing.Optional[builtins.bool] = None,
+        engine_lifecycle_support: typing.Optional[EngineLifecycleSupport] = None,
         iam_authentication: typing.Optional[builtins.bool] = None,
         instance_identifier: typing.Optional[builtins.str] = None,
         iops: typing.Optional[jsii.Number] = None,
@@ -44566,6 +44645,7 @@ class DatabaseInstanceFromSnapshotProps(DatabaseInstanceSourceProps):
         :param domain: The Active Directory directory ID to create the DB instance in. Default: - Do not join domain
         :param domain_role: The IAM role to be used when making API calls to the Directory Service. The role needs the AWS-managed policy AmazonRDSDirectoryServiceAccess or equivalent. Default: - The role will be created for you if ``DatabaseInstanceNewProps#domain`` is specified
         :param enable_performance_insights: Whether to enable Performance Insights for the DB instance. Default: - false, unless ``performanceInsightRetention`` or ``performanceInsightEncryptionKey`` is set.
+        :param engine_lifecycle_support: The life cycle type for this DB instance. This setting applies only to RDS for MySQL and RDS for PostgreSQL. Default: undefined - AWS RDS default setting is ``EngineLifecycleSupport.OPEN_SOURCE_RDS_EXTENDED_SUPPORT``
         :param iam_authentication: Whether to enable mapping of AWS Identity and Access Management (IAM) accounts to database accounts. Default: false
         :param instance_identifier: A name for the DB instance. If you specify a name, AWS CloudFormation converts it to lowercase. Default: - a CloudFormation generated name
         :param iops: The number of I/O operations per second (IOPS) that the database provisions. The value must be equal to or greater than 1000. Default: - no provisioned iops if storage type is not specified. For GP3: 3,000 IOPS if allocated storage is less than 400 GiB for MariaDB, MySQL, and PostgreSQL, less than 200 GiB for Oracle and less than 20 GiB for SQL Server. 12,000 IOPS otherwise (except for SQL Server where the default is always 3,000 IOPS).
@@ -44646,6 +44726,7 @@ class DatabaseInstanceFromSnapshotProps(DatabaseInstanceSourceProps):
             check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
             check_type(argname="argument domain_role", value=domain_role, expected_type=type_hints["domain_role"])
             check_type(argname="argument enable_performance_insights", value=enable_performance_insights, expected_type=type_hints["enable_performance_insights"])
+            check_type(argname="argument engine_lifecycle_support", value=engine_lifecycle_support, expected_type=type_hints["engine_lifecycle_support"])
             check_type(argname="argument iam_authentication", value=iam_authentication, expected_type=type_hints["iam_authentication"])
             check_type(argname="argument instance_identifier", value=instance_identifier, expected_type=type_hints["instance_identifier"])
             check_type(argname="argument iops", value=iops, expected_type=type_hints["iops"])
@@ -44716,6 +44797,8 @@ class DatabaseInstanceFromSnapshotProps(DatabaseInstanceSourceProps):
             self._values["domain_role"] = domain_role
         if enable_performance_insights is not None:
             self._values["enable_performance_insights"] = enable_performance_insights
+        if engine_lifecycle_support is not None:
+            self._values["engine_lifecycle_support"] = engine_lifecycle_support
         if iam_authentication is not None:
             self._values["iam_authentication"] = iam_authentication
         if instance_identifier is not None:
@@ -44949,6 +45032,19 @@ class DatabaseInstanceFromSnapshotProps(DatabaseInstanceSourceProps):
         '''
         result = self._values.get("enable_performance_insights")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def engine_lifecycle_support(self) -> typing.Optional[EngineLifecycleSupport]:
+        '''The life cycle type for this DB instance.
+
+        This setting applies only to RDS for MySQL and RDS for PostgreSQL.
+
+        :default: undefined - AWS RDS default setting is ``EngineLifecycleSupport.OPEN_SOURCE_RDS_EXTENDED_SUPPORT``
+
+        :see: https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/extended-support.html
+        '''
+        result = self._values.get("engine_lifecycle_support")
+        return typing.cast(typing.Optional[EngineLifecycleSupport], result)
 
     @builtins.property
     def iam_authentication(self) -> typing.Optional[builtins.bool]:
@@ -45428,6 +45524,7 @@ class DatabaseInstanceFromSnapshotProps(DatabaseInstanceSourceProps):
         "domain": "domain",
         "domain_role": "domainRole",
         "enable_performance_insights": "enablePerformanceInsights",
+        "engine_lifecycle_support": "engineLifecycleSupport",
         "iam_authentication": "iamAuthentication",
         "instance_identifier": "instanceIdentifier",
         "iops": "iops",
@@ -45488,6 +45585,7 @@ class DatabaseInstanceProps(DatabaseInstanceSourceProps):
         domain: typing.Optional[builtins.str] = None,
         domain_role: typing.Optional[_IRole_235f5d8e] = None,
         enable_performance_insights: typing.Optional[builtins.bool] = None,
+        engine_lifecycle_support: typing.Optional[EngineLifecycleSupport] = None,
         iam_authentication: typing.Optional[builtins.bool] = None,
         instance_identifier: typing.Optional[builtins.str] = None,
         iops: typing.Optional[jsii.Number] = None,
@@ -45545,6 +45643,7 @@ class DatabaseInstanceProps(DatabaseInstanceSourceProps):
         :param domain: The Active Directory directory ID to create the DB instance in. Default: - Do not join domain
         :param domain_role: The IAM role to be used when making API calls to the Directory Service. The role needs the AWS-managed policy AmazonRDSDirectoryServiceAccess or equivalent. Default: - The role will be created for you if ``DatabaseInstanceNewProps#domain`` is specified
         :param enable_performance_insights: Whether to enable Performance Insights for the DB instance. Default: - false, unless ``performanceInsightRetention`` or ``performanceInsightEncryptionKey`` is set.
+        :param engine_lifecycle_support: The life cycle type for this DB instance. This setting applies only to RDS for MySQL and RDS for PostgreSQL. Default: undefined - AWS RDS default setting is ``EngineLifecycleSupport.OPEN_SOURCE_RDS_EXTENDED_SUPPORT``
         :param iam_authentication: Whether to enable mapping of AWS Identity and Access Management (IAM) accounts to database accounts. Default: false
         :param instance_identifier: A name for the DB instance. If you specify a name, AWS CloudFormation converts it to lowercase. Default: - a CloudFormation generated name
         :param iops: The number of I/O operations per second (IOPS) that the database provisions. The value must be equal to or greater than 1000. Default: - no provisioned iops if storage type is not specified. For GP3: 3,000 IOPS if allocated storage is less than 400 GiB for MariaDB, MySQL, and PostgreSQL, less than 200 GiB for Oracle and less than 20 GiB for SQL Server. 12,000 IOPS otherwise (except for SQL Server where the default is always 3,000 IOPS).
@@ -45628,6 +45727,7 @@ class DatabaseInstanceProps(DatabaseInstanceSourceProps):
             check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
             check_type(argname="argument domain_role", value=domain_role, expected_type=type_hints["domain_role"])
             check_type(argname="argument enable_performance_insights", value=enable_performance_insights, expected_type=type_hints["enable_performance_insights"])
+            check_type(argname="argument engine_lifecycle_support", value=engine_lifecycle_support, expected_type=type_hints["engine_lifecycle_support"])
             check_type(argname="argument iam_authentication", value=iam_authentication, expected_type=type_hints["iam_authentication"])
             check_type(argname="argument instance_identifier", value=instance_identifier, expected_type=type_hints["instance_identifier"])
             check_type(argname="argument iops", value=iops, expected_type=type_hints["iops"])
@@ -45699,6 +45799,8 @@ class DatabaseInstanceProps(DatabaseInstanceSourceProps):
             self._values["domain_role"] = domain_role
         if enable_performance_insights is not None:
             self._values["enable_performance_insights"] = enable_performance_insights
+        if engine_lifecycle_support is not None:
+            self._values["engine_lifecycle_support"] = engine_lifecycle_support
         if iam_authentication is not None:
             self._values["iam_authentication"] = iam_authentication
         if instance_identifier is not None:
@@ -45934,6 +46036,19 @@ class DatabaseInstanceProps(DatabaseInstanceSourceProps):
         '''
         result = self._values.get("enable_performance_insights")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def engine_lifecycle_support(self) -> typing.Optional[EngineLifecycleSupport]:
+        '''The life cycle type for this DB instance.
+
+        This setting applies only to RDS for MySQL and RDS for PostgreSQL.
+
+        :default: undefined - AWS RDS default setting is ``EngineLifecycleSupport.OPEN_SOURCE_RDS_EXTENDED_SUPPORT``
+
+        :see: https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/extended-support.html
+        '''
+        result = self._values.get("engine_lifecycle_support")
+        return typing.cast(typing.Optional[EngineLifecycleSupport], result)
 
     @builtins.property
     def iam_authentication(self) -> typing.Optional[builtins.bool]:
@@ -46438,6 +46553,7 @@ class DatabaseInstanceReadReplica(
         domain: typing.Optional[builtins.str] = None,
         domain_role: typing.Optional[_IRole_235f5d8e] = None,
         enable_performance_insights: typing.Optional[builtins.bool] = None,
+        engine_lifecycle_support: typing.Optional[EngineLifecycleSupport] = None,
         iam_authentication: typing.Optional[builtins.bool] = None,
         instance_identifier: typing.Optional[builtins.str] = None,
         iops: typing.Optional[jsii.Number] = None,
@@ -46489,6 +46605,7 @@ class DatabaseInstanceReadReplica(
         :param domain: The Active Directory directory ID to create the DB instance in. Default: - Do not join domain
         :param domain_role: The IAM role to be used when making API calls to the Directory Service. The role needs the AWS-managed policy AmazonRDSDirectoryServiceAccess or equivalent. Default: - The role will be created for you if ``DatabaseInstanceNewProps#domain`` is specified
         :param enable_performance_insights: Whether to enable Performance Insights for the DB instance. Default: - false, unless ``performanceInsightRetention`` or ``performanceInsightEncryptionKey`` is set.
+        :param engine_lifecycle_support: The life cycle type for this DB instance. This setting applies only to RDS for MySQL and RDS for PostgreSQL. Default: undefined - AWS RDS default setting is ``EngineLifecycleSupport.OPEN_SOURCE_RDS_EXTENDED_SUPPORT``
         :param iam_authentication: Whether to enable mapping of AWS Identity and Access Management (IAM) accounts to database accounts. Default: false
         :param instance_identifier: A name for the DB instance. If you specify a name, AWS CloudFormation converts it to lowercase. Default: - a CloudFormation generated name
         :param iops: The number of I/O operations per second (IOPS) that the database provisions. The value must be equal to or greater than 1000. Default: - no provisioned iops if storage type is not specified. For GP3: 3,000 IOPS if allocated storage is less than 400 GiB for MariaDB, MySQL, and PostgreSQL, less than 200 GiB for Oracle and less than 20 GiB for SQL Server. 12,000 IOPS otherwise (except for SQL Server where the default is always 3,000 IOPS).
@@ -46542,6 +46659,7 @@ class DatabaseInstanceReadReplica(
             domain=domain,
             domain_role=domain_role,
             enable_performance_insights=enable_performance_insights,
+            engine_lifecycle_support=engine_lifecycle_support,
             iam_authentication=iam_authentication,
             instance_identifier=instance_identifier,
             iops=iops,
@@ -47006,18 +47124,19 @@ class DatabaseCluster(
         # vpc: ec2.Vpc
         
         cluster = rds.DatabaseCluster(self, "Database",
-            engine=rds.DatabaseClusterEngine.aurora_mysql(
-                version=rds.AuroraMysqlEngineVersion.VER_3_03_0
+            engine=rds.DatabaseClusterEngine.aurora_mysql(version=rds.AuroraMysqlEngineVersion.VER_3_01_0),
+            credentials=rds.Credentials.from_generated_secret("clusteradmin"),  # Optional - will default to 'admin' username and generated password
+            writer=rds.ClusterInstance.provisioned("writer",
+                publicly_accessible=False
             ),
-            writer=rds.ClusterInstance.provisioned("writer"),
+            readers=[
+                rds.ClusterInstance.provisioned("reader1", promotion_tier=1),
+                rds.ClusterInstance.serverless_v2("reader2")
+            ],
+            vpc_subnets=ec2.SubnetSelection(
+                subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS
+            ),
             vpc=vpc
-        )
-        
-        proxy = rds.DatabaseProxy(self, "Proxy",
-            proxy_target=rds.ProxyTarget.from_cluster(cluster),
-            secrets=[cluster.secret],
-            vpc=vpc,
-            client_password_auth_type=rds.ClientPasswordAuthType.MYSQL_NATIVE_PASSWORD
         )
     '''
 
@@ -47675,6 +47794,7 @@ class DatabaseInstance(
         domain: typing.Optional[builtins.str] = None,
         domain_role: typing.Optional[_IRole_235f5d8e] = None,
         enable_performance_insights: typing.Optional[builtins.bool] = None,
+        engine_lifecycle_support: typing.Optional[EngineLifecycleSupport] = None,
         iam_authentication: typing.Optional[builtins.bool] = None,
         instance_identifier: typing.Optional[builtins.str] = None,
         iops: typing.Optional[jsii.Number] = None,
@@ -47733,6 +47853,7 @@ class DatabaseInstance(
         :param domain: The Active Directory directory ID to create the DB instance in. Default: - Do not join domain
         :param domain_role: The IAM role to be used when making API calls to the Directory Service. The role needs the AWS-managed policy AmazonRDSDirectoryServiceAccess or equivalent. Default: - The role will be created for you if ``DatabaseInstanceNewProps#domain`` is specified
         :param enable_performance_insights: Whether to enable Performance Insights for the DB instance. Default: - false, unless ``performanceInsightRetention`` or ``performanceInsightEncryptionKey`` is set.
+        :param engine_lifecycle_support: The life cycle type for this DB instance. This setting applies only to RDS for MySQL and RDS for PostgreSQL. Default: undefined - AWS RDS default setting is ``EngineLifecycleSupport.OPEN_SOURCE_RDS_EXTENDED_SUPPORT``
         :param iam_authentication: Whether to enable mapping of AWS Identity and Access Management (IAM) accounts to database accounts. Default: false
         :param instance_identifier: A name for the DB instance. If you specify a name, AWS CloudFormation converts it to lowercase. Default: - a CloudFormation generated name
         :param iops: The number of I/O operations per second (IOPS) that the database provisions. The value must be equal to or greater than 1000. Default: - no provisioned iops if storage type is not specified. For GP3: 3,000 IOPS if allocated storage is less than 400 GiB for MariaDB, MySQL, and PostgreSQL, less than 200 GiB for Oracle and less than 20 GiB for SQL Server. 12,000 IOPS otherwise (except for SQL Server where the default is always 3,000 IOPS).
@@ -47793,6 +47914,7 @@ class DatabaseInstance(
             domain=domain,
             domain_role=domain_role,
             enable_performance_insights=enable_performance_insights,
+            engine_lifecycle_support=engine_lifecycle_support,
             iam_authentication=iam_authentication,
             instance_identifier=instance_identifier,
             iops=iops,
@@ -51015,6 +51137,7 @@ def _typecheckingstub__d110b1cb0043ae6adf59fc0d1bcb136b4655ac973cfbff361a0a3e2fe
     domain: typing.Optional[builtins.str] = None,
     domain_role: typing.Optional[_IRole_235f5d8e] = None,
     enable_performance_insights: typing.Optional[builtins.bool] = None,
+    engine_lifecycle_support: typing.Optional[EngineLifecycleSupport] = None,
     iam_authentication: typing.Optional[builtins.bool] = None,
     instance_identifier: typing.Optional[builtins.str] = None,
     iops: typing.Optional[jsii.Number] = None,
@@ -51063,6 +51186,7 @@ def _typecheckingstub__5508238388ee4afc86f97d5f22fa50578f8a1bdeed9ade8d0210c955b
     domain: typing.Optional[builtins.str] = None,
     domain_role: typing.Optional[_IRole_235f5d8e] = None,
     enable_performance_insights: typing.Optional[builtins.bool] = None,
+    engine_lifecycle_support: typing.Optional[EngineLifecycleSupport] = None,
     iam_authentication: typing.Optional[builtins.bool] = None,
     instance_identifier: typing.Optional[builtins.str] = None,
     iops: typing.Optional[jsii.Number] = None,
@@ -51116,6 +51240,7 @@ def _typecheckingstub__77d3b41152c4c7a3436d76bad0d83368717917e66a0f0cd849998fcd4
     domain: typing.Optional[builtins.str] = None,
     domain_role: typing.Optional[_IRole_235f5d8e] = None,
     enable_performance_insights: typing.Optional[builtins.bool] = None,
+    engine_lifecycle_support: typing.Optional[EngineLifecycleSupport] = None,
     iam_authentication: typing.Optional[builtins.bool] = None,
     instance_identifier: typing.Optional[builtins.str] = None,
     iops: typing.Optional[jsii.Number] = None,
@@ -52372,6 +52497,7 @@ def _typecheckingstub__dbf7e60a650d0a1bea1826814200716f46cd1f59eea36a42193653d7f
     domain: typing.Optional[builtins.str] = None,
     domain_role: typing.Optional[_IRole_235f5d8e] = None,
     enable_performance_insights: typing.Optional[builtins.bool] = None,
+    engine_lifecycle_support: typing.Optional[EngineLifecycleSupport] = None,
     iam_authentication: typing.Optional[builtins.bool] = None,
     instance_identifier: typing.Optional[builtins.str] = None,
     iops: typing.Optional[jsii.Number] = None,
@@ -52447,6 +52573,7 @@ def _typecheckingstub__f06d86058a0a7538eb7dbf55de032c8cf05f7fa7b4ab5d5c1d47f7617
     domain: typing.Optional[builtins.str] = None,
     domain_role: typing.Optional[_IRole_235f5d8e] = None,
     enable_performance_insights: typing.Optional[builtins.bool] = None,
+    engine_lifecycle_support: typing.Optional[EngineLifecycleSupport] = None,
     iam_authentication: typing.Optional[builtins.bool] = None,
     instance_identifier: typing.Optional[builtins.str] = None,
     iops: typing.Optional[jsii.Number] = None,
@@ -52506,6 +52633,7 @@ def _typecheckingstub__23675ebe667ec40ba6afd82bf8b65d901cc9a4bfc79be222b108037d5
     domain: typing.Optional[builtins.str] = None,
     domain_role: typing.Optional[_IRole_235f5d8e] = None,
     enable_performance_insights: typing.Optional[builtins.bool] = None,
+    engine_lifecycle_support: typing.Optional[EngineLifecycleSupport] = None,
     iam_authentication: typing.Optional[builtins.bool] = None,
     instance_identifier: typing.Optional[builtins.str] = None,
     iops: typing.Optional[jsii.Number] = None,
@@ -52573,6 +52701,7 @@ def _typecheckingstub__b2082895d1c502ba05a38a32c44782a7480089cd804d396ed1b41ca4a
     domain: typing.Optional[builtins.str] = None,
     domain_role: typing.Optional[_IRole_235f5d8e] = None,
     enable_performance_insights: typing.Optional[builtins.bool] = None,
+    engine_lifecycle_support: typing.Optional[EngineLifecycleSupport] = None,
     iam_authentication: typing.Optional[builtins.bool] = None,
     instance_identifier: typing.Optional[builtins.str] = None,
     iops: typing.Optional[jsii.Number] = None,
@@ -52802,6 +52931,7 @@ def _typecheckingstub__cb12c4cf0f41b623c75db1c295b846314e730919538b3374019067232
     domain: typing.Optional[builtins.str] = None,
     domain_role: typing.Optional[_IRole_235f5d8e] = None,
     enable_performance_insights: typing.Optional[builtins.bool] = None,
+    engine_lifecycle_support: typing.Optional[EngineLifecycleSupport] = None,
     iam_authentication: typing.Optional[builtins.bool] = None,
     instance_identifier: typing.Optional[builtins.str] = None,
     iops: typing.Optional[jsii.Number] = None,

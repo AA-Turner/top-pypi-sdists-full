@@ -229,7 +229,7 @@ class InstructRequestNormalizer(
         # Add the last set of messages
         aggregated_messages.extend(self._aggregate_role(messages_to_aggregate, current_role))
 
-        # If the first message is not a user message, or we didnt aggregate
+        # If the first message is not a user message, or we didn't aggregate
         # anything (all system messages) for example, add an empty user message
         if len(aggregated_messages) == 0 or (
             not self._system_prompt_in_begin and aggregated_messages[0].role != Roles.user
@@ -262,7 +262,10 @@ class InstructRequestNormalizer(
         messages = self._aggregate_messages(request)
 
         return self._instruct_request_class(
-            messages=messages, system_prompt=system_prompt, available_tools=request.tools
+            messages=messages,
+            system_prompt=system_prompt,
+            available_tools=request.tools,
+            continue_final_message=request.continue_final_message,
         )
 
 

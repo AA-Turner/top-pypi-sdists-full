@@ -215,7 +215,7 @@ class ClassifierVerification(BaseTest):
         self._incorrect = []
         classifiers = data.get("classifiers", [])
         for classifier in classifiers:
-            if classifier not in CLASSIFIERS:
+            if classifier not in CLASSIFIERS and not classifier.startswith("Private :: "):
                 self._incorrect.append(classifier)
         if self._incorrect:
             return False
@@ -396,7 +396,6 @@ class SDist(BaseTest):
 
 
 class ValidREST(BaseTest):
-
     weight = 50
 
     def test(self, data):
@@ -463,7 +462,24 @@ class MissingBuildSystem(BaseTest):
             "    [build-system]\n"
             '    requires = ["setuptools>=42"]\n'
             '    build-backend = "setuptools.build_meta"\n\n'
-            'In the future this will become a hard failure and your package will be rated as "not cheese".'
+            'In the future this may become a hard failure and your package may be rated as "not cheese".'
+        )
+
+
+class MissingPyProjectToml(BaseTest):
+    def test(self, data):
+        if "_missing_pyproject_toml" in data:
+            # These sort of "negative only/deprecation" ratings only give you negative weight
+            self.weight = 100
+            return False
+
+    def message(self):
+        return (
+            "Your project does not have a pyproject.toml file, which is highly recommended.\n"
+            "You probably want to create one with the following configuration:\n\n"
+            "    [build-system]\n"
+            '    requires = ["setuptools>=42"]\n'
+            '    build-backend = "setuptools.build_meta"\n\n'
         )
 
 
@@ -505,18 +521,53 @@ ALL_TESTS = [
     DevStatusClassifier(),
     MissingBuildSystem(),
     StoneAgeSetupPy(),
+    MissingPyProjectToml(),
 ]
 
+try:
+    import check_manifest
 
-def rate(data):
+    class CheckManifest(BaseTest):
+        weight = 0
+
+        def test(self, data):
+            if "_path" not in data:
+                return None
+
+            self.weight = 200
+            try:
+                return check_manifest.check_manifest(data["_path"])
+            except check_manifest.Failure:
+                # Most likely this means check-manifest didn't find any
+                # package configuration, which is the same failure as
+                # MissingBuildSystem, so this is double errors, but
+                # it does mean your setup is completely broken, so...
+                return False
+
+        def message(self):
+            return "Check-manifest returned errors"
+
+    ALL_TESTS.append(CheckManifest())
+
+except ImportError:
+    pass
+
+
+def rate(data, skip_tests=None):
     if not data:
         # No data was gathered. Fail:
         return (0, ["I couldn't find any package data"])
+
+    if skip_tests is None:
+        skip_tests = []
+
     fails = []
     good = 0
     bad = 0
     fatality = False
     for test in ALL_TESTS:
+        if test.__class__.__name__ in skip_tests:
+            continue
         res = test.test(data)
         if res is False:
             fails.append(test.message())

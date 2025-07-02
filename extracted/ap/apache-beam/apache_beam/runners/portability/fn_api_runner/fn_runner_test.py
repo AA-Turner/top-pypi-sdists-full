@@ -73,6 +73,7 @@ from apache_beam.tools import utils
 from apache_beam.transforms import environments
 from apache_beam.transforms import userstate
 from apache_beam.transforms import window
+from apache_beam.transforms.periodicsequence import PeriodicImpulse
 from apache_beam.utils import timestamp
 from apache_beam.utils import windowed_value
 
@@ -318,12 +319,27 @@ class FnApiRunnerTest(unittest.TestCase):
           | beam.WindowInto(window.SlidingWindows(size=5, period=3))
           | beam.ParDo(PerWindowDoFn()))
 
-      assert_that(res, equal_to([               0*-3, 1*-3, # [-3, 2)
-                                 0*0, 1*0, 2*0, 3* 0, 4* 0, # [ 0, 5)
-                                 3*3, 4*3, 5*3, 6* 3, 7* 3, # [ 3, 8)
-                                 6*6, 7*6, 8*6, 9* 6,       # [ 6, 11)
-                                 9*9                        # [ 9, 14)
-                                 ]))
+      assert_that(
+          res,
+          equal_to([
+              0 * -3,
+              1 * -3,  # [-3, 2)
+              0 * 0,
+              1 * 0,
+              2 * 0,
+              3 * 0,
+              4 * 0,  # [ 0, 5)
+              3 * 3,
+              4 * 3,
+              5 * 3,
+              6 * 3,
+              7 * 3,  # [ 3, 8)
+              6 * 6,
+              7 * 6,
+              8 * 6,
+              9 * 6,  # [ 6, 11)
+              9 * 9  # [ 9, 14)
+          ]))
 
   def test_batch_to_element_pardo(self):
     class ArraySumDoFn(beam.DoFn):
@@ -581,15 +597,12 @@ class FnApiRunnerTest(unittest.TestCase):
       side = p | 'side' >> beam.Create([('a', 1), ('b', 2), ('a', 3)])
       assert_that(
           main | 'first map' >> beam.Map(
-              lambda k,
-              d,
-              l: (k, sorted(d[k]), sorted([e[1] for e in l])),
+              lambda k, d, l: (k, sorted(d[k]), sorted([e[1] for e in l])),
               beam.pvalue.AsMultiMap(side),
               beam.pvalue.AsList(side))
           | 'second map' >> beam.Map(
-              lambda k,
-              d,
-              l: (k[0], sorted(d[k[0]]), sorted([e[1] for e in l])),
+              lambda k, d, l:
+              (k[0], sorted(d[k[0]]), sorted([e[1] for e in l])),
               beam.pvalue.AsMultiMap(side),
               beam.pvalue.AsList(side)),
           equal_to([('a', [1, 3], [1, 2, 3]), ('b', [2], [1, 2, 3])]))
@@ -755,6 +768,111 @@ class FnApiRunnerTest(unittest.TestCase):
 
       expected = [('fired', ts) for ts in (20, 200)]
       assert_that(actual, equal_to(expected))
+
+  def _run_pardo_et_timer_test(
+      self, n, timer_delay, reset_count=True, clear_timer=True, expected=None):
+    class EventTimeTimerDoFn(beam.DoFn):
+      COUNT = userstate.ReadModifyWriteStateSpec(
+          'count', coders.VarInt32Coder())
+      # event-time timer
+      TIMER = userstate.TimerSpec('timer', userstate.TimeDomain.WATERMARK)
+
+      def __init__(self):
+        self._n = n
+        self._timer_delay = timer_delay
+        self._reset_count = reset_count
+        self._clear_timer = clear_timer
+
+      def process(
+          self,
+          element_pair,
+          t=beam.DoFn.TimestampParam,
+          count=beam.DoFn.StateParam(COUNT),
+          timer=beam.DoFn.TimerParam(TIMER)):
+        local_count = count.read() or 0
+        local_count += 1
+
+        _LOGGER.info(
+            "get element %s, count=%d", str(element_pair[1]), local_count)
+        if local_count == 1:
+          _LOGGER.info("set timer to %s", str(t + self._timer_delay))
+          timer.set(t + self._timer_delay)
+
+        if local_count == self._n:
+          if self._reset_count:
+            _LOGGER.info("reset count")
+            local_count = 0
+
+          # don't need the timer now
+          if self._clear_timer:
+            _LOGGER.info("clear timer")
+            timer.clear()
+
+        count.write(local_count)
+
+      @userstate.on_timer(TIMER)
+      def timer_callback(self, t=beam.DoFn.TimestampParam):
+        _LOGGER.error("Timer should not fire here")
+        _LOGGER.info("timer callback start (timestamp=%s)", str(t))
+        yield "fired"
+
+    with self.create_pipeline() as p:
+      actual = (
+          p | PeriodicImpulse(
+              start_timestamp=timestamp.Timestamp.now(),
+              stop_timestamp=timestamp.Timestamp.now() + 14,
+              fire_interval=1)
+          | beam.WithKeys(0)
+          | beam.ParDo(EventTimeTimerDoFn()))
+      assert_that(actual, equal_to(expected))
+
+  def test_pardo_et_timer_with_no_firing(self):
+    if type(self).__name__ in {'FnApiRunnerTest',
+                               'FnApiRunnerTestWithGrpc',
+                               'FnApiRunnerTestWithGrpcAndMultiWorkers',
+                               'FnApiRunnerTestWithDisabledCaching',
+                               'FnApiRunnerTestWithMultiWorkers',
+                               'FnApiRunnerTestWithBundleRepeat',
+                               'FnApiRunnerTestWithBundleRepeatAndMultiWorkers',
+                               'SamzaRunnerTest',
+                               'SparkRunnerTest'}:
+      raise unittest.SkipTest("https://github.com/apache/beam/issues/35168")
+
+    # The timer will not fire. It is initially set to T + 10, but then it is
+    # cleared at T + 4 (count == 5), and reset to T + 5 + 10
+    # (count is reset every 5 seconds).
+    self._run_pardo_et_timer_test(5, 10, True, True, [])
+
+  def test_pardo_et_timer_with_no_reset(self):
+    if type(self).__name__ in {'FnApiRunnerTest',
+                               'FnApiRunnerTestWithGrpc',
+                               'FnApiRunnerTestWithGrpcAndMultiWorkers',
+                               'FnApiRunnerTestWithDisabledCaching',
+                               'FnApiRunnerTestWithMultiWorkers',
+                               'FnApiRunnerTestWithBundleRepeat',
+                               'FnApiRunnerTestWithBundleRepeatAndMultiWorkers',
+                               'SamzaRunnerTest',
+                               'SparkRunnerTest'}:
+      raise unittest.SkipTest("https://github.com/apache/beam/issues/35168")
+
+    # The timer will not fire. It is initially set to T + 10, and then it is
+    # cleared at T + 4 and never set again (count is not reset).
+    self._run_pardo_et_timer_test(5, 10, False, True, [])
+
+  def test_pardo_et_timer_with_no_reset_and_no_clear(self):
+    if type(self).__name__ in {'FnApiRunnerTest',
+                               'FnApiRunnerTestWithGrpc',
+                               'FnApiRunnerTestWithGrpcAndMultiWorkers',
+                               'FnApiRunnerTestWithDisabledCaching',
+                               'FnApiRunnerTestWithMultiWorkers',
+                               'FnApiRunnerTestWithBundleRepeat',
+                               'FnApiRunnerTestWithBundleRepeatAndMultiWorkers',
+                               'SamzaRunnerTest',
+                               'SparkRunnerTest'}:
+      raise unittest.SkipTest("https://github.com/apache/beam/issues/35168")
+    # The timer will fire at T + 10. After the timer is set, it is never
+    # cleared or set again.
+    self._run_pardo_et_timer_test(5, 10, False, False, ["fired"])
 
   def test_pardo_state_timers(self):
     self._run_pardo_state_timers(windowed=False)
@@ -1191,8 +1309,7 @@ class FnApiRunnerTest(unittest.TestCase):
       side_input_res = (
           big
           | beam.Map(
-              lambda x,
-              side: (x[0], side.count(x[0])),
+              lambda x, side: (x[0], side.count(x[0])),
               beam.pvalue.AsList(big | beam.Map(lambda x: x[0]))))
       assert_that(
           side_input_res,
@@ -1783,14 +1900,8 @@ class FnApiRunnerMetricsTest(unittest.TestCase):
         | beam.GroupByKey()
         | 'm_out' >> beam.FlatMap(
             lambda x: [
-                1,
-                2,
-                3,
-                4,
-                5,
-                beam.pvalue.TaggedOutput('once', x),
-                beam.pvalue.TaggedOutput('twice', x),
-                beam.pvalue.TaggedOutput('twice', x)
+                1, 2, 3, 4, 5, beam.pvalue.TaggedOutput('once', x), beam.pvalue.
+                TaggedOutput('twice', x), beam.pvalue.TaggedOutput('twice', x)
             ]))
 
     res = p.run()

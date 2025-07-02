@@ -201,6 +201,7 @@ from openapi_client.models.credit_record_credit_v2 import CreditRecordCreditV2
 from openapi_client.models.credit_type import CreditType
 from openapi_client.models.credits_v2 import CreditsV2
 from openapi_client.models.customer_alert_status import CustomerAlertStatus
+from openapi_client.models.dashboard_panel import DashboardPanel
 from openapi_client.models.dataplane_services import DataplaneServices
 from openapi_client.models.dataset import Dataset
 from openapi_client.models.dataset_dag import DatasetDag

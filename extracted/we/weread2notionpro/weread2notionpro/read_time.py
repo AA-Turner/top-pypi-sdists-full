@@ -71,6 +71,7 @@ def main():
             response = notion_helper.update_heatmap(
                 block_id=notion_helper.heatmap_block_id, url=heatmap_url
             )
+            print(f"更新热力图成功，热力图链接：{heatmap_url}")
         else:
             print(f"更新热力图失败，没有添加热力图占位。具体参考：{HEATMAP_GUIDE}")
     else:

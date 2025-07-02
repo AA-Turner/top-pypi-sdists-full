@@ -1,7 +1,7 @@
 r'''
 # `azurerm_key_vault_certificate`
 
-Refer to the Terraform Registry for docs: [`azurerm_key_vault_certificate`](https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate).
+Refer to the Terraform Registry for docs: [`azurerm_key_vault_certificate`](https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class KeyVaultCertificate(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.keyVaultCertificate.KeyVaultCertificate",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate azurerm_key_vault_certificate}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate azurerm_key_vault_certificate}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class KeyVaultCertificate(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate azurerm_key_vault_certificate} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate azurerm_key_vault_certificate} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param key_vault_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#key_vault_id KeyVaultCertificate#key_vault_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#name KeyVaultCertificate#name}.
-        :param certificate: certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#certificate KeyVaultCertificate#certificate}
-        :param certificate_policy: certificate_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#certificate_policy KeyVaultCertificate#certificate_policy}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#id KeyVaultCertificate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#tags KeyVaultCertificate#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#timeouts KeyVaultCertificate#timeouts}
+        :param key_vault_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#key_vault_id KeyVaultCertificate#key_vault_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#name KeyVaultCertificate#name}.
+        :param certificate: certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#certificate KeyVaultCertificate#certificate}
+        :param certificate_policy: certificate_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#certificate_policy KeyVaultCertificate#certificate_policy}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#id KeyVaultCertificate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#tags KeyVaultCertificate#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#timeouts KeyVaultCertificate#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class KeyVaultCertificate(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the KeyVaultCertificate to import.
-        :param import_from_id: The id of the existing KeyVaultCertificate that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing KeyVaultCertificate that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the KeyVaultCertificate to import is found.
         '''
         if __debug__:
@@ -140,8 +140,8 @@ class KeyVaultCertificate(
         password: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param contents: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#contents KeyVaultCertificate#contents}.
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#password KeyVaultCertificate#password}.
+        :param contents: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#contents KeyVaultCertificate#contents}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#password KeyVaultCertificate#password}.
         '''
         value = KeyVaultCertificateCertificate(contents=contents, password=password)
 
@@ -158,11 +158,11 @@ class KeyVaultCertificate(
         x509_certificate_properties: typing.Optional[typing.Union["KeyVaultCertificateCertificatePolicyX509CertificateProperties", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param issuer_parameters: issuer_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#issuer_parameters KeyVaultCertificate#issuer_parameters}
-        :param key_properties: key_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#key_properties KeyVaultCertificate#key_properties}
-        :param secret_properties: secret_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#secret_properties KeyVaultCertificate#secret_properties}
-        :param lifetime_action: lifetime_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#lifetime_action KeyVaultCertificate#lifetime_action}
-        :param x509_certificate_properties: x509_certificate_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#x509_certificate_properties KeyVaultCertificate#x509_certificate_properties}
+        :param issuer_parameters: issuer_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#issuer_parameters KeyVaultCertificate#issuer_parameters}
+        :param key_properties: key_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#key_properties KeyVaultCertificate#key_properties}
+        :param secret_properties: secret_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#secret_properties KeyVaultCertificate#secret_properties}
+        :param lifetime_action: lifetime_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#lifetime_action KeyVaultCertificate#lifetime_action}
+        :param x509_certificate_properties: x509_certificate_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#x509_certificate_properties KeyVaultCertificate#x509_certificate_properties}
         '''
         value = KeyVaultCertificateCertificatePolicy(
             issuer_parameters=issuer_parameters,
@@ -184,10 +184,10 @@ class KeyVaultCertificate(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#create KeyVaultCertificate#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#delete KeyVaultCertificate#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#read KeyVaultCertificate#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#update KeyVaultCertificate#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#create KeyVaultCertificate#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#delete KeyVaultCertificate#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#read KeyVaultCertificate#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#update KeyVaultCertificate#update}.
         '''
         value = KeyVaultCertificateTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -396,8 +396,8 @@ class KeyVaultCertificateCertificate:
         password: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param contents: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#contents KeyVaultCertificate#contents}.
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#password KeyVaultCertificate#password}.
+        :param contents: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#contents KeyVaultCertificate#contents}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#password KeyVaultCertificate#password}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__940a3afc372bd2322286e6a26cb0dc1d6fbc41852b42b4c46a4099a4a26ee1f6)
@@ -411,14 +411,14 @@ class KeyVaultCertificateCertificate:
 
     @builtins.property
     def contents(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#contents KeyVaultCertificate#contents}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#contents KeyVaultCertificate#contents}.'''
         result = self._values.get("contents")
         assert result is not None, "Required property 'contents' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def password(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#password KeyVaultCertificate#password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#password KeyVaultCertificate#password}.'''
         result = self._values.get("password")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -701,11 +701,11 @@ class KeyVaultCertificateCertificatePolicy:
         x509_certificate_properties: typing.Optional[typing.Union["KeyVaultCertificateCertificatePolicyX509CertificateProperties", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param issuer_parameters: issuer_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#issuer_parameters KeyVaultCertificate#issuer_parameters}
-        :param key_properties: key_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#key_properties KeyVaultCertificate#key_properties}
-        :param secret_properties: secret_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#secret_properties KeyVaultCertificate#secret_properties}
-        :param lifetime_action: lifetime_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#lifetime_action KeyVaultCertificate#lifetime_action}
-        :param x509_certificate_properties: x509_certificate_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#x509_certificate_properties KeyVaultCertificate#x509_certificate_properties}
+        :param issuer_parameters: issuer_parameters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#issuer_parameters KeyVaultCertificate#issuer_parameters}
+        :param key_properties: key_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#key_properties KeyVaultCertificate#key_properties}
+        :param secret_properties: secret_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#secret_properties KeyVaultCertificate#secret_properties}
+        :param lifetime_action: lifetime_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#lifetime_action KeyVaultCertificate#lifetime_action}
+        :param x509_certificate_properties: x509_certificate_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#x509_certificate_properties KeyVaultCertificate#x509_certificate_properties}
         '''
         if isinstance(issuer_parameters, dict):
             issuer_parameters = KeyVaultCertificateCertificatePolicyIssuerParameters(**issuer_parameters)
@@ -738,7 +738,7 @@ class KeyVaultCertificateCertificatePolicy:
     ) -> "KeyVaultCertificateCertificatePolicyIssuerParameters":
         '''issuer_parameters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#issuer_parameters KeyVaultCertificate#issuer_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#issuer_parameters KeyVaultCertificate#issuer_parameters}
         '''
         result = self._values.get("issuer_parameters")
         assert result is not None, "Required property 'issuer_parameters' is missing"
@@ -748,7 +748,7 @@ class KeyVaultCertificateCertificatePolicy:
     def key_properties(self) -> "KeyVaultCertificateCertificatePolicyKeyProperties":
         '''key_properties block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#key_properties KeyVaultCertificate#key_properties}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#key_properties KeyVaultCertificate#key_properties}
         '''
         result = self._values.get("key_properties")
         assert result is not None, "Required property 'key_properties' is missing"
@@ -760,7 +760,7 @@ class KeyVaultCertificateCertificatePolicy:
     ) -> "KeyVaultCertificateCertificatePolicySecretProperties":
         '''secret_properties block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#secret_properties KeyVaultCertificate#secret_properties}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#secret_properties KeyVaultCertificate#secret_properties}
         '''
         result = self._values.get("secret_properties")
         assert result is not None, "Required property 'secret_properties' is missing"
@@ -772,7 +772,7 @@ class KeyVaultCertificateCertificatePolicy:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["KeyVaultCertificateCertificatePolicyLifetimeAction"]]]:
         '''lifetime_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#lifetime_action KeyVaultCertificate#lifetime_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#lifetime_action KeyVaultCertificate#lifetime_action}
         '''
         result = self._values.get("lifetime_action")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["KeyVaultCertificateCertificatePolicyLifetimeAction"]]], result)
@@ -783,7 +783,7 @@ class KeyVaultCertificateCertificatePolicy:
     ) -> typing.Optional["KeyVaultCertificateCertificatePolicyX509CertificateProperties"]:
         '''x509_certificate_properties block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#x509_certificate_properties KeyVaultCertificate#x509_certificate_properties}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#x509_certificate_properties KeyVaultCertificate#x509_certificate_properties}
         '''
         result = self._values.get("x509_certificate_properties")
         return typing.cast(typing.Optional["KeyVaultCertificateCertificatePolicyX509CertificateProperties"], result)
@@ -808,7 +808,7 @@ class KeyVaultCertificateCertificatePolicy:
 class KeyVaultCertificateCertificatePolicyIssuerParameters:
     def __init__(self, *, name: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#name KeyVaultCertificate#name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#name KeyVaultCertificate#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__82052023ed8eb058979d9fcc627c15d1293a0d3dd299b45f4daced0690bde02f)
@@ -819,7 +819,7 @@ class KeyVaultCertificateCertificatePolicyIssuerParameters:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#name KeyVaultCertificate#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#name KeyVaultCertificate#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -913,11 +913,11 @@ class KeyVaultCertificateCertificatePolicyKeyProperties:
         key_size: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param exportable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#exportable KeyVaultCertificate#exportable}.
-        :param key_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#key_type KeyVaultCertificate#key_type}.
-        :param reuse_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#reuse_key KeyVaultCertificate#reuse_key}.
-        :param curve: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#curve KeyVaultCertificate#curve}.
-        :param key_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#key_size KeyVaultCertificate#key_size}.
+        :param exportable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#exportable KeyVaultCertificate#exportable}.
+        :param key_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#key_type KeyVaultCertificate#key_type}.
+        :param reuse_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#reuse_key KeyVaultCertificate#reuse_key}.
+        :param curve: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#curve KeyVaultCertificate#curve}.
+        :param key_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#key_size KeyVaultCertificate#key_size}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__da4349c081fa313fc0ece1c36ead219b608a661a3e00ca955137e38b55e31013)
@@ -938,34 +938,34 @@ class KeyVaultCertificateCertificatePolicyKeyProperties:
 
     @builtins.property
     def exportable(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#exportable KeyVaultCertificate#exportable}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#exportable KeyVaultCertificate#exportable}.'''
         result = self._values.get("exportable")
         assert result is not None, "Required property 'exportable' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def key_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#key_type KeyVaultCertificate#key_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#key_type KeyVaultCertificate#key_type}.'''
         result = self._values.get("key_type")
         assert result is not None, "Required property 'key_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def reuse_key(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#reuse_key KeyVaultCertificate#reuse_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#reuse_key KeyVaultCertificate#reuse_key}.'''
         result = self._values.get("reuse_key")
         assert result is not None, "Required property 'reuse_key' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def curve(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#curve KeyVaultCertificate#curve}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#curve KeyVaultCertificate#curve}.'''
         result = self._values.get("curve")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def key_size(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#key_size KeyVaultCertificate#key_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#key_size KeyVaultCertificate#key_size}.'''
         result = self._values.get("key_size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1135,8 +1135,8 @@ class KeyVaultCertificateCertificatePolicyLifetimeAction:
         trigger: typing.Union["KeyVaultCertificateCertificatePolicyLifetimeActionTrigger", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#action KeyVaultCertificate#action}
-        :param trigger: trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#trigger KeyVaultCertificate#trigger}
+        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#action KeyVaultCertificate#action}
+        :param trigger: trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#trigger KeyVaultCertificate#trigger}
         '''
         if isinstance(action, dict):
             action = KeyVaultCertificateCertificatePolicyLifetimeActionAction(**action)
@@ -1155,7 +1155,7 @@ class KeyVaultCertificateCertificatePolicyLifetimeAction:
     def action(self) -> "KeyVaultCertificateCertificatePolicyLifetimeActionAction":
         '''action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#action KeyVaultCertificate#action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#action KeyVaultCertificate#action}
         '''
         result = self._values.get("action")
         assert result is not None, "Required property 'action' is missing"
@@ -1165,7 +1165,7 @@ class KeyVaultCertificateCertificatePolicyLifetimeAction:
     def trigger(self) -> "KeyVaultCertificateCertificatePolicyLifetimeActionTrigger":
         '''trigger block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#trigger KeyVaultCertificate#trigger}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#trigger KeyVaultCertificate#trigger}
         '''
         result = self._values.get("trigger")
         assert result is not None, "Required property 'trigger' is missing"
@@ -1191,7 +1191,7 @@ class KeyVaultCertificateCertificatePolicyLifetimeAction:
 class KeyVaultCertificateCertificatePolicyLifetimeActionAction:
     def __init__(self, *, action_type: builtins.str) -> None:
         '''
-        :param action_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#action_type KeyVaultCertificate#action_type}.
+        :param action_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#action_type KeyVaultCertificate#action_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8531a4571088787c741f9025d90a3835c202dbc737370af74cda43ffd8c29d58)
@@ -1202,7 +1202,7 @@ class KeyVaultCertificateCertificatePolicyLifetimeActionAction:
 
     @builtins.property
     def action_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#action_type KeyVaultCertificate#action_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#action_type KeyVaultCertificate#action_type}.'''
         result = self._values.get("action_type")
         assert result is not None, "Required property 'action_type' is missing"
         return typing.cast(builtins.str, result)
@@ -1396,7 +1396,7 @@ class KeyVaultCertificateCertificatePolicyLifetimeActionOutputReference(
     @jsii.member(jsii_name="putAction")
     def put_action(self, *, action_type: builtins.str) -> None:
         '''
-        :param action_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#action_type KeyVaultCertificate#action_type}.
+        :param action_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#action_type KeyVaultCertificate#action_type}.
         '''
         value = KeyVaultCertificateCertificatePolicyLifetimeActionAction(
             action_type=action_type
@@ -1412,8 +1412,8 @@ class KeyVaultCertificateCertificatePolicyLifetimeActionOutputReference(
         lifetime_percentage: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param days_before_expiry: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#days_before_expiry KeyVaultCertificate#days_before_expiry}.
-        :param lifetime_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#lifetime_percentage KeyVaultCertificate#lifetime_percentage}.
+        :param days_before_expiry: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#days_before_expiry KeyVaultCertificate#days_before_expiry}.
+        :param lifetime_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#lifetime_percentage KeyVaultCertificate#lifetime_percentage}.
         '''
         value = KeyVaultCertificateCertificatePolicyLifetimeActionTrigger(
             days_before_expiry=days_before_expiry,
@@ -1484,8 +1484,8 @@ class KeyVaultCertificateCertificatePolicyLifetimeActionTrigger:
         lifetime_percentage: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param days_before_expiry: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#days_before_expiry KeyVaultCertificate#days_before_expiry}.
-        :param lifetime_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#lifetime_percentage KeyVaultCertificate#lifetime_percentage}.
+        :param days_before_expiry: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#days_before_expiry KeyVaultCertificate#days_before_expiry}.
+        :param lifetime_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#lifetime_percentage KeyVaultCertificate#lifetime_percentage}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d4cedbc6bb18f045cd403c454f9dd556406c56b67e5d3f548d43a5eea4792fd6)
@@ -1499,13 +1499,13 @@ class KeyVaultCertificateCertificatePolicyLifetimeActionTrigger:
 
     @builtins.property
     def days_before_expiry(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#days_before_expiry KeyVaultCertificate#days_before_expiry}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#days_before_expiry KeyVaultCertificate#days_before_expiry}.'''
         result = self._values.get("days_before_expiry")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def lifetime_percentage(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#lifetime_percentage KeyVaultCertificate#lifetime_percentage}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#lifetime_percentage KeyVaultCertificate#lifetime_percentage}.'''
         result = self._values.get("lifetime_percentage")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1624,7 +1624,7 @@ class KeyVaultCertificateCertificatePolicyOutputReference(
     @jsii.member(jsii_name="putIssuerParameters")
     def put_issuer_parameters(self, *, name: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#name KeyVaultCertificate#name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#name KeyVaultCertificate#name}.
         '''
         value = KeyVaultCertificateCertificatePolicyIssuerParameters(name=name)
 
@@ -1641,11 +1641,11 @@ class KeyVaultCertificateCertificatePolicyOutputReference(
         key_size: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param exportable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#exportable KeyVaultCertificate#exportable}.
-        :param key_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#key_type KeyVaultCertificate#key_type}.
-        :param reuse_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#reuse_key KeyVaultCertificate#reuse_key}.
-        :param curve: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#curve KeyVaultCertificate#curve}.
-        :param key_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#key_size KeyVaultCertificate#key_size}.
+        :param exportable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#exportable KeyVaultCertificate#exportable}.
+        :param key_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#key_type KeyVaultCertificate#key_type}.
+        :param reuse_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#reuse_key KeyVaultCertificate#reuse_key}.
+        :param curve: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#curve KeyVaultCertificate#curve}.
+        :param key_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#key_size KeyVaultCertificate#key_size}.
         '''
         value = KeyVaultCertificateCertificatePolicyKeyProperties(
             exportable=exportable,
@@ -1673,7 +1673,7 @@ class KeyVaultCertificateCertificatePolicyOutputReference(
     @jsii.member(jsii_name="putSecretProperties")
     def put_secret_properties(self, *, content_type: builtins.str) -> None:
         '''
-        :param content_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#content_type KeyVaultCertificate#content_type}.
+        :param content_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#content_type KeyVaultCertificate#content_type}.
         '''
         value = KeyVaultCertificateCertificatePolicySecretProperties(
             content_type=content_type
@@ -1692,11 +1692,11 @@ class KeyVaultCertificateCertificatePolicyOutputReference(
         subject_alternative_names: typing.Optional[typing.Union["KeyVaultCertificateCertificatePolicyX509CertificatePropertiesSubjectAlternativeNames", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param key_usage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#key_usage KeyVaultCertificate#key_usage}.
-        :param subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#subject KeyVaultCertificate#subject}.
-        :param validity_in_months: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#validity_in_months KeyVaultCertificate#validity_in_months}.
-        :param extended_key_usage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#extended_key_usage KeyVaultCertificate#extended_key_usage}.
-        :param subject_alternative_names: subject_alternative_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#subject_alternative_names KeyVaultCertificate#subject_alternative_names}
+        :param key_usage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#key_usage KeyVaultCertificate#key_usage}.
+        :param subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#subject KeyVaultCertificate#subject}.
+        :param validity_in_months: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#validity_in_months KeyVaultCertificate#validity_in_months}.
+        :param extended_key_usage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#extended_key_usage KeyVaultCertificate#extended_key_usage}.
+        :param subject_alternative_names: subject_alternative_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#subject_alternative_names KeyVaultCertificate#subject_alternative_names}
         '''
         value = KeyVaultCertificateCertificatePolicyX509CertificateProperties(
             key_usage=key_usage,
@@ -1808,7 +1808,7 @@ class KeyVaultCertificateCertificatePolicyOutputReference(
 class KeyVaultCertificateCertificatePolicySecretProperties:
     def __init__(self, *, content_type: builtins.str) -> None:
         '''
-        :param content_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#content_type KeyVaultCertificate#content_type}.
+        :param content_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#content_type KeyVaultCertificate#content_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fa965482a24fceaf73094cc633020ecfe9d225c7c833f1e03d1d62ddd3ef3d2c)
@@ -1819,7 +1819,7 @@ class KeyVaultCertificateCertificatePolicySecretProperties:
 
     @builtins.property
     def content_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#content_type KeyVaultCertificate#content_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#content_type KeyVaultCertificate#content_type}.'''
         result = self._values.get("content_type")
         assert result is not None, "Required property 'content_type' is missing"
         return typing.cast(builtins.str, result)
@@ -1913,11 +1913,11 @@ class KeyVaultCertificateCertificatePolicyX509CertificateProperties:
         subject_alternative_names: typing.Optional[typing.Union["KeyVaultCertificateCertificatePolicyX509CertificatePropertiesSubjectAlternativeNames", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param key_usage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#key_usage KeyVaultCertificate#key_usage}.
-        :param subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#subject KeyVaultCertificate#subject}.
-        :param validity_in_months: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#validity_in_months KeyVaultCertificate#validity_in_months}.
-        :param extended_key_usage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#extended_key_usage KeyVaultCertificate#extended_key_usage}.
-        :param subject_alternative_names: subject_alternative_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#subject_alternative_names KeyVaultCertificate#subject_alternative_names}
+        :param key_usage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#key_usage KeyVaultCertificate#key_usage}.
+        :param subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#subject KeyVaultCertificate#subject}.
+        :param validity_in_months: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#validity_in_months KeyVaultCertificate#validity_in_months}.
+        :param extended_key_usage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#extended_key_usage KeyVaultCertificate#extended_key_usage}.
+        :param subject_alternative_names: subject_alternative_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#subject_alternative_names KeyVaultCertificate#subject_alternative_names}
         '''
         if isinstance(subject_alternative_names, dict):
             subject_alternative_names = KeyVaultCertificateCertificatePolicyX509CertificatePropertiesSubjectAlternativeNames(**subject_alternative_names)
@@ -1940,28 +1940,28 @@ class KeyVaultCertificateCertificatePolicyX509CertificateProperties:
 
     @builtins.property
     def key_usage(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#key_usage KeyVaultCertificate#key_usage}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#key_usage KeyVaultCertificate#key_usage}.'''
         result = self._values.get("key_usage")
         assert result is not None, "Required property 'key_usage' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def subject(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#subject KeyVaultCertificate#subject}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#subject KeyVaultCertificate#subject}.'''
         result = self._values.get("subject")
         assert result is not None, "Required property 'subject' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def validity_in_months(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#validity_in_months KeyVaultCertificate#validity_in_months}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#validity_in_months KeyVaultCertificate#validity_in_months}.'''
         result = self._values.get("validity_in_months")
         assert result is not None, "Required property 'validity_in_months' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def extended_key_usage(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#extended_key_usage KeyVaultCertificate#extended_key_usage}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#extended_key_usage KeyVaultCertificate#extended_key_usage}.'''
         result = self._values.get("extended_key_usage")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1971,7 +1971,7 @@ class KeyVaultCertificateCertificatePolicyX509CertificateProperties:
     ) -> typing.Optional["KeyVaultCertificateCertificatePolicyX509CertificatePropertiesSubjectAlternativeNames"]:
         '''subject_alternative_names block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#subject_alternative_names KeyVaultCertificate#subject_alternative_names}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#subject_alternative_names KeyVaultCertificate#subject_alternative_names}
         '''
         result = self._values.get("subject_alternative_names")
         return typing.cast(typing.Optional["KeyVaultCertificateCertificatePolicyX509CertificatePropertiesSubjectAlternativeNames"], result)
@@ -2017,9 +2017,9 @@ class KeyVaultCertificateCertificatePolicyX509CertificatePropertiesOutputReferen
         upns: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param dns_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#dns_names KeyVaultCertificate#dns_names}.
-        :param emails: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#emails KeyVaultCertificate#emails}.
-        :param upns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#upns KeyVaultCertificate#upns}.
+        :param dns_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#dns_names KeyVaultCertificate#dns_names}.
+        :param emails: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#emails KeyVaultCertificate#emails}.
+        :param upns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#upns KeyVaultCertificate#upns}.
         '''
         value = KeyVaultCertificateCertificatePolicyX509CertificatePropertiesSubjectAlternativeNames(
             dns_names=dns_names, emails=emails, upns=upns
@@ -2149,9 +2149,9 @@ class KeyVaultCertificateCertificatePolicyX509CertificatePropertiesSubjectAltern
         upns: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param dns_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#dns_names KeyVaultCertificate#dns_names}.
-        :param emails: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#emails KeyVaultCertificate#emails}.
-        :param upns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#upns KeyVaultCertificate#upns}.
+        :param dns_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#dns_names KeyVaultCertificate#dns_names}.
+        :param emails: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#emails KeyVaultCertificate#emails}.
+        :param upns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#upns KeyVaultCertificate#upns}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__92cd8f5c9e83de5c1e47b50724d9767473baa7bb6de2494b9ade6b68182709a4)
@@ -2168,19 +2168,19 @@ class KeyVaultCertificateCertificatePolicyX509CertificatePropertiesSubjectAltern
 
     @builtins.property
     def dns_names(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#dns_names KeyVaultCertificate#dns_names}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#dns_names KeyVaultCertificate#dns_names}.'''
         result = self._values.get("dns_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def emails(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#emails KeyVaultCertificate#emails}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#emails KeyVaultCertificate#emails}.'''
         result = self._values.get("emails")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def upns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#upns KeyVaultCertificate#upns}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#upns KeyVaultCertificate#upns}.'''
         result = self._values.get("upns")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2344,13 +2344,13 @@ class KeyVaultCertificateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param key_vault_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#key_vault_id KeyVaultCertificate#key_vault_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#name KeyVaultCertificate#name}.
-        :param certificate: certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#certificate KeyVaultCertificate#certificate}
-        :param certificate_policy: certificate_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#certificate_policy KeyVaultCertificate#certificate_policy}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#id KeyVaultCertificate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#tags KeyVaultCertificate#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#timeouts KeyVaultCertificate#timeouts}
+        :param key_vault_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#key_vault_id KeyVaultCertificate#key_vault_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#name KeyVaultCertificate#name}.
+        :param certificate: certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#certificate KeyVaultCertificate#certificate}
+        :param certificate_policy: certificate_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#certificate_policy KeyVaultCertificate#certificate_policy}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#id KeyVaultCertificate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#tags KeyVaultCertificate#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#timeouts KeyVaultCertificate#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -2471,14 +2471,14 @@ class KeyVaultCertificateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def key_vault_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#key_vault_id KeyVaultCertificate#key_vault_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#key_vault_id KeyVaultCertificate#key_vault_id}.'''
         result = self._values.get("key_vault_id")
         assert result is not None, "Required property 'key_vault_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#name KeyVaultCertificate#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#name KeyVaultCertificate#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -2487,7 +2487,7 @@ class KeyVaultCertificateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def certificate(self) -> typing.Optional[KeyVaultCertificateCertificate]:
         '''certificate block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#certificate KeyVaultCertificate#certificate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#certificate KeyVaultCertificate#certificate}
         '''
         result = self._values.get("certificate")
         return typing.cast(typing.Optional[KeyVaultCertificateCertificate], result)
@@ -2498,14 +2498,14 @@ class KeyVaultCertificateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[KeyVaultCertificateCertificatePolicy]:
         '''certificate_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#certificate_policy KeyVaultCertificate#certificate_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#certificate_policy KeyVaultCertificate#certificate_policy}
         '''
         result = self._values.get("certificate_policy")
         return typing.cast(typing.Optional[KeyVaultCertificateCertificatePolicy], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#id KeyVaultCertificate#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#id KeyVaultCertificate#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -2515,7 +2515,7 @@ class KeyVaultCertificateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#tags KeyVaultCertificate#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#tags KeyVaultCertificate#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -2523,7 +2523,7 @@ class KeyVaultCertificateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["KeyVaultCertificateTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#timeouts KeyVaultCertificate#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#timeouts KeyVaultCertificate#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["KeyVaultCertificateTimeouts"], result)
@@ -2560,10 +2560,10 @@ class KeyVaultCertificateTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#create KeyVaultCertificate#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#delete KeyVaultCertificate#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#read KeyVaultCertificate#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#update KeyVaultCertificate#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#create KeyVaultCertificate#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#delete KeyVaultCertificate#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#read KeyVaultCertificate#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#update KeyVaultCertificate#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8daebd797f017a4f935925171d791789f2915ee5e6cf24c56eb26a4b2ab3fa7c)
@@ -2583,25 +2583,25 @@ class KeyVaultCertificateTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#create KeyVaultCertificate#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#create KeyVaultCertificate#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#delete KeyVaultCertificate#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#delete KeyVaultCertificate#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#read KeyVaultCertificate#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#read KeyVaultCertificate#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/key_vault_certificate#update KeyVaultCertificate#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/key_vault_certificate#update KeyVaultCertificate#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

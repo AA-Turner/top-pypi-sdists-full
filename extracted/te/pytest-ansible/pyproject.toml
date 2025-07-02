@@ -323,8 +323,13 @@ fail-on = [
 addopts = "-ra --showlocals --durations=10"
 cache_dir = "./.cache/.pytest"
 filterwarnings = [
+  "error",
+  "ignore::ResourceWarning",
   "ignore:This process \\(pid=.*\\) is multi-threaded, use of fork\\(\\) may lead to deadlocks in the child.:DeprecationWarning",
-  "ignore:AnsibleCollectionFinder has already been configured:UserWarning"
+  "ignore:AnsibleCollectionFinder has already been configured:UserWarning",
+  "ignore:Host management is deprecated and will be removed in a future release:DeprecationWarning",
+  "ignore:ansible_host fixture is deprecated and will be removed in a future release.:DeprecationWarning",
+  "ignore:ansible_group fixture is deprecated and will be removed in a future release.:DeprecationWarning"
 ]
 junit_family = "xunit2" # see https://docs.codecov.com/docs/test-analytics
 markers = ["old", "unit", "requires_ansible_v2"]
@@ -337,13 +342,20 @@ builtins = ["__"]
 cache-dir = "./.cache/.ruff"
 fix = true
 line-length = 100
+preview = true
 target-version = "py310"
 
 [tool.ruff.lint]
 ignore = [
   "COM812", # conflicts with ISC001 on format
+  "CPY001", # missing-copyright-notice
   "ISC001", # conflicts with COM812 on format
-  "PLC0415" # import should be at the top-level of a file
+  "PLC0415", # import should be at the top-level of a file
+  # temporary disabled when we enabled preview mode:
+  "RUF052",
+  "PLC2701",
+  "PLR6301",
+  "PTH211"
 ]
 select = ["ALL"]
 
@@ -359,6 +371,7 @@ required-imports = ["from __future__ import annotations"]
 [tool.ruff.lint.per-file-ignores]
 "_version.py" = ["SIM108"]
 "tests/**" = ["SLF001", "S101", "S602", "T201"]
+"tests/fixtures/ansible_collections/test/test/tests/unit/plugins/modules/test_pool.py" = ["INP001"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"

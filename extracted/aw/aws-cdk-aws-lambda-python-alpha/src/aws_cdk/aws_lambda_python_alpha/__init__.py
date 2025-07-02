@@ -972,6 +972,7 @@ class PythonFunction(
         log_format: typing.Optional[builtins.str] = None,
         logging_format: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.LoggingFormat] = None,
         log_group: typing.Optional[_aws_cdk_aws_logs_ceddda9d.ILogGroup] = None,
+        log_removal_policy: typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy] = None,
         log_retention: typing.Optional[_aws_cdk_aws_logs_ceddda9d.RetentionDays] = None,
         log_retention_retry_options: typing.Optional[typing.Union[_aws_cdk_aws_lambda_ceddda9d.LogRetentionRetryOptions, typing.Dict[builtins.str, typing.Any]]] = None,
         log_retention_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
@@ -1030,7 +1031,8 @@ class PythonFunction(
         :param log_format: (deprecated) Sets the logFormat for the function. Default: "Text"
         :param logging_format: Sets the loggingFormat for the function. Default: LoggingFormat.TEXT
         :param log_group: The log group the function sends logs to. By default, Lambda functions send logs to an automatically created default log group named /aws/lambda/<function name>. However you cannot change the properties of this auto-created log group using the AWS CDK, e.g. you cannot set a different log retention. Use the ``logGroup`` property to create a fully customizable LogGroup ahead of time, and instruct the Lambda function to send logs to it. Providing a user-controlled log group was rolled out to commercial regions on 2023-11-16. If you are deploying to another type of region, please check regional availability first. Default: ``/aws/lambda/${this.functionName}`` - default log group created by Lambda
-        :param log_retention: The number of days log events are kept in CloudWatch Logs. When updating this property, unsetting it doesn't remove the log retention policy. To remove the retention policy, set the value to ``INFINITE``. This is a legacy API and we strongly recommend you move away from it if you can. Instead create a fully customizable log group with ``logs.LogGroup`` and use the ``logGroup`` property to instruct the Lambda function to send logs to it. Migrating from ``logRetention`` to ``logGroup`` will cause the name of the log group to change. Users and code and referencing the name verbatim will have to adjust. In AWS CDK code, you can access the log group name directly from the LogGroup construct:: import * as logs from 'aws-cdk-lib/aws-logs'; declare const myLogGroup: logs.LogGroup; myLogGroup.logGroupName; Default: logs.RetentionDays.INFINITE
+        :param log_removal_policy: (deprecated) Determine the removal policy of the log group that is auto-created by this construct. Normally you want to retain the log group so you can diagnose issues from logs even after a deployment that no longer includes the log group. In that case, use the normal date-based retention policy to age out your logs. Default: RemovalPolicy.Retain
+        :param log_retention: (deprecated) The number of days log events are kept in CloudWatch Logs. When updating this property, unsetting it doesn't remove the log retention policy. To remove the retention policy, set the value to ``INFINITE``. This is a legacy API and we strongly recommend you move away from it if you can. Instead create a fully customizable log group with ``logs.LogGroup`` and use the ``logGroup`` property to instruct the Lambda function to send logs to it. Migrating from ``logRetention`` to ``logGroup`` will cause the name of the log group to change. Users and code and referencing the name verbatim will have to adjust. In AWS CDK code, you can access the log group name directly from the LogGroup construct:: import * as logs from 'aws-cdk-lib/aws-logs'; declare const myLogGroup: logs.LogGroup; myLogGroup.logGroupName; Default: logs.RetentionDays.INFINITE
         :param log_retention_retry_options: When log retention is specified, a custom resource attempts to create the CloudWatch log group. These options control the retry policy when interacting with CloudWatch APIs. This is a legacy API and we strongly recommend you migrate to ``logGroup`` if you can. ``logGroup`` allows you to create a fully customizable log group and instruct the Lambda function to send logs to it. Default: - Default AWS SDK retry options.
         :param log_retention_role: The IAM role for the Lambda function associated with the custom resource that sets the retention policy. This is a legacy API and we strongly recommend you migrate to ``logGroup`` if you can. ``logGroup`` allows you to create a fully customizable log group and instruct the Lambda function to send logs to it. Default: - A new role is created.
         :param memory_size: The amount of memory, in MB, that is allocated to your Lambda function. Lambda uses this value to proportionally allocate the amount of CPU power. For more information, see Resource Model in the AWS Lambda Developer Guide. Default: 128
@@ -1092,6 +1094,7 @@ class PythonFunction(
             log_format=log_format,
             logging_format=logging_format,
             log_group=log_group,
+            log_removal_policy=log_removal_policy,
             log_retention=log_retention,
             log_retention_retry_options=log_retention_retry_options,
             log_retention_role=log_retention_role,
@@ -1163,6 +1166,7 @@ class PythonFunction(
         "log_format": "logFormat",
         "logging_format": "loggingFormat",
         "log_group": "logGroup",
+        "log_removal_policy": "logRemovalPolicy",
         "log_retention": "logRetention",
         "log_retention_retry_options": "logRetentionRetryOptions",
         "log_retention_role": "logRetentionRole",
@@ -1223,6 +1227,7 @@ class PythonFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionOptions):
         log_format: typing.Optional[builtins.str] = None,
         logging_format: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.LoggingFormat] = None,
         log_group: typing.Optional[_aws_cdk_aws_logs_ceddda9d.ILogGroup] = None,
+        log_removal_policy: typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy] = None,
         log_retention: typing.Optional[_aws_cdk_aws_logs_ceddda9d.RetentionDays] = None,
         log_retention_retry_options: typing.Optional[typing.Union[_aws_cdk_aws_lambda_ceddda9d.LogRetentionRetryOptions, typing.Dict[builtins.str, typing.Any]]] = None,
         log_retention_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
@@ -1280,7 +1285,8 @@ class PythonFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionOptions):
         :param log_format: (deprecated) Sets the logFormat for the function. Default: "Text"
         :param logging_format: Sets the loggingFormat for the function. Default: LoggingFormat.TEXT
         :param log_group: The log group the function sends logs to. By default, Lambda functions send logs to an automatically created default log group named /aws/lambda/<function name>. However you cannot change the properties of this auto-created log group using the AWS CDK, e.g. you cannot set a different log retention. Use the ``logGroup`` property to create a fully customizable LogGroup ahead of time, and instruct the Lambda function to send logs to it. Providing a user-controlled log group was rolled out to commercial regions on 2023-11-16. If you are deploying to another type of region, please check regional availability first. Default: ``/aws/lambda/${this.functionName}`` - default log group created by Lambda
-        :param log_retention: The number of days log events are kept in CloudWatch Logs. When updating this property, unsetting it doesn't remove the log retention policy. To remove the retention policy, set the value to ``INFINITE``. This is a legacy API and we strongly recommend you move away from it if you can. Instead create a fully customizable log group with ``logs.LogGroup`` and use the ``logGroup`` property to instruct the Lambda function to send logs to it. Migrating from ``logRetention`` to ``logGroup`` will cause the name of the log group to change. Users and code and referencing the name verbatim will have to adjust. In AWS CDK code, you can access the log group name directly from the LogGroup construct:: import * as logs from 'aws-cdk-lib/aws-logs'; declare const myLogGroup: logs.LogGroup; myLogGroup.logGroupName; Default: logs.RetentionDays.INFINITE
+        :param log_removal_policy: (deprecated) Determine the removal policy of the log group that is auto-created by this construct. Normally you want to retain the log group so you can diagnose issues from logs even after a deployment that no longer includes the log group. In that case, use the normal date-based retention policy to age out your logs. Default: RemovalPolicy.Retain
+        :param log_retention: (deprecated) The number of days log events are kept in CloudWatch Logs. When updating this property, unsetting it doesn't remove the log retention policy. To remove the retention policy, set the value to ``INFINITE``. This is a legacy API and we strongly recommend you move away from it if you can. Instead create a fully customizable log group with ``logs.LogGroup`` and use the ``logGroup`` property to instruct the Lambda function to send logs to it. Migrating from ``logRetention`` to ``logGroup`` will cause the name of the log group to change. Users and code and referencing the name verbatim will have to adjust. In AWS CDK code, you can access the log group name directly from the LogGroup construct:: import * as logs from 'aws-cdk-lib/aws-logs'; declare const myLogGroup: logs.LogGroup; myLogGroup.logGroupName; Default: logs.RetentionDays.INFINITE
         :param log_retention_retry_options: When log retention is specified, a custom resource attempts to create the CloudWatch log group. These options control the retry policy when interacting with CloudWatch APIs. This is a legacy API and we strongly recommend you migrate to ``logGroup`` if you can. ``logGroup`` allows you to create a fully customizable log group and instruct the Lambda function to send logs to it. Default: - Default AWS SDK retry options.
         :param log_retention_role: The IAM role for the Lambda function associated with the custom resource that sets the retention policy. This is a legacy API and we strongly recommend you migrate to ``logGroup`` if you can. ``logGroup`` allows you to create a fully customizable log group and instruct the Lambda function to send logs to it. Default: - A new role is created.
         :param memory_size: The amount of memory, in MB, that is allocated to your Lambda function. Lambda uses this value to proportionally allocate the amount of CPU power. For more information, see Resource Model in the AWS Lambda Developer Guide. Default: 128
@@ -1363,6 +1369,7 @@ class PythonFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionOptions):
             check_type(argname="argument log_format", value=log_format, expected_type=type_hints["log_format"])
             check_type(argname="argument logging_format", value=logging_format, expected_type=type_hints["logging_format"])
             check_type(argname="argument log_group", value=log_group, expected_type=type_hints["log_group"])
+            check_type(argname="argument log_removal_policy", value=log_removal_policy, expected_type=type_hints["log_removal_policy"])
             check_type(argname="argument log_retention", value=log_retention, expected_type=type_hints["log_retention"])
             check_type(argname="argument log_retention_retry_options", value=log_retention_retry_options, expected_type=type_hints["log_retention_retry_options"])
             check_type(argname="argument log_retention_role", value=log_retention_role, expected_type=type_hints["log_retention_role"])
@@ -1451,6 +1458,8 @@ class PythonFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionOptions):
             self._values["logging_format"] = logging_format
         if log_group is not None:
             self._values["log_group"] = log_group
+        if log_removal_policy is not None:
+            self._values["log_removal_policy"] = log_removal_policy
         if log_retention is not None:
             self._values["log_retention"] = log_retention
         if log_retention_retry_options is not None:
@@ -1857,10 +1866,28 @@ class PythonFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionOptions):
         return typing.cast(typing.Optional[_aws_cdk_aws_logs_ceddda9d.ILogGroup], result)
 
     @builtins.property
+    def log_removal_policy(self) -> typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy]:
+        '''(deprecated) Determine the removal policy of the log group that is auto-created by this construct.
+
+        Normally you want to retain the log group so you can diagnose issues
+        from logs even after a deployment that no longer includes the log group.
+        In that case, use the normal date-based retention policy to age out your
+        logs.
+
+        :default: RemovalPolicy.Retain
+
+        :deprecated: use ``logGroup`` instead
+
+        :stability: deprecated
+        '''
+        result = self._values.get("log_removal_policy")
+        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy], result)
+
+    @builtins.property
     def log_retention(
         self,
     ) -> typing.Optional[_aws_cdk_aws_logs_ceddda9d.RetentionDays]:
-        '''The number of days log events are kept in CloudWatch Logs.
+        '''(deprecated) The number of days log events are kept in CloudWatch Logs.
 
         When updating
         this property, unsetting it doesn't remove the log retention policy. To
@@ -1881,6 +1908,10 @@ class PythonFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionOptions):
            my_log_group.log_group_name
 
         :default: logs.RetentionDays.INFINITE
+
+        :deprecated: use ``logGroup`` instead
+
+        :stability: deprecated
         '''
         result = self._values.get("log_retention")
         return typing.cast(typing.Optional[_aws_cdk_aws_logs_ceddda9d.RetentionDays], result)
@@ -2524,6 +2555,7 @@ def _typecheckingstub__5537a9d2877d6e8ff1275d2f45fdfd2900b726517ad0fa1c220fba47a
     log_format: typing.Optional[builtins.str] = None,
     logging_format: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.LoggingFormat] = None,
     log_group: typing.Optional[_aws_cdk_aws_logs_ceddda9d.ILogGroup] = None,
+    log_removal_policy: typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy] = None,
     log_retention: typing.Optional[_aws_cdk_aws_logs_ceddda9d.RetentionDays] = None,
     log_retention_retry_options: typing.Optional[typing.Union[_aws_cdk_aws_lambda_ceddda9d.LogRetentionRetryOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     log_retention_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
@@ -2583,6 +2615,7 @@ def _typecheckingstub__637cd4e3d3f8768a5067bfaaca86ae334c7670354dabddcb67008214b
     log_format: typing.Optional[builtins.str] = None,
     logging_format: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.LoggingFormat] = None,
     log_group: typing.Optional[_aws_cdk_aws_logs_ceddda9d.ILogGroup] = None,
+    log_removal_policy: typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy] = None,
     log_retention: typing.Optional[_aws_cdk_aws_logs_ceddda9d.RetentionDays] = None,
     log_retention_retry_options: typing.Optional[typing.Union[_aws_cdk_aws_lambda_ceddda9d.LogRetentionRetryOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     log_retention_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,

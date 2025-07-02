@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdktf-cdktf-provider-google",
-    "version": "16.3.0",
+    "version": "16.4.0",
     "description": "Prebuilt google Provider for Terraform CDK (cdktf)",
     "license": "MPL-2.0",
     "url": "https://github.com/cdktf/cdktf-provider-google.git",
@@ -83,6 +83,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_google.apihub_api_hub_instance",
         "cdktf_cdktf_provider_google.apihub_curation",
         "cdktf_cdktf_provider_google.apihub_host_project_registration",
+        "cdktf_cdktf_provider_google.apihub_plugin",
         "cdktf_cdktf_provider_google.apihub_plugin_instance",
         "cdktf_cdktf_provider_google.apikeys_key",
         "cdktf_cdktf_provider_google.app_engine_application",
@@ -897,6 +898,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_google.dialogflow_cx_entity_type",
         "cdktf_cdktf_provider_google.dialogflow_cx_environment",
         "cdktf_cdktf_provider_google.dialogflow_cx_flow",
+        "cdktf_cdktf_provider_google.dialogflow_cx_generative_settings",
         "cdktf_cdktf_provider_google.dialogflow_cx_intent",
         "cdktf_cdktf_provider_google.dialogflow_cx_page",
         "cdktf_cdktf_provider_google.dialogflow_cx_security_settings",
@@ -1454,7 +1456,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdktf_cdktf_provider_google._jsii": [
-            "provider-google@16.3.0.jsii.tgz"
+            "provider-google@16.4.0.jsii.tgz"
         ],
         "cdktf_cdktf_provider_google": [
             "py.typed"

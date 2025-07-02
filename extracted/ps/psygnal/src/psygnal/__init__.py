@@ -22,6 +22,7 @@ __all__ = [
     "EmissionInfo",
     "EmitLoopError",
     "EventedModel",
+    "PathStep",
     "Signal",
     "SignalGroup",
     "SignalGroupDescriptor",
@@ -31,8 +32,10 @@ __all__ = [
     "debounced",
     "emit_queued",
     "evented",
+    "get_async_backend",
     "get_evented_namespace",
     "is_evented",
+    "set_async_backend",
     "throttled",
 ]
 
@@ -48,9 +51,10 @@ if os.getenv("PSYGNAL_UNCOMPILED"):
         stacklevel=2,
     )
 
+from ._async import get_async_backend, set_async_backend
 from ._evented_decorator import evented
 from ._exceptions import EmitLoopError
-from ._group import EmissionInfo, SignalGroup
+from ._group import EmissionInfo, PathStep, SignalGroup
 from ._group_descriptor import SignalGroupDescriptor, get_evented_namespace, is_evented
 from ._queue import emit_queued
 from ._signal import Signal, SignalInstance, _compiled

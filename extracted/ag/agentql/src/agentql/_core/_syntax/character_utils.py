@@ -1,8 +1,8 @@
 def is_white_space(code: int) -> bool:
     """
     WhiteSpace ::
-      - "Horizontal Tab"
-      - "Space"
+      -"Horizontal Tab"
+      -"Space"
     """
     return code == 9 or code == 32  # Horizontal Tab or Space
 

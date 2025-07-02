@@ -5,19 +5,18 @@
 # ------------------------------------------------------
 from collections.abc import Mapping, Sequence
 from types import SimpleNamespace
-from typing import Any, Literal, overload
+from typing import Any, Literal
 
 from reflex.components.core.breakpoints import Breakpoints
 from reflex.components.radix.themes.base import RadixThemesComponent
-from reflex.event import EventType
+from reflex.event import EventType, PointerEventInfo
 from reflex.vars.base import Var
 
 def on_value_change(value: Var[str | list[str]]) -> tuple[Var[str | list[str]]]: ...
 
 class SegmentedControlRoot(RadixThemesComponent):
-    @overload
     @classmethod
-    def create(  # type: ignore
+    def create(
         cls,
         *children,
         size: Breakpoints[str, Literal["1", "2", "3"]]
@@ -107,9 +106,9 @@ class SegmentedControlRoot(RadixThemesComponent):
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
         on_change: EventType[()] | EventType[str | list[str]] | None = None,
-        on_click: EventType[()] | None = None,
-        on_context_menu: EventType[()] | None = None,
-        on_double_click: EventType[()] | None = None,
+        on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
+        on_context_menu: EventType[()] | EventType[PointerEventInfo] | None = None,
+        on_double_click: EventType[()] | EventType[PointerEventInfo] | None = None,
         on_focus: EventType[()] | None = None,
         on_mount: EventType[()] | None = None,
         on_mouse_down: EventType[()] | None = None,
@@ -120,6 +119,7 @@ class SegmentedControlRoot(RadixThemesComponent):
         on_mouse_over: EventType[()] | None = None,
         on_mouse_up: EventType[()] | None = None,
         on_scroll: EventType[()] | None = None,
+        on_scroll_end: EventType[()] | None = None,
         on_unmount: EventType[()] | None = None,
         **props,
     ) -> SegmentedControlRoot:
@@ -152,9 +152,8 @@ class SegmentedControlRoot(RadixThemesComponent):
         """
 
 class SegmentedControlItem(RadixThemesComponent):
-    @overload
     @classmethod
-    def create(  # type: ignore
+    def create(
         cls,
         *children,
         value: Var[str] | str | None = None,
@@ -170,9 +169,9 @@ class SegmentedControlItem(RadixThemesComponent):
         autofocus: bool | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
-        on_click: EventType[()] | None = None,
-        on_context_menu: EventType[()] | None = None,
-        on_double_click: EventType[()] | None = None,
+        on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
+        on_context_menu: EventType[()] | EventType[PointerEventInfo] | None = None,
+        on_double_click: EventType[()] | EventType[PointerEventInfo] | None = None,
         on_focus: EventType[()] | None = None,
         on_mount: EventType[()] | None = None,
         on_mouse_down: EventType[()] | None = None,
@@ -183,6 +182,7 @@ class SegmentedControlItem(RadixThemesComponent):
         on_mouse_over: EventType[()] | None = None,
         on_mouse_up: EventType[()] | None = None,
         on_scroll: EventType[()] | None = None,
+        on_scroll_end: EventType[()] | None = None,
         on_unmount: EventType[()] | None = None,
         **props,
     ) -> SegmentedControlItem:

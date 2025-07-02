@@ -3,6 +3,7 @@
 #include <cmath>
 #include <map>
 #include <string>
+#include <utility>
 
 #include "sorted_dict_keys_type.hh"
 #include "sorted_dict_type.hh"
@@ -93,7 +94,7 @@ bool SortedDictType::is_key_good(PyObject* key)
         {
             return false;
         }
-        return PyObject_Not(key_is_nan_result.get()) == 1;
+        return PyObject_IsTrue(key_is_nan_result.get()) == 0;
     }
     return true;
 }
@@ -266,7 +267,16 @@ int SortedDictType::contains(PyObject* key)
 
 Py_ssize_t SortedDictType::len(void)
 {
-    return this->map->size();
+    auto sz = this->map->size();
+    if (std::cmp_greater(sz, PY_SSIZE_T_MAX))
+    {
+        PyErr_Format(
+            PyExc_OverflowError, "sorted dictionary length is %zu which exceeds PY_SSIZE_T_MAX = %zd", sz,
+            PY_SSIZE_T_MAX
+        );
+        return -1;
+    }
+    return sz;
 }
 
 /**
@@ -389,7 +399,12 @@ PyObject* SortedDictType::copy(void)
 
 PyObject* SortedDictType::items(void)
 {
-    PyObject* sd_items = PyList_New(this->map->size());  // 🆕
+    Py_ssize_t sz = this->len();
+    if (sz == -1)
+    {
+        return nullptr;
+    }
+    PyObject* sd_items = PyList_New(sz);  // 🆕
     if (sd_items == nullptr)
     {
         return nullptr;
@@ -417,7 +432,12 @@ PyObject* SortedDictType::keys(PyTypeObject* type)
 
 PyObject* SortedDictType::values(void)
 {
-    PyObject* sd_values = PyList_New(this->map->size());  // 🆕
+    Py_ssize_t sz = this->len();
+    if (sz == -1)
+    {
+        return nullptr;
+    }
+    PyObject* sd_values = PyList_New(sz);  // 🆕
     if (sd_values == nullptr)
     {
         return nullptr;

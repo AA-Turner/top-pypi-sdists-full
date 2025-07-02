@@ -772,9 +772,8 @@ class RunInferenceBaseTest(unittest.TestCase):
     with TestPipeline() as pipeline:
       examples = [1, 5, 3, 10]
       keyed_examples = [(i, example) for i, example in enumerate(examples)]
-      expected = [
-          (i, ((example * 2) + 1) * 2) for i, example in enumerate(examples)
-      ]
+      expected = [(i, ((example * 2) + 1) * 2)
+                  for i, example in enumerate(examples)]
       pcoll = pipeline | 'start' >> beam.Create(keyed_examples)
       actual = pcoll | base.RunInference(
           base.KeyedModelHandler(FakeModelHandler()).with_preprocess_fn(
@@ -792,9 +791,8 @@ class RunInferenceBaseTest(unittest.TestCase):
       examples = [1, 5, 3, 10]
       keyed_examples = [(i, example) for i, example in enumerate(examples)]
       expected = [((2 * example) + 1) * 2 for example in examples]
-      keyed_expected = [
-          (i, ((2 * example) + 1) * 2) for i, example in enumerate(examples)
-      ]
+      keyed_expected = [(i, ((2 * example) + 1) * 2)
+                        for i, example in enumerate(examples)]
       model_handler = base.MaybeKeyedModelHandler(FakeModelHandler())
 
       pcoll = pipeline | 'Unkeyed' >> beam.Create(examples)
@@ -952,7 +950,11 @@ class RunInferenceBaseTest(unittest.TestCase):
 
   def test_increment_failed_batches_counter(self):
     with self.assertRaises(ValueError):
-      with TestPipeline() as pipeline:
+      # TODO(https://github.com/apache/beam/issues/34549): This test relies on
+      # metrics filtering which doesn't work on Prism yet because Prism renames
+      # steps (e.g. "Do" becomes "ref_AppliedPTransform_Do_7").
+      # https://github.com/apache/beam/blob/5f9cd73b7c9a2f37f83971ace3a399d633201dd1/sdks/python/apache_beam/runners/portability/fn_api_runner/fn_runner.py#L1590
+      with TestPipeline('FnApiRunner') as pipeline:
         examples = [7]
         pcoll = pipeline | 'start' >> beam.Create(examples)
         _ = pcoll | base.RunInference(FakeModelHandlerExpectedInferenceArgs())
@@ -1228,7 +1230,10 @@ class RunInferenceBaseTest(unittest.TestCase):
         for e in element:
           yield e
 
-    with TestPipeline() as pipeline:
+    # This test relies on poorly defined side input semantics which vary
+    # across runners (including prism). Pinning to FnApiRunner which
+    # consistently guarantees output.
+    with TestPipeline('FnApiRunner') as pipeline:
       side_input = (
           pipeline
           |
@@ -1326,7 +1331,10 @@ class RunInferenceBaseTest(unittest.TestCase):
         for e in element:
           yield e
 
-    with TestPipeline() as pipeline:
+    # This test relies on poorly defined side input semantics which vary
+    # across runners (including prism). Pinning to FnApiRunner which
+    # consistently guarantees output.
+    with TestPipeline('FnApiRunner') as pipeline:
       side_input = (
           pipeline
           |
@@ -1427,7 +1435,10 @@ class RunInferenceBaseTest(unittest.TestCase):
         for e in element:
           yield e
 
-    with TestPipeline() as pipeline:
+    # This test relies on poorly defined side input semantics which vary
+    # across runners (including prism). Pinning to FnApiRunner which
+    # consistently guarantees output.
+    with TestPipeline('FnApiRunner') as pipeline:
       side_input = (
           pipeline
           |
@@ -1502,7 +1513,10 @@ class RunInferenceBaseTest(unittest.TestCase):
         for e in element:
           yield e
 
-    with TestPipeline() as pipeline:
+    # This test relies on poorly defined side input semantics which vary
+    # across runners (including prism). Pinning to FnApiRunner which
+    # consistently guarantees output.
+    with TestPipeline('FnApiRunner') as pipeline:
       side_input = (
           pipeline
           |

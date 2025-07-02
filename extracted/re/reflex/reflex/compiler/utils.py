@@ -5,28 +5,21 @@ from __future__ import annotations
 import asyncio
 import concurrent.futures
 import traceback
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-from pydantic.v1.fields import ModelField
-
 from reflex import constants
-from reflex.components.base import (
-    Body,
-    Description,
-    DocumentHead,
-    Head,
-    Html,
-    Image,
-    Main,
-    Meta,
-    NextScript,
-    Title,
-)
+from reflex.components.base import Description, Image, Scripts
+from reflex.components.base.document import Links, ScrollRestoration
+from reflex.components.base.document import Meta as ReactMeta
 from reflex.components.component import Component, ComponentStyle, CustomComponent
+from reflex.components.el.elements.metadata import Head, Meta, Title
+from reflex.components.el.elements.other import Html
+from reflex.components.el.elements.sectioning import Body
+from reflex.constants.state import FIELD_MARKER
 from reflex.istate.storage import Cookie, LocalStorage, SessionStorage
 from reflex.state import BaseState, _resolve_delta
 from reflex.style import Style
@@ -34,7 +27,7 @@ from reflex.utils import console, format, imports, path_ops
 from reflex.utils.exec import is_in_app_harness
 from reflex.utils.imports import ImportVar, ParsedImportDict
 from reflex.utils.prerequisites import get_web_dir
-from reflex.vars.base import Var
+from reflex.vars.base import Field, Var
 
 # To re-export this function.
 merge_imports = imports.merge_imports
@@ -181,6 +174,18 @@ def save_error(error: Exception) -> str:
     return str(log_path)
 
 
+def _sorted_keys(d: Mapping[str, Any]) -> dict[str, Any]:
+    """Sort the keys of a dictionary.
+
+    Args:
+        d: The dictionary to sort.
+
+    Returns:
+        A new dictionary with sorted keys.
+    """
+    return dict(sorted(d.items(), key=lambda kv: kv[0]))
+
+
 def compile_state(state: type[BaseState]) -> dict:
     """Compile the state of the app.
 
@@ -205,14 +210,14 @@ def compile_state(state: type[BaseState]) -> dict:
                 console.warn(
                     f"Had to get initial state in a thread 🤮 {resolved_initial_state}",
                 )
-                return resolved_initial_state
+                return _sorted_keys(resolved_initial_state)
 
     # Normally the compile runs before any event loop starts, we asyncio.run is available for calling.
-    return asyncio.run(_resolve_delta(initial_state))
+    return _sorted_keys(asyncio.run(_resolve_delta(initial_state)))
 
 
 def _compile_client_storage_field(
-    field: ModelField,
+    field: Field,
 ) -> tuple[
     type[Cookie] | type[LocalStorage] | type[SessionStorage] | None,
     dict[str, Any] | None,
@@ -260,7 +265,7 @@ def _compile_client_storage_recursive(
         if name in state.inherited_vars:
             # only include vars defined in this state
             continue
-        state_key = f"{state_name}.{name}"
+        state_key = f"{state_name}.{name}" + FIELD_MARKER
         field_type, options = _compile_client_storage_field(field)
         if field_type is Cookie:
             cookies[state_key] = options
@@ -320,6 +325,8 @@ def compile_custom_component(
         if lib != component.library
     }
 
+    imports.setdefault("@emotion/react", []).append(ImportVar("jsx"))
+
     # Concatenate the props.
     props = list(component.props)
 
@@ -352,12 +359,43 @@ def create_document_root(
     Returns:
         The document root.
     """
-    head_components = head_components or []
+    existing_meta_types = set()
+
+    for component in head_components or []:
+        if isinstance(component, Meta):
+            if component.char_set is not None:  # pyright: ignore[reportAttributeAccessIssue]
+                existing_meta_types.add("char_set")
+            if (
+                (name := component.name) is not None  # pyright: ignore[reportAttributeAccessIssue]
+                and name.equals(Var.create("viewport"))
+            ):
+                existing_meta_types.add("viewport")
+
+    # Always include the framework meta and link tags.
+    always_head_components = [
+        ReactMeta.create(),
+        Links.create(),
+    ]
+    maybe_head_components = []
+    # Only include these if the user has not specified them.
+    if "char_set" not in existing_meta_types:
+        maybe_head_components.append(Meta.create(char_set="utf-8"))
+    if "viewport" not in existing_meta_types:
+        maybe_head_components.append(
+            Meta.create(name="viewport", content="width=device-width, initial-scale=1")
+        )
+
+    head_components = [
+        *(head_components or []),
+        *maybe_head_components,
+        *always_head_components,
+    ]
     return Html.create(
-        DocumentHead.create(*head_components),
+        Head.create(*head_components),
         Body.create(
-            Main.create(),
-            NextScript.create(),
+            Var("children"),
+            ScrollRestoration.create(),
+            Scripts.create(),
         ),
         lang=html_lang or "en",
         custom_attrs=html_custom_attrs or {},
@@ -391,6 +429,25 @@ def create_theme(style: ComponentStyle) -> dict:
     return {"styles": {"global": root_style}}
 
 
+def _format_route_part(part: str) -> str:
+    if part.startswith("[") and part.endswith("]"):
+        if part.startswith(("[...", "[[...")):
+            return "$"
+        if part.startswith("[["):
+            return "($" + part.removeprefix("[[").removesuffix("]]") + ")"
+        # We don't add [] here since we are reusing them from the input
+        return "$" + part
+    return "[" + part + "]"
+
+
+def _path_to_file_stem(path: str) -> str:
+    if path == "index":
+        return "_index"
+    path = path if path != "index" else "/"
+    name = ".".join([_format_route_part(part) for part in path.split("/")]).lstrip(".")
+    return name + "._index" if not name.endswith("$") else name
+
+
 def get_page_path(path: str) -> str:
     """Get the path of the compiled JS file for the given page.
 
@@ -400,7 +457,12 @@ def get_page_path(path: str) -> str:
     Returns:
         The path of the compiled JS file.
     """
-    return str(get_web_dir() / constants.Dirs.PAGES / (path + constants.Ext.JS))
+    return str(
+        get_web_dir()
+        / constants.Dirs.PAGES
+        / constants.Dirs.ROUTES
+        / (_path_to_file_stem(path) + constants.Ext.JSX)
+    )
 
 
 def get_theme_path() -> str:
@@ -447,7 +509,7 @@ def get_components_path() -> str:
     return str(
         get_web_dir()
         / constants.Dirs.UTILS
-        / (constants.PageNames.COMPONENTS + constants.Ext.JS),
+        / (constants.PageNames.COMPONENTS + constants.Ext.JSX),
     )
 
 
@@ -460,7 +522,7 @@ def get_stateful_components_path() -> str:
     return str(
         get_web_dir()
         / constants.Dirs.UTILS
-        / (constants.PageNames.STATEFUL_COMPONENTS + constants.Ext.JS)
+        / (constants.PageNames.STATEFUL_COMPONENTS + constants.Ext.JSX)
     )
 
 
@@ -492,12 +554,8 @@ def add_meta(
         children.append(Description.create(content=description))
     children.append(Image.create(content=image))
 
-    page.children.append(
-        Head.create(
-            *children,
-            *meta_tags,
-        )
-    )
+    page.children.extend(children)
+    page.children.extend(meta_tags)
 
     return page
 

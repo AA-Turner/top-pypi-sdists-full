@@ -1,7 +1,7 @@
 r'''
 # `google_firebase_hosting_release`
 
-Refer to the Terraform Registry for docs: [`google_firebase_hosting_release`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_hosting_release).
+Refer to the Terraform Registry for docs: [`google_firebase_hosting_release`](https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firebase_hosting_release).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleFirebaseHostingRelease(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleFirebaseHostingRelease.GoogleFirebaseHostingRelease",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_hosting_release google_firebase_hosting_release}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firebase_hosting_release google_firebase_hosting_release}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class GoogleFirebaseHostingRelease(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_hosting_release google_firebase_hosting_release} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firebase_hosting_release google_firebase_hosting_release} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param site_id: Required. The ID of the site to which the release belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_hosting_release#site_id GoogleFirebaseHostingRelease#site_id}
-        :param channel_id: The ID of the channel to which the release belongs. If not provided, the release will belong to the default "live" channel Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_hosting_release#channel_id GoogleFirebaseHostingRelease#channel_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_hosting_release#id GoogleFirebaseHostingRelease#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param message: The deploy description when the release was created. The value can be up to 512 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_hosting_release#message GoogleFirebaseHostingRelease#message}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_hosting_release#timeouts GoogleFirebaseHostingRelease#timeouts}
-        :param type: The type of the release; indicates what happened to the content of the site. There is no need to specify 'DEPLOY' or 'ROLLBACK' type if a 'version_name' is provided. DEPLOY: A version was uploaded to Firebase Hosting and released. Output only. ROLLBACK: The release points back to a previously deployed version. Output only. SITE_DISABLE: The release prevents the site from serving content. Firebase Hosting acts as if the site never existed Possible values: ["DEPLOY", "ROLLBACK", "SITE_DISABLE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_hosting_release#type GoogleFirebaseHostingRelease#type}
-        :param version_name: The unique identifier for a version, in the format: sites/SITE_ID/versions/VERSION_ID. The content of the version specified will be actively displayed on the appropriate URL. The Version must belong to the same site as in the 'site_id'. This parameter must be empty if the 'type' of the release is 'SITE_DISABLE'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_hosting_release#version_name GoogleFirebaseHostingRelease#version_name}
+        :param site_id: Required. The ID of the site to which the release belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firebase_hosting_release#site_id GoogleFirebaseHostingRelease#site_id}
+        :param channel_id: The ID of the channel to which the release belongs. If not provided, the release will belong to the default "live" channel Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firebase_hosting_release#channel_id GoogleFirebaseHostingRelease#channel_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firebase_hosting_release#id GoogleFirebaseHostingRelease#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param message: The deploy description when the release was created. The value can be up to 512 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firebase_hosting_release#message GoogleFirebaseHostingRelease#message}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firebase_hosting_release#timeouts GoogleFirebaseHostingRelease#timeouts}
+        :param type: The type of the release; indicates what happened to the content of the site. There is no need to specify 'DEPLOY' or 'ROLLBACK' type if a 'version_name' is provided. DEPLOY: A version was uploaded to Firebase Hosting and released. Output only. ROLLBACK: The release points back to a previously deployed version. Output only. SITE_DISABLE: The release prevents the site from serving content. Firebase Hosting acts as if the site never existed Possible values: ["DEPLOY", "ROLLBACK", "SITE_DISABLE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firebase_hosting_release#type GoogleFirebaseHostingRelease#type}
+        :param version_name: The unique identifier for a version, in the format: sites/SITE_ID/versions/VERSION_ID. The content of the version specified will be actively displayed on the appropriate URL. The Version must belong to the same site as in the 'site_id'. This parameter must be empty if the 'type' of the release is 'SITE_DISABLE'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firebase_hosting_release#version_name GoogleFirebaseHostingRelease#version_name}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class GoogleFirebaseHostingRelease(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleFirebaseHostingRelease to import.
-        :param import_from_id: The id of the existing GoogleFirebaseHostingRelease that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_hosting_release#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleFirebaseHostingRelease that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firebase_hosting_release#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleFirebaseHostingRelease to import is found.
         '''
         if __debug__:
@@ -140,8 +140,8 @@ class GoogleFirebaseHostingRelease(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_hosting_release#create GoogleFirebaseHostingRelease#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_hosting_release#delete GoogleFirebaseHostingRelease#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firebase_hosting_release#create GoogleFirebaseHostingRelease#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firebase_hosting_release#delete GoogleFirebaseHostingRelease#delete}.
         '''
         value = GoogleFirebaseHostingReleaseTimeouts(create=create, delete=delete)
 
@@ -356,13 +356,13 @@ class GoogleFirebaseHostingReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param site_id: Required. The ID of the site to which the release belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_hosting_release#site_id GoogleFirebaseHostingRelease#site_id}
-        :param channel_id: The ID of the channel to which the release belongs. If not provided, the release will belong to the default "live" channel Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_hosting_release#channel_id GoogleFirebaseHostingRelease#channel_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_hosting_release#id GoogleFirebaseHostingRelease#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param message: The deploy description when the release was created. The value can be up to 512 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_hosting_release#message GoogleFirebaseHostingRelease#message}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_hosting_release#timeouts GoogleFirebaseHostingRelease#timeouts}
-        :param type: The type of the release; indicates what happened to the content of the site. There is no need to specify 'DEPLOY' or 'ROLLBACK' type if a 'version_name' is provided. DEPLOY: A version was uploaded to Firebase Hosting and released. Output only. ROLLBACK: The release points back to a previously deployed version. Output only. SITE_DISABLE: The release prevents the site from serving content. Firebase Hosting acts as if the site never existed Possible values: ["DEPLOY", "ROLLBACK", "SITE_DISABLE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_hosting_release#type GoogleFirebaseHostingRelease#type}
-        :param version_name: The unique identifier for a version, in the format: sites/SITE_ID/versions/VERSION_ID. The content of the version specified will be actively displayed on the appropriate URL. The Version must belong to the same site as in the 'site_id'. This parameter must be empty if the 'type' of the release is 'SITE_DISABLE'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_hosting_release#version_name GoogleFirebaseHostingRelease#version_name}
+        :param site_id: Required. The ID of the site to which the release belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firebase_hosting_release#site_id GoogleFirebaseHostingRelease#site_id}
+        :param channel_id: The ID of the channel to which the release belongs. If not provided, the release will belong to the default "live" channel Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firebase_hosting_release#channel_id GoogleFirebaseHostingRelease#channel_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firebase_hosting_release#id GoogleFirebaseHostingRelease#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param message: The deploy description when the release was created. The value can be up to 512 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firebase_hosting_release#message GoogleFirebaseHostingRelease#message}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firebase_hosting_release#timeouts GoogleFirebaseHostingRelease#timeouts}
+        :param type: The type of the release; indicates what happened to the content of the site. There is no need to specify 'DEPLOY' or 'ROLLBACK' type if a 'version_name' is provided. DEPLOY: A version was uploaded to Firebase Hosting and released. Output only. ROLLBACK: The release points back to a previously deployed version. Output only. SITE_DISABLE: The release prevents the site from serving content. Firebase Hosting acts as if the site never existed Possible values: ["DEPLOY", "ROLLBACK", "SITE_DISABLE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firebase_hosting_release#type GoogleFirebaseHostingRelease#type}
+        :param version_name: The unique identifier for a version, in the format: sites/SITE_ID/versions/VERSION_ID. The content of the version specified will be actively displayed on the appropriate URL. The Version must belong to the same site as in the 'site_id'. This parameter must be empty if the 'type' of the release is 'SITE_DISABLE'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firebase_hosting_release#version_name GoogleFirebaseHostingRelease#version_name}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -482,7 +482,7 @@ class GoogleFirebaseHostingReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def site_id(self) -> builtins.str:
         '''Required. The ID of the site to which the release belongs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_hosting_release#site_id GoogleFirebaseHostingRelease#site_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firebase_hosting_release#site_id GoogleFirebaseHostingRelease#site_id}
         '''
         result = self._values.get("site_id")
         assert result is not None, "Required property 'site_id' is missing"
@@ -495,14 +495,14 @@ class GoogleFirebaseHostingReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         If not provided, the release will
         belong to the default "live" channel
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_hosting_release#channel_id GoogleFirebaseHostingRelease#channel_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firebase_hosting_release#channel_id GoogleFirebaseHostingRelease#channel_id}
         '''
         result = self._values.get("channel_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_hosting_release#id GoogleFirebaseHostingRelease#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firebase_hosting_release#id GoogleFirebaseHostingRelease#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -514,7 +514,7 @@ class GoogleFirebaseHostingReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def message(self) -> typing.Optional[builtins.str]:
         '''The deploy description when the release was created. The value can be up to 512 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_hosting_release#message GoogleFirebaseHostingRelease#message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firebase_hosting_release#message GoogleFirebaseHostingRelease#message}
         '''
         result = self._values.get("message")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -523,7 +523,7 @@ class GoogleFirebaseHostingReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def timeouts(self) -> typing.Optional["GoogleFirebaseHostingReleaseTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_hosting_release#timeouts GoogleFirebaseHostingRelease#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firebase_hosting_release#timeouts GoogleFirebaseHostingRelease#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleFirebaseHostingReleaseTimeouts"], result)
@@ -538,7 +538,7 @@ class GoogleFirebaseHostingReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         ROLLBACK: The release points back to a previously deployed version. Output only.
         SITE_DISABLE: The release prevents the site from serving content. Firebase Hosting acts as if the site never existed Possible values: ["DEPLOY", "ROLLBACK", "SITE_DISABLE"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_hosting_release#type GoogleFirebaseHostingRelease#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firebase_hosting_release#type GoogleFirebaseHostingRelease#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -551,7 +551,7 @@ class GoogleFirebaseHostingReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         The Version must belong to the same site as in the 'site_id'.
         This parameter must be empty if the 'type' of the release is 'SITE_DISABLE'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_hosting_release#version_name GoogleFirebaseHostingRelease#version_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firebase_hosting_release#version_name GoogleFirebaseHostingRelease#version_name}
         '''
         result = self._values.get("version_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -581,8 +581,8 @@ class GoogleFirebaseHostingReleaseTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_hosting_release#create GoogleFirebaseHostingRelease#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_hosting_release#delete GoogleFirebaseHostingRelease#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firebase_hosting_release#create GoogleFirebaseHostingRelease#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firebase_hosting_release#delete GoogleFirebaseHostingRelease#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8a1c2a535c2d8662d8d9de813416f2752af300f1c2399427749d0767d3680678)
@@ -596,13 +596,13 @@ class GoogleFirebaseHostingReleaseTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_hosting_release#create GoogleFirebaseHostingRelease#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firebase_hosting_release#create GoogleFirebaseHostingRelease#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_firebase_hosting_release#delete GoogleFirebaseHostingRelease#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_firebase_hosting_release#delete GoogleFirebaseHostingRelease#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

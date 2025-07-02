@@ -62,7 +62,7 @@ class FilterCriteria(TypedDict, total=False):
     agent_id: List[str]
     """Only retrieve calls that are made with specific agent(s)."""
 
-    call_status: List[Literal["registered", "ongoing", "ended", "error"]]
+    call_status: List[Literal["registered", "not_connected", "ongoing", "ended", "error"]]
     """Only retrieve calls with specific call status(es)."""
 
     call_successful: Iterable[bool]
@@ -85,10 +85,15 @@ class FilterCriteria(TypedDict, total=False):
             "concurrency_limit_reached",
             "no_valid_payment",
             "scam_detected",
-            "error_inbound_webhook",
             "dial_busy",
             "dial_failed",
             "dial_no_answer",
+            "invalid_destination",
+            "telephony_provider_permission_denied",
+            "telephony_provider_unavailable",
+            "sip_routing_error",
+            "marked_as_spam",
+            "user_declined",
             "error_llm_websocket_open",
             "error_llm_websocket_lost_connection",
             "error_llm_websocket_runtime",

@@ -1,15 +1,15 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.15.18.1+obcheckpoint(0.2.1);ob(v1)                                                   #
-# Generated on 2025-06-26T22:38:03.062212                                                            #
+# MF version: 2.15.18.1+obcheckpoint(0.2.4);ob(v1)                                                   #
+# Generated on 2025-07-01T15:21:03.492852                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.datastructures
     import metaflow
+    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.datastructures
 
 from ..datastructures import CheckpointArtifact as CheckpointArtifact
 from .constructors import load_checkpoint as load_checkpoint
@@ -30,7 +30,10 @@ class Checkpoint(object, metaclass=type):
     def __init__(self, temp_dir_root = None, init_dir = False):
         ...
     @property
-    def directory(self):
+    def directory(self) -> typing.Optional[str]:
+        """
+        The directory where a checkpoint is loaded
+        """
         ...
     def save(self, path = None, metadata = None, latest = True, name = 'mfchckpt', storage_format = 'files') -> typing.Dict:
         """
@@ -73,19 +76,12 @@ class Checkpoint(object, metaclass=type):
         """
         lists the checkpoints in the current task or the specified task.
         
-        When users call `list` without any arguments, it will list all the checkpoints in the currently executing
-        task (this includes all attempts). If the `list` method is called without any arguments outside a Metaflow Task execution context,
-        it will raise an exception. Users can also call `list` with `attempt` argument to list all checkpoints within a
-        the specific attempt of the currently executing task.
+        When users call `list` without any arguments, it will list all the checkpoints in the currently executing task (this includes all attempts). If the `list` method is called without any arguments outside a Metaflow Task execution context, it will raise an exception. Users can also call `list` with `attempt` argument to list all checkpoints within a the specific attempt of the currently executing task.
         
-        When a `task` argument is provided, the `list` method will return all the checkpoints
-        for a task's latest attempt unless a specific attempt number is set in the `attempt` argument.
-        If the `Task` object contains a `DataArtifact` with all the previous checkpoints, then the `list` method will return
-        all the checkpoints from the data artifact. If for some reason the DataArtifact is not written, then the `list` method will
-        return all checkpoints directly from the checkpoint's datastore.
+        When a `task` argument is provided, the `list` method will return all the checkpoints for a task's latest attempt unless a specific attempt number is set in the `attempt` argument. If the `Task` object contains a `DataArtifact` with all the previous checkpoints, then the `list` method will return all the checkpoints from the data artifact. If for some reason the DataArtifact is not written, then the `list` method will return all checkpoints directly from the checkpoint's datastore.
         
-        Usage:
-        ------
+        Examples
+        --------
         
         ```python
         

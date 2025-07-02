@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: pki-tools
-Version: 1.1.1
+Version: 1.1.2
 Summary: PKI tools for e.g. checking certificate CRL/OCSP revocation
 License: MIT
 Author: Michal Sadowski
@@ -19,7 +19,7 @@ Classifier: Topic :: Security :: Cryptography
 Requires-Dist: cryptography (>=42.0.0,<46.0.0)
 Requires-Dist: httpx (>=0.28.1,<0.29.0)
 Requires-Dist: loguru (>=0.7.3,<0.8.0)
-Requires-Dist: pydantic (>=2.11.4,<3.0.0)
+Requires-Dist: pydantic (>=2.11.7,<3.0.0)
 Requires-Dist: pytz (>=2025.2,<2026.0)
 Requires-Dist: pyyaml (>=6.0.2,<7.0.0)
 Project-URL: Bug Tracker, https://github.com/fulder/pki-tools/issues

@@ -1822,7 +1822,7 @@ l_kind_11 = {
     'ar': "<b>👩🏽‍💻 @FereyAdsBot </b>-إعلانات فيري\n\n▪️️إعلان في مشاريع فيري\n▪️️طلب إعلان على القناة",
 }
 l_kind_12 = {
-    'ru': "<b>👩🏽‍💻 @FereyTONestBot</b> - блокчейн проекты\n\n<blockquote>▪️️соло/альбом NFT\n▪️️монеты (жетоны) FT\n▪️️нейро-парсинг смарт-контрактов</blockquote>",
+    'ru': "<b>👩🏽‍💻 @FereyTONestBot</b> - блокчейн проекты\n\n<blockquote>▪️️соло/альбом NFT\n▪️️монеты (токены) FT\n▪️️нейро-парсинг смарт-контрактов</blockquote>",
     'en': "<b>👩🏽‍💻 @FereyAdsBot </b>-ferey advertising\n\n▪️️advertising in ferey-projects\n▪️️ordering advertising on the channel",
     'es': "<b>👩🏽‍💻 @FereyAdsBot </b>-publicidad de ferey\n\n▪️️publicidad en proyectos de ferey\n▪️️pedido de publicidad en el canal",
     'fr': "<b>👩🏽‍💻 @FereyAdsBot </b>-publicité ferey\n\nnoyer️publicité dans les projets ferey\nnoyer️commander de la publicité sur la chaîne",
@@ -6161,7 +6161,7 @@ l_chn_no_nft_logo = {
     'ar': "🌏 <b>اختر</b> إحدى اللغات المتاحة",
 }
 l_chn_jetton_of_channel = {
-    'ru': "Жетон канала:",
+    'ru': "Токен канала:",
     'en': "🌏 <b>Select</b> one of the available languages",
     'es': "🌏 <b>Seleccione</b> uno de los idiomas disponibles",
     'fr': "🌏 <b>Sélectionnez</b> une des langues disponibles",
@@ -6169,7 +6169,7 @@ l_chn_jetton_of_channel = {
     'ar': "🌏 <b>اختر</b> إحدى اللغات المتاحة",
 }
 l_chn_jetton_master_address = {
-    'ru': "👩🏽‍💻 <b>Адрес</b> мастера-жетона:",
+    'ru': "👩🏽‍💻 <b>Адрес</b> мастера-токена:",
     'en': "🌏 <b>Select</b> one of the available languages",
     'es': "🌏 <b>Seleccione</b> uno de los idiomas disponibles",
     'fr': "🌏 <b>Sélectionnez</b> une des langues disponibles",
@@ -8537,7 +8537,7 @@ l_cpay_text = {
     'ar': "🧾 <b>اضغط</b> على ✅/☑️ من أجل <b>تشغيل/إيقاف</b> الحذف التلقائي للرسائل التي تحتوي على كلمات توقف محظورة\n\n👩🏽‍💻 <b>العدد الحالي</b> من كلمات التوقف <u>{0}</u>",
 }
 l_cpay_config = {
-    'ru': "⭐️ <b>Жми</b> на ✅/☑️, чтобы <b>Вкл/Выкл</b> контроль подписки на {0}: проверка наличия жетонов/NFT\n\n<blockquote>👩🏽‍💻 <b>Текущая</b> стоимость подписки: {1}\n<a href='https://t.me/FereyGroupBot/web?startapp={2}_upay'>⭐️ Ссылка на подписку</a>\n<a href='https://t.me/FereyGroupBot/web?startapp={2}_donations'>🪙 Ссылка на донаты</a></blockquote>",
+    'ru': "⭐️ <b>Жми</b> на ✅/☑️, чтобы <b>Вкл/Выкл</b> контроль подписки на {0}: проверка наличия токенов/NFT\n\n<blockquote>👩🏽‍💻 <b>Текущая</b> стоимость подписки: {1}\n<a href='https://t.me/FereyGroupBot/web?startapp={2}_upay'>⭐️ Ссылка на подписку</a>\n<a href='https://t.me/FereyGroupBot/web?startapp={2}_donations'>🪙 Ссылка на донаты</a></blockquote>",
     'en': "🧾 <b>Press</b> on ✅/☑️ to <b>On/Off</b> auto-delete messages containing prohibited stop words\n\n👩🏽‍💻 <b>Current</b > number of stop words <u>{0}</u>",
     'es': "🧾 <b>Presiona</b> en ✅/☑️ para <b>Activar/Desactivar</b> la eliminación automática de mensajes que contengan palabras vacías prohibidas\n\n👩🏽‍💻 Número <b>Actual</b > de palabras vacías <u>{0}</u>",
     'fr': "🧾 <b>Appuyez</b> sur ✅/☑️ pour <b>Activer/Désactiver</b> la suppression automatique des messages contenant des mots vides interdits\n\n👩🏽‍💻 <b>Actuel</b > nombre de mots vides <u>{0}</u>",
@@ -8569,7 +8569,7 @@ l_cpay_period_off = {
     'ar': "☑️☐إيقاف وصول المشرف",
 }
 l_cpay_nft_on = {
-    'ru': "✅ Вкл проверка жетоны/NFT",
+    'ru': "✅ Вкл проверка токенов/NFT",
     'en': "✅ On admin access",
     'es': "✅☑En acceso de administrador",
     'fr': "✅☑Sur l'accès administrateur",
@@ -8577,7 +8577,7 @@ l_cpay_nft_on = {
     'ar': "✅☑عند وصول المسؤول",
 }
 l_cpay_nft_off = {
-    'ru': "☑️ Выкл проверка жетоны/NFT",
+    'ru': "☑️ Выкл проверка токенов/NFT",
     'en': "☑️☐Off admin access",
     'es': "☑️☐Fuera del acceso de administrador",
     'fr': "☑️☐Hors accès administrateur",
@@ -8754,7 +8754,7 @@ l_cpay_subscribe_chk = {
     'ar': "☑️☐إيقاف وصول المشرف",
 }
 l_cpay_address_wallet_lbl = {
-    'ru': "Адрес мастера жетонов:*",
+    'ru': "Адрес мастера токенов:*",
     'en': "☑️☐Off admin access",
     'es': "☑️☐Fuera del acceso de administrador",
     'fr': "☑️☐Hors accès administrateur",
@@ -8762,7 +8762,7 @@ l_cpay_address_wallet_lbl = {
     'ar': "☑️☐إيقاف وصول المشرف",
 }
 l_cpay_address_wallet_placeholder = {
-    'ru': "для проверки жетонов",
+    'ru': "для проверки токенов",
     'en': "☑️☐Off admin access",
     'es': "☑️☐Fuera del acceso de administrador",
     'fr': "☑️☐Hors accès administrateur",
@@ -8827,7 +8827,7 @@ l_cpay_bot_token_placeholder = {
 }
 
 l_upay_txt_checking_ft = {
-    'ru': "Проверка жетонов",
+    'ru': "Проверка токенов",
     'en': "☑️☐Off admin access",
     'es': "☑️☐Fuera del acceso de administrador",
     'fr': "☑️☐Hors accès administrateur",
@@ -8939,7 +8939,7 @@ l_upay_need_stars = {
     'ar': "☑️☐إيقاف وصول المشرف",
 }
 l_upay_need_ft = {
-    'ru': "👩🏽‍💻 Неоходимо отправить жетоны",
+    'ru': "👩🏽‍💻 Неоходимо отправить токены",
     'en': "☑️☐Off admin access",
     'es': "☑️☐Fuera del acceso de administrador",
     'fr': "☑️☐Hors accès administrateur",
@@ -13264,7 +13264,7 @@ l_tonest_btn2 = {
 }
 
 l_tonest_welcome = {
-    "ru": "🌱 <b>{0}</b>, добро пожаловать в <i>@tg-приложение</i> создания Web3ᵀᴼᴺ-проектов на блокчейне:\n\n<blockquote>▪️соло/альбом NFT\n▪️монеты(жетоны) FT\n▪️смарт-контракты\n▪️NFT-диалоги</blockquote>",
+    "ru": "🌱 <b>{0}</b>, добро пожаловать в <i>@tg-приложение</i> создания Web3ᵀᴼᴺ-проектов на блокчейне:\n\n<blockquote>▪️соло/альбом NFT\n▪️монеты(токены) FT\n▪️смарт-контракты\n▪️NFT-диалоги</blockquote>",
     "en": "🌱 <b>{0}</b>, welcome to the <i>@tg-app</i> for creating Web3ᵀᴼᴺ projects on the blockchain:\n\n<blockquote>▪️solo/NFT album\n▪️coins (tokens) FT\n▪️smart contracts</blockquote>",
     "es": "🌱 <b>{0}</b>, bienvenido a la <i>@tg-app</i> para la creación de proyectos Web3ᵀᴼᴺ en la blockchain:\n\n<blockquote>▪️álbum solo/NFT\n▪️monedas (tokens) FT\n▪️contratos inteligentes</blockquote>",
     "fr": "🌱 <b>{0}</b>, bienvenue dans l’<i>@tg-app</i> de création de projets Web3ᵀᴼᴺ sur la blockchain:\n\n<blockquote>▪️solo/album NFT\n▪️pièces (jetons) FT\n▪️contrats intelligents</blockquote>",
@@ -13930,7 +13930,7 @@ l_tonest_not_editable_nft = {
 
 # region jetton
 l_tonest_jetton = {
-    'ru': "🪙 <b>Создай</b> <a href='https://t.me/FereyTONestBot/web?startapp=ft_all'>монеты (жетоны)</a> для своего сообщества, чтобы управлять <a href='https://telegra.ph/FereyTONestBot-05-20'>токеномикой</a>",
+    'ru': "🪙 <b>Создай</b> <a href='https://t.me/FereyTONestBot/web?startapp=ft_all'>монеты (токены)</a> для своего сообщества, чтобы управлять <a href='https://telegra.ph/FereyTONestBot-05-20'>токеномикой</a>",
     'en': "👩🏽‍💻 <b>Here</b> you can select the type of drop-down media notes (/add | /del)",
     'es': "👩🏽‍💻 <b>Aquí</b> puedes seleccionar el tipo de notas multimedia desplegables (/add | /del)",
     'fr': "👩🏽‍💻 <b>Ici</b>, vous pouvez sélectionner le type de notes média déroulantes (/add | /del)",
@@ -13938,7 +13938,7 @@ l_tonest_jetton = {
     'ar': "👩🏽‍💻 <b>هنا</b> يمكنك تحديد نوع ملاحظات الوسائط المنسدلة (/add | /del)",
 }
 l_tonest_address_datalist_list_placeholder = {
-    'ru': "🔍 UQ: адрес жетона",
+    'ru': "🔍 UQ: адрес токена",
     'en': "💨 Subscription",
     'es': "💨 Suscripción",
     'fr': "💨 Abonnement",
@@ -13946,7 +13946,7 @@ l_tonest_address_datalist_list_placeholder = {
     'ar': "💨 الاشتراك",
 }
 l_tonest_address_datalist_list_value = {
-    'ru': "создать новый жетон",
+    'ru': "создать новый токен",
     'en': "💨 Subscription",
     'es': "💨 Suscripción",
     'fr': "💨 Abonnement",
@@ -13970,7 +13970,7 @@ l_tonest_input_field_image = {
     'ar': "💨 الاشتراك",
 }
 l_tonest_input_field_name = {
-    'ru': "💨 Jetton: название жетона",
+    'ru': "💨 Jetton: название токена",
     'en': "💨 Subscription",
     'es': "💨 Suscripción",
     'fr': "💨 Abonnement",
@@ -13986,7 +13986,7 @@ l_tonest_hint_field_name = {
     'ar': "💨 الاشتراك",
 }
 l_tonest_input_field_symbol = {
-    'ru': "💨 JTN: обозначение жетона",
+    'ru': "💨 JTN: обозначение токена",
     'en': "💨 Subscription",
     'es': "💨 Suscripción",
     'fr': "💨 Abonnement",
@@ -14034,7 +14034,7 @@ l_tonest_hint_field_total = {
     'ar': "💨 الاشتراك",
 }
 l_tonest_input_field_description = {
-    'ru': "💨 Desc: описание жетона",
+    'ru': "💨 Desc: описание токена",
     'en': "💨 Subscription",
     'es': "💨 Suscripción",
     'fr': "💨 Abonnement",
@@ -14067,7 +14067,7 @@ l_tonest_hint_field_social = {
 }
 
 l_tonest_ft_send = {
-    'ru': "Создать жетон",
+    'ru': "Создать токен",
     'en': "💨 Subscription",
     'es': "💨 Suscripción",
     'fr': "💨 Abonnement",
@@ -14156,7 +14156,7 @@ l_tonest_ft_revoke = {
     'ar': "💨 الاشتراك",
 }
 l_tonest_ft_revoke_hint = {
-    'ru': "рекомендуется отозвать права админа на: отчеканивание новых монет и передачу прав владения, а также на редактирование жетона: ссылка на лого, название, обозначение, описание",
+    'ru': "рекомендуется отозвать права админа на: отчеканивание новых монет и передачу прав владения, а также на редактирование токена: ссылка на лого, название, обозначение, описание",
     'en': "💨 Subscription",
     'es': "💨 Suscripción",
     'fr': "💨 Abonnement",
@@ -14244,7 +14244,7 @@ l_tonest_input_amount = {
     'ar': "💨 الاشتراك",
 }
 l_tonest_symbol_dt_id = {
-    'ru': "JTN: жетон",
+    'ru': "JTN: токен",
     'en': "💨 Subscription",
     'es': "💨 Suscripción",
     'fr': "💨 Abonnement",
@@ -14284,7 +14284,7 @@ l_tonest_hint_transfer = {
     'ar': "💨 الاشتراك",
 }
 l_tonest_instruction = {
-    'ru': "инструкция применения жетона",
+    'ru': "инструкция применения токена",
     'en': "💨 Subscription",
     'es': "💨 Suscripción",
     'fr': "💨 Abonnement",
@@ -14325,7 +14325,7 @@ l_tonest_not_correct_link = {
     'ar': "💨 الاشتراك",
 }
 l_tonest_need_master = {
-    'ru': "👩🏽‍💻 Создай жетон или выбери адрес мастера/кошелька",
+    'ru': "👩🏽‍💻 Создай токен или выбери адрес мастера/кошелька",
     'en': "💨 Subscription",
     'es': "💨 Suscripción",
     'fr': "💨 Abonnement",

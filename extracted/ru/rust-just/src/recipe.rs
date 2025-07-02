@@ -77,9 +77,10 @@ impl<'src, D> Recipe<'src, D> {
         .read_line(&mut line)
         .map_err(|io_error| Error::GetConfirmation { io_error })?;
       let line = line.trim().to_lowercase();
-      return Ok(line == "y" || line == "yes");
+      Ok(line == "y" || line == "yes")
+    } else {
+      Ok(true)
     }
-    Ok(true)
   }
 
   pub(crate) fn check_can_be_default_recipe(&self) -> RunResult<'src, ()> {
@@ -251,11 +252,12 @@ impl<'src, D> Recipe<'src, D> {
           || (context.module.settings.quiet && !self.no_quiet())
           || config.verbosity.quiet())
       {
-        let color = config
-          .highlight
-          .then(|| config.color.command(config.command_color))
-          .unwrap_or(config.color)
-          .stderr();
+        let color = if config.highlight {
+          config.color.command(config.command_color)
+        } else {
+          config.color
+        }
+        .stderr();
 
         if config.timestamp {
           eprint!(
@@ -300,7 +302,9 @@ impl<'src, D> Recipe<'src, D> {
         &context.module.unexports,
       );
 
-      match InterruptHandler::guard(|| cmd.status()) {
+      let (result, caught) = cmd.status_guard();
+
+      match result {
         Ok(exit_status) => {
           if let Some(code) = exit_status.code() {
             if code != 0 && !infallible_line {
@@ -311,7 +315,7 @@ impl<'src, D> Recipe<'src, D> {
                 print_message: self.print_exit_message(&context.module.settings),
               });
             }
-          } else {
+          } else if !infallible_line {
             return Err(error_from_signal(
               self.name(),
               Some(line_number),
@@ -325,7 +329,13 @@ impl<'src, D> Recipe<'src, D> {
             io_error,
           });
         }
-      };
+      }
+
+      if !infallible_line {
+        if let Some(signal) = caught {
+          return Err(Error::Interrupted { signal });
+        }
+      }
     }
   }
 
@@ -380,27 +390,8 @@ impl<'src, D> Recipe<'src, D> {
       Executor::Shebang(shebang)
     };
 
-    let mut tempdir_builder = tempfile::Builder::new();
-    tempdir_builder.prefix("just-");
-    let tempdir = match &context.module.settings.tempdir {
-      Some(tempdir) => tempdir_builder.tempdir_in(context.search.working_directory.join(tempdir)),
-      None => {
-        if let Some(runtime_dir) = dirs::runtime_dir() {
-          let path = runtime_dir.join("just");
-          fs::create_dir_all(&path).map_err(|io_error| Error::RuntimeDirIo {
-            io_error,
-            path: path.clone(),
-          })?;
-          tempdir_builder.tempdir_in(path)
-        } else {
-          tempdir_builder.tempdir()
-        }
-      }
-    }
-    .map_err(|error| Error::TempdirIo {
-      recipe: self.name(),
-      io_error: error,
-    })?;
+    let tempdir = context.tempdir(self)?;
+
     let mut path = tempdir.path().to_path_buf();
 
     let extension = self.attributes.iter().find_map(|attribute| {
@@ -442,7 +433,9 @@ impl<'src, D> Recipe<'src, D> {
     );
 
     // run it!
-    match InterruptHandler::guard(|| command.status()) {
+    let (result, caught) = command.status_guard();
+
+    match result {
       Ok(exit_status) => exit_status.code().map_or_else(
         || Err(error_from_signal(self.name(), None, exit_status)),
         |code| {
@@ -457,9 +450,15 @@ impl<'src, D> Recipe<'src, D> {
             })
           }
         },
-      ),
-      Err(io_error) => Err(executor.error(io_error, self.name())),
+      )?,
+      Err(io_error) => return Err(executor.error(io_error, self.name())),
     }
+
+    if let Some(signal) = caught {
+      return Err(Error::Interrupted { signal });
+    }
+
+    Ok(())
   }
 
   pub(crate) fn groups(&self) -> BTreeSet<String> {

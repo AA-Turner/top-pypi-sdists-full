@@ -10,10 +10,10 @@ import json
 import os
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
-from requests import Response
 
 import requests
 import urllib3
+from requests import Response
 
 from instana.agent.base import BaseAgent
 from instana.collector.host import HostCollector
@@ -21,8 +21,8 @@ from instana.fsm import Discovery, TheMachine
 from instana.log import logger
 from instana.options import StandardOptions
 from instana.util import to_json
-from instana.util.runtime import get_py_source
-from instana.util.span_utils import get_operation_specifier
+from instana.util.runtime import get_py_source, log_runtime_env_info
+from instana.util.span_utils import get_operation_specifiers
 from instana.version import VERSION
 
 
@@ -62,6 +62,7 @@ class HostAgent(BaseAgent):
         logger.info(
             f"Stan is on the scene.  Starting Instana instrumentation version: {VERSION}"
         )
+        log_runtime_env_info()
 
         self.collector = HostCollector(self)
         self.machine = TheMachine(self)
@@ -351,13 +352,18 @@ class HostAgent(BaseAgent):
         Filters given span list using ignore-endpoint variable and returns the list of filtered spans.
         """
         filtered_spans = []
+        endpoint = ""
         for span in spans:
             if (hasattr(span, "n") or hasattr(span, "name")) and hasattr(span, "data"):
                 service = span.n
-                operation_specifier = get_operation_specifier(service)
-                endpoint = span.data[service][operation_specifier]
-                if isinstance(endpoint, str) and self.__is_service_or_endpoint_ignored(
-                    service, endpoint
+                operation_specifier_key, service_specifier_key = (
+                    get_operation_specifiers(service)
+                )
+                if service == "kafka":
+                    endpoint = span.data[service][service_specifier_key]
+                method = span.data[service][operation_specifier_key]
+                if isinstance(method, str) and self.__is_endpoint_ignored(
+                    service, method, endpoint
                 ):
                     continue
                 else:
@@ -366,15 +372,28 @@ class HostAgent(BaseAgent):
                 filtered_spans.append(span)
         return filtered_spans
 
-    def __is_service_or_endpoint_ignored(
-        self, service: str, endpoint: str = ""
+    def __is_endpoint_ignored(
+        self,
+        service: str,
+        method: str = "",
+        endpoint: str = "",
     ) -> bool:
         """Check if the given service and endpoint combination should be ignored."""
+        service = service.lower()
+        method = method.lower()
+        endpoint = endpoint.lower()
+        filter_rules = [
+            f"{service}.{method}",  # service.method
+            f"{service}.*",  # service.*
+        ]
 
-        return (
-            service.lower() in self.options.ignore_endpoints
-            or f"{service.lower()}.{endpoint.lower()}" in self.options.ignore_endpoints
-        )
+        if service == "kafka" and endpoint:
+            filter_rules += [
+                f"{service}.{method}.{endpoint}",  # service.method.endpoint
+                f"{service}.*.{endpoint}",  # service.*.endpoint
+                f"{service}.{method}.*",  # service.method.*
+            ]
+        return any(rule in self.options.ignore_endpoints for rule in filter_rules)
 
     def handle_agent_tasks(self, task: Dict[str, Any]) -> None:
         """

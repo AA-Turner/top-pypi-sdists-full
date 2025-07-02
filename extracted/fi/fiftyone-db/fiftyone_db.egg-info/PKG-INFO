@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: fiftyone_db
-Version: 1.1.7
+Version: 1.3.0
 Summary: FiftyOne DB
 Home-page: https://github.com/voxel51/fiftyone
 Author: Voxel51, Inc.
@@ -25,5 +25,15 @@ Classifier: Programming Language :: Python :: 3.11
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-python
+Dynamic: summary
 
 Supporting package for [FiftyOne](https://pypi.org/project/fiftyone).

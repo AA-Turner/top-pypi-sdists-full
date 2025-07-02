@@ -8,7 +8,9 @@ from agentql.sync_api._agentql_service import check_agentql_server_status, valid
 
 from ._utils import download_script
 
-SAMPLE_SCRIPT_URL = "https://raw.githubusercontent.com/tinyfish-io/agentql/main/examples/python/first_steps/first_steps.py"
+SAMPLE_SCRIPT_URL = (
+    "https://raw.githubusercontent.com/tinyfish-io/agentql/main/examples/python/first_steps/first_steps.py"
+)
 DEFAULT_REQUEST_TIMEOUT_IN_SECONDS = 10
 SAMPLE_SCRIPT_FILE_NAME = "example_script.py"
 

@@ -1,26 +1,34 @@
 Metadata-Version: 2.3
 Name: agentql
-Version: 1.11.2
+Version: 1.13.0
 Summary: Tiny Fish AgentQL Python Client
 License: MIT
-Requires-Python: >=3.8,<4.0
+Keywords: automation,web-scraping,playwright,ai,testing
+Author: Tiny Fish
+Author-email: support@agentql.com
+Requires-Python: >=3.9,<4.0
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: aiofiles (>=23,<24)
+Classifier: Topic :: Software Development :: Testing
+Classifier: Topic :: Internet :: WWW/HTTP :: Browsers
+Requires-Dist: aiofiles (>=23.0.0)
 Requires-Dist: colorama (>=0.4.6,<1.0.0)
 Requires-Dist: httpx (>=0.23.0,<1.0.0)
-Requires-Dist: playwright (>=1,<2)
-Requires-Dist: pydantic (>=2,<3)
-Requires-Dist: pytest-asyncio (>=0,<1)
-Requires-Dist: requests (>=2,<3)
-Requires-Dist: tf-playwright-stealth
-Requires-Dist: typer (>=0,<1)
+Requires-Dist: playwright (>=1.0.0)
+Requires-Dist: pydantic (>=2.0.0)
+Requires-Dist: pytest-asyncio (>=0.21.0)
+Requires-Dist: requests (>=2.0.0)
+Requires-Dist: tf-playwright-stealth (>=1.0.0,<2.0.0)
+Requires-Dist: typer (>=0.7.0)
+Project-URL: Documentation, https://docs.agentql.com
+Project-URL: Homepage, https://agentql.com
+Project-URL: Repository, https://github.com/tinyfish-ai/agentql-client
 Description-Content-Type: text/markdown
 
 # Tiny Fish AgentQL Python Client

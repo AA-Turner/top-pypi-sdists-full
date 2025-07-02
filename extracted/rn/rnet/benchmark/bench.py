@@ -17,7 +17,6 @@ import requests
 import tls_client
 import curl_cffi
 import curl_cffi.requests
-import seaborn as sns
 import rnet
 
 
@@ -53,7 +52,10 @@ def session_get_test(session_class, url, requests_number):
     s = session_class()
     try:
         for _ in range(requests_number):
-            s.get(url).text
+            if session_class.__name__ == "BlockingClient":
+                s.get(url).bytes()
+            else:
+                s.get(url).text
     finally:
         if hasattr(s, "close"):
             s.close()
@@ -63,7 +65,10 @@ def non_session_get_test(session_class, url, requests_number):
     for _ in range(requests_number):
         s = session_class()
         try:
-            s.get(url).text
+            if session_class.__name__ == "BlockingClient":
+                s.get(url).bytes()
+            else:
+                s.get(url).text
         finally:
             if hasattr(s, "close"):
                 s.close()
@@ -73,7 +78,10 @@ async def async_session_get_test(session_class, url, requests_number):
     async def aget(s, url):
         if session_class.__module__ == "aiohttp.client":
             async with s.get(url) as resp:
-                return await resp.text()
+                return await resp.read()
+        if session_class.__name__ == "Client":
+            resp = await s.get(url)
+            return await resp.bytes()
         else:
             resp = await s.get(url)
             return resp.text
@@ -96,7 +104,10 @@ async def async_non_session_get_test(session_class, url, requests_number):
     async def aget(s, url):
         if session_class.__module__ == "aiohttp.client":
             async with s.get(url) as resp:
-                return await resp.text()
+                return await resp.read()
+        if session_class.__name__ == "Client":
+            resp = await s.get(url)
+            return await resp.bytes()
         else:
             resp = await s.get(url)
             return resp.text
@@ -398,7 +409,7 @@ def plot_benchmark_multi(df, filename):
 
 def main():
     response_sizes = ["20k", "50k", "200k"]
-    requests_number = 300
+    requests_number = 200
     thread_counts = [1, 8, 32]
 
     sync_packages = [
@@ -428,7 +439,7 @@ def main():
         all_results += run_sync_tests(sync_packages, url, requests_number)
         all_results += run_async_tests(async_packages, url, requests_number)
 
-        for threads in thread_counts[1:]:
+        for threads in thread_counts:
             all_results += run_threaded_tests(
                 sync_packages, url, requests_number, threads
             )
@@ -439,6 +450,4 @@ def main():
 
 
 if __name__ == "__main__":
-    # df = pd.read_csv("benchmark_results.csv")
-    # plot_benchmark_multi(df, "benchmark_multi.jpg")
     main()

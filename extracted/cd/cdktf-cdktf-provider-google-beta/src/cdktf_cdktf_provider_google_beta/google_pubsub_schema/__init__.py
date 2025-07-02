@@ -1,7 +1,7 @@
 r'''
 # `google_pubsub_schema`
 
-Refer to the Terraform Registry for docs: [`google_pubsub_schema`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_schema).
+Refer to the Terraform Registry for docs: [`google_pubsub_schema`](https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_schema).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GooglePubsubSchema(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googlePubsubSchema.GooglePubsubSchema",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_schema google_pubsub_schema}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_schema google_pubsub_schema}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class GooglePubsubSchema(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_schema google_pubsub_schema} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_schema google_pubsub_schema} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The ID to use for the schema, which will become the final component of the schema's resource name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_schema#name GooglePubsubSchema#name}
-        :param definition: The definition of the schema. This should contain a string representing the full definition of the schema that is a valid schema definition of the type specified in type. Changes to the definition commit new `schema revisions <https://cloud.google.com/pubsub/docs/commit-schema-revision>`_. A schema can only have up to 20 revisions, so updates that fail with an error indicating that the limit has been reached require manually `deleting old revisions <https://cloud.google.com/pubsub/docs/delete-schema-revision>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_schema#definition GooglePubsubSchema#definition}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_schema#id GooglePubsubSchema#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_schema#project GooglePubsubSchema#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_schema#timeouts GooglePubsubSchema#timeouts}
-        :param type: The type of the schema definition Default value: "TYPE_UNSPECIFIED" Possible values: ["TYPE_UNSPECIFIED", "PROTOCOL_BUFFER", "AVRO"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_schema#type GooglePubsubSchema#type}
+        :param name: The ID to use for the schema, which will become the final component of the schema's resource name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_schema#name GooglePubsubSchema#name}
+        :param definition: The definition of the schema. This should contain a string representing the full definition of the schema that is a valid schema definition of the type specified in type. Changes to the definition commit new `schema revisions <https://cloud.google.com/pubsub/docs/commit-schema-revision>`_. A schema can only have up to 20 revisions, so updates that fail with an error indicating that the limit has been reached require manually `deleting old revisions <https://cloud.google.com/pubsub/docs/delete-schema-revision>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_schema#definition GooglePubsubSchema#definition}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_schema#id GooglePubsubSchema#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_schema#project GooglePubsubSchema#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_schema#timeouts GooglePubsubSchema#timeouts}
+        :param type: The type of the schema definition Default value: "TYPE_UNSPECIFIED" Possible values: ["TYPE_UNSPECIFIED", "PROTOCOL_BUFFER", "AVRO"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_schema#type GooglePubsubSchema#type}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class GooglePubsubSchema(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GooglePubsubSchema to import.
-        :param import_from_id: The id of the existing GooglePubsubSchema that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_schema#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GooglePubsubSchema that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_schema#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GooglePubsubSchema to import is found.
         '''
         if __debug__:
@@ -138,9 +138,9 @@ class GooglePubsubSchema(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_schema#create GooglePubsubSchema#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_schema#delete GooglePubsubSchema#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_schema#update GooglePubsubSchema#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_schema#create GooglePubsubSchema#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_schema#delete GooglePubsubSchema#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_schema#update GooglePubsubSchema#update}.
         '''
         value = GooglePubsubSchemaTimeouts(create=create, delete=delete, update=update)
 
@@ -322,12 +322,12 @@ class GooglePubsubSchemaConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The ID to use for the schema, which will become the final component of the schema's resource name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_schema#name GooglePubsubSchema#name}
-        :param definition: The definition of the schema. This should contain a string representing the full definition of the schema that is a valid schema definition of the type specified in type. Changes to the definition commit new `schema revisions <https://cloud.google.com/pubsub/docs/commit-schema-revision>`_. A schema can only have up to 20 revisions, so updates that fail with an error indicating that the limit has been reached require manually `deleting old revisions <https://cloud.google.com/pubsub/docs/delete-schema-revision>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_schema#definition GooglePubsubSchema#definition}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_schema#id GooglePubsubSchema#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_schema#project GooglePubsubSchema#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_schema#timeouts GooglePubsubSchema#timeouts}
-        :param type: The type of the schema definition Default value: "TYPE_UNSPECIFIED" Possible values: ["TYPE_UNSPECIFIED", "PROTOCOL_BUFFER", "AVRO"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_schema#type GooglePubsubSchema#type}
+        :param name: The ID to use for the schema, which will become the final component of the schema's resource name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_schema#name GooglePubsubSchema#name}
+        :param definition: The definition of the schema. This should contain a string representing the full definition of the schema that is a valid schema definition of the type specified in type. Changes to the definition commit new `schema revisions <https://cloud.google.com/pubsub/docs/commit-schema-revision>`_. A schema can only have up to 20 revisions, so updates that fail with an error indicating that the limit has been reached require manually `deleting old revisions <https://cloud.google.com/pubsub/docs/delete-schema-revision>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_schema#definition GooglePubsubSchema#definition}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_schema#id GooglePubsubSchema#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_schema#project GooglePubsubSchema#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_schema#timeouts GooglePubsubSchema#timeouts}
+        :param type: The type of the schema definition Default value: "TYPE_UNSPECIFIED" Possible values: ["TYPE_UNSPECIFIED", "PROTOCOL_BUFFER", "AVRO"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_schema#type GooglePubsubSchema#type}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -444,7 +444,7 @@ class GooglePubsubSchemaConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The ID to use for the schema, which will become the final component of the schema's resource name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_schema#name GooglePubsubSchema#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_schema#name GooglePubsubSchema#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -461,14 +461,14 @@ class GooglePubsubSchemaConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         error indicating that the limit has been reached require manually
         `deleting old revisions <https://cloud.google.com/pubsub/docs/delete-schema-revision>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_schema#definition GooglePubsubSchema#definition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_schema#definition GooglePubsubSchema#definition}
         '''
         result = self._values.get("definition")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_schema#id GooglePubsubSchema#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_schema#id GooglePubsubSchema#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -478,7 +478,7 @@ class GooglePubsubSchemaConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_schema#project GooglePubsubSchema#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_schema#project GooglePubsubSchema#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -486,7 +486,7 @@ class GooglePubsubSchemaConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GooglePubsubSchemaTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_schema#timeouts GooglePubsubSchema#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_schema#timeouts GooglePubsubSchema#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GooglePubsubSchemaTimeouts"], result)
@@ -495,7 +495,7 @@ class GooglePubsubSchemaConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def type(self) -> typing.Optional[builtins.str]:
         '''The type of the schema definition Default value: "TYPE_UNSPECIFIED" Possible values: ["TYPE_UNSPECIFIED", "PROTOCOL_BUFFER", "AVRO"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_schema#type GooglePubsubSchema#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_schema#type GooglePubsubSchema#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -526,9 +526,9 @@ class GooglePubsubSchemaTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_schema#create GooglePubsubSchema#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_schema#delete GooglePubsubSchema#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_schema#update GooglePubsubSchema#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_schema#create GooglePubsubSchema#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_schema#delete GooglePubsubSchema#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_schema#update GooglePubsubSchema#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a28ddbf311718a050d340c1b018adce86af68b8360b2fa6a95d8673316d4d0b0)
@@ -545,19 +545,19 @@ class GooglePubsubSchemaTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_schema#create GooglePubsubSchema#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_schema#create GooglePubsubSchema#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_schema#delete GooglePubsubSchema#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_schema#delete GooglePubsubSchema#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_pubsub_schema#update GooglePubsubSchema#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_pubsub_schema#update GooglePubsubSchema#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -130,9 +130,7 @@ class AccessibilityTreeError(BaseAgentQLError):
 class ElementNotFoundError(BaseAgentQLError):
     def __init__(self, page_url, element_id=None):
         if element_id:
-            message = (
-                f"The element with ID {element_id} could not be found on the current page anymore."
-            )
+            message = f"The element with ID {element_id} could not be found on the current page anymore."
         else:
             message = "The element could not be found on the current page anymore."
 

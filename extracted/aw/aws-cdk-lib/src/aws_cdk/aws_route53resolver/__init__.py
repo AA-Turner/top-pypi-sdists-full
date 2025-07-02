@@ -2317,13 +2317,13 @@ class CfnResolverEndpoint(
         '''
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param direction: Indicates whether the Resolver endpoint allows inbound or outbound DNS queries:. - ``INBOUND`` : allows DNS queries to your VPC from your network - ``OUTBOUND`` : allows DNS queries from your VPC to your network
+        :param direction: Indicates whether the Resolver endpoint allows inbound or outbound DNS queries:. - ``INBOUND`` : allows DNS queries to your VPC from your network - ``OUTBOUND`` : allows DNS queries from your VPC to your network - ``INBOUND_DELEGATION`` : Resolver delegates queries to Route 53 private hosted zones from your network.
         :param ip_addresses: The subnets and IP addresses in your VPC that DNS queries originate from (for outbound endpoints) or that you forward DNS queries to (for inbound endpoints). The subnet ID uniquely identifies a VPC. .. epigraph:: Even though the minimum is 1, Route 53 requires that you create at least two.
         :param security_group_ids: The ID of one or more security groups that control access to this VPC. The security group must include one or more inbound rules (for inbound endpoints) or outbound rules (for outbound endpoints). Inbound and outbound rules must allow TCP and UDP access. For inbound access, open port 53. For outbound access, open the port that you're using for DNS queries on your network.
         :param name: A friendly name that lets you easily find a configuration in the Resolver dashboard in the Route 53 console.
         :param outpost_arn: The ARN (Amazon Resource Name) for the Outpost.
         :param preferred_instance_type: The Amazon EC2 instance type.
-        :param protocols: Protocols used for the endpoint. DoH-FIPS is applicable for inbound endpoints only. For an inbound endpoint you can apply the protocols as follows: - Do53 and DoH in combination. - Do53 and DoH-FIPS in combination. - Do53 alone. - DoH alone. - DoH-FIPS alone. - None, which is treated as Do53. For an outbound endpoint you can apply the protocols as follows: - Do53 and DoH in combination. - Do53 alone. - DoH alone. - None, which is treated as Do53.
+        :param protocols: Protocols used for the endpoint. DoH-FIPS is applicable for a default inbound endpoints only. For an inbound endpoint you can apply the protocols as follows: - Do53 and DoH in combination. - Do53 and DoH-FIPS in combination. - Do53 alone. - DoH alone. - DoH-FIPS alone. - None, which is treated as Do53. For a delegation inbound endpoint you can use Do53 only. For an outbound endpoint you can apply the protocols as follows: - Do53 and DoH in combination. - Do53 alone. - DoH alone. - None, which is treated as Do53.
         :param resolver_endpoint_type: The Resolver endpoint IP address type.
         :param tags: Route 53 Resolver doesn't support updating tags through CloudFormation.
         '''
@@ -2552,7 +2552,7 @@ class CfnResolverEndpoint(
     def protocols(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Protocols used for the endpoint.
 
-        DoH-FIPS is applicable for inbound endpoints only.
+        DoH-FIPS is applicable for a default inbound endpoints only.
         '''
         return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "protocols"))
 
@@ -2709,13 +2709,13 @@ class CfnResolverEndpointProps:
     ) -> None:
         '''Properties for defining a ``CfnResolverEndpoint``.
 
-        :param direction: Indicates whether the Resolver endpoint allows inbound or outbound DNS queries:. - ``INBOUND`` : allows DNS queries to your VPC from your network - ``OUTBOUND`` : allows DNS queries from your VPC to your network
+        :param direction: Indicates whether the Resolver endpoint allows inbound or outbound DNS queries:. - ``INBOUND`` : allows DNS queries to your VPC from your network - ``OUTBOUND`` : allows DNS queries from your VPC to your network - ``INBOUND_DELEGATION`` : Resolver delegates queries to Route 53 private hosted zones from your network.
         :param ip_addresses: The subnets and IP addresses in your VPC that DNS queries originate from (for outbound endpoints) or that you forward DNS queries to (for inbound endpoints). The subnet ID uniquely identifies a VPC. .. epigraph:: Even though the minimum is 1, Route 53 requires that you create at least two.
         :param security_group_ids: The ID of one or more security groups that control access to this VPC. The security group must include one or more inbound rules (for inbound endpoints) or outbound rules (for outbound endpoints). Inbound and outbound rules must allow TCP and UDP access. For inbound access, open port 53. For outbound access, open the port that you're using for DNS queries on your network.
         :param name: A friendly name that lets you easily find a configuration in the Resolver dashboard in the Route 53 console.
         :param outpost_arn: The ARN (Amazon Resource Name) for the Outpost.
         :param preferred_instance_type: The Amazon EC2 instance type.
-        :param protocols: Protocols used for the endpoint. DoH-FIPS is applicable for inbound endpoints only. For an inbound endpoint you can apply the protocols as follows: - Do53 and DoH in combination. - Do53 and DoH-FIPS in combination. - Do53 alone. - DoH alone. - DoH-FIPS alone. - None, which is treated as Do53. For an outbound endpoint you can apply the protocols as follows: - Do53 and DoH in combination. - Do53 alone. - DoH alone. - None, which is treated as Do53.
+        :param protocols: Protocols used for the endpoint. DoH-FIPS is applicable for a default inbound endpoints only. For an inbound endpoint you can apply the protocols as follows: - Do53 and DoH in combination. - Do53 and DoH-FIPS in combination. - Do53 alone. - DoH alone. - DoH-FIPS alone. - None, which is treated as Do53. For a delegation inbound endpoint you can use Do53 only. For an outbound endpoint you can apply the protocols as follows: - Do53 and DoH in combination. - Do53 alone. - DoH alone. - None, which is treated as Do53.
         :param resolver_endpoint_type: The Resolver endpoint IP address type.
         :param tags: Route 53 Resolver doesn't support updating tags through CloudFormation.
 
@@ -2786,6 +2786,7 @@ class CfnResolverEndpointProps:
 
         - ``INBOUND`` : allows DNS queries to your VPC from your network
         - ``OUTBOUND`` : allows DNS queries from your VPC to your network
+        - ``INBOUND_DELEGATION`` : Resolver delegates queries to Route 53 private hosted zones from your network.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverendpoint.html#cfn-route53resolver-resolverendpoint-direction
         '''
@@ -2851,7 +2852,7 @@ class CfnResolverEndpointProps:
 
     @builtins.property
     def protocols(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Protocols used for the endpoint. DoH-FIPS is applicable for inbound endpoints only.
+        '''Protocols used for the endpoint. DoH-FIPS is applicable for a default inbound endpoints only.
 
         For an inbound endpoint you can apply the protocols as follows:
 
@@ -2861,6 +2862,8 @@ class CfnResolverEndpointProps:
         - DoH alone.
         - DoH-FIPS alone.
         - None, which is treated as Do53.
+
+        For a delegation inbound endpoint you can use Do53 only.
 
         For an outbound endpoint you can apply the protocols as follows:
 
@@ -3480,6 +3483,7 @@ class CfnResolverRule(
             rule_type="ruleType",
         
             # the properties below are optional
+            delegation_record="delegationRecord",
             domain_name="domainName",
             name="name",
             resolver_endpoint_id="resolverEndpointId",
@@ -3503,6 +3507,7 @@ class CfnResolverRule(
         id: builtins.str,
         *,
         rule_type: builtins.str,
+        delegation_record: typing.Optional[builtins.str] = None,
         domain_name: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
         resolver_endpoint_id: typing.Optional[builtins.str] = None,
@@ -3512,7 +3517,8 @@ class CfnResolverRule(
         '''
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param rule_type: When you want to forward DNS queries for specified domain name to resolvers on your network, specify ``FORWARD`` . When you have a forwarding rule to forward DNS queries for a domain to your network and you want Resolver to process queries for a subdomain of that domain, specify ``SYSTEM`` . For example, to forward DNS queries for example.com to resolvers on your network, you create a rule and specify ``FORWARD`` for ``RuleType`` . To then have Resolver process queries for apex.example.com, you create a rule and specify ``SYSTEM`` for ``RuleType`` . Currently, only Resolver can create rules that have a value of ``RECURSIVE`` for ``RuleType`` .
+        :param rule_type: When you want to forward DNS queries for specified domain name to resolvers on your network, specify ``FORWARD`` or ``DELEGATE`` . If a query matches multiple Resolver rules (example.com and www.example.com), outbound DNS queries are routed using the Resolver rule that contains the most specific domain name (www.example.com). When you have a forwarding rule to forward DNS queries for a domain to your network and you want Resolver to process queries for a subdomain of that domain, specify ``SYSTEM`` . For example, to forward DNS queries for example.com to resolvers on your network, you create a rule and specify ``FORWARD`` for ``RuleType`` . To then have Resolver process queries for apex.example.com, you create a rule and specify ``SYSTEM`` for ``RuleType`` . Currently, only Resolver can create rules that have a value of ``RECURSIVE`` for ``RuleType`` .
+        :param delegation_record: DNS queries with delegation records that point to this domain name are forwarded to resolvers on your network.
         :param domain_name: DNS queries for this domain name are forwarded to the IP addresses that are specified in ``TargetIps`` . If a query matches multiple Resolver rules (example.com and www.example.com), the query is routed using the Resolver rule that contains the most specific domain name (www.example.com).
         :param name: The name for the Resolver rule, which you specified when you created the Resolver rule.
         :param resolver_endpoint_id: The ID of the endpoint that the rule is associated with.
@@ -3525,6 +3531,7 @@ class CfnResolverRule(
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnResolverRuleProps(
             rule_type=rule_type,
+            delegation_record=delegation_record,
             domain_name=domain_name,
             name=name,
             resolver_endpoint_id=resolver_endpoint_id,
@@ -3620,6 +3627,8 @@ class CfnResolverRule(
 
         This value isn't applicable when ``RuleType`` is ``SYSTEM`` .
 
+        ``TargetIps`` is available only when the value of ``RuleType`` is ``FORWARD`` . You should not provide ``TargetIps`` when the ``RuleType`` is ``DELEGATE`` .
+
         :cloudformationAttribute: TargetIps
         '''
         return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrTargetIps"))
@@ -3638,7 +3647,7 @@ class CfnResolverRule(
     @builtins.property
     @jsii.member(jsii_name="ruleType")
     def rule_type(self) -> builtins.str:
-        '''When you want to forward DNS queries for specified domain name to resolvers on your network, specify ``FORWARD`` .'''
+        '''When you want to forward DNS queries for specified domain name to resolvers on your network, specify ``FORWARD`` or ``DELEGATE`` .'''
         return typing.cast(builtins.str, jsii.get(self, "ruleType"))
 
     @rule_type.setter
@@ -3647,6 +3656,19 @@ class CfnResolverRule(
             type_hints = typing.get_type_hints(_typecheckingstub__13530a5c4f7ce175ae03b85dc7d4550ae7a3cb68cb2be12c89a167e8db1a5822)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ruleType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="delegationRecord")
+    def delegation_record(self) -> typing.Optional[builtins.str]:
+        '''DNS queries with delegation records that point to this domain name are forwarded to resolvers on your network.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "delegationRecord"))
+
+    @delegation_record.setter
+    def delegation_record(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b1126d07ce449d0d6220e3fbf183f2d786e81574a4f131914dfe0914a55bb851)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "delegationRecord", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="domainName")
@@ -4106,6 +4128,7 @@ class CfnResolverRuleAssociationProps:
     jsii_struct_bases=[],
     name_mapping={
         "rule_type": "ruleType",
+        "delegation_record": "delegationRecord",
         "domain_name": "domainName",
         "name": "name",
         "resolver_endpoint_id": "resolverEndpointId",
@@ -4118,6 +4141,7 @@ class CfnResolverRuleProps:
         self,
         *,
         rule_type: builtins.str,
+        delegation_record: typing.Optional[builtins.str] = None,
         domain_name: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
         resolver_endpoint_id: typing.Optional[builtins.str] = None,
@@ -4126,7 +4150,8 @@ class CfnResolverRuleProps:
     ) -> None:
         '''Properties for defining a ``CfnResolverRule``.
 
-        :param rule_type: When you want to forward DNS queries for specified domain name to resolvers on your network, specify ``FORWARD`` . When you have a forwarding rule to forward DNS queries for a domain to your network and you want Resolver to process queries for a subdomain of that domain, specify ``SYSTEM`` . For example, to forward DNS queries for example.com to resolvers on your network, you create a rule and specify ``FORWARD`` for ``RuleType`` . To then have Resolver process queries for apex.example.com, you create a rule and specify ``SYSTEM`` for ``RuleType`` . Currently, only Resolver can create rules that have a value of ``RECURSIVE`` for ``RuleType`` .
+        :param rule_type: When you want to forward DNS queries for specified domain name to resolvers on your network, specify ``FORWARD`` or ``DELEGATE`` . If a query matches multiple Resolver rules (example.com and www.example.com), outbound DNS queries are routed using the Resolver rule that contains the most specific domain name (www.example.com). When you have a forwarding rule to forward DNS queries for a domain to your network and you want Resolver to process queries for a subdomain of that domain, specify ``SYSTEM`` . For example, to forward DNS queries for example.com to resolvers on your network, you create a rule and specify ``FORWARD`` for ``RuleType`` . To then have Resolver process queries for apex.example.com, you create a rule and specify ``SYSTEM`` for ``RuleType`` . Currently, only Resolver can create rules that have a value of ``RECURSIVE`` for ``RuleType`` .
+        :param delegation_record: DNS queries with delegation records that point to this domain name are forwarded to resolvers on your network.
         :param domain_name: DNS queries for this domain name are forwarded to the IP addresses that are specified in ``TargetIps`` . If a query matches multiple Resolver rules (example.com and www.example.com), the query is routed using the Resolver rule that contains the most specific domain name (www.example.com).
         :param name: The name for the Resolver rule, which you specified when you created the Resolver rule.
         :param resolver_endpoint_id: The ID of the endpoint that the rule is associated with.
@@ -4146,6 +4171,7 @@ class CfnResolverRuleProps:
                 rule_type="ruleType",
             
                 # the properties below are optional
+                delegation_record="delegationRecord",
                 domain_name="domainName",
                 name="name",
                 resolver_endpoint_id="resolverEndpointId",
@@ -4165,6 +4191,7 @@ class CfnResolverRuleProps:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fdcaea1870aaf2dc13fe56b2d15a89d6adba2ad5884071fc618c9e4bb2c3ddec)
             check_type(argname="argument rule_type", value=rule_type, expected_type=type_hints["rule_type"])
+            check_type(argname="argument delegation_record", value=delegation_record, expected_type=type_hints["delegation_record"])
             check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument resolver_endpoint_id", value=resolver_endpoint_id, expected_type=type_hints["resolver_endpoint_id"])
@@ -4173,6 +4200,8 @@ class CfnResolverRuleProps:
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "rule_type": rule_type,
         }
+        if delegation_record is not None:
+            self._values["delegation_record"] = delegation_record
         if domain_name is not None:
             self._values["domain_name"] = domain_name
         if name is not None:
@@ -4186,7 +4215,9 @@ class CfnResolverRuleProps:
 
     @builtins.property
     def rule_type(self) -> builtins.str:
-        '''When you want to forward DNS queries for specified domain name to resolvers on your network, specify ``FORWARD`` .
+        '''When you want to forward DNS queries for specified domain name to resolvers on your network, specify ``FORWARD`` or ``DELEGATE`` .
+
+        If a query matches multiple Resolver rules (example.com and www.example.com), outbound DNS queries are routed using the Resolver rule that contains the most specific domain name (www.example.com).
 
         When you have a forwarding rule to forward DNS queries for a domain to your network and you want Resolver to process queries for a subdomain of that domain, specify ``SYSTEM`` .
 
@@ -4199,6 +4230,15 @@ class CfnResolverRuleProps:
         result = self._values.get("rule_type")
         assert result is not None, "Required property 'rule_type' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def delegation_record(self) -> typing.Optional[builtins.str]:
+        '''DNS queries with delegation records that point to this domain name are forwarded to resolvers on your network.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverrule.html#cfn-route53resolver-resolverrule-delegationrecord
+        '''
+        result = self._values.get("delegation_record")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def domain_name(self) -> typing.Optional[builtins.str]:
@@ -4838,6 +4878,7 @@ def _typecheckingstub__7253810e416357d129df95b3c7aa9aa0f08e68de7d465658e598912cf
     id: builtins.str,
     *,
     rule_type: builtins.str,
+    delegation_record: typing.Optional[builtins.str] = None,
     domain_name: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
     resolver_endpoint_id: typing.Optional[builtins.str] = None,
@@ -4861,6 +4902,12 @@ def _typecheckingstub__678a826ad1212e0a47c15e7671251c43f8125d6006b97d932cbc2bda6
 
 def _typecheckingstub__13530a5c4f7ce175ae03b85dc7d4550ae7a3cb68cb2be12c89a167e8db1a5822(
     value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b1126d07ce449d0d6220e3fbf183f2d786e81574a4f131914dfe0914a55bb851(
+    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4959,6 +5006,7 @@ def _typecheckingstub__3b7cd1048ae30851b3480dc04a365c7bd487212f9328f80bc61e1bae1
 def _typecheckingstub__fdcaea1870aaf2dc13fe56b2d15a89d6adba2ad5884071fc618c9e4bb2c3ddec(
     *,
     rule_type: builtins.str,
+    delegation_record: typing.Optional[builtins.str] = None,
     domain_name: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
     resolver_endpoint_id: typing.Optional[builtins.str] = None,

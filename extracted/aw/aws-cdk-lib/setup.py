@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "aws-cdk-lib",
-    "version": "2.202.0",
+    "version": "2.203.0",
     "description": "Version 2 of the AWS Cloud Development Kit library",
     "license": "Apache-2.0",
     "url": "https://github.com/aws/aws-cdk",
@@ -27,6 +27,7 @@ kwargs = json.loads(
         "aws_cdk.assertions",
         "aws_cdk.aws_accessanalyzer",
         "aws_cdk.aws_acmpca",
+        "aws_cdk.aws_aiops",
         "aws_cdk.aws_amazonmq",
         "aws_cdk.aws_amplify",
         "aws_cdk.aws_amplifyuibuilder",
@@ -208,6 +209,7 @@ kwargs = json.loads(
         "aws_cdk.aws_mediastore",
         "aws_cdk.aws_mediatailor",
         "aws_cdk.aws_memorydb",
+        "aws_cdk.aws_mpa",
         "aws_cdk.aws_msk",
         "aws_cdk.aws_mwaa",
         "aws_cdk.aws_neptune",
@@ -306,6 +308,7 @@ kwargs = json.loads(
         "aws_cdk.aws_wafv2",
         "aws_cdk.aws_wisdom",
         "aws_cdk.aws_workspaces",
+        "aws_cdk.aws_workspacesinstances",
         "aws_cdk.aws_workspacesthinclient",
         "aws_cdk.aws_workspacesweb",
         "aws_cdk.aws_xray",
@@ -321,7 +324,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "aws_cdk._jsii": [
-            "aws-cdk-lib@2.202.0.jsii.tgz"
+            "aws-cdk-lib@2.203.0.jsii.tgz"
         ],
         "aws_cdk": [
             "py.typed"
@@ -329,9 +332,9 @@ kwargs = json.loads(
     },
     "python_requires": "~=3.9",
     "install_requires": [
-        "aws-cdk.asset-awscli-v1==2.2.240",
+        "aws-cdk.asset-awscli-v1==2.2.242",
         "aws-cdk.asset-node-proxy-agent-v6>=2.1.0, <3.0.0",
-        "aws-cdk.cloud-assembly-schema>=44.2.0, <45.0.0",
+        "aws-cdk.cloud-assembly-schema>=44.8.0, <45.0.0",
         "constructs>=10.0.0, <11.0.0",
         "jsii>=1.112.0, <2.0.0",
         "publication>=0.0.3",

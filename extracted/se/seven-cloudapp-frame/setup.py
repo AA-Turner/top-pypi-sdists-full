@@ -14,7 +14,7 @@ with open("README.md", "r", encoding='utf-8') as fh:
 
 setup(
     name="seven_cloudapp_frame",
-    version="1.2.45",
+    version="1.2.46",
     author="seven",
     author_email="tech@gao7.com",
     description="seven cloudapp frame",

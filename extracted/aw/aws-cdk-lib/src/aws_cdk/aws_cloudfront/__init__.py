@@ -6609,9 +6609,9 @@ class CfnDistribution(
             :param origin_protocol_policy: Specifies the protocol (HTTP or HTTPS) that CloudFront uses to connect to the origin. Valid values are:. - ``http-only`` – CloudFront always uses HTTP to connect to the origin. - ``match-viewer`` – CloudFront connects to the origin using the same protocol that the viewer used to connect to CloudFront. - ``https-only`` – CloudFront always uses HTTPS to connect to the origin.
             :param http_port: The HTTP port that CloudFront uses to connect to the origin. Specify the HTTP port that the origin listens on. Default: - 80
             :param https_port: The HTTPS port that CloudFront uses to connect to the origin. Specify the HTTPS port that the origin listens on. Default: - 443
-            :param origin_keepalive_timeout: Specifies how long, in seconds, CloudFront persists its connection to the origin. The minimum timeout is 1 second, the maximum is 60 seconds, and the default (if you don't specify otherwise) is 5 seconds. For more information, see `Keep-alive timeout (custom origins only) <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/distribution-web-values-specify.html#DownloadDistValuesOriginKeepaliveTimeout>`_ in the *Amazon CloudFront Developer Guide* . Default: - 5
-            :param origin_read_timeout: Specifies how long, in seconds, CloudFront waits for a response from the origin. This is also known as the *origin response timeout* . The minimum timeout is 1 second, the maximum is 60 seconds, and the default (if you don't specify otherwise) is 30 seconds. For more information, see `Response timeout (custom origins only) <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/distribution-web-values-specify.html#DownloadDistValuesOriginResponseTimeout>`_ in the *Amazon CloudFront Developer Guide* . Default: - 30
-            :param origin_ssl_protocols: Specifies the minimum SSL/TLS protocol that CloudFront uses when connecting to your origin over HTTPS. Valid values include ``SSLv3`` , ``TLSv1`` , ``TLSv1.1`` , and ``TLSv1.2`` . For more information, see `Minimum Origin SSL Protocol <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/distribution-web-values-specify.html#DownloadDistValuesOriginSSLProtocols>`_ in the *Amazon CloudFront Developer Guide* .
+            :param origin_keepalive_timeout: Specifies how long, in seconds, CloudFront persists its connection to the origin. The minimum timeout is 1 second, the maximum is 60 seconds, and the default (if you don't specify otherwise) is 5 seconds. For more information, see `Keep-alive timeout (custom origins only) <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/DownloadDistValuesOrigin.html#DownloadDistValuesOriginKeepaliveTimeout>`_ in the *Amazon CloudFront Developer Guide* . Default: - 5
+            :param origin_read_timeout: Specifies how long, in seconds, CloudFront waits for a response from the origin. This is also known as the *origin response timeout* . The minimum timeout is 1 second, the maximum is 60 seconds, and the default (if you don't specify otherwise) is 30 seconds. For more information, see `Response timeout (custom origins only) <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/DownloadDistValuesOrigin.html#DownloadDistValuesOriginResponseTimeout>`_ in the *Amazon CloudFront Developer Guide* . Default: - 30
+            :param origin_ssl_protocols: Specifies the minimum SSL/TLS protocol that CloudFront uses when connecting to your origin over HTTPS. Valid values include ``SSLv3`` , ``TLSv1`` , ``TLSv1.1`` , and ``TLSv1.2`` . For more information, see `Minimum Origin SSL Protocol <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/DownloadDistValuesOrigin.html#DownloadDistValuesOriginSSLProtocols>`_ in the *Amazon CloudFront Developer Guide* .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-customoriginconfig.html
             :exampleMetadata: fixture=_generated
@@ -6701,7 +6701,7 @@ class CfnDistribution(
 
             The minimum timeout is 1 second, the maximum is 60 seconds, and the default (if you don't specify otherwise) is 5 seconds.
 
-            For more information, see `Keep-alive timeout (custom origins only) <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/distribution-web-values-specify.html#DownloadDistValuesOriginKeepaliveTimeout>`_ in the *Amazon CloudFront Developer Guide* .
+            For more information, see `Keep-alive timeout (custom origins only) <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/DownloadDistValuesOrigin.html#DownloadDistValuesOriginKeepaliveTimeout>`_ in the *Amazon CloudFront Developer Guide* .
 
             :default: - 5
 
@@ -6716,7 +6716,7 @@ class CfnDistribution(
 
             This is also known as the *origin response timeout* . The minimum timeout is 1 second, the maximum is 60 seconds, and the default (if you don't specify otherwise) is 30 seconds.
 
-            For more information, see `Response timeout (custom origins only) <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/distribution-web-values-specify.html#DownloadDistValuesOriginResponseTimeout>`_ in the *Amazon CloudFront Developer Guide* .
+            For more information, see `Response timeout (custom origins only) <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/DownloadDistValuesOrigin.html#DownloadDistValuesOriginResponseTimeout>`_ in the *Amazon CloudFront Developer Guide* .
 
             :default: - 30
 
@@ -6731,7 +6731,7 @@ class CfnDistribution(
 
             Valid values include ``SSLv3`` , ``TLSv1`` , ``TLSv1.1`` , and ``TLSv1.2`` .
 
-            For more information, see `Minimum Origin SSL Protocol <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/distribution-web-values-specify.html#DownloadDistValuesOriginSSLProtocols>`_ in the *Amazon CloudFront Developer Guide* .
+            For more information, see `Minimum Origin SSL Protocol <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/DownloadDistValuesOrigin.html#DownloadDistValuesOriginSSLProtocols>`_ in the *Amazon CloudFront Developer Guide* .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-customoriginconfig.html#cfn-cloudfront-distribution-customoriginconfig-originsslprotocols
             '''
@@ -7573,8 +7573,10 @@ class CfnDistribution(
                             enabled=False,
                             origin_shield_region="originShieldRegion"
                         ),
+                        response_completion_timeout=123,
                         s3_origin_config=cloudfront.CfnDistribution.S3OriginConfigProperty(
-                            origin_access_identity="originAccessIdentity"
+                            origin_access_identity="originAccessIdentity",
+                            origin_read_timeout=123
                         ),
                         vpc_origin_config=cloudfront.CfnDistribution.VpcOriginConfigProperty(
                             vpc_origin_id="vpcOriginId",
@@ -9343,6 +9345,7 @@ class CfnDistribution(
             "origin_custom_headers": "originCustomHeaders",
             "origin_path": "originPath",
             "origin_shield": "originShield",
+            "response_completion_timeout": "responseCompletionTimeout",
             "s3_origin_config": "s3OriginConfig",
             "vpc_origin_config": "vpcOriginConfig",
         },
@@ -9360,6 +9363,7 @@ class CfnDistribution(
             origin_custom_headers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDistribution.OriginCustomHeaderProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             origin_path: typing.Optional[builtins.str] = None,
             origin_shield: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDistribution.OriginShieldProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            response_completion_timeout: typing.Optional[jsii.Number] = None,
             s3_origin_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDistribution.S3OriginConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             vpc_origin_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDistribution.VpcOriginConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
@@ -9387,6 +9391,7 @@ class CfnDistribution(
             :param origin_custom_headers: A list of HTTP header names and values that CloudFront adds to the requests that it sends to the origin. For more information, see `Adding Custom Headers to Origin Requests <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/add-origin-custom-headers.html>`_ in the *Amazon CloudFront Developer Guide* .
             :param origin_path: An optional path that CloudFront appends to the origin domain name when CloudFront requests content from the origin. For more information, see `Origin Path <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/distribution-web-values-specify.html#DownloadDistValuesOriginPath>`_ in the *Amazon CloudFront Developer Guide* . Default: - ""
             :param origin_shield: CloudFront Origin Shield. Using Origin Shield can help reduce the load on your origin. For more information, see `Using Origin Shield <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/origin-shield.html>`_ in the *Amazon CloudFront Developer Guide* .
+            :param response_completion_timeout: 
             :param s3_origin_config: Use this type to specify an origin that is an Amazon S3 bucket that is not configured with static website hosting. To specify any other type of origin, including an Amazon S3 bucket that is configured with static website hosting, use the ``CustomOriginConfig`` type instead.
             :param vpc_origin_config: The VPC origin configuration.
 
@@ -9426,8 +9431,10 @@ class CfnDistribution(
                         enabled=False,
                         origin_shield_region="originShieldRegion"
                     ),
+                    response_completion_timeout=123,
                     s3_origin_config=cloudfront.CfnDistribution.S3OriginConfigProperty(
-                        origin_access_identity="originAccessIdentity"
+                        origin_access_identity="originAccessIdentity",
+                        origin_read_timeout=123
                     ),
                     vpc_origin_config=cloudfront.CfnDistribution.VpcOriginConfigProperty(
                         vpc_origin_id="vpcOriginId",
@@ -9449,6 +9456,7 @@ class CfnDistribution(
                 check_type(argname="argument origin_custom_headers", value=origin_custom_headers, expected_type=type_hints["origin_custom_headers"])
                 check_type(argname="argument origin_path", value=origin_path, expected_type=type_hints["origin_path"])
                 check_type(argname="argument origin_shield", value=origin_shield, expected_type=type_hints["origin_shield"])
+                check_type(argname="argument response_completion_timeout", value=response_completion_timeout, expected_type=type_hints["response_completion_timeout"])
                 check_type(argname="argument s3_origin_config", value=s3_origin_config, expected_type=type_hints["s3_origin_config"])
                 check_type(argname="argument vpc_origin_config", value=vpc_origin_config, expected_type=type_hints["vpc_origin_config"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -9469,6 +9477,8 @@ class CfnDistribution(
                 self._values["origin_path"] = origin_path
             if origin_shield is not None:
                 self._values["origin_shield"] = origin_shield
+            if response_completion_timeout is not None:
+                self._values["response_completion_timeout"] = response_completion_timeout
             if s3_origin_config is not None:
                 self._values["s3_origin_config"] = s3_origin_config
             if vpc_origin_config is not None:
@@ -9588,6 +9598,14 @@ class CfnDistribution(
             '''
             result = self._values.get("origin_shield")
             return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDistribution.OriginShieldProperty"]], result)
+
+        @builtins.property
+        def response_completion_timeout(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-origin.html#cfn-cloudfront-distribution-origin-responsecompletiontimeout
+            '''
+            result = self._values.get("response_completion_timeout")
+            return typing.cast(typing.Optional[jsii.Number], result)
 
         @builtins.property
         def s3_origin_config(
@@ -9858,19 +9876,24 @@ class CfnDistribution(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cloudfront.CfnDistribution.S3OriginConfigProperty",
         jsii_struct_bases=[],
-        name_mapping={"origin_access_identity": "originAccessIdentity"},
+        name_mapping={
+            "origin_access_identity": "originAccessIdentity",
+            "origin_read_timeout": "originReadTimeout",
+        },
     )
     class S3OriginConfigProperty:
         def __init__(
             self,
             *,
             origin_access_identity: typing.Optional[builtins.str] = None,
+            origin_read_timeout: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''A complex type that contains information about the Amazon S3 origin.
 
             If the origin is a custom origin or an S3 bucket that is configured as a website endpoint, use the ``CustomOriginConfig`` element instead.
 
             :param origin_access_identity: .. epigraph:: If you're using origin access control (OAC) instead of origin access identity, specify an empty ``OriginAccessIdentity`` element. For more information, see `Restricting access to an AWS <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-restricting-access-to-origin.html>`_ in the *Amazon CloudFront Developer Guide* . The CloudFront origin access identity to associate with the origin. Use an origin access identity to configure the origin so that viewers can *only* access objects in an Amazon S3 bucket through CloudFront. The format of the value is: ``origin-access-identity/cloudfront/ID-of-origin-access-identity`` The ``*ID-of-origin-access-identity*`` is the value that CloudFront returned in the ``ID`` element when you created the origin access identity. If you want viewers to be able to access objects using either the CloudFront URL or the Amazon S3 URL, specify an empty ``OriginAccessIdentity`` element. To delete the origin access identity from an existing distribution, update the distribution configuration and include an empty ``OriginAccessIdentity`` element. To replace the origin access identity, update the distribution configuration and specify the new origin access identity. For more information about the origin access identity, see `Serving Private Content through CloudFront <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/PrivateContent.html>`_ in the *Amazon CloudFront Developer Guide* . Default: - ""
+            :param origin_read_timeout: Default: - 30
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-s3originconfig.html
             :exampleMetadata: fixture=_generated
@@ -9882,15 +9905,19 @@ class CfnDistribution(
                 from aws_cdk import aws_cloudfront as cloudfront
                 
                 s3_origin_config_property = cloudfront.CfnDistribution.S3OriginConfigProperty(
-                    origin_access_identity="originAccessIdentity"
+                    origin_access_identity="originAccessIdentity",
+                    origin_read_timeout=123
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__8d9ff629693eb9bcb66704ce461d05e62e0755b651cbbc7ead2b89151325cad7)
                 check_type(argname="argument origin_access_identity", value=origin_access_identity, expected_type=type_hints["origin_access_identity"])
+                check_type(argname="argument origin_read_timeout", value=origin_read_timeout, expected_type=type_hints["origin_read_timeout"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if origin_access_identity is not None:
                 self._values["origin_access_identity"] = origin_access_identity
+            if origin_read_timeout is not None:
+                self._values["origin_read_timeout"] = origin_read_timeout
 
         @builtins.property
         def origin_access_identity(self) -> typing.Optional[builtins.str]:
@@ -9920,6 +9947,16 @@ class CfnDistribution(
             '''
             result = self._values.get("origin_access_identity")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def origin_read_timeout(self) -> typing.Optional[jsii.Number]:
+            '''
+            :default: - 30
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-s3originconfig.html#cfn-cloudfront-distribution-s3originconfig-originreadtimeout
+            '''
+            result = self._values.get("origin_read_timeout")
+            return typing.cast(typing.Optional[jsii.Number], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -10362,8 +10399,8 @@ class CfnDistribution(
             '''An Amazon CloudFront VPC origin configuration.
 
             :param vpc_origin_id: The VPC origin ID.
-            :param origin_keepalive_timeout: Specifies how long, in seconds, CloudFront persists its connection to the origin. The minimum timeout is 1 second, the maximum is 60 seconds, and the default (if you don't specify otherwise) is 5 seconds. For more information, see `Keep-alive timeout (custom origins only) <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/distribution-web-values-specify.html#DownloadDistValuesOriginKeepaliveTimeout>`_ in the *Amazon CloudFront Developer Guide* . Default: - 5
-            :param origin_read_timeout: Specifies how long, in seconds, CloudFront waits for a response from the origin. This is also known as the *origin response timeout* . The minimum timeout is 1 second, the maximum is 60 seconds, and the default (if you don't specify otherwise) is 30 seconds. For more information, see `Response timeout (custom origins only) <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/distribution-web-values-specify.html#DownloadDistValuesOriginResponseTimeout>`_ in the *Amazon CloudFront Developer Guide* . Default: - 30
+            :param origin_keepalive_timeout: Specifies how long, in seconds, CloudFront persists its connection to the origin. The minimum timeout is 1 second, the maximum is 60 seconds, and the default (if you don't specify otherwise) is 5 seconds. For more information, see `Keep-alive timeout (custom origins only) <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/DownloadDistValuesOrigin.html#DownloadDistValuesOriginKeepaliveTimeout>`_ in the *Amazon CloudFront Developer Guide* . Default: - 5
+            :param origin_read_timeout: Specifies how long, in seconds, CloudFront waits for a response from the origin. This is also known as the *origin response timeout* . The minimum timeout is 1 second, the maximum is 60 seconds, and the default (if you don't specify otherwise) is 30 seconds. For more information, see `Response timeout (custom origins only) <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/DownloadDistValuesOrigin.html#DownloadDistValuesOriginResponseTimeout>`_ in the *Amazon CloudFront Developer Guide* . Default: - 30
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-vpcoriginconfig.html
             :exampleMetadata: fixture=_generated
@@ -10411,7 +10448,7 @@ class CfnDistribution(
 
             The minimum timeout is 1 second, the maximum is 60 seconds, and the default (if you don't specify otherwise) is 5 seconds.
 
-            For more information, see `Keep-alive timeout (custom origins only) <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/distribution-web-values-specify.html#DownloadDistValuesOriginKeepaliveTimeout>`_ in the *Amazon CloudFront Developer Guide* .
+            For more information, see `Keep-alive timeout (custom origins only) <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/DownloadDistValuesOrigin.html#DownloadDistValuesOriginKeepaliveTimeout>`_ in the *Amazon CloudFront Developer Guide* .
 
             :default: - 5
 
@@ -10426,7 +10463,7 @@ class CfnDistribution(
 
             This is also known as the *origin response timeout* . The minimum timeout is 1 second, the maximum is 60 seconds, and the default (if you don't specify otherwise) is 30 seconds.
 
-            For more information, see `Response timeout (custom origins only) <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/distribution-web-values-specify.html#DownloadDistValuesOriginResponseTimeout>`_ in the *Amazon CloudFront Developer Guide* .
+            For more information, see `Response timeout (custom origins only) <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/DownloadDistValuesOrigin.html#DownloadDistValuesOriginResponseTimeout>`_ in the *Amazon CloudFront Developer Guide* .
 
             :default: - 30
 
@@ -10650,8 +10687,10 @@ class CfnDistributionProps:
                             enabled=False,
                             origin_shield_region="originShieldRegion"
                         ),
+                        response_completion_timeout=123,
                         s3_origin_config=cloudfront.CfnDistribution.S3OriginConfigProperty(
-                            origin_access_identity="originAccessIdentity"
+                            origin_access_identity="originAccessIdentity",
+                            origin_read_timeout=123
                         ),
                         vpc_origin_config=cloudfront.CfnDistribution.VpcOriginConfigProperty(
                             vpc_origin_id="vpcOriginId",
@@ -18036,7 +18075,7 @@ class CfnVpcOrigin(
             :param http_port: The HTTP port for the CloudFront VPC origin endpoint configuration. The default value is ``80`` . Default: - 80
             :param https_port: The HTTPS port of the CloudFront VPC origin endpoint configuration. The default value is ``443`` . Default: - 443
             :param origin_protocol_policy: The origin protocol policy for the CloudFront VPC origin endpoint configuration. Default: - "match-viewer"
-            :param origin_ssl_protocols: Specifies the minimum SSL/TLS protocol that CloudFront uses when connecting to your origin over HTTPS. Valid values include ``SSLv3`` , ``TLSv1`` , ``TLSv1.1`` , and ``TLSv1.2`` . For more information, see `Minimum Origin SSL Protocol <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/distribution-web-values-specify.html#DownloadDistValuesOriginSSLProtocols>`_ in the *Amazon CloudFront Developer Guide* .
+            :param origin_ssl_protocols: Specifies the minimum SSL/TLS protocol that CloudFront uses when connecting to your origin over HTTPS. Valid values include ``SSLv3`` , ``TLSv1`` , ``TLSv1.1`` , and ``TLSv1.2`` . For more information, see `Minimum Origin SSL Protocol <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/DownloadDistValuesOrigin.html#DownloadDistValuesOriginSSLProtocols>`_ in the *Amazon CloudFront Developer Guide* .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-vpcorigin-vpcoriginendpointconfig.html
             :exampleMetadata: fixture=_generated
@@ -18142,7 +18181,7 @@ class CfnVpcOrigin(
 
             Valid values include ``SSLv3`` , ``TLSv1`` , ``TLSv1.1`` , and ``TLSv1.2`` .
 
-            For more information, see `Minimum Origin SSL Protocol <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/distribution-web-values-specify.html#DownloadDistValuesOriginSSLProtocols>`_ in the *Amazon CloudFront Developer Guide* .
+            For more information, see `Minimum Origin SSL Protocol <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/DownloadDistValuesOrigin.html#DownloadDistValuesOriginSSLProtocols>`_ in the *Amazon CloudFront Developer Guide* .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-vpcorigin-vpcoriginendpointconfig.html#cfn-cloudfront-vpcorigin-vpcoriginendpointconfig-originsslprotocols
             '''
@@ -22256,8 +22295,10 @@ class OriginBindConfig:
                         enabled=False,
                         origin_shield_region="originShieldRegion"
                     ),
+                    response_completion_timeout=123,
                     s3_origin_config=cloudfront.CfnDistribution.S3OriginConfigProperty(
-                        origin_access_identity="originAccessIdentity"
+                        origin_access_identity="originAccessIdentity",
+                        origin_read_timeout=123
                     ),
                     vpc_origin_config=cloudfront.CfnDistribution.VpcOriginConfigProperty(
                         vpc_origin_id="vpcOriginId",
@@ -29812,6 +29853,7 @@ def _typecheckingstub__cb4237408749840dbecf9d9aed57975910052da22b994c7e13cc97c98
     origin_custom_headers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDistribution.OriginCustomHeaderProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     origin_path: typing.Optional[builtins.str] = None,
     origin_shield: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDistribution.OriginShieldProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    response_completion_timeout: typing.Optional[jsii.Number] = None,
     s3_origin_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDistribution.S3OriginConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     vpc_origin_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDistribution.VpcOriginConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -29844,6 +29886,7 @@ def _typecheckingstub__4deb0a9215bd7c703383e0e2be801747efa09772f2b073423550aa963
 def _typecheckingstub__8d9ff629693eb9bcb66704ce461d05e62e0755b651cbbc7ead2b89151325cad7(
     *,
     origin_access_identity: typing.Optional[builtins.str] = None,
+    origin_read_timeout: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass

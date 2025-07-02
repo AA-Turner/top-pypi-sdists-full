@@ -115,13 +115,12 @@ __all__ = ['Pipeline', 'transform_annotations']
 
 
 class Pipeline(HasDisplayData):
-  """A pipeline object that manages a DAG of
-  :class:`~apache_beam.pvalue.PValue` s and their
-  :class:`~apache_beam.transforms.ptransform.PTransform` s.
+  """A pipeline object that manages a DAG of 
+  :class:`~apache_beam.transforms.ptransform.PTransform` s 
+  and their :class:`~apache_beam.pvalue.PValue` s.
 
-  Conceptually the :class:`~apache_beam.pvalue.PValue` s are the DAG's nodes and
-  the :class:`~apache_beam.transforms.ptransform.PTransform` s computing
-  the :class:`~apache_beam.pvalue.PValue` s are the edges.
+  Conceptually the :class:`~apache_beam.transforms.ptransform.PTransform` s are 
+  the DAG's nodes and the :class:`~apache_beam.pvalue.PValue` s are the edges.
 
   All the transforms applied to the pipeline must have distinct full labels.
   If same transform instance needs to be applied then the right shift operator
@@ -767,6 +766,12 @@ class Pipeline(HasDisplayData):
             'streaming jobs.' % full_label)
     self.applied_labels.add(full_label)
 
+    if pvalueish is None:
+      full_label = self._current_transform().full_label
+      raise TypeCheckError(
+          f'Transform "{full_label}" was applied to the output of '
+          f'an object of type None.')
+
     pvalueish, inputs = transform._extract_input_pvalues(pvalueish)
     try:
       if not isinstance(inputs, dict):
@@ -797,6 +802,13 @@ class Pipeline(HasDisplayData):
       type_options = self._options.view_as(TypeOptions)
       if type_options.pipeline_type_check:
         transform.type_check_inputs(pvalueish)
+      if isinstance(pvalueish, pvalue.PBegin) and isinstance(transform, ParDo):
+        full_label = self._current_transform().full_label
+        raise TypeCheckError(
+            f"Transform '{full_label}' expects a PCollection as input. "
+            "Got a PBegin/Pipeline instead.")
+
+      self._assert_not_applying_PDone(pvalueish, transform)
 
       pvalueish_result = self.runner.apply(transform, pvalueish, self._options)
 
@@ -845,6 +857,20 @@ class Pipeline(HasDisplayData):
       self.transforms_stack.pop()
     return pvalueish_result
 
+  def _assert_not_applying_PDone(
+      self,
+      pvalueish,  # type: Optional[pvalue.PValue]
+      transform  # type: ptransform.PTransform
+  ):
+    if isinstance(pvalueish, pvalue.PDone) and isinstance(transform, ParDo):
+      # If the input is a PDone, we cannot apply a ParDo transform.
+      full_label = self._current_transform().full_label
+      producer_label = pvalueish.producer.full_label
+      raise TypeCheckError(
+          f'Transform "{full_label}" was applied to the output of '
+          f'"{producer_label}" but "{producer_label.split("/")[-1]}" '
+          'produces no PCollections.')
+
   def _generate_unique_label(
       self,
       transform  # type: str
@@ -856,7 +882,6 @@ class Pipeline(HasDisplayData):
     """
     unique_suffix = uuid.uuid4().hex[:6]
     return '%s_%s' % (transform.label, unique_suffix)
-
 
   def _infer_result_type(
       self,
@@ -1004,8 +1029,8 @@ class Pipeline(HasDisplayData):
             if (isinstance(output.element_type,
                            typehints.TupleHint.TupleConstraint) and
                 len(output.element_type.tuple_types) == 2 and
-                pcoll.element_type.tuple_types[0] ==
-                output.element_type.tuple_types[0]):
+                pcoll.element_type.tuple_types[0]
+                == output.element_type.tuple_types[0]):
               output.requires_deterministic_key_coder = (
                   deterministic_key_coders and transform_node.full_label)
         for side_input in transform_node.transform.side_inputs:
@@ -1057,8 +1082,10 @@ class Pipeline(HasDisplayData):
     p = Pipeline(
         runner=runner,
         options=options,
-        display_data={str(ix): d
-                      for ix, d in enumerate(proto.display_data)})
+        display_data={
+            str(ix): d
+            for ix, d in enumerate(proto.display_data)
+        })
     from apache_beam.runners import pipeline_context
     context = pipeline_context.PipelineContext(
         proto.components, requirements=proto.requirements)
@@ -1177,7 +1204,7 @@ class AppliedPTransform(object):
       full_label,  # type: str
       main_inputs,  # type: Optional[Mapping[str, Union[pvalue.PBegin, pvalue.PCollection]]]
       environment_id,  # type: Optional[str]
-      annotations, # type: Optional[Dict[str, bytes]]
+      annotations,  # type: Optional[Dict[str, bytes]]
   ):
     # type: (...) -> None
     self.parent = parent
@@ -1421,13 +1448,11 @@ class AppliedPTransform(object):
         ],
         inputs={
             tag: context.pcollections.get_id(pc)
-            for tag,
-            pc in sorted(self.named_inputs().items())
+            for tag, pc in sorted(self.named_inputs().items())
         },
         outputs={
             tag: context.pcollections.get_id(out)
-            for tag,
-            out in sorted(self.named_outputs().items())
+            for tag, out in sorted(self.named_outputs().items())
         },
         environment_id=environment_id,
         annotations=self.annotations,
@@ -1468,8 +1493,8 @@ class AppliedPTransform(object):
     # TODO(https://github.com/apache/beam/issues/20136): use key, value pairs
     # instead of depending on tags with index as a suffix.
     indexed_side_inputs = [
-        (get_sideinput_index(tag), context.pcollections.get_by_id(id)) for tag,
-        id in proto.inputs.items() if tag in side_input_tags
+        (get_sideinput_index(tag), context.pcollections.get_by_id(id))
+        for tag, id in proto.inputs.items() if tag in side_input_tags
     ]
     side_inputs = [si for _, si in sorted(indexed_side_inputs)]
 
@@ -1492,8 +1517,7 @@ class AppliedPTransform(object):
       result.add_part(part)
     result.outputs = {
         None if tag == 'None' else tag: context.pcollections.get_by_id(id)
-        for tag,
-        id in proto.outputs.items()
+        for tag, id in proto.outputs.items()
     }
     # This annotation is expected by some runners.
     if proto.spec.urn == common_urns.primitives.PAR_DO.urn:

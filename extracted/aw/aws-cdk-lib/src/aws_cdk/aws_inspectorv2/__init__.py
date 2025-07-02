@@ -945,7 +945,7 @@ class CfnCisScanConfigurationProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
 class CfnFilter(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -967,6 +967,18 @@ class CfnFilter(
             filter_action="filterAction",
             filter_criteria=inspectorv2.CfnFilter.FilterCriteriaProperty(
                 aws_account_id=[inspectorv2.CfnFilter.StringFilterProperty(
+                    comparison="comparison",
+                    value="value"
+                )],
+                code_vulnerability_detector_name=[inspectorv2.CfnFilter.StringFilterProperty(
+                    comparison="comparison",
+                    value="value"
+                )],
+                code_vulnerability_detector_tags=[inspectorv2.CfnFilter.StringFilterProperty(
+                    comparison="comparison",
+                    value="value"
+                )],
+                code_vulnerability_file_path=[inspectorv2.CfnFilter.StringFilterProperty(
                     comparison="comparison",
                     value="value"
                 )],
@@ -1014,6 +1026,14 @@ class CfnFilter(
                     comparison="comparison",
                     value="value"
                 )],
+                epss_score=[inspectorv2.CfnFilter.NumberFilterProperty(
+                    lower_inclusive=123,
+                    upper_inclusive=123
+                )],
+                exploit_available=[inspectorv2.CfnFilter.StringFilterProperty(
+                    comparison="comparison",
+                    value="value"
+                )],
                 finding_arn=[inspectorv2.CfnFilter.StringFilterProperty(
                     comparison="comparison",
                     value="value"
@@ -1030,9 +1050,33 @@ class CfnFilter(
                     end_inclusive=123,
                     start_inclusive=123
                 )],
+                fix_available=[inspectorv2.CfnFilter.StringFilterProperty(
+                    comparison="comparison",
+                    value="value"
+                )],
                 inspector_score=[inspectorv2.CfnFilter.NumberFilterProperty(
                     lower_inclusive=123,
                     upper_inclusive=123
+                )],
+                lambda_function_execution_role_arn=[inspectorv2.CfnFilter.StringFilterProperty(
+                    comparison="comparison",
+                    value="value"
+                )],
+                lambda_function_last_modified_at=[inspectorv2.CfnFilter.DateFilterProperty(
+                    end_inclusive=123,
+                    start_inclusive=123
+                )],
+                lambda_function_layers=[inspectorv2.CfnFilter.StringFilterProperty(
+                    comparison="comparison",
+                    value="value"
+                )],
+                lambda_function_name=[inspectorv2.CfnFilter.StringFilterProperty(
+                    comparison="comparison",
+                    value="value"
+                )],
+                lambda_function_runtime=[inspectorv2.CfnFilter.StringFilterProperty(
+                    comparison="comparison",
+                    value="value"
                 )],
                 last_observed_at=[inspectorv2.CfnFilter.DateFilterProperty(
                     end_inclusive=123,
@@ -1098,11 +1142,19 @@ class CfnFilter(
                         lower_inclusive=123,
                         upper_inclusive=123
                     ),
+                    file_path=inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    ),
                     name=inspectorv2.CfnFilter.StringFilterProperty(
                         comparison="comparison",
                         value="value"
                     ),
                     release=inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    ),
+                    source_lambda_layer_arn=inspectorv2.CfnFilter.StringFilterProperty(
                         comparison="comparison",
                         value="value"
                     ),
@@ -1119,7 +1171,10 @@ class CfnFilter(
             name="name",
         
             # the properties below are optional
-            description="description"
+            description="description",
+            tags={
+                "tags_key": "tags"
+            }
         )
     '''
 
@@ -1132,6 +1187,7 @@ class CfnFilter(
         filter_criteria: typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.FilterCriteriaProperty", typing.Dict[builtins.str, typing.Any]]],
         name: builtins.str,
         description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
         :param scope: Scope in which this resource is defined.
@@ -1140,6 +1196,7 @@ class CfnFilter(
         :param filter_criteria: Details on the filter criteria associated with this filter.
         :param name: The name of the filter.
         :param description: A description of the filter.
+        :param tags: The tags attached to the filter.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__76aaac8f8d755716225a5dd2d4902f3e7ec007381fa82a2d163553362c975c9d)
@@ -1150,6 +1207,7 @@ class CfnFilter(
             filter_criteria=filter_criteria,
             name=name,
             description=description,
+            tags=tags,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -1192,6 +1250,12 @@ class CfnFilter(
         :cloudformationAttribute: Arn
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1254,6 +1318,22 @@ class CfnFilter(
             type_hints = typing.get_type_hints(_typecheckingstub__29a0d69128962a2d8d478ff9197ec92d930e2284a9cbff6337d95fb1932925d0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''The tags attached to the filter.'''
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2d85ec3c1992f35abc960573e86c94eb9d5f4d6c6fd9f47728ef03d5078212f1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_inspectorv2.CfnFilter.DateFilterProperty",
@@ -1333,6 +1413,9 @@ class CfnFilter(
         jsii_struct_bases=[],
         name_mapping={
             "aws_account_id": "awsAccountId",
+            "code_vulnerability_detector_name": "codeVulnerabilityDetectorName",
+            "code_vulnerability_detector_tags": "codeVulnerabilityDetectorTags",
+            "code_vulnerability_file_path": "codeVulnerabilityFilePath",
             "component_id": "componentId",
             "component_type": "componentType",
             "ec2_instance_image_id": "ec2InstanceImageId",
@@ -1344,11 +1427,19 @@ class CfnFilter(
             "ecr_image_registry": "ecrImageRegistry",
             "ecr_image_repository_name": "ecrImageRepositoryName",
             "ecr_image_tags": "ecrImageTags",
+            "epss_score": "epssScore",
+            "exploit_available": "exploitAvailable",
             "finding_arn": "findingArn",
             "finding_status": "findingStatus",
             "finding_type": "findingType",
             "first_observed_at": "firstObservedAt",
+            "fix_available": "fixAvailable",
             "inspector_score": "inspectorScore",
+            "lambda_function_execution_role_arn": "lambdaFunctionExecutionRoleArn",
+            "lambda_function_last_modified_at": "lambdaFunctionLastModifiedAt",
+            "lambda_function_layers": "lambdaFunctionLayers",
+            "lambda_function_name": "lambdaFunctionName",
+            "lambda_function_runtime": "lambdaFunctionRuntime",
             "last_observed_at": "lastObservedAt",
             "network_protocol": "networkProtocol",
             "port_range": "portRange",
@@ -1370,6 +1461,9 @@ class CfnFilter(
             self,
             *,
             aws_account_id: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            code_vulnerability_detector_name: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            code_vulnerability_detector_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            code_vulnerability_file_path: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             component_id: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             component_type: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             ec2_instance_image_id: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -1381,11 +1475,19 @@ class CfnFilter(
             ecr_image_registry: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             ecr_image_repository_name: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             ecr_image_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            epss_score: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.NumberFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            exploit_available: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             finding_arn: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             finding_status: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             finding_type: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             first_observed_at: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.DateFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            fix_available: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             inspector_score: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.NumberFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            lambda_function_execution_role_arn: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            lambda_function_last_modified_at: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.DateFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            lambda_function_layers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            lambda_function_name: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            lambda_function_runtime: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             last_observed_at: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.DateFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             network_protocol: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             port_range: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.PortRangeFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -1404,6 +1506,9 @@ class CfnFilter(
             '''Details on the criteria used to define the filter.
 
             :param aws_account_id: Details of the AWS account IDs used to filter findings.
+            :param code_vulnerability_detector_name: 
+            :param code_vulnerability_detector_tags: 
+            :param code_vulnerability_file_path: 
             :param component_id: Details of the component IDs used to filter findings.
             :param component_type: Details of the component types used to filter findings.
             :param ec2_instance_image_id: Details of the Amazon EC2 instance image IDs used to filter findings.
@@ -1415,11 +1520,19 @@ class CfnFilter(
             :param ecr_image_registry: Details on the Amazon ECR registry used to filter findings.
             :param ecr_image_repository_name: Details on the name of the Amazon ECR repository used to filter findings.
             :param ecr_image_tags: The tags attached to the Amazon ECR container image.
+            :param epss_score: 
+            :param exploit_available: 
             :param finding_arn: Details on the finding ARNs used to filter findings.
             :param finding_status: Details on the finding status types used to filter findings.
             :param finding_type: Details on the finding types used to filter findings.
             :param first_observed_at: Details on the date and time a finding was first seen used to filter findings.
+            :param fix_available: 
             :param inspector_score: The Amazon Inspector score to filter on.
+            :param lambda_function_execution_role_arn: 
+            :param lambda_function_last_modified_at: 
+            :param lambda_function_layers: 
+            :param lambda_function_name: 
+            :param lambda_function_runtime: 
             :param last_observed_at: Details on the date and time a finding was last seen used to filter findings.
             :param network_protocol: Details on network protocol used to filter findings.
             :param port_range: Details on the port ranges used to filter findings.
@@ -1446,6 +1559,18 @@ class CfnFilter(
                 
                 filter_criteria_property = inspectorv2.CfnFilter.FilterCriteriaProperty(
                     aws_account_id=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    code_vulnerability_detector_name=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    code_vulnerability_detector_tags=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    code_vulnerability_file_path=[inspectorv2.CfnFilter.StringFilterProperty(
                         comparison="comparison",
                         value="value"
                     )],
@@ -1493,6 +1618,14 @@ class CfnFilter(
                         comparison="comparison",
                         value="value"
                     )],
+                    epss_score=[inspectorv2.CfnFilter.NumberFilterProperty(
+                        lower_inclusive=123,
+                        upper_inclusive=123
+                    )],
+                    exploit_available=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
                     finding_arn=[inspectorv2.CfnFilter.StringFilterProperty(
                         comparison="comparison",
                         value="value"
@@ -1509,9 +1642,33 @@ class CfnFilter(
                         end_inclusive=123,
                         start_inclusive=123
                     )],
+                    fix_available=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
                     inspector_score=[inspectorv2.CfnFilter.NumberFilterProperty(
                         lower_inclusive=123,
                         upper_inclusive=123
+                    )],
+                    lambda_function_execution_role_arn=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    lambda_function_last_modified_at=[inspectorv2.CfnFilter.DateFilterProperty(
+                        end_inclusive=123,
+                        start_inclusive=123
+                    )],
+                    lambda_function_layers=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    lambda_function_name=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    lambda_function_runtime=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
                     )],
                     last_observed_at=[inspectorv2.CfnFilter.DateFilterProperty(
                         end_inclusive=123,
@@ -1577,11 +1734,19 @@ class CfnFilter(
                             lower_inclusive=123,
                             upper_inclusive=123
                         ),
+                        file_path=inspectorv2.CfnFilter.StringFilterProperty(
+                            comparison="comparison",
+                            value="value"
+                        ),
                         name=inspectorv2.CfnFilter.StringFilterProperty(
                             comparison="comparison",
                             value="value"
                         ),
                         release=inspectorv2.CfnFilter.StringFilterProperty(
+                            comparison="comparison",
+                            value="value"
+                        ),
+                        source_lambda_layer_arn=inspectorv2.CfnFilter.StringFilterProperty(
                             comparison="comparison",
                             value="value"
                         ),
@@ -1599,6 +1764,9 @@ class CfnFilter(
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__8bf898b4c669bfc838bf91c83d3735a9d69065b37baef35430be61dc52e3c81a)
                 check_type(argname="argument aws_account_id", value=aws_account_id, expected_type=type_hints["aws_account_id"])
+                check_type(argname="argument code_vulnerability_detector_name", value=code_vulnerability_detector_name, expected_type=type_hints["code_vulnerability_detector_name"])
+                check_type(argname="argument code_vulnerability_detector_tags", value=code_vulnerability_detector_tags, expected_type=type_hints["code_vulnerability_detector_tags"])
+                check_type(argname="argument code_vulnerability_file_path", value=code_vulnerability_file_path, expected_type=type_hints["code_vulnerability_file_path"])
                 check_type(argname="argument component_id", value=component_id, expected_type=type_hints["component_id"])
                 check_type(argname="argument component_type", value=component_type, expected_type=type_hints["component_type"])
                 check_type(argname="argument ec2_instance_image_id", value=ec2_instance_image_id, expected_type=type_hints["ec2_instance_image_id"])
@@ -1610,11 +1778,19 @@ class CfnFilter(
                 check_type(argname="argument ecr_image_registry", value=ecr_image_registry, expected_type=type_hints["ecr_image_registry"])
                 check_type(argname="argument ecr_image_repository_name", value=ecr_image_repository_name, expected_type=type_hints["ecr_image_repository_name"])
                 check_type(argname="argument ecr_image_tags", value=ecr_image_tags, expected_type=type_hints["ecr_image_tags"])
+                check_type(argname="argument epss_score", value=epss_score, expected_type=type_hints["epss_score"])
+                check_type(argname="argument exploit_available", value=exploit_available, expected_type=type_hints["exploit_available"])
                 check_type(argname="argument finding_arn", value=finding_arn, expected_type=type_hints["finding_arn"])
                 check_type(argname="argument finding_status", value=finding_status, expected_type=type_hints["finding_status"])
                 check_type(argname="argument finding_type", value=finding_type, expected_type=type_hints["finding_type"])
                 check_type(argname="argument first_observed_at", value=first_observed_at, expected_type=type_hints["first_observed_at"])
+                check_type(argname="argument fix_available", value=fix_available, expected_type=type_hints["fix_available"])
                 check_type(argname="argument inspector_score", value=inspector_score, expected_type=type_hints["inspector_score"])
+                check_type(argname="argument lambda_function_execution_role_arn", value=lambda_function_execution_role_arn, expected_type=type_hints["lambda_function_execution_role_arn"])
+                check_type(argname="argument lambda_function_last_modified_at", value=lambda_function_last_modified_at, expected_type=type_hints["lambda_function_last_modified_at"])
+                check_type(argname="argument lambda_function_layers", value=lambda_function_layers, expected_type=type_hints["lambda_function_layers"])
+                check_type(argname="argument lambda_function_name", value=lambda_function_name, expected_type=type_hints["lambda_function_name"])
+                check_type(argname="argument lambda_function_runtime", value=lambda_function_runtime, expected_type=type_hints["lambda_function_runtime"])
                 check_type(argname="argument last_observed_at", value=last_observed_at, expected_type=type_hints["last_observed_at"])
                 check_type(argname="argument network_protocol", value=network_protocol, expected_type=type_hints["network_protocol"])
                 check_type(argname="argument port_range", value=port_range, expected_type=type_hints["port_range"])
@@ -1632,6 +1808,12 @@ class CfnFilter(
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if aws_account_id is not None:
                 self._values["aws_account_id"] = aws_account_id
+            if code_vulnerability_detector_name is not None:
+                self._values["code_vulnerability_detector_name"] = code_vulnerability_detector_name
+            if code_vulnerability_detector_tags is not None:
+                self._values["code_vulnerability_detector_tags"] = code_vulnerability_detector_tags
+            if code_vulnerability_file_path is not None:
+                self._values["code_vulnerability_file_path"] = code_vulnerability_file_path
             if component_id is not None:
                 self._values["component_id"] = component_id
             if component_type is not None:
@@ -1654,6 +1836,10 @@ class CfnFilter(
                 self._values["ecr_image_repository_name"] = ecr_image_repository_name
             if ecr_image_tags is not None:
                 self._values["ecr_image_tags"] = ecr_image_tags
+            if epss_score is not None:
+                self._values["epss_score"] = epss_score
+            if exploit_available is not None:
+                self._values["exploit_available"] = exploit_available
             if finding_arn is not None:
                 self._values["finding_arn"] = finding_arn
             if finding_status is not None:
@@ -1662,8 +1848,20 @@ class CfnFilter(
                 self._values["finding_type"] = finding_type
             if first_observed_at is not None:
                 self._values["first_observed_at"] = first_observed_at
+            if fix_available is not None:
+                self._values["fix_available"] = fix_available
             if inspector_score is not None:
                 self._values["inspector_score"] = inspector_score
+            if lambda_function_execution_role_arn is not None:
+                self._values["lambda_function_execution_role_arn"] = lambda_function_execution_role_arn
+            if lambda_function_last_modified_at is not None:
+                self._values["lambda_function_last_modified_at"] = lambda_function_last_modified_at
+            if lambda_function_layers is not None:
+                self._values["lambda_function_layers"] = lambda_function_layers
+            if lambda_function_name is not None:
+                self._values["lambda_function_name"] = lambda_function_name
+            if lambda_function_runtime is not None:
+                self._values["lambda_function_runtime"] = lambda_function_runtime
             if last_observed_at is not None:
                 self._values["last_observed_at"] = last_observed_at
             if network_protocol is not None:
@@ -1702,6 +1900,36 @@ class CfnFilter(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-awsaccountid
             '''
             result = self._values.get("aws_account_id")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]], result)
+
+        @builtins.property
+        def code_vulnerability_detector_name(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-codevulnerabilitydetectorname
+            '''
+            result = self._values.get("code_vulnerability_detector_name")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]], result)
+
+        @builtins.property
+        def code_vulnerability_detector_tags(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-codevulnerabilitydetectortags
+            '''
+            result = self._values.get("code_vulnerability_detector_tags")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]], result)
+
+        @builtins.property
+        def code_vulnerability_file_path(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-codevulnerabilityfilepath
+            '''
+            result = self._values.get("code_vulnerability_file_path")
             return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]], result)
 
         @builtins.property
@@ -1826,6 +2054,26 @@ class CfnFilter(
             return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]], result)
 
         @builtins.property
+        def epss_score(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.NumberFilterProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-epssscore
+            '''
+            result = self._values.get("epss_score")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.NumberFilterProperty"]]]], result)
+
+        @builtins.property
+        def exploit_available(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-exploitavailable
+            '''
+            result = self._values.get("exploit_available")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]], result)
+
+        @builtins.property
         def finding_arn(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]]:
@@ -1870,6 +2118,16 @@ class CfnFilter(
             return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.DateFilterProperty"]]]], result)
 
         @builtins.property
+        def fix_available(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-fixavailable
+            '''
+            result = self._values.get("fix_available")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]], result)
+
+        @builtins.property
         def inspector_score(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.NumberFilterProperty"]]]]:
@@ -1879,6 +2137,56 @@ class CfnFilter(
             '''
             result = self._values.get("inspector_score")
             return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.NumberFilterProperty"]]]], result)
+
+        @builtins.property
+        def lambda_function_execution_role_arn(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-lambdafunctionexecutionrolearn
+            '''
+            result = self._values.get("lambda_function_execution_role_arn")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]], result)
+
+        @builtins.property
+        def lambda_function_last_modified_at(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.DateFilterProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-lambdafunctionlastmodifiedat
+            '''
+            result = self._values.get("lambda_function_last_modified_at")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.DateFilterProperty"]]]], result)
+
+        @builtins.property
+        def lambda_function_layers(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-lambdafunctionlayers
+            '''
+            result = self._values.get("lambda_function_layers")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]], result)
+
+        @builtins.property
+        def lambda_function_name(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-lambdafunctionname
+            '''
+            result = self._values.get("lambda_function_name")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]], result)
+
+        @builtins.property
+        def lambda_function_runtime(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-lambdafunctionruntime
+            '''
+            result = self._values.get("lambda_function_runtime")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]], result)
 
         @builtins.property
         def last_observed_at(
@@ -2212,8 +2520,10 @@ class CfnFilter(
         name_mapping={
             "architecture": "architecture",
             "epoch": "epoch",
+            "file_path": "filePath",
             "name": "name",
             "release": "release",
+            "source_lambda_layer_arn": "sourceLambdaLayerArn",
             "source_layer_hash": "sourceLayerHash",
             "version": "version",
         },
@@ -2224,8 +2534,10 @@ class CfnFilter(
             *,
             architecture: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             epoch: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.NumberFilterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            file_path: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             name: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             release: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            source_lambda_layer_arn: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             source_layer_hash: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
@@ -2233,8 +2545,10 @@ class CfnFilter(
 
             :param architecture: An object that contains details on the package architecture type to filter on.
             :param epoch: An object that contains details on the package epoch to filter on.
+            :param file_path: 
             :param name: An object that contains details on the name of the package to filter on.
             :param release: An object that contains details on the package release to filter on.
+            :param source_lambda_layer_arn: 
             :param source_layer_hash: An object that contains details on the source layer hash to filter on.
             :param version: The package version to filter on.
 
@@ -2256,11 +2570,19 @@ class CfnFilter(
                         lower_inclusive=123,
                         upper_inclusive=123
                     ),
+                    file_path=inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    ),
                     name=inspectorv2.CfnFilter.StringFilterProperty(
                         comparison="comparison",
                         value="value"
                     ),
                     release=inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    ),
+                    source_lambda_layer_arn=inspectorv2.CfnFilter.StringFilterProperty(
                         comparison="comparison",
                         value="value"
                     ),
@@ -2278,8 +2600,10 @@ class CfnFilter(
                 type_hints = typing.get_type_hints(_typecheckingstub__1bffc1f427079a7381e5366b9fd38ff4f23a9a2d0463f6c7f0250a60e1c3aa65)
                 check_type(argname="argument architecture", value=architecture, expected_type=type_hints["architecture"])
                 check_type(argname="argument epoch", value=epoch, expected_type=type_hints["epoch"])
+                check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument release", value=release, expected_type=type_hints["release"])
+                check_type(argname="argument source_lambda_layer_arn", value=source_lambda_layer_arn, expected_type=type_hints["source_lambda_layer_arn"])
                 check_type(argname="argument source_layer_hash", value=source_layer_hash, expected_type=type_hints["source_layer_hash"])
                 check_type(argname="argument version", value=version, expected_type=type_hints["version"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2287,10 +2611,14 @@ class CfnFilter(
                 self._values["architecture"] = architecture
             if epoch is not None:
                 self._values["epoch"] = epoch
+            if file_path is not None:
+                self._values["file_path"] = file_path
             if name is not None:
                 self._values["name"] = name
             if release is not None:
                 self._values["release"] = release
+            if source_lambda_layer_arn is not None:
+                self._values["source_lambda_layer_arn"] = source_lambda_layer_arn
             if source_layer_hash is not None:
                 self._values["source_layer_hash"] = source_layer_hash
             if version is not None:
@@ -2319,6 +2647,16 @@ class CfnFilter(
             return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFilter.NumberFilterProperty"]], result)
 
         @builtins.property
+        def file_path(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-packagefilter.html#cfn-inspectorv2-filter-packagefilter-filepath
+            '''
+            result = self._values.get("file_path")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]], result)
+
+        @builtins.property
         def name(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]:
@@ -2338,6 +2676,16 @@ class CfnFilter(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-packagefilter.html#cfn-inspectorv2-filter-packagefilter-release
             '''
             result = self._values.get("release")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]], result)
+
+        @builtins.property
+        def source_lambda_layer_arn(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-packagefilter.html#cfn-inspectorv2-filter-packagefilter-sourcelambdalayerarn
+            '''
+            result = self._values.get("source_lambda_layer_arn")
             return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]], result)
 
         @builtins.property
@@ -2521,6 +2869,7 @@ class CfnFilter(
         "filter_criteria": "filterCriteria",
         "name": "name",
         "description": "description",
+        "tags": "tags",
     },
 )
 class CfnFilterProps:
@@ -2531,6 +2880,7 @@ class CfnFilterProps:
         filter_criteria: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFilter.FilterCriteriaProperty, typing.Dict[builtins.str, typing.Any]]],
         name: builtins.str,
         description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''Properties for defining a ``CfnFilter``.
 
@@ -2538,6 +2888,7 @@ class CfnFilterProps:
         :param filter_criteria: Details on the filter criteria associated with this filter.
         :param name: The name of the filter.
         :param description: A description of the filter.
+        :param tags: The tags attached to the filter.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-filter.html
         :exampleMetadata: fixture=_generated
@@ -2552,6 +2903,18 @@ class CfnFilterProps:
                 filter_action="filterAction",
                 filter_criteria=inspectorv2.CfnFilter.FilterCriteriaProperty(
                     aws_account_id=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    code_vulnerability_detector_name=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    code_vulnerability_detector_tags=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    code_vulnerability_file_path=[inspectorv2.CfnFilter.StringFilterProperty(
                         comparison="comparison",
                         value="value"
                     )],
@@ -2599,6 +2962,14 @@ class CfnFilterProps:
                         comparison="comparison",
                         value="value"
                     )],
+                    epss_score=[inspectorv2.CfnFilter.NumberFilterProperty(
+                        lower_inclusive=123,
+                        upper_inclusive=123
+                    )],
+                    exploit_available=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
                     finding_arn=[inspectorv2.CfnFilter.StringFilterProperty(
                         comparison="comparison",
                         value="value"
@@ -2615,9 +2986,33 @@ class CfnFilterProps:
                         end_inclusive=123,
                         start_inclusive=123
                     )],
+                    fix_available=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
                     inspector_score=[inspectorv2.CfnFilter.NumberFilterProperty(
                         lower_inclusive=123,
                         upper_inclusive=123
+                    )],
+                    lambda_function_execution_role_arn=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    lambda_function_last_modified_at=[inspectorv2.CfnFilter.DateFilterProperty(
+                        end_inclusive=123,
+                        start_inclusive=123
+                    )],
+                    lambda_function_layers=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    lambda_function_name=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    lambda_function_runtime=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
                     )],
                     last_observed_at=[inspectorv2.CfnFilter.DateFilterProperty(
                         end_inclusive=123,
@@ -2683,11 +3078,19 @@ class CfnFilterProps:
                             lower_inclusive=123,
                             upper_inclusive=123
                         ),
+                        file_path=inspectorv2.CfnFilter.StringFilterProperty(
+                            comparison="comparison",
+                            value="value"
+                        ),
                         name=inspectorv2.CfnFilter.StringFilterProperty(
                             comparison="comparison",
                             value="value"
                         ),
                         release=inspectorv2.CfnFilter.StringFilterProperty(
+                            comparison="comparison",
+                            value="value"
+                        ),
+                        source_lambda_layer_arn=inspectorv2.CfnFilter.StringFilterProperty(
                             comparison="comparison",
                             value="value"
                         ),
@@ -2704,7 +3107,10 @@ class CfnFilterProps:
                 name="name",
             
                 # the properties below are optional
-                description="description"
+                description="description",
+                tags={
+                    "tags_key": "tags"
+                }
             )
         '''
         if __debug__:
@@ -2713,6 +3119,7 @@ class CfnFilterProps:
             check_type(argname="argument filter_criteria", value=filter_criteria, expected_type=type_hints["filter_criteria"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "filter_action": filter_action,
             "filter_criteria": filter_criteria,
@@ -2720,6 +3127,8 @@ class CfnFilterProps:
         }
         if description is not None:
             self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
 
     @builtins.property
     def filter_action(self) -> builtins.str:
@@ -2761,6 +3170,15 @@ class CfnFilterProps:
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''The tags attached to the filter.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-filter.html#cfn-inspectorv2-filter-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2906,6 +3324,7 @@ def _typecheckingstub__76aaac8f8d755716225a5dd2d4902f3e7ec007381fa82a2d163553362
     filter_criteria: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFilter.FilterCriteriaProperty, typing.Dict[builtins.str, typing.Any]]],
     name: builtins.str,
     description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2946,6 +3365,12 @@ def _typecheckingstub__29a0d69128962a2d8d478ff9197ec92d930e2284a9cbff6337d95fb19
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__2d85ec3c1992f35abc960573e86c94eb9d5f4d6c6fd9f47728ef03d5078212f1(
+    value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__412cca739fbade26efa876445772a168ea693eb111b9385ae83d92127bd547b5(
     *,
     end_inclusive: typing.Optional[jsii.Number] = None,
@@ -2957,6 +3382,9 @@ def _typecheckingstub__412cca739fbade26efa876445772a168ea693eb111b9385ae83d92127
 def _typecheckingstub__8bf898b4c669bfc838bf91c83d3735a9d69065b37baef35430be61dc52e3c81a(
     *,
     aws_account_id: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFilter.StringFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    code_vulnerability_detector_name: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFilter.StringFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    code_vulnerability_detector_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFilter.StringFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    code_vulnerability_file_path: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFilter.StringFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     component_id: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFilter.StringFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     component_type: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFilter.StringFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ec2_instance_image_id: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFilter.StringFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -2968,11 +3396,19 @@ def _typecheckingstub__8bf898b4c669bfc838bf91c83d3735a9d69065b37baef35430be61dc5
     ecr_image_registry: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFilter.StringFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ecr_image_repository_name: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFilter.StringFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ecr_image_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFilter.StringFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    epss_score: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFilter.NumberFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    exploit_available: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFilter.StringFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     finding_arn: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFilter.StringFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     finding_status: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFilter.StringFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     finding_type: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFilter.StringFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     first_observed_at: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFilter.DateFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    fix_available: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFilter.StringFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     inspector_score: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFilter.NumberFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    lambda_function_execution_role_arn: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFilter.StringFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    lambda_function_last_modified_at: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFilter.DateFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    lambda_function_layers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFilter.StringFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    lambda_function_name: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFilter.StringFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    lambda_function_runtime: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFilter.StringFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     last_observed_at: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFilter.DateFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     network_protocol: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFilter.StringFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     port_range: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFilter.PortRangeFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -3012,8 +3448,10 @@ def _typecheckingstub__1bffc1f427079a7381e5366b9fd38ff4f23a9a2d0463f6c7f0250a60e
     *,
     architecture: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFilter.StringFilterProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     epoch: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFilter.NumberFilterProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    file_path: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFilter.StringFilterProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFilter.StringFilterProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     release: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFilter.StringFilterProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    source_lambda_layer_arn: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFilter.StringFilterProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     source_layer_hash: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFilter.StringFilterProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFilter.StringFilterProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -3042,6 +3480,7 @@ def _typecheckingstub__701269c3a3c8675419393e41eacb02f94675d9b8c43500c7ae0bd7ea7
     filter_criteria: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFilter.FilterCriteriaProperty, typing.Dict[builtins.str, typing.Any]]],
     name: builtins.str,
     description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

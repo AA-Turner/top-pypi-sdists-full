@@ -331,6 +331,60 @@ class TransferClient(client.BaseClient):
             data={"subscription_id": subscription_id},
         )
 
+    def set_subscription_admin_verified(
+        self,
+        collection_id: UUIDLike,
+        subscription_admin_verified: bool,
+    ) -> response.GlobusHTTPResponse:
+        """
+        Sets the value of ``subscription_admin_verified`` on a Globus Connect Personal
+        mapped collection. A value of ``True`` grants verified status, and a
+        value of ``False`` revokes verified status.
+
+        This operation requires membership in a Globus subscription group and
+        has authorization requirements which depend upon the caller's roles on
+        the subscription group and the collection.
+
+        Subscription administrators can grant or revoke verification on a collection
+        that is associated with their subscription without needing an administrator
+        role on the collection itself.
+
+        Users with the administrator effective role on the collection can revoke
+        verification on a collection, but must still be a subscription administrator
+        to grant verification.
+
+        :param collection_id: The collection ID which is having its subscription set.
+        :param subscription_admin_verified: The verification status of the collection
+            expressed as a Boolean type.
+
+        .. tab-set::
+
+            .. tab-item:: Example Usage
+
+                .. code-block:: python
+
+                    import globus_sdk
+
+                    LOCAL_GCP = globus_sdk.LocalGlobusConnectPersonal()
+
+                    tc = globus_sdk.TransferClient(...)
+                    tc.endpoint_set_subscription_id(
+                        LOCAL_GCP.endpoint_id,
+                        True,
+                    )
+
+            .. tab-item:: API Info
+
+                ``PUT /endpoint/<collection_id>/subscription_admin_verified``
+
+                .. extdoclink:: Set Subscription Admin Verified
+                    :ref: transfer/gcp_management/#set_subscription_admin_verified
+        """  # noqa: E501
+        return self.put(
+            f"/endpoint/{collection_id}/subscription_admin_verified",
+            data={"subscription_admin_verified": subscription_admin_verified},
+        )
+
     def create_endpoint(self, data: dict[str, t.Any]) -> response.GlobusHTTPResponse:
         """
         .. warning::

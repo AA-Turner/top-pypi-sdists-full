@@ -104,11 +104,11 @@ class CfnCalculatedAttributeDefinition(
                 object_count=123,
                 range=customerprofiles.CfnCalculatedAttributeDefinition.RangeProperty(
                     unit="unit",
-                    value=123,
         
                     # the properties below are optional
                     timestamp_format="timestampFormat",
                     timestamp_source="timestampSource",
+                    value=123,
                     value_range=customerprofiles.CfnCalculatedAttributeDefinition.ValueRangeProperty(
                         end=123,
                         start=123
@@ -549,11 +549,11 @@ class CfnCalculatedAttributeDefinition(
                     object_count=123,
                     range=customerprofiles.CfnCalculatedAttributeDefinition.RangeProperty(
                         unit="unit",
-                        value=123,
                 
                         # the properties below are optional
                         timestamp_format="timestampFormat",
                         timestamp_source="timestampSource",
+                        value=123,
                         value_range=customerprofiles.CfnCalculatedAttributeDefinition.ValueRangeProperty(
                             end=123,
                             start=123
@@ -625,9 +625,9 @@ class CfnCalculatedAttributeDefinition(
         jsii_struct_bases=[],
         name_mapping={
             "unit": "unit",
-            "value": "value",
             "timestamp_format": "timestampFormat",
             "timestamp_source": "timestampSource",
+            "value": "value",
             "value_range": "valueRange",
         },
     )
@@ -636,17 +636,17 @@ class CfnCalculatedAttributeDefinition(
             self,
             *,
             unit: builtins.str,
-            value: jsii.Number,
             timestamp_format: typing.Optional[builtins.str] = None,
             timestamp_source: typing.Optional[builtins.str] = None,
+            value: typing.Optional[jsii.Number] = None,
             value_range: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCalculatedAttributeDefinition.ValueRangeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The relative time period over which data is included in the aggregation.
 
             :param unit: The unit of time.
-            :param value: The amount of time of the specified unit.
             :param timestamp_format: The format the timestamp field in your JSON object is specified. This value should be one of EPOCHMILLI or ISO_8601. E.g. if your object type is MyType and source JSON is {"generatedAt": {"timestamp": "2001-07-04T12:08:56.235Z"}}, then TimestampFormat should be "ISO_8601".
             :param timestamp_source: An expression specifying the field in your JSON object from which the date should be parsed. The expression should follow the structure of "{ObjectTypeName.}". E.g. if your object type is MyType and source JSON is {"generatedAt": {"timestamp": "1737587945945"}}, then TimestampSource should be "{MyType.generatedAt.timestamp}".
+            :param value: The amount of time of the specified unit.
             :param value_range: A structure specifying the endpoints of the relative time period over which data is included in the aggregation.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-calculatedattributedefinition-range.html
@@ -660,11 +660,11 @@ class CfnCalculatedAttributeDefinition(
                 
                 range_property = customerprofiles.CfnCalculatedAttributeDefinition.RangeProperty(
                     unit="unit",
-                    value=123,
                 
                     # the properties below are optional
                     timestamp_format="timestampFormat",
                     timestamp_source="timestampSource",
+                    value=123,
                     value_range=customerprofiles.CfnCalculatedAttributeDefinition.ValueRangeProperty(
                         end=123,
                         start=123
@@ -674,18 +674,19 @@ class CfnCalculatedAttributeDefinition(
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__4567eb83ac5620aa6be36cbd0e38cdba257d259743e1017616dbc2252fc66f9d)
                 check_type(argname="argument unit", value=unit, expected_type=type_hints["unit"])
-                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
                 check_type(argname="argument timestamp_format", value=timestamp_format, expected_type=type_hints["timestamp_format"])
                 check_type(argname="argument timestamp_source", value=timestamp_source, expected_type=type_hints["timestamp_source"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
                 check_type(argname="argument value_range", value=value_range, expected_type=type_hints["value_range"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "unit": unit,
-                "value": value,
             }
             if timestamp_format is not None:
                 self._values["timestamp_format"] = timestamp_format
             if timestamp_source is not None:
                 self._values["timestamp_source"] = timestamp_source
+            if value is not None:
+                self._values["value"] = value
             if value_range is not None:
                 self._values["value_range"] = value_range
 
@@ -698,16 +699,6 @@ class CfnCalculatedAttributeDefinition(
             result = self._values.get("unit")
             assert result is not None, "Required property 'unit' is missing"
             return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def value(self) -> jsii.Number:
-            '''The amount of time of the specified unit.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-calculatedattributedefinition-range.html#cfn-customerprofiles-calculatedattributedefinition-range-value
-            '''
-            result = self._values.get("value")
-            assert result is not None, "Required property 'value' is missing"
-            return typing.cast(jsii.Number, result)
 
         @builtins.property
         def timestamp_format(self) -> typing.Optional[builtins.str]:
@@ -730,6 +721,15 @@ class CfnCalculatedAttributeDefinition(
             '''
             result = self._values.get("timestamp_source")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def value(self) -> typing.Optional[jsii.Number]:
+            '''The amount of time of the specified unit.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-calculatedattributedefinition-range.html#cfn-customerprofiles-calculatedattributedefinition-range-value
+            '''
+            result = self._values.get("value")
+            return typing.cast(typing.Optional[jsii.Number], result)
 
         @builtins.property
         def value_range(
@@ -1029,11 +1029,11 @@ class CfnCalculatedAttributeDefinitionProps:
                     object_count=123,
                     range=customerprofiles.CfnCalculatedAttributeDefinition.RangeProperty(
                         unit="unit",
-                        value=123,
             
                         # the properties below are optional
                         timestamp_format="timestampFormat",
                         timestamp_source="timestampSource",
+                        value=123,
                         value_range=customerprofiles.CfnCalculatedAttributeDefinition.ValueRangeProperty(
                             end=123,
                             start=123
@@ -7440,6 +7440,10 @@ class CfnSegmentDefinition(
                                 dimension_type="dimensionType",
                                 values=["values"]
                             ),
+                            profile_type=customerprofiles.CfnSegmentDefinition.ProfileTypeDimensionProperty(
+                                dimension_type="dimensionType",
+                                values=["values"]
+                            ),
                             shipping_address=customerprofiles.CfnSegmentDefinition.AddressDimensionProperty(
                                 city=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
                                     dimension_type="dimensionType",
@@ -8335,6 +8339,10 @@ class CfnSegmentDefinition(
                             dimension_type="dimensionType",
                             values=["values"]
                         ),
+                        profile_type=customerprofiles.CfnSegmentDefinition.ProfileTypeDimensionProperty(
+                            dimension_type="dimensionType",
+                            values=["values"]
+                        ),
                         shipping_address=customerprofiles.CfnSegmentDefinition.AddressDimensionProperty(
                             city=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
                                 dimension_type="dimensionType",
@@ -8681,6 +8689,10 @@ class CfnSegmentDefinition(
                                 dimension_type="dimensionType",
                                 values=["values"]
                             ),
+                            profile_type=customerprofiles.CfnSegmentDefinition.ProfileTypeDimensionProperty(
+                                dimension_type="dimensionType",
+                                values=["values"]
+                            ),
                             shipping_address=customerprofiles.CfnSegmentDefinition.AddressDimensionProperty(
                                 city=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
                                     dimension_type="dimensionType",
@@ -8807,6 +8819,7 @@ class CfnSegmentDefinition(
             "party_type_string": "partyTypeString",
             "personal_email_address": "personalEmailAddress",
             "phone_number": "phoneNumber",
+            "profile_type": "profileType",
             "shipping_address": "shippingAddress",
         },
     )
@@ -8834,6 +8847,7 @@ class CfnSegmentDefinition(
             party_type_string: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSegmentDefinition.ProfileDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             personal_email_address: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSegmentDefinition.ProfileDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             phone_number: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSegmentDefinition.ProfileDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            profile_type: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSegmentDefinition.ProfileTypeDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             shipping_address: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSegmentDefinition.AddressDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The object used to segment on attributes within the customer profile.
@@ -8858,6 +8872,7 @@ class CfnSegmentDefinition(
             :param party_type_string: A field to describe values to segment on within partyTypeString.
             :param personal_email_address: A field to describe values to segment on within personal email address.
             :param phone_number: A field to describe values to segment on within phone number.
+            :param profile_type: Specifies profile type based criteria for a segment.
             :param shipping_address: A field to describe values to segment on within shipping address.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-segmentdefinition-profileattributes.html
@@ -9018,6 +9033,10 @@ class CfnSegmentDefinition(
                         dimension_type="dimensionType",
                         values=["values"]
                     ),
+                    profile_type=customerprofiles.CfnSegmentDefinition.ProfileTypeDimensionProperty(
+                        dimension_type="dimensionType",
+                        values=["values"]
+                    ),
                     shipping_address=customerprofiles.CfnSegmentDefinition.AddressDimensionProperty(
                         city=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
                             dimension_type="dimensionType",
@@ -9068,6 +9087,7 @@ class CfnSegmentDefinition(
                 check_type(argname="argument party_type_string", value=party_type_string, expected_type=type_hints["party_type_string"])
                 check_type(argname="argument personal_email_address", value=personal_email_address, expected_type=type_hints["personal_email_address"])
                 check_type(argname="argument phone_number", value=phone_number, expected_type=type_hints["phone_number"])
+                check_type(argname="argument profile_type", value=profile_type, expected_type=type_hints["profile_type"])
                 check_type(argname="argument shipping_address", value=shipping_address, expected_type=type_hints["shipping_address"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if account_number is not None:
@@ -9110,6 +9130,8 @@ class CfnSegmentDefinition(
                 self._values["personal_email_address"] = personal_email_address
             if phone_number is not None:
                 self._values["phone_number"] = phone_number
+            if profile_type is not None:
+                self._values["profile_type"] = profile_type
             if shipping_address is not None:
                 self._values["shipping_address"] = shipping_address
 
@@ -9334,6 +9356,17 @@ class CfnSegmentDefinition(
             return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ProfileDimensionProperty"]], result)
 
         @builtins.property
+        def profile_type(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ProfileTypeDimensionProperty"]]:
+            '''Specifies profile type based criteria for a segment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-segmentdefinition-profileattributes.html#cfn-customerprofiles-segmentdefinition-profileattributes-profiletype
+            '''
+            result = self._values.get("profile_type")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ProfileTypeDimensionProperty"]], result)
+
+        @builtins.property
         def shipping_address(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.AddressDimensionProperty"]]:
@@ -9422,6 +9455,76 @@ class CfnSegmentDefinition(
 
         def __repr__(self) -> str:
             return "ProfileDimensionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_customerprofiles.CfnSegmentDefinition.ProfileTypeDimensionProperty",
+        jsii_struct_bases=[],
+        name_mapping={"dimension_type": "dimensionType", "values": "values"},
+    )
+    class ProfileTypeDimensionProperty:
+        def __init__(
+            self,
+            *,
+            dimension_type: builtins.str,
+            values: typing.Sequence[builtins.str],
+        ) -> None:
+            '''Specifies profile type based criteria for a segment.
+
+            :param dimension_type: The type of segment dimension to use for a profile type dimension.
+            :param values: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-segmentdefinition-profiletypedimension.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_customerprofiles as customerprofiles
+                
+                profile_type_dimension_property = customerprofiles.CfnSegmentDefinition.ProfileTypeDimensionProperty(
+                    dimension_type="dimensionType",
+                    values=["values"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__054d82d45b080caa1018b194962cae1c565d1648b07a9d3eb9b751a54d3c2b39)
+                check_type(argname="argument dimension_type", value=dimension_type, expected_type=type_hints["dimension_type"])
+                check_type(argname="argument values", value=values, expected_type=type_hints["values"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "dimension_type": dimension_type,
+                "values": values,
+            }
+
+        @builtins.property
+        def dimension_type(self) -> builtins.str:
+            '''The type of segment dimension to use for a profile type dimension.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-segmentdefinition-profiletypedimension.html#cfn-customerprofiles-segmentdefinition-profiletypedimension-dimensiontype
+            '''
+            result = self._values.get("dimension_type")
+            assert result is not None, "Required property 'dimension_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def values(self) -> typing.List[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-segmentdefinition-profiletypedimension.html#cfn-customerprofiles-segmentdefinition-profiletypedimension-values
+            '''
+            result = self._values.get("values")
+            assert result is not None, "Required property 'values' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ProfileTypeDimensionProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -9705,6 +9808,10 @@ class CfnSegmentDefinition(
                                     values=["values"]
                                 ),
                                 phone_number=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
+                                    dimension_type="dimensionType",
+                                    values=["values"]
+                                ),
+                                profile_type=customerprofiles.CfnSegmentDefinition.ProfileTypeDimensionProperty(
                                     dimension_type="dimensionType",
                                     values=["values"]
                                 ),
@@ -10056,6 +10163,10 @@ class CfnSegmentDefinitionProps:
                                     dimension_type="dimensionType",
                                     values=["values"]
                                 ),
+                                profile_type=customerprofiles.CfnSegmentDefinition.ProfileTypeDimensionProperty(
+                                    dimension_type="dimensionType",
+                                    values=["values"]
+                                ),
                                 shipping_address=customerprofiles.CfnSegmentDefinition.AddressDimensionProperty(
                                     city=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
                                         dimension_type="dimensionType",
@@ -10321,9 +10432,9 @@ def _typecheckingstub__d5d5606a68f168622e019935c1cfd2eb8821e95f36c66313b2a6f7a38
 def _typecheckingstub__4567eb83ac5620aa6be36cbd0e38cdba257d259743e1017616dbc2252fc66f9d(
     *,
     unit: builtins.str,
-    value: jsii.Number,
     timestamp_format: typing.Optional[builtins.str] = None,
     timestamp_source: typing.Optional[builtins.str] = None,
+    value: typing.Optional[jsii.Number] = None,
     value_range: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCalculatedAttributeDefinition.ValueRangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -11283,12 +11394,21 @@ def _typecheckingstub__2d3744d80b787b304270031bc1ba903495b3abb0c8edddf7fdffa3603
     party_type_string: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSegmentDefinition.ProfileDimensionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     personal_email_address: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSegmentDefinition.ProfileDimensionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     phone_number: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSegmentDefinition.ProfileDimensionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    profile_type: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSegmentDefinition.ProfileTypeDimensionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     shipping_address: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSegmentDefinition.AddressDimensionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__007e452519747d631a7d676cfec00290dff2452d6eaac4a54fc80925aca3d685(
+    *,
+    dimension_type: builtins.str,
+    values: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__054d82d45b080caa1018b194962cae1c565d1648b07a9d3eb9b751a54d3c2b39(
     *,
     dimension_type: builtins.str,
     values: typing.Sequence[builtins.str],

@@ -1649,15 +1649,11 @@ PackageManagerInstallProgressCallback = Callable[
             "initializing",
             "preparing-dependencies",
             "resolving-package",
-            "using-lockfile-data",
-            "metadata-fetched",
             "fetching-resource",
             "package-already-installed",
             "downloading-package",
             "package-installed",
             "resolving-and-installing-all",
-            "dependencies-processed",
-            "finalizing-manifests",
             "complete",
         ],
         float,
@@ -1665,6 +1661,8 @@ PackageManagerInstallProgressCallback = Callable[
     ],
     None,
 ]
+
+PackageRole = Literal["runtime", "development", "optional", "peer"]
 
 
 class PackageManager:
@@ -1700,11 +1698,15 @@ class PackageManager:
     def install(
         self,
         project_root: Optional[str] = None,
+        role: Optional[PackageRole] = None,
         specs: Optional[Sequence[str]] = None,
+        omits: Optional[Sequence[PackageRole]] = None,
     ) -> _frida.PackageInstallResult:
         kwargs: Dict[str, Any] = {
             "project_root": project_root,
+            "role": role,
             "specs": specs,
+            "omits": omits,
         }
         _filter_missing_kwargs(kwargs)
         return self._impl.install(**kwargs)

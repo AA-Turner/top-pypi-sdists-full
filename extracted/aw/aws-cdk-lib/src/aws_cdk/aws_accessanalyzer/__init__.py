@@ -94,6 +94,15 @@ class CfnAnalyzer(
         
             # the properties below are optional
             analyzer_configuration=accessanalyzer.CfnAnalyzer.AnalyzerConfigurationProperty(
+                internal_access_configuration=accessanalyzer.CfnAnalyzer.InternalAccessConfigurationProperty(
+                    internal_access_analysis_rule=accessanalyzer.CfnAnalyzer.InternalAccessAnalysisRuleProperty(
+                        inclusions=[accessanalyzer.CfnAnalyzer.InternalAccessAnalysisRuleCriteriaProperty(
+                            account_ids=["accountIds"],
+                            resource_arns=["resourceArns"],
+                            resource_types=["resourceTypes"]
+                        )]
+                    )
+                ),
                 unused_access_configuration=accessanalyzer.CfnAnalyzer.UnusedAccessConfigurationProperty(
                     analysis_rule=accessanalyzer.CfnAnalyzer.AnalysisRuleProperty(
                         exclusions=[accessanalyzer.CfnAnalyzer.AnalysisRuleCriteriaProperty(
@@ -141,7 +150,7 @@ class CfnAnalyzer(
         '''
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param type: The type represents the zone of trust for the analyzer. *Allowed Values* : ACCOUNT | ORGANIZATION | ACCOUNT_UNUSED_ACCESS | ORGANIZATION_UNUSED_ACCESS
+        :param type: The type represents the zone of trust for the analyzer. *Allowed Values* : ACCOUNT | ORGANIZATION | ACCOUNT_UNUSED_ACCESS | ACCOUNT_INTERNAL_ACCESS | ORGANIZATION_INTERNAL_ACCESS | ORGANIZATION_UNUSED_ACCESS
         :param analyzer_configuration: Contains information about the configuration of an analyzer for an AWS organization or account.
         :param analyzer_name: The name of the analyzer.
         :param archive_rules: Specifies the archive rules to add for the analyzer. Archive rules automatically archive findings that meet the criteria you define for the rule.
@@ -441,16 +450,21 @@ class CfnAnalyzer(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_accessanalyzer.CfnAnalyzer.AnalyzerConfigurationProperty",
         jsii_struct_bases=[],
-        name_mapping={"unused_access_configuration": "unusedAccessConfiguration"},
+        name_mapping={
+            "internal_access_configuration": "internalAccessConfiguration",
+            "unused_access_configuration": "unusedAccessConfiguration",
+        },
     )
     class AnalyzerConfigurationProperty:
         def __init__(
             self,
             *,
+            internal_access_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAnalyzer.InternalAccessConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             unused_access_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAnalyzer.UnusedAccessConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Contains information about the configuration of an analyzer for an AWS organization or account.
 
+            :param internal_access_configuration: Specifies the configuration of an internal access analyzer for an AWS organization or account. This configuration determines how the analyzer evaluates access within your AWS environment.
             :param unused_access_configuration: Specifies the configuration of an unused access analyzer for an AWS organization or account.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-accessanalyzer-analyzer-analyzerconfiguration.html
@@ -463,6 +477,15 @@ class CfnAnalyzer(
                 from aws_cdk import aws_accessanalyzer as accessanalyzer
                 
                 analyzer_configuration_property = accessanalyzer.CfnAnalyzer.AnalyzerConfigurationProperty(
+                    internal_access_configuration=accessanalyzer.CfnAnalyzer.InternalAccessConfigurationProperty(
+                        internal_access_analysis_rule=accessanalyzer.CfnAnalyzer.InternalAccessAnalysisRuleProperty(
+                            inclusions=[accessanalyzer.CfnAnalyzer.InternalAccessAnalysisRuleCriteriaProperty(
+                                account_ids=["accountIds"],
+                                resource_arns=["resourceArns"],
+                                resource_types=["resourceTypes"]
+                            )]
+                        )
+                    ),
                     unused_access_configuration=accessanalyzer.CfnAnalyzer.UnusedAccessConfigurationProperty(
                         analysis_rule=accessanalyzer.CfnAnalyzer.AnalysisRuleProperty(
                             exclusions=[accessanalyzer.CfnAnalyzer.AnalysisRuleCriteriaProperty(
@@ -479,10 +502,26 @@ class CfnAnalyzer(
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__31c56409583b90336517d4c07b7b7849a386335199a589eff293943ed3b54e61)
+                check_type(argname="argument internal_access_configuration", value=internal_access_configuration, expected_type=type_hints["internal_access_configuration"])
                 check_type(argname="argument unused_access_configuration", value=unused_access_configuration, expected_type=type_hints["unused_access_configuration"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if internal_access_configuration is not None:
+                self._values["internal_access_configuration"] = internal_access_configuration
             if unused_access_configuration is not None:
                 self._values["unused_access_configuration"] = unused_access_configuration
+
+        @builtins.property
+        def internal_access_configuration(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnalyzer.InternalAccessConfigurationProperty"]]:
+            '''Specifies the configuration of an internal access analyzer for an AWS organization or account.
+
+            This configuration determines how the analyzer evaluates access within your AWS environment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-accessanalyzer-analyzer-analyzerconfiguration.html#cfn-accessanalyzer-analyzer-analyzerconfiguration-internalaccessconfiguration
+            '''
+            result = self._values.get("internal_access_configuration")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnalyzer.InternalAccessConfigurationProperty"]], result)
 
         @builtins.property
         def unused_access_configuration(
@@ -718,6 +757,240 @@ class CfnAnalyzer(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_accessanalyzer.CfnAnalyzer.InternalAccessAnalysisRuleCriteriaProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "account_ids": "accountIds",
+            "resource_arns": "resourceArns",
+            "resource_types": "resourceTypes",
+        },
+    )
+    class InternalAccessAnalysisRuleCriteriaProperty:
+        def __init__(
+            self,
+            *,
+            account_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+            resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+            resource_types: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''The criteria for an analysis rule for an internal access analyzer.
+
+            :param account_ids: A list of AWS account IDs to apply to the internal access analysis rule criteria. Account IDs can only be applied to the analysis rule criteria for organization-level analyzers.
+            :param resource_arns: A list of resource ARNs to apply to the internal access analysis rule criteria. The analyzer will only generate findings for resources that match these ARNs.
+            :param resource_types: A list of resource types to apply to the internal access analysis rule criteria. The analyzer will only generate findings for resources of these types. These resource types are currently supported for internal access analyzers: - ``AWS::S3::Bucket`` - ``AWS::RDS::DBSnapshot`` - ``AWS::RDS::DBClusterSnapshot`` - ``AWS::S3Express::DirectoryBucket`` - ``AWS::DynamoDB::Table`` - ``AWS::DynamoDB::Stream``
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-accessanalyzer-analyzer-internalaccessanalysisrulecriteria.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_accessanalyzer as accessanalyzer
+                
+                internal_access_analysis_rule_criteria_property = accessanalyzer.CfnAnalyzer.InternalAccessAnalysisRuleCriteriaProperty(
+                    account_ids=["accountIds"],
+                    resource_arns=["resourceArns"],
+                    resource_types=["resourceTypes"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__df58106489755d92b5cc9d51d8ac254dfccee65f0ca7f4d03d3a9002659d6a9f)
+                check_type(argname="argument account_ids", value=account_ids, expected_type=type_hints["account_ids"])
+                check_type(argname="argument resource_arns", value=resource_arns, expected_type=type_hints["resource_arns"])
+                check_type(argname="argument resource_types", value=resource_types, expected_type=type_hints["resource_types"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if account_ids is not None:
+                self._values["account_ids"] = account_ids
+            if resource_arns is not None:
+                self._values["resource_arns"] = resource_arns
+            if resource_types is not None:
+                self._values["resource_types"] = resource_types
+
+        @builtins.property
+        def account_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''A list of AWS account IDs to apply to the internal access analysis rule criteria.
+
+            Account IDs can only be applied to the analysis rule criteria for organization-level analyzers.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-accessanalyzer-analyzer-internalaccessanalysisrulecriteria.html#cfn-accessanalyzer-analyzer-internalaccessanalysisrulecriteria-accountids
+            '''
+            result = self._values.get("account_ids")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def resource_arns(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''A list of resource ARNs to apply to the internal access analysis rule criteria.
+
+            The analyzer will only generate findings for resources that match these ARNs.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-accessanalyzer-analyzer-internalaccessanalysisrulecriteria.html#cfn-accessanalyzer-analyzer-internalaccessanalysisrulecriteria-resourcearns
+            '''
+            result = self._values.get("resource_arns")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def resource_types(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''A list of resource types to apply to the internal access analysis rule criteria.
+
+            The analyzer will only generate findings for resources of these types. These resource types are currently supported for internal access analyzers:
+
+            - ``AWS::S3::Bucket``
+            - ``AWS::RDS::DBSnapshot``
+            - ``AWS::RDS::DBClusterSnapshot``
+            - ``AWS::S3Express::DirectoryBucket``
+            - ``AWS::DynamoDB::Table``
+            - ``AWS::DynamoDB::Stream``
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-accessanalyzer-analyzer-internalaccessanalysisrulecriteria.html#cfn-accessanalyzer-analyzer-internalaccessanalysisrulecriteria-resourcetypes
+            '''
+            result = self._values.get("resource_types")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "InternalAccessAnalysisRuleCriteriaProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_accessanalyzer.CfnAnalyzer.InternalAccessAnalysisRuleProperty",
+        jsii_struct_bases=[],
+        name_mapping={"inclusions": "inclusions"},
+    )
+    class InternalAccessAnalysisRuleProperty:
+        def __init__(
+            self,
+            *,
+            inclusions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAnalyzer.InternalAccessAnalysisRuleCriteriaProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''Contains information about analysis rules for the internal access analyzer.
+
+            Analysis rules determine which entities will generate findings based on the criteria you define when you create the rule.
+
+            :param inclusions: A list of rules for the internal access analyzer containing criteria to include in analysis. Only resources that meet the rule criteria will generate findings.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-accessanalyzer-analyzer-internalaccessanalysisrule.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_accessanalyzer as accessanalyzer
+                
+                internal_access_analysis_rule_property = accessanalyzer.CfnAnalyzer.InternalAccessAnalysisRuleProperty(
+                    inclusions=[accessanalyzer.CfnAnalyzer.InternalAccessAnalysisRuleCriteriaProperty(
+                        account_ids=["accountIds"],
+                        resource_arns=["resourceArns"],
+                        resource_types=["resourceTypes"]
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__b551cb53f4f7a1a38a9a57f1445115d565b843fa07c255e6ae31333c89b019a7)
+                check_type(argname="argument inclusions", value=inclusions, expected_type=type_hints["inclusions"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if inclusions is not None:
+                self._values["inclusions"] = inclusions
+
+        @builtins.property
+        def inclusions(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAnalyzer.InternalAccessAnalysisRuleCriteriaProperty"]]]]:
+            '''A list of rules for the internal access analyzer containing criteria to include in analysis.
+
+            Only resources that meet the rule criteria will generate findings.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-accessanalyzer-analyzer-internalaccessanalysisrule.html#cfn-accessanalyzer-analyzer-internalaccessanalysisrule-inclusions
+            '''
+            result = self._values.get("inclusions")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAnalyzer.InternalAccessAnalysisRuleCriteriaProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "InternalAccessAnalysisRuleProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_accessanalyzer.CfnAnalyzer.InternalAccessConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"internal_access_analysis_rule": "internalAccessAnalysisRule"},
+    )
+    class InternalAccessConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            internal_access_analysis_rule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAnalyzer.InternalAccessAnalysisRuleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Specifies the configuration of an internal access analyzer for an AWS organization or account.
+
+            This configuration determines how the analyzer evaluates internal access within your AWS environment.
+
+            :param internal_access_analysis_rule: Contains information about analysis rules for the internal access analyzer. These rules determine which resources and access patterns will be analyzed.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-accessanalyzer-analyzer-internalaccessconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_accessanalyzer as accessanalyzer
+                
+                internal_access_configuration_property = accessanalyzer.CfnAnalyzer.InternalAccessConfigurationProperty(
+                    internal_access_analysis_rule=accessanalyzer.CfnAnalyzer.InternalAccessAnalysisRuleProperty(
+                        inclusions=[accessanalyzer.CfnAnalyzer.InternalAccessAnalysisRuleCriteriaProperty(
+                            account_ids=["accountIds"],
+                            resource_arns=["resourceArns"],
+                            resource_types=["resourceTypes"]
+                        )]
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__0a796d008592c4cc4b9ffe7a696b2a26db99022fdab61d5695cf9465c2e2ecff)
+                check_type(argname="argument internal_access_analysis_rule", value=internal_access_analysis_rule, expected_type=type_hints["internal_access_analysis_rule"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if internal_access_analysis_rule is not None:
+                self._values["internal_access_analysis_rule"] = internal_access_analysis_rule
+
+        @builtins.property
+        def internal_access_analysis_rule(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnalyzer.InternalAccessAnalysisRuleProperty"]]:
+            '''Contains information about analysis rules for the internal access analyzer.
+
+            These rules determine which resources and access patterns will be analyzed.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-accessanalyzer-analyzer-internalaccessconfiguration.html#cfn-accessanalyzer-analyzer-internalaccessconfiguration-internalaccessanalysisrule
+            '''
+            result = self._values.get("internal_access_analysis_rule")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnalyzer.InternalAccessAnalysisRuleProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "InternalAccessConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_accessanalyzer.CfnAnalyzer.UnusedAccessConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -828,7 +1101,7 @@ class CfnAnalyzerProps:
     ) -> None:
         '''Properties for defining a ``CfnAnalyzer``.
 
-        :param type: The type represents the zone of trust for the analyzer. *Allowed Values* : ACCOUNT | ORGANIZATION | ACCOUNT_UNUSED_ACCESS | ORGANIZATION_UNUSED_ACCESS
+        :param type: The type represents the zone of trust for the analyzer. *Allowed Values* : ACCOUNT | ORGANIZATION | ACCOUNT_UNUSED_ACCESS | ACCOUNT_INTERNAL_ACCESS | ORGANIZATION_INTERNAL_ACCESS | ORGANIZATION_UNUSED_ACCESS
         :param analyzer_configuration: Contains information about the configuration of an analyzer for an AWS organization or account.
         :param analyzer_name: The name of the analyzer.
         :param archive_rules: Specifies the archive rules to add for the analyzer. Archive rules automatically archive findings that meet the criteria you define for the rule.
@@ -848,6 +1121,15 @@ class CfnAnalyzerProps:
             
                 # the properties below are optional
                 analyzer_configuration=accessanalyzer.CfnAnalyzer.AnalyzerConfigurationProperty(
+                    internal_access_configuration=accessanalyzer.CfnAnalyzer.InternalAccessConfigurationProperty(
+                        internal_access_analysis_rule=accessanalyzer.CfnAnalyzer.InternalAccessAnalysisRuleProperty(
+                            inclusions=[accessanalyzer.CfnAnalyzer.InternalAccessAnalysisRuleCriteriaProperty(
+                                account_ids=["accountIds"],
+                                resource_arns=["resourceArns"],
+                                resource_types=["resourceTypes"]
+                            )]
+                        )
+                    ),
                     unused_access_configuration=accessanalyzer.CfnAnalyzer.UnusedAccessConfigurationProperty(
                         analysis_rule=accessanalyzer.CfnAnalyzer.AnalysisRuleProperty(
                             exclusions=[accessanalyzer.CfnAnalyzer.AnalysisRuleCriteriaProperty(
@@ -903,7 +1185,7 @@ class CfnAnalyzerProps:
     def type(self) -> builtins.str:
         '''The type represents the zone of trust for the analyzer.
 
-        *Allowed Values* : ACCOUNT | ORGANIZATION | ACCOUNT_UNUSED_ACCESS | ORGANIZATION_UNUSED_ACCESS
+        *Allowed Values* : ACCOUNT | ORGANIZATION | ACCOUNT_UNUSED_ACCESS | ACCOUNT_INTERNAL_ACCESS | ORGANIZATION_INTERNAL_ACCESS | ORGANIZATION_UNUSED_ACCESS
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-accessanalyzer-analyzer.html#cfn-accessanalyzer-analyzer-type
         '''
@@ -1050,6 +1332,7 @@ def _typecheckingstub__17edc274e7f0852c4514c56018aaea9d25296dab4aaadab463eab1460
 
 def _typecheckingstub__31c56409583b90336517d4c07b7b7849a386335199a589eff293943ed3b54e61(
     *,
+    internal_access_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnalyzer.InternalAccessConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     unused_access_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnalyzer.UnusedAccessConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -1070,6 +1353,29 @@ def _typecheckingstub__a277539f2c67c28a2a9fc67270fd81239b1346785d9508df320b963a2
     eq: typing.Optional[typing.Sequence[builtins.str]] = None,
     exists: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     neq: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__df58106489755d92b5cc9d51d8ac254dfccee65f0ca7f4d03d3a9002659d6a9f(
+    *,
+    account_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    resource_types: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b551cb53f4f7a1a38a9a57f1445115d565b843fa07c255e6ae31333c89b019a7(
+    *,
+    inclusions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnalyzer.InternalAccessAnalysisRuleCriteriaProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0a796d008592c4cc4b9ffe7a696b2a26db99022fdab61d5695cf9465c2e2ecff(
+    *,
+    internal_access_analysis_rule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnalyzer.InternalAccessAnalysisRuleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

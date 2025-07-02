@@ -1,7 +1,7 @@
 Metadata-Version: 2.1
 Name: pysorteddict
-Version: 0.7.3
-Summary: Python sorted dictionary: a Python dictionary in which the keys are always in ascending order
+Version: 0.8.0
+Summary: Python dictionary in which the keys are always in ascending order
 Author: Vishal Pankaj Chandratreya
 Project-URL: Homepage, https://tfpf.github.io/pysorteddict/
 Project-URL: Documentation, https://tfpf.github.io/pysorteddict/documentation.html
@@ -28,8 +28,7 @@ License-File: COPYING.md
 
 # pysorteddict
 
-Provides `SortedDict`, which is a Python sorted dictionary: a Python dictionary in which the keys are always in
-ascending order.
+Enriches Python with `SortedDict`, a sorted dictionary: a dictionary in which the keys are always in ascending order.
 
 [Read more on the homepage.](https://tfpf.github.io/pysorteddict/)
 

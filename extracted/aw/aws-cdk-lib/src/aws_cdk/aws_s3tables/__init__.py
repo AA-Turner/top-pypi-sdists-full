@@ -77,6 +77,192 @@ from .. import (
 
 
 @jsii.implements(_IInspectable_c2943556)
+class CfnNamespace(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_s3tables.CfnNamespace",
+):
+    '''Creates a namespace.
+
+    A namespace is a logical grouping of tables within your table bucket, which you can use to organize tables. For more information, see `Create a namespace <https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-tables-namespace-create.html>`_ in the *Amazon Simple Storage Service User Guide* .
+
+    - **Permissions** - You must have the ``s3tables:CreateNamespace`` permission to use this operation.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3tables-namespace.html
+    :cloudformationResource: AWS::S3Tables::Namespace
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_s3tables as s3tables
+        
+        cfn_namespace = s3tables.CfnNamespace(self, "MyCfnNamespace",
+            namespace="namespace",
+            table_bucket_arn="tableBucketArn"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        namespace: builtins.str,
+        table_bucket_arn: builtins.str,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param namespace: The name of the namespace.
+        :param table_bucket_arn: The Amazon Resource Name (ARN) of the specified table bucket.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fd79dcff4893fe1cd3464c1f48689d2a01ad4a5eed6acfd35e21266683ab1f1c)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnNamespaceProps(
+            namespace=namespace, table_bucket_arn=table_bucket_arn
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0dae368df5e118b03066ac5fbad3765e81aa23b31a7288aa2bb824379578614f)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2c772aad560ab6b4e840f54665ca3a18a9fcbf362512eb78423617db138b70b0)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="namespace")
+    def namespace(self) -> builtins.str:
+        '''The name of the namespace.'''
+        return typing.cast(builtins.str, jsii.get(self, "namespace"))
+
+    @namespace.setter
+    def namespace(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__083038783d9a592008992f105965913f4b10d8bc23252afb9a929c22e7cebd06)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "namespace", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tableBucketArn")
+    def table_bucket_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the specified table bucket.'''
+        return typing.cast(builtins.str, jsii.get(self, "tableBucketArn"))
+
+    @table_bucket_arn.setter
+    def table_bucket_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8560b7f29623bc1f753b1cf34442c874c6958096b39accf37244c9341879fd81)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tableBucketArn", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3tables.CfnNamespaceProps",
+    jsii_struct_bases=[],
+    name_mapping={"namespace": "namespace", "table_bucket_arn": "tableBucketArn"},
+)
+class CfnNamespaceProps:
+    def __init__(
+        self,
+        *,
+        namespace: builtins.str,
+        table_bucket_arn: builtins.str,
+    ) -> None:
+        '''Properties for defining a ``CfnNamespace``.
+
+        :param namespace: The name of the namespace.
+        :param table_bucket_arn: The Amazon Resource Name (ARN) of the specified table bucket.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3tables-namespace.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_s3tables as s3tables
+            
+            cfn_namespace_props = s3tables.CfnNamespaceProps(
+                namespace="namespace",
+                table_bucket_arn="tableBucketArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5fdadc8758c9f96fac22200567c0d51cfd3e36c943cb9fa46e50cbf9abf25faf)
+            check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
+            check_type(argname="argument table_bucket_arn", value=table_bucket_arn, expected_type=type_hints["table_bucket_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "namespace": namespace,
+            "table_bucket_arn": table_bucket_arn,
+        }
+
+    @builtins.property
+    def namespace(self) -> builtins.str:
+        '''The name of the namespace.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3tables-namespace.html#cfn-s3tables-namespace-namespace
+        '''
+        result = self._values.get("namespace")
+        assert result is not None, "Required property 'namespace' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def table_bucket_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the specified table bucket.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3tables-namespace.html#cfn-s3tables-namespace-tablebucketarn
+        '''
+        result = self._values.get("table_bucket_arn")
+        assert result is not None, "Required property 'table_bucket_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnNamespaceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556)
 class CfnTableBucket(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -706,6 +892,8 @@ class CfnTableBucketProps:
 
 
 __all__ = [
+    "CfnNamespace",
+    "CfnNamespaceProps",
     "CfnTableBucket",
     "CfnTableBucketPolicy",
     "CfnTableBucketPolicyProps",
@@ -713,6 +901,48 @@ __all__ = [
 ]
 
 publication.publish()
+
+def _typecheckingstub__fd79dcff4893fe1cd3464c1f48689d2a01ad4a5eed6acfd35e21266683ab1f1c(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    namespace: builtins.str,
+    table_bucket_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0dae368df5e118b03066ac5fbad3765e81aa23b31a7288aa2bb824379578614f(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2c772aad560ab6b4e840f54665ca3a18a9fcbf362512eb78423617db138b70b0(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__083038783d9a592008992f105965913f4b10d8bc23252afb9a929c22e7cebd06(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8560b7f29623bc1f753b1cf34442c874c6958096b39accf37244c9341879fd81(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5fdadc8758c9f96fac22200567c0d51cfd3e36c943cb9fa46e50cbf9abf25faf(
+    *,
+    namespace: builtins.str,
+    table_bucket_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__de433918cd34eecbcaab0e81b6a287f71a48dd308c2f4d42e07a0e19ce5af0e2(
     scope: _constructs_77d1e7e8.Construct,

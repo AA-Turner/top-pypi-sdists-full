@@ -9,9 +9,9 @@ from collections.abc import Awaitable, Callable, Sequence
 from typing import Any
 
 import pydantic_core
+from mcp.types import ContentBlock, PromptMessage, Role, TextContent
 from mcp.types import Prompt as MCPPrompt
 from mcp.types import PromptArgument as MCPPromptArgument
-from mcp.types import PromptMessage, Role, TextContent
 from pydantic import Field, TypeAdapter
 
 from fastmcp.exceptions import PromptError
@@ -21,7 +21,6 @@ from fastmcp.utilities.json_schema import compress_schema
 from fastmcp.utilities.logging import get_logger
 from fastmcp.utilities.types import (
     FastMCPBaseModel,
-    MCPContent,
     find_kwarg_by_type,
     get_cached_typeadapter,
 )
@@ -30,7 +29,7 @@ logger = get_logger(__name__)
 
 
 def Message(
-    content: str | MCPContent, role: Role | None = None, **kwargs: Any
+    content: str | ContentBlock, role: Role | None = None, **kwargs: Any
 ) -> PromptMessage:
     """A user-friendly constructor for PromptMessage."""
     if isinstance(content, str):
@@ -100,6 +99,7 @@ class Prompt(FastMCPComponent, ABC):
             "name": self.name,
             "description": self.description,
             "arguments": arguments,
+            "title": self.title,
         }
         return MCPPrompt(**kwargs | overrides)
 
@@ -107,6 +107,7 @@ class Prompt(FastMCPComponent, ABC):
     def from_function(
         fn: Callable[..., PromptResult | Awaitable[PromptResult]],
         name: str | None = None,
+        title: str | None = None,
         description: str | None = None,
         tags: set[str] | None = None,
         enabled: bool | None = None,
@@ -120,7 +121,12 @@ class Prompt(FastMCPComponent, ABC):
         - A sequence of any of the above
         """
         return FunctionPrompt.from_function(
-            fn=fn, name=name, description=description, tags=tags, enabled=enabled
+            fn=fn,
+            name=name,
+            title=title,
+            description=description,
+            tags=tags,
+            enabled=enabled,
         )
 
     @abstractmethod
@@ -142,6 +148,7 @@ class FunctionPrompt(Prompt):
         cls,
         fn: Callable[..., PromptResult | Awaitable[PromptResult]],
         name: str | None = None,
+        title: str | None = None,
         description: str | None = None,
         tags: set[str] | None = None,
         enabled: bool | None = None,
@@ -233,6 +240,7 @@ class FunctionPrompt(Prompt):
 
         return cls(
             name=func_name,
+            title=title,
             description=description,
             arguments=arguments,
             tags=tags or set(),

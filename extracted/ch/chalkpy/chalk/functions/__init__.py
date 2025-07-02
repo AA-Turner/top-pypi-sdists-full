@@ -510,6 +510,48 @@ def token_sort_ratio(a: Underscore | Any, b: Underscore | Any):
     return UnderscoreFunction("token_sort_ratio", a, b)
 
 
+def unidecode_normalize(a: Underscore | Any):
+    """
+    Normalizes an input utf8 string using NFKD normalization. Returns a normalized utf8 string.
+
+    Parameters
+    ----------
+    a
+        utf8 string.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class User:
+    ...    input_string: str
+    ...    normalized_string: str = F.unidecode_normalize(_.input_string)
+    """
+    return UnderscoreFunction("unidecode_normalize", a)
+
+
+def unidecode_to_ascii(a: Underscore | Any):
+    """
+    Normalizes and transliterates an input utf8 string to ASCII. Returns a normalized string with only ASCII characters.
+
+    Parameters
+    ----------
+    a
+        utf8 string.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class User:
+    ...    input_string: str
+    ...    normalized_ascii_string: str = F.unidecode_to_ascii(_.input_string)
+    """
+    return UnderscoreFunction("unidecode_to_ascii", a)
+
+
 def sequence_matcher_ratio(a: Underscore | Any, b: Underscore | Any):
     """
     Measure the similarity of two strings as by Python `difflib`.
@@ -3898,6 +3940,8 @@ __all__ = (
     "to_iso8601",
     "token_set_ratio",
     "token_sort_ratio",
+    "unidecode_normalize",
+    "unidecode_to_ascii",
     "total_seconds",
     "trim",
     "unix_milliseconds",

@@ -1,7 +1,7 @@
 r'''
 # `google_compute_network`
 
-Refer to the Terraform Registry for docs: [`google_compute_network`](https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network).
+Refer to the Terraform Registry for docs: [`google_compute_network`](https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ComputeNetwork(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.computeNetwork.ComputeNetwork",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network google_compute_network}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network google_compute_network}.'''
 
     def __init__(
         self,
@@ -64,6 +64,7 @@ class ComputeNetwork(
         mtu: typing.Optional[jsii.Number] = None,
         network_firewall_policy_enforcement_order: typing.Optional[builtins.str] = None,
         network_profile: typing.Optional[builtins.str] = None,
+        params: typing.Optional[typing.Union["ComputeNetworkParams", typing.Dict[builtins.str, typing.Any]]] = None,
         project: typing.Optional[builtins.str] = None,
         routing_mode: typing.Optional[builtins.str] = None,
         timeouts: typing.Optional[typing.Union["ComputeNetworkTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -75,26 +76,27 @@ class ComputeNetwork(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network google_compute_network} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network google_compute_network} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#name ComputeNetwork#name}
-        :param auto_create_subnetworks: When set to 'true', the network is created in "auto subnet mode" and it will create a subnet for each region automatically across the '10.128.0.0/9' address range. When set to 'false', the network is created in "custom subnet mode" so the user can explicitly connect subnetwork resources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#auto_create_subnetworks ComputeNetwork#auto_create_subnetworks}
-        :param bgp_always_compare_med: Enables/disables the comparison of MED across routes with different Neighbor ASNs. This value can only be set if the --bgp-best-path-selection-mode is STANDARD Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#bgp_always_compare_med ComputeNetwork#bgp_always_compare_med}
-        :param bgp_best_path_selection_mode: The BGP best selection algorithm to be employed. MODE can be LEGACY or STANDARD. Possible values: ["LEGACY", "STANDARD"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#bgp_best_path_selection_mode ComputeNetwork#bgp_best_path_selection_mode}
-        :param bgp_inter_region_cost: Choice of the behavior of inter-regional cost and MED in the BPS algorithm. Possible values: ["DEFAULT", "ADD_COST_TO_MED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#bgp_inter_region_cost ComputeNetwork#bgp_inter_region_cost}
-        :param delete_default_routes_on_create: If set to 'true', default routes ('0.0.0.0/0') will be deleted immediately after network creation. Defaults to 'false'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#delete_default_routes_on_create ComputeNetwork#delete_default_routes_on_create}
-        :param description: An optional description of this resource. The resource must be recreated to modify this field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#description ComputeNetwork#description}
-        :param enable_ula_internal_ipv6: Enable ULA internal ipv6 on this network. Enabling this feature will assign a /48 from google defined ULA prefix fd20::/20. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#enable_ula_internal_ipv6 ComputeNetwork#enable_ula_internal_ipv6}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#id ComputeNetwork#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param internal_ipv6_range: When enabling ula internal ipv6, caller optionally can specify the /48 range they want from the google defined ULA prefix fd20::/20. The input must be a valid /48 ULA IPv6 address and must be within the fd20::/20. Operation will fail if the speficied /48 is already in used by another resource. If the field is not speficied, then a /48 range will be randomly allocated from fd20::/20 and returned via this field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#internal_ipv6_range ComputeNetwork#internal_ipv6_range}
-        :param mtu: Maximum Transmission Unit in bytes. The default value is 1460 bytes. The minimum value for this field is 1300 and the maximum value is 8896 bytes (jumbo frames). Note that packets larger than 1500 bytes (standard Ethernet) can be subject to TCP-MSS clamping or dropped with an ICMP 'Fragmentation-Needed' message if the packets are routed to the Internet or other VPCs with varying MTUs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#mtu ComputeNetwork#mtu}
-        :param network_firewall_policy_enforcement_order: Set the order that Firewall Rules and Firewall Policies are evaluated. Default value: "AFTER_CLASSIC_FIREWALL" Possible values: ["BEFORE_CLASSIC_FIREWALL", "AFTER_CLASSIC_FIREWALL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#network_firewall_policy_enforcement_order ComputeNetwork#network_firewall_policy_enforcement_order}
-        :param network_profile: A full or partial URL of the network profile to apply to this network. This field can be set only at resource creation time. For example, the following are valid URLs: - https://www.googleapis.com/compute/v1/projects/{projectId}/global/networkProfiles/{network_profile_name} - projects/{projectId}/global/networkProfiles/{network_profile_name} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#network_profile ComputeNetwork#network_profile}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#project ComputeNetwork#project}.
-        :param routing_mode: The network-wide routing mode to use. If set to 'REGIONAL', this network's cloud routers will only advertise routes with subnetworks of this network in the same region as the router. If set to 'GLOBAL', this network's cloud routers will advertise routes with all subnetworks of this network, across regions. Possible values: ["REGIONAL", "GLOBAL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#routing_mode ComputeNetwork#routing_mode}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#timeouts ComputeNetwork#timeouts}
+        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#name ComputeNetwork#name}
+        :param auto_create_subnetworks: When set to 'true', the network is created in "auto subnet mode" and it will create a subnet for each region automatically across the '10.128.0.0/9' address range. When set to 'false', the network is created in "custom subnet mode" so the user can explicitly connect subnetwork resources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#auto_create_subnetworks ComputeNetwork#auto_create_subnetworks}
+        :param bgp_always_compare_med: Enables/disables the comparison of MED across routes with different Neighbor ASNs. This value can only be set if the --bgp-best-path-selection-mode is STANDARD Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#bgp_always_compare_med ComputeNetwork#bgp_always_compare_med}
+        :param bgp_best_path_selection_mode: The BGP best selection algorithm to be employed. MODE can be LEGACY or STANDARD. Possible values: ["LEGACY", "STANDARD"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#bgp_best_path_selection_mode ComputeNetwork#bgp_best_path_selection_mode}
+        :param bgp_inter_region_cost: Choice of the behavior of inter-regional cost and MED in the BPS algorithm. Possible values: ["DEFAULT", "ADD_COST_TO_MED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#bgp_inter_region_cost ComputeNetwork#bgp_inter_region_cost}
+        :param delete_default_routes_on_create: If set to 'true', default routes ('0.0.0.0/0') will be deleted immediately after network creation. Defaults to 'false'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#delete_default_routes_on_create ComputeNetwork#delete_default_routes_on_create}
+        :param description: An optional description of this resource. The resource must be recreated to modify this field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#description ComputeNetwork#description}
+        :param enable_ula_internal_ipv6: Enable ULA internal ipv6 on this network. Enabling this feature will assign a /48 from google defined ULA prefix fd20::/20. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#enable_ula_internal_ipv6 ComputeNetwork#enable_ula_internal_ipv6}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#id ComputeNetwork#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param internal_ipv6_range: When enabling ula internal ipv6, caller optionally can specify the /48 range they want from the google defined ULA prefix fd20::/20. The input must be a valid /48 ULA IPv6 address and must be within the fd20::/20. Operation will fail if the speficied /48 is already in used by another resource. If the field is not speficied, then a /48 range will be randomly allocated from fd20::/20 and returned via this field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#internal_ipv6_range ComputeNetwork#internal_ipv6_range}
+        :param mtu: Maximum Transmission Unit in bytes. The default value is 1460 bytes. The minimum value for this field is 1300 and the maximum value is 8896 bytes (jumbo frames). Note that packets larger than 1500 bytes (standard Ethernet) can be subject to TCP-MSS clamping or dropped with an ICMP 'Fragmentation-Needed' message if the packets are routed to the Internet or other VPCs with varying MTUs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#mtu ComputeNetwork#mtu}
+        :param network_firewall_policy_enforcement_order: Set the order that Firewall Rules and Firewall Policies are evaluated. Default value: "AFTER_CLASSIC_FIREWALL" Possible values: ["BEFORE_CLASSIC_FIREWALL", "AFTER_CLASSIC_FIREWALL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#network_firewall_policy_enforcement_order ComputeNetwork#network_firewall_policy_enforcement_order}
+        :param network_profile: A full or partial URL of the network profile to apply to this network. This field can be set only at resource creation time. For example, the following are valid URLs: - https://www.googleapis.com/compute/v1/projects/{projectId}/global/networkProfiles/{network_profile_name} - projects/{projectId}/global/networkProfiles/{network_profile_name} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#network_profile ComputeNetwork#network_profile}
+        :param params: params block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#params ComputeNetwork#params}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#project ComputeNetwork#project}.
+        :param routing_mode: The network-wide routing mode to use. If set to 'REGIONAL', this network's cloud routers will only advertise routes with subnetworks of this network in the same region as the router. If set to 'GLOBAL', this network's cloud routers will advertise routes with all subnetworks of this network, across regions. Possible values: ["REGIONAL", "GLOBAL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#routing_mode ComputeNetwork#routing_mode}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#timeouts ComputeNetwork#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,6 +123,7 @@ class ComputeNetwork(
             mtu=mtu,
             network_firewall_policy_enforcement_order=network_firewall_policy_enforcement_order,
             network_profile=network_profile,
+            params=params,
             project=project,
             routing_mode=routing_mode,
             timeouts=timeouts,
@@ -148,7 +151,7 @@ class ComputeNetwork(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ComputeNetwork to import.
-        :param import_from_id: The id of the existing ComputeNetwork that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ComputeNetwork that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ComputeNetwork to import is found.
         '''
         if __debug__:
@@ -159,6 +162,19 @@ class ComputeNetwork(
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
         return typing.cast(_cdktf_9a9027ec.ImportableResource, jsii.sinvoke(cls, "generateConfigForImport", [scope, import_to_id, import_from_id, provider]))
 
+    @jsii.member(jsii_name="putParams")
+    def put_params(
+        self,
+        *,
+        resource_manager_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''
+        :param resource_manager_tags: Resource manager tags to be bound to the network. Tag keys and values have the same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id}, and values are in the format tagValues/456. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#resource_manager_tags ComputeNetwork#resource_manager_tags}
+        '''
+        value = ComputeNetworkParams(resource_manager_tags=resource_manager_tags)
+
+        return typing.cast(None, jsii.invoke(self, "putParams", [value]))
+
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(
         self,
@@ -168,9 +184,9 @@ class ComputeNetwork(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#create ComputeNetwork#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#delete ComputeNetwork#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#update ComputeNetwork#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#create ComputeNetwork#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#delete ComputeNetwork#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#update ComputeNetwork#update}.
         '''
         value = ComputeNetworkTimeouts(create=create, delete=delete, update=update)
 
@@ -224,6 +240,10 @@ class ComputeNetwork(
     def reset_network_profile(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetNetworkProfile", []))
 
+    @jsii.member(jsii_name="resetParams")
+    def reset_params(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetParams", []))
+
     @jsii.member(jsii_name="resetProject")
     def reset_project(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetProject", []))
@@ -263,6 +283,11 @@ class ComputeNetwork(
     @jsii.member(jsii_name="numericId")
     def numeric_id(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "numericId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="params")
+    def params(self) -> "ComputeNetworkParamsOutputReference":
+        return typing.cast("ComputeNetworkParamsOutputReference", jsii.get(self, "params"))
 
     @builtins.property
     @jsii.member(jsii_name="selfLink")
@@ -348,6 +373,11 @@ class ComputeNetwork(
     @jsii.member(jsii_name="networkProfileInput")
     def network_profile_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "networkProfileInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="paramsInput")
+    def params_input(self) -> typing.Optional["ComputeNetworkParams"]:
+        return typing.cast(typing.Optional["ComputeNetworkParams"], jsii.get(self, "paramsInput"))
 
     @builtins.property
     @jsii.member(jsii_name="projectInput")
@@ -591,6 +621,7 @@ class ComputeNetwork(
         "mtu": "mtu",
         "network_firewall_policy_enforcement_order": "networkFirewallPolicyEnforcementOrder",
         "network_profile": "networkProfile",
+        "params": "params",
         "project": "project",
         "routing_mode": "routingMode",
         "timeouts": "timeouts",
@@ -620,6 +651,7 @@ class ComputeNetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         mtu: typing.Optional[jsii.Number] = None,
         network_firewall_policy_enforcement_order: typing.Optional[builtins.str] = None,
         network_profile: typing.Optional[builtins.str] = None,
+        params: typing.Optional[typing.Union["ComputeNetworkParams", typing.Dict[builtins.str, typing.Any]]] = None,
         project: typing.Optional[builtins.str] = None,
         routing_mode: typing.Optional[builtins.str] = None,
         timeouts: typing.Optional[typing.Union["ComputeNetworkTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -632,25 +664,28 @@ class ComputeNetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#name ComputeNetwork#name}
-        :param auto_create_subnetworks: When set to 'true', the network is created in "auto subnet mode" and it will create a subnet for each region automatically across the '10.128.0.0/9' address range. When set to 'false', the network is created in "custom subnet mode" so the user can explicitly connect subnetwork resources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#auto_create_subnetworks ComputeNetwork#auto_create_subnetworks}
-        :param bgp_always_compare_med: Enables/disables the comparison of MED across routes with different Neighbor ASNs. This value can only be set if the --bgp-best-path-selection-mode is STANDARD Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#bgp_always_compare_med ComputeNetwork#bgp_always_compare_med}
-        :param bgp_best_path_selection_mode: The BGP best selection algorithm to be employed. MODE can be LEGACY or STANDARD. Possible values: ["LEGACY", "STANDARD"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#bgp_best_path_selection_mode ComputeNetwork#bgp_best_path_selection_mode}
-        :param bgp_inter_region_cost: Choice of the behavior of inter-regional cost and MED in the BPS algorithm. Possible values: ["DEFAULT", "ADD_COST_TO_MED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#bgp_inter_region_cost ComputeNetwork#bgp_inter_region_cost}
-        :param delete_default_routes_on_create: If set to 'true', default routes ('0.0.0.0/0') will be deleted immediately after network creation. Defaults to 'false'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#delete_default_routes_on_create ComputeNetwork#delete_default_routes_on_create}
-        :param description: An optional description of this resource. The resource must be recreated to modify this field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#description ComputeNetwork#description}
-        :param enable_ula_internal_ipv6: Enable ULA internal ipv6 on this network. Enabling this feature will assign a /48 from google defined ULA prefix fd20::/20. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#enable_ula_internal_ipv6 ComputeNetwork#enable_ula_internal_ipv6}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#id ComputeNetwork#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param internal_ipv6_range: When enabling ula internal ipv6, caller optionally can specify the /48 range they want from the google defined ULA prefix fd20::/20. The input must be a valid /48 ULA IPv6 address and must be within the fd20::/20. Operation will fail if the speficied /48 is already in used by another resource. If the field is not speficied, then a /48 range will be randomly allocated from fd20::/20 and returned via this field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#internal_ipv6_range ComputeNetwork#internal_ipv6_range}
-        :param mtu: Maximum Transmission Unit in bytes. The default value is 1460 bytes. The minimum value for this field is 1300 and the maximum value is 8896 bytes (jumbo frames). Note that packets larger than 1500 bytes (standard Ethernet) can be subject to TCP-MSS clamping or dropped with an ICMP 'Fragmentation-Needed' message if the packets are routed to the Internet or other VPCs with varying MTUs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#mtu ComputeNetwork#mtu}
-        :param network_firewall_policy_enforcement_order: Set the order that Firewall Rules and Firewall Policies are evaluated. Default value: "AFTER_CLASSIC_FIREWALL" Possible values: ["BEFORE_CLASSIC_FIREWALL", "AFTER_CLASSIC_FIREWALL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#network_firewall_policy_enforcement_order ComputeNetwork#network_firewall_policy_enforcement_order}
-        :param network_profile: A full or partial URL of the network profile to apply to this network. This field can be set only at resource creation time. For example, the following are valid URLs: - https://www.googleapis.com/compute/v1/projects/{projectId}/global/networkProfiles/{network_profile_name} - projects/{projectId}/global/networkProfiles/{network_profile_name} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#network_profile ComputeNetwork#network_profile}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#project ComputeNetwork#project}.
-        :param routing_mode: The network-wide routing mode to use. If set to 'REGIONAL', this network's cloud routers will only advertise routes with subnetworks of this network in the same region as the router. If set to 'GLOBAL', this network's cloud routers will advertise routes with all subnetworks of this network, across regions. Possible values: ["REGIONAL", "GLOBAL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#routing_mode ComputeNetwork#routing_mode}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#timeouts ComputeNetwork#timeouts}
+        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#name ComputeNetwork#name}
+        :param auto_create_subnetworks: When set to 'true', the network is created in "auto subnet mode" and it will create a subnet for each region automatically across the '10.128.0.0/9' address range. When set to 'false', the network is created in "custom subnet mode" so the user can explicitly connect subnetwork resources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#auto_create_subnetworks ComputeNetwork#auto_create_subnetworks}
+        :param bgp_always_compare_med: Enables/disables the comparison of MED across routes with different Neighbor ASNs. This value can only be set if the --bgp-best-path-selection-mode is STANDARD Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#bgp_always_compare_med ComputeNetwork#bgp_always_compare_med}
+        :param bgp_best_path_selection_mode: The BGP best selection algorithm to be employed. MODE can be LEGACY or STANDARD. Possible values: ["LEGACY", "STANDARD"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#bgp_best_path_selection_mode ComputeNetwork#bgp_best_path_selection_mode}
+        :param bgp_inter_region_cost: Choice of the behavior of inter-regional cost and MED in the BPS algorithm. Possible values: ["DEFAULT", "ADD_COST_TO_MED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#bgp_inter_region_cost ComputeNetwork#bgp_inter_region_cost}
+        :param delete_default_routes_on_create: If set to 'true', default routes ('0.0.0.0/0') will be deleted immediately after network creation. Defaults to 'false'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#delete_default_routes_on_create ComputeNetwork#delete_default_routes_on_create}
+        :param description: An optional description of this resource. The resource must be recreated to modify this field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#description ComputeNetwork#description}
+        :param enable_ula_internal_ipv6: Enable ULA internal ipv6 on this network. Enabling this feature will assign a /48 from google defined ULA prefix fd20::/20. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#enable_ula_internal_ipv6 ComputeNetwork#enable_ula_internal_ipv6}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#id ComputeNetwork#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param internal_ipv6_range: When enabling ula internal ipv6, caller optionally can specify the /48 range they want from the google defined ULA prefix fd20::/20. The input must be a valid /48 ULA IPv6 address and must be within the fd20::/20. Operation will fail if the speficied /48 is already in used by another resource. If the field is not speficied, then a /48 range will be randomly allocated from fd20::/20 and returned via this field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#internal_ipv6_range ComputeNetwork#internal_ipv6_range}
+        :param mtu: Maximum Transmission Unit in bytes. The default value is 1460 bytes. The minimum value for this field is 1300 and the maximum value is 8896 bytes (jumbo frames). Note that packets larger than 1500 bytes (standard Ethernet) can be subject to TCP-MSS clamping or dropped with an ICMP 'Fragmentation-Needed' message if the packets are routed to the Internet or other VPCs with varying MTUs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#mtu ComputeNetwork#mtu}
+        :param network_firewall_policy_enforcement_order: Set the order that Firewall Rules and Firewall Policies are evaluated. Default value: "AFTER_CLASSIC_FIREWALL" Possible values: ["BEFORE_CLASSIC_FIREWALL", "AFTER_CLASSIC_FIREWALL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#network_firewall_policy_enforcement_order ComputeNetwork#network_firewall_policy_enforcement_order}
+        :param network_profile: A full or partial URL of the network profile to apply to this network. This field can be set only at resource creation time. For example, the following are valid URLs: - https://www.googleapis.com/compute/v1/projects/{projectId}/global/networkProfiles/{network_profile_name} - projects/{projectId}/global/networkProfiles/{network_profile_name} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#network_profile ComputeNetwork#network_profile}
+        :param params: params block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#params ComputeNetwork#params}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#project ComputeNetwork#project}.
+        :param routing_mode: The network-wide routing mode to use. If set to 'REGIONAL', this network's cloud routers will only advertise routes with subnetworks of this network in the same region as the router. If set to 'GLOBAL', this network's cloud routers will advertise routes with all subnetworks of this network, across regions. Possible values: ["REGIONAL", "GLOBAL"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#routing_mode ComputeNetwork#routing_mode}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#timeouts ComputeNetwork#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
+        if isinstance(params, dict):
+            params = ComputeNetworkParams(**params)
         if isinstance(timeouts, dict):
             timeouts = ComputeNetworkTimeouts(**timeouts)
         if __debug__:
@@ -675,6 +710,7 @@ class ComputeNetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument mtu", value=mtu, expected_type=type_hints["mtu"])
             check_type(argname="argument network_firewall_policy_enforcement_order", value=network_firewall_policy_enforcement_order, expected_type=type_hints["network_firewall_policy_enforcement_order"])
             check_type(argname="argument network_profile", value=network_profile, expected_type=type_hints["network_profile"])
+            check_type(argname="argument params", value=params, expected_type=type_hints["params"])
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
             check_type(argname="argument routing_mode", value=routing_mode, expected_type=type_hints["routing_mode"])
             check_type(argname="argument timeouts", value=timeouts, expected_type=type_hints["timeouts"])
@@ -719,6 +755,8 @@ class ComputeNetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["network_firewall_policy_enforcement_order"] = network_firewall_policy_enforcement_order
         if network_profile is not None:
             self._values["network_profile"] = network_profile
+        if params is not None:
+            self._values["params"] = params
         if project is not None:
             self._values["project"] = project
         if routing_mode is not None:
@@ -802,7 +840,7 @@ class ComputeNetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         characters must be a dash, lowercase letter, or digit, except the last
         character, which cannot be a dash.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#name ComputeNetwork#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#name ComputeNetwork#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -817,7 +855,7 @@ class ComputeNetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         When set to 'false', the network is created in "custom subnet mode" so
         the user can explicitly connect subnetwork resources.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#auto_create_subnetworks ComputeNetwork#auto_create_subnetworks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#auto_create_subnetworks ComputeNetwork#auto_create_subnetworks}
         '''
         result = self._values.get("auto_create_subnetworks")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -830,7 +868,7 @@ class ComputeNetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This value can only be set if the --bgp-best-path-selection-mode is STANDARD
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#bgp_always_compare_med ComputeNetwork#bgp_always_compare_med}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#bgp_always_compare_med ComputeNetwork#bgp_always_compare_med}
         '''
         result = self._values.get("bgp_always_compare_med")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -839,7 +877,7 @@ class ComputeNetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def bgp_best_path_selection_mode(self) -> typing.Optional[builtins.str]:
         '''The BGP best selection algorithm to be employed. MODE can be LEGACY or STANDARD. Possible values: ["LEGACY", "STANDARD"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#bgp_best_path_selection_mode ComputeNetwork#bgp_best_path_selection_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#bgp_best_path_selection_mode ComputeNetwork#bgp_best_path_selection_mode}
         '''
         result = self._values.get("bgp_best_path_selection_mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -848,7 +886,7 @@ class ComputeNetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def bgp_inter_region_cost(self) -> typing.Optional[builtins.str]:
         '''Choice of the behavior of inter-regional cost and MED in the BPS algorithm. Possible values: ["DEFAULT", "ADD_COST_TO_MED"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#bgp_inter_region_cost ComputeNetwork#bgp_inter_region_cost}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#bgp_inter_region_cost ComputeNetwork#bgp_inter_region_cost}
         '''
         result = self._values.get("bgp_inter_region_cost")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -859,7 +897,7 @@ class ComputeNetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If set to 'true', default routes ('0.0.0.0/0') will be deleted immediately after network creation. Defaults to 'false'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#delete_default_routes_on_create ComputeNetwork#delete_default_routes_on_create}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#delete_default_routes_on_create ComputeNetwork#delete_default_routes_on_create}
         '''
         result = self._values.get("delete_default_routes_on_create")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -868,7 +906,7 @@ class ComputeNetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''An optional description of this resource. The resource must be recreated to modify this field.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#description ComputeNetwork#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#description ComputeNetwork#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -879,14 +917,14 @@ class ComputeNetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Enable ULA internal ipv6 on this network. Enabling this feature will assign a /48 from google defined ULA prefix fd20::/20.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#enable_ula_internal_ipv6 ComputeNetwork#enable_ula_internal_ipv6}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#enable_ula_internal_ipv6 ComputeNetwork#enable_ula_internal_ipv6}
         '''
         result = self._values.get("enable_ula_internal_ipv6")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#id ComputeNetwork#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#id ComputeNetwork#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -903,7 +941,7 @@ class ComputeNetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         fail if the speficied /48 is already in used by another resource.
         If the field is not speficied, then a /48 range will be randomly allocated from fd20::/20 and returned via this field.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#internal_ipv6_range ComputeNetwork#internal_ipv6_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#internal_ipv6_range ComputeNetwork#internal_ipv6_range}
         '''
         result = self._values.get("internal_ipv6_range")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -918,7 +956,7 @@ class ComputeNetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         with an ICMP 'Fragmentation-Needed' message if the packets are routed to the Internet or other VPCs
         with varying MTUs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#mtu ComputeNetwork#mtu}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#mtu ComputeNetwork#mtu}
         '''
         result = self._values.get("mtu")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -929,7 +967,7 @@ class ComputeNetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[builtins.str]:
         '''Set the order that Firewall Rules and Firewall Policies are evaluated. Default value: "AFTER_CLASSIC_FIREWALL" Possible values: ["BEFORE_CLASSIC_FIREWALL", "AFTER_CLASSIC_FIREWALL"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#network_firewall_policy_enforcement_order ComputeNetwork#network_firewall_policy_enforcement_order}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#network_firewall_policy_enforcement_order ComputeNetwork#network_firewall_policy_enforcement_order}
         '''
         result = self._values.get("network_firewall_policy_enforcement_order")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -944,14 +982,23 @@ class ComputeNetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         - https://www.googleapis.com/compute/v1/projects/{projectId}/global/networkProfiles/{network_profile_name}
         - projects/{projectId}/global/networkProfiles/{network_profile_name}
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#network_profile ComputeNetwork#network_profile}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#network_profile ComputeNetwork#network_profile}
         '''
         result = self._values.get("network_profile")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def params(self) -> typing.Optional["ComputeNetworkParams"]:
+        '''params block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#params ComputeNetwork#params}
+        '''
+        result = self._values.get("params")
+        return typing.cast(typing.Optional["ComputeNetworkParams"], result)
+
+    @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#project ComputeNetwork#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#project ComputeNetwork#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -965,7 +1012,7 @@ class ComputeNetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         this network's cloud routers will advertise routes with all
         subnetworks of this network, across regions. Possible values: ["REGIONAL", "GLOBAL"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#routing_mode ComputeNetwork#routing_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#routing_mode ComputeNetwork#routing_mode}
         '''
         result = self._values.get("routing_mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -974,7 +1021,7 @@ class ComputeNetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ComputeNetworkTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#timeouts ComputeNetwork#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#timeouts ComputeNetwork#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ComputeNetworkTimeouts"], result)
@@ -992,6 +1039,113 @@ class ComputeNetworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
 
 @jsii.data_type(
+    jsii_type="@cdktf/provider-google.computeNetwork.ComputeNetworkParams",
+    jsii_struct_bases=[],
+    name_mapping={"resource_manager_tags": "resourceManagerTags"},
+)
+class ComputeNetworkParams:
+    def __init__(
+        self,
+        *,
+        resource_manager_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''
+        :param resource_manager_tags: Resource manager tags to be bound to the network. Tag keys and values have the same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id}, and values are in the format tagValues/456. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#resource_manager_tags ComputeNetwork#resource_manager_tags}
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__355135b9950af107296ff2c712e6ac978b1ad1e6962a226e8a81a9b92fc65840)
+            check_type(argname="argument resource_manager_tags", value=resource_manager_tags, expected_type=type_hints["resource_manager_tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if resource_manager_tags is not None:
+            self._values["resource_manager_tags"] = resource_manager_tags
+
+    @builtins.property
+    def resource_manager_tags(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Resource manager tags to be bound to the network.
+
+        Tag keys and values have the
+        same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id},
+        and values are in the format tagValues/456.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#resource_manager_tags ComputeNetwork#resource_manager_tags}
+        '''
+        result = self._values.get("resource_manager_tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ComputeNetworkParams(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class ComputeNetworkParamsOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-google.computeNetwork.ComputeNetworkParamsOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b267e9b7d490d370fabe1b6c0286b7e822f505d0d279e946c8c2ccf8a75f0f78)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @jsii.member(jsii_name="resetResourceManagerTags")
+    def reset_resource_manager_tags(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetResourceManagerTags", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceManagerTagsInput")
+    def resource_manager_tags_input(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "resourceManagerTagsInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceManagerTags")
+    def resource_manager_tags(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "resourceManagerTags"))
+
+    @resource_manager_tags.setter
+    def resource_manager_tags(
+        self,
+        value: typing.Mapping[builtins.str, builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5547ebef1bcd32523d45812dd32c1fdd7f0fd68f2f6d805474e3b011d3705451)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "resourceManagerTags", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(self) -> typing.Optional[ComputeNetworkParams]:
+        return typing.cast(typing.Optional[ComputeNetworkParams], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(self, value: typing.Optional[ComputeNetworkParams]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__51c098b2b9cda8603440ba9e4a5844ff09b28f978c144349c7dd73f861dc77cb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
     jsii_type="@cdktf/provider-google.computeNetwork.ComputeNetworkTimeouts",
     jsii_struct_bases=[],
     name_mapping={"create": "create", "delete": "delete", "update": "update"},
@@ -1005,9 +1159,9 @@ class ComputeNetworkTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#create ComputeNetwork#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#delete ComputeNetwork#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#update ComputeNetwork#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#create ComputeNetwork#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#delete ComputeNetwork#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#update ComputeNetwork#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b157c9db6a18415c8bc4c5ba574318a8982dfe23fe9289fe8db736d9f4cb0350)
@@ -1024,19 +1178,19 @@ class ComputeNetworkTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#create ComputeNetwork#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#create ComputeNetwork#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#delete ComputeNetwork#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#delete ComputeNetwork#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/compute_network#update ComputeNetwork#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/compute_network#update ComputeNetwork#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1156,6 +1310,8 @@ class ComputeNetworkTimeoutsOutputReference(
 __all__ = [
     "ComputeNetwork",
     "ComputeNetworkConfig",
+    "ComputeNetworkParams",
+    "ComputeNetworkParamsOutputReference",
     "ComputeNetworkTimeouts",
     "ComputeNetworkTimeoutsOutputReference",
 ]
@@ -1179,6 +1335,7 @@ def _typecheckingstub__740237e7efcc1703fc5dd2c3e87a1670166215fd1c76df5125c094157
     mtu: typing.Optional[jsii.Number] = None,
     network_firewall_policy_enforcement_order: typing.Optional[builtins.str] = None,
     network_profile: typing.Optional[builtins.str] = None,
+    params: typing.Optional[typing.Union[ComputeNetworkParams, typing.Dict[builtins.str, typing.Any]]] = None,
     project: typing.Optional[builtins.str] = None,
     routing_mode: typing.Optional[builtins.str] = None,
     timeouts: typing.Optional[typing.Union[ComputeNetworkTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -1314,9 +1471,36 @@ def _typecheckingstub__a0f86a4e3992b05dc0f6ec8711908acb3b6f98a7600dc7b844dae0c8f
     mtu: typing.Optional[jsii.Number] = None,
     network_firewall_policy_enforcement_order: typing.Optional[builtins.str] = None,
     network_profile: typing.Optional[builtins.str] = None,
+    params: typing.Optional[typing.Union[ComputeNetworkParams, typing.Dict[builtins.str, typing.Any]]] = None,
     project: typing.Optional[builtins.str] = None,
     routing_mode: typing.Optional[builtins.str] = None,
     timeouts: typing.Optional[typing.Union[ComputeNetworkTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__355135b9950af107296ff2c712e6ac978b1ad1e6962a226e8a81a9b92fc65840(
+    *,
+    resource_manager_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b267e9b7d490d370fabe1b6c0286b7e822f505d0d279e946c8c2ccf8a75f0f78(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5547ebef1bcd32523d45812dd32c1fdd7f0fd68f2f6d805474e3b011d3705451(
+    value: typing.Mapping[builtins.str, builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__51c098b2b9cda8603440ba9e4a5844ff09b28f978c144349c7dd73f861dc77cb(
+    value: typing.Optional[ComputeNetworkParams],
 ) -> None:
     """Type checking stubs"""
     pass

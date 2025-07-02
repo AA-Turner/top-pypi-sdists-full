@@ -55,6 +55,8 @@ class NotionHelper:
         self.author_database_id = self.database_id_dict.get(
             self.database_name_dict.get("AUTHOR_DATABASE_NAME")
         )
+        if self.author_database_id is None:
+            self.author_database_id = self.database_id_dict.get("作者")
         self.all_database_id = self.database_id_dict.get(
             self.database_name_dict.get("ALL_DATABASE_NAME")
         )
@@ -119,25 +121,20 @@ class NotionHelper:
             raise Exception(f"获取NotionID失败，请检查输入的Url是否正确")
 
     def search_database(self, block_id):
-        print(self.client.blocks.retrieve(block_id))
-        try:
-            print(block_id)
-            children = self.client.blocks.children.list(block_id=block_id)["results"]
-            # 遍历子块
-            for child in children:
-                # 检查子块的类型
-                if child["type"] == "child_database":
-                    self.database_id_dict[child.get("child_database").get("title")] = (
-                        child.get("id")
-                    )
-                elif child["type"] == "embed" and child.get("embed").get("url"):
-                    if child.get("embed").get("url").startswith("https://heatmap.malinkang.com/"):
-                        self.heatmap_block_id = child.get("id")
-                # 如果子块有子块，递归调用函数
-                if "has_children" in child and child["has_children"]:
-                    self.search_database(child["id"])
-        except Exception as e:
-            print(f"搜索数据库时发生异常: {e}")
+        children = self.client.blocks.children.list(block_id=block_id)["results"]
+        # 遍历子块
+        for child in children:
+            # 检查子块的类型
+            if child["type"] == "child_database":
+                self.database_id_dict[child.get("child_database").get("title")] = (
+                    child.get("id")
+                )
+            elif child["type"] == "embed" and child.get("embed").get("url"):
+                if child.get("embed").get("url").startswith("https://heatmap.malinkang.com/"):
+                    self.heatmap_block_id = child.get("id")
+            # 如果子块有子块，递归调用函数
+            if "has_children" in child and child["has_children"]:
+                self.search_database(child["id"])
 
     @retry(stop_max_attempt_number=3, wait_fixed=5000)
     def update_image_block_link(self, block_id, new_image_url):

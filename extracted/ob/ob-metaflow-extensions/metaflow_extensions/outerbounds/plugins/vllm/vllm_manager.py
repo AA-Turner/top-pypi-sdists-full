@@ -4,10 +4,7 @@ import time
 import socket
 import sys
 import os
-import functools
-import json
 import requests
-from enum import Enum
 import threading
 from datetime import datetime
 
@@ -20,7 +17,147 @@ class ProcessStatus:
     SUCCESSFUL = "SUCCESSFUL"
 
 
-class VLLMManager:
+class VLLMPyManager:
+    """
+    A native vLLM engine manager that provides direct access to the vLLM LLM class.
+    This replaces the subprocess-based API server approach with direct Python API access.
+
+    Example usage:
+        from vllm.sampling_params import SamplingParams, GuidedDecodingParams
+
+        engine = current.vllm.engine
+        sampling_params = SamplingParams(temperature=0.7, max_tokens=150)
+        outputs = engine.generate(["Hello, world!"], sampling_params)
+
+        # Structured outputs
+        guided_params = GuidedDecodingParams(json=my_schema)
+        sampling_params = SamplingParams(guided_decoding=guided_params)
+        outputs = engine.generate(prompts, sampling_params)
+    """
+
+    def __init__(
+        self,
+        model,
+        debug=False,
+        **engine_args,
+    ):
+        if isinstance(model, list):
+            if len(model) != 1:
+                raise ValueError(
+                    f"vLLM native engine can only serve one model per instance. "
+                    f"Got {len(model)} models: {model}. "
+                    f"Please specify a single model or create multiple @vllm decorators."
+                )
+            self.model = model[0]
+        else:
+            self.model = model
+
+        self.debug = debug
+        self.engine_args = engine_args
+        self.engine = None
+        self.initialization_start = time.time()
+
+        if self.debug:
+            print(
+                f"[@vllm-native] Initializing native vLLM engine for model: {self.model}"
+            )
+
+        self._validate_vllm_installation()
+        self._initialize_engine()
+
+        total_init_time = time.time() - self.initialization_start
+        if self.debug:
+            print(
+                f"[@vllm-native] Native engine initialization completed in {total_init_time:.1f}s"
+            )
+
+    def _validate_vllm_installation(self):
+        """Validate that vLLM is properly installed"""
+        try:
+            import vllm
+
+            if self.debug:
+                print(f"[@vllm-native] vLLM {vllm.__version__} is available")
+        except ImportError as e:
+            raise ImportError(
+                "vLLM not installed. Please add vLLM to your environment."
+            ) from e
+
+    def _map_engine_args(self, engine_args):
+        """
+        Map CLI-style engine_args to LLM constructor parameters.
+        Most parameters map directly from the API server CLI args to LLM constructor.
+        """
+        llm_params = {}
+
+        # Direct mappings (parameter names are the same)
+        direct_mapping = [
+            "tensor_parallel_size",
+            "max_model_len",
+            "gpu_memory_utilization",
+            "swap_space",
+            "dtype",
+            "quantization",
+            "seed",
+            "trust_remote_code",
+            "revision",
+            "tokenizer_revision",
+            "enforce_eager",
+            "max_seq_len_to_capture",
+            "disable_custom_all_reduce",
+        ]
+
+        for param in direct_mapping:
+            if param in engine_args:
+                llm_params[param] = engine_args[param]
+
+        # Handle special mappings if needed
+        # (Most/all vLLM CLI args map directly to LLM constructor args)
+
+        return llm_params
+
+    def _initialize_engine(self):
+        """Initialize the native vLLM LLM engine"""
+        try:
+            from vllm import LLM
+
+            # Map engine args to LLM constructor parameters
+            llm_params = self._map_engine_args(self.engine_args)
+
+            if self.debug:
+                print(f"[@vllm] Initializing LLM with params: {llm_params}")
+
+            # Initialize the native vLLM engine
+            self.engine = LLM(model=self.model, **llm_params)
+
+            if self.debug:
+                print(f"[@vllm] LLM engine initialized successfully")
+
+        except Exception as e:
+            error_msg = f"Failed to initialize vLLM engine: {str(e)}"
+            if self.debug:
+                print(f"[@vllm-native] ERROR: {error_msg}")
+            raise RuntimeError(error_msg) from e
+
+    def terminate_engine(self):
+        """
+        Clean up the native engine.
+        The LLM class handles cleanup automatically when the object is destroyed.
+        """
+        if self.debug:
+            print("[@vllm-] Cleaning up vLLM engine")
+
+        # The vLLM LLM class handles cleanup automatically
+        # We just need to clear our reference
+        if self.engine:
+            del self.engine
+            self.engine = None
+
+        if self.debug:
+            print("[@vllm] Engine cleanup completed")
+
+
+class VLLMOpenAIManager:
     """
     A process manager for vLLM runtimes.
     Implements interface @vllm(model=..., ...) to provide a local backend.
@@ -55,6 +192,8 @@ class VLLMManager:
         port=8000,
         host="127.0.0.1",
         stream_logs_to_card=False,
+        max_retries=60,
+        retry_alert_frequency=5,
         **vllm_args,
     ):
         # Validate that only a single model is provided
@@ -79,6 +218,8 @@ class VLLMManager:
         self.status_card = status_card
         self.initialization_start = time.time()
         self.server_process = None
+        self.max_retries = max_retries
+        self.retry_alert_frequency = retry_alert_frequency
         self.vllm_args = vllm_args
 
         if backend != "local":
@@ -211,6 +352,13 @@ class VLLMManager:
                     f"[@vllm] Starting vLLM OpenAI-compatible server for model: {self.model}"
                 )
 
+            ### NOTE: This is not the only way to start the vLLM server.
+            #  https://docs.vllm.ai/en/v0.9.0/api/vllm/entrypoints/openai/api_server.html
+
+            # There are other APIs we should consider using in a future extension:
+            # https://docs.vllm.ai/en/stable/api/vllm/entrypoints/openai/run_batch.html#vllm.entrypoints.openai.run_batch
+            # https://docs.vllm.ai/en/v0.9.0/api/vllm/entrypoints/openai/serving_embedding.html
+            # MANY MORE!!! Wait for some feedback and we can add more.
             cmd = [
                 sys.executable,
                 "-m",
@@ -226,6 +374,8 @@ class VLLMManager:
             vllm_args_copy = self.vllm_args.copy()
             if self.debug or self.stream_logs_to_card:
                 # Note: This is an undocumented argument for the vLLM OpenAI server entrypoint.
+                # It was useful for debugging the vLLM server startup,
+                # likely more confusion potential than its worth for end user.
                 vllm_args_copy.setdefault("uvicorn_log_level", "debug")
 
             for key, value in vllm_args_copy.items():
@@ -281,16 +431,15 @@ class VLLMManager:
                 print(f"[@vllm] Started vLLM server process with PID {process.pid}")
 
             retries = 0
-            max_retries = 240
             while (
                 not self._is_port_open(self.host, self.port, timeout=2)
-                and retries < max_retries
+                and retries < self.max_retries
             ):
                 if retries == 0:
                     print("[@vllm] Waiting for server to be ready...")
-                elif retries % 10 == 0:
+                elif retries % self.retry_alert_frequency == 0:
                     print(
-                        f"[@vllm] Still waiting for server... ({retries}/{max_retries})"
+                        f"[@vllm] Still waiting for server... ({retries}/{self.max_retries})"
                     )
 
                 returncode = process.poll()
@@ -322,7 +471,7 @@ class VLLMManager:
                 retries += 1
 
             if not self._is_port_open(self.host, self.port, timeout=2):
-                error_details = f"vLLM server did not start listening on {self.host}:{self.port} after {max_retries*2}s"
+                error_details = f"vLLM server did not start listening on {self.host}:{self.port} after {self.max_retries*2}s"
                 self.processes[process.pid]["properties"][
                     "error_details"
                 ] = error_details
@@ -342,6 +491,7 @@ class VLLMManager:
                 "Running", uptime_start=datetime.now(), model=self.model
             )
             self._log_event("success", "vLLM server is ready and listening")
+            print(f"[@vllm] Server ready!")
 
             self._update_model_status(self.model, status="Ready")
 

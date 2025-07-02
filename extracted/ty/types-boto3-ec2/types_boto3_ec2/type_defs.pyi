@@ -18104,6 +18104,7 @@ class GetInstanceTypesFromInstanceRequirementsRequestPaginateTypeDef(TypedDict):
     VirtualizationTypes: Sequence[VirtualizationTypeType]
     InstanceRequirements: InstanceRequirementsRequestTypeDef
     DryRun: NotRequired[bool]
+    Context: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class GetInstanceTypesFromInstanceRequirementsRequestTypeDef(TypedDict):
@@ -18113,6 +18114,7 @@ class GetInstanceTypesFromInstanceRequirementsRequestTypeDef(TypedDict):
     DryRun: NotRequired[bool]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
+    Context: NotRequired[str]
 
 class InstanceRequirementsWithMetadataRequestTypeDef(TypedDict):
     ArchitectureTypes: NotRequired[Sequence[ArchitectureTypeType]]

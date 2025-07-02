@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flask-openapi3-swagger
-Version: 5.25.3
+Version: 5.25.4
 Summary: Provide Swagger UI for flask-openapi3.
 Project-URL: Homepage, https://github.com/luolingchun/flask-openapi3-plugins/tree/master/flask-openapi3-swagger
 Project-URL: Documentation, https://luolingchun.github.io/flask-openapi3/latest/Usage/UI_Templates/

@@ -1,7 +1,7 @@
 r'''
 # `google_iap_web_cloud_run_service_iam_policy`
 
-Refer to the Terraform Registry for docs: [`google_iap_web_cloud_run_service_iam_policy`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_iap_web_cloud_run_service_iam_policy).
+Refer to the Terraform Registry for docs: [`google_iap_web_cloud_run_service_iam_policy`](https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_iap_web_cloud_run_service_iam_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleIapWebCloudRunServiceIamPolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleIapWebCloudRunServiceIamPolicy.GoogleIapWebCloudRunServiceIamPolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_iap_web_cloud_run_service_iam_policy google_iap_web_cloud_run_service_iam_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_iap_web_cloud_run_service_iam_policy google_iap_web_cloud_run_service_iam_policy}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class GoogleIapWebCloudRunServiceIamPolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_iap_web_cloud_run_service_iam_policy google_iap_web_cloud_run_service_iam_policy} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_iap_web_cloud_run_service_iam_policy google_iap_web_cloud_run_service_iam_policy} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param cloud_run_service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_iap_web_cloud_run_service_iam_policy#cloud_run_service_name GoogleIapWebCloudRunServiceIamPolicy#cloud_run_service_name}.
-        :param policy_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_iap_web_cloud_run_service_iam_policy#policy_data GoogleIapWebCloudRunServiceIamPolicy#policy_data}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_iap_web_cloud_run_service_iam_policy#id GoogleIapWebCloudRunServiceIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_iap_web_cloud_run_service_iam_policy#location GoogleIapWebCloudRunServiceIamPolicy#location}.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_iap_web_cloud_run_service_iam_policy#project GoogleIapWebCloudRunServiceIamPolicy#project}.
+        :param cloud_run_service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_iap_web_cloud_run_service_iam_policy#cloud_run_service_name GoogleIapWebCloudRunServiceIamPolicy#cloud_run_service_name}.
+        :param policy_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_iap_web_cloud_run_service_iam_policy#policy_data GoogleIapWebCloudRunServiceIamPolicy#policy_data}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_iap_web_cloud_run_service_iam_policy#id GoogleIapWebCloudRunServiceIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_iap_web_cloud_run_service_iam_policy#location GoogleIapWebCloudRunServiceIamPolicy#location}.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_iap_web_cloud_run_service_iam_policy#project GoogleIapWebCloudRunServiceIamPolicy#project}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class GoogleIapWebCloudRunServiceIamPolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleIapWebCloudRunServiceIamPolicy to import.
-        :param import_from_id: The id of the existing GoogleIapWebCloudRunServiceIamPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_iap_web_cloud_run_service_iam_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleIapWebCloudRunServiceIamPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_iap_web_cloud_run_service_iam_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleIapWebCloudRunServiceIamPolicy to import is found.
         '''
         if __debug__:
@@ -287,11 +287,11 @@ class GoogleIapWebCloudRunServiceIamPolicyConfig(
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param cloud_run_service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_iap_web_cloud_run_service_iam_policy#cloud_run_service_name GoogleIapWebCloudRunServiceIamPolicy#cloud_run_service_name}.
-        :param policy_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_iap_web_cloud_run_service_iam_policy#policy_data GoogleIapWebCloudRunServiceIamPolicy#policy_data}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_iap_web_cloud_run_service_iam_policy#id GoogleIapWebCloudRunServiceIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_iap_web_cloud_run_service_iam_policy#location GoogleIapWebCloudRunServiceIamPolicy#location}.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_iap_web_cloud_run_service_iam_policy#project GoogleIapWebCloudRunServiceIamPolicy#project}.
+        :param cloud_run_service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_iap_web_cloud_run_service_iam_policy#cloud_run_service_name GoogleIapWebCloudRunServiceIamPolicy#cloud_run_service_name}.
+        :param policy_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_iap_web_cloud_run_service_iam_policy#policy_data GoogleIapWebCloudRunServiceIamPolicy#policy_data}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_iap_web_cloud_run_service_iam_policy#id GoogleIapWebCloudRunServiceIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_iap_web_cloud_run_service_iam_policy#location GoogleIapWebCloudRunServiceIamPolicy#location}.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_iap_web_cloud_run_service_iam_policy#project GoogleIapWebCloudRunServiceIamPolicy#project}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -400,21 +400,21 @@ class GoogleIapWebCloudRunServiceIamPolicyConfig(
 
     @builtins.property
     def cloud_run_service_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_iap_web_cloud_run_service_iam_policy#cloud_run_service_name GoogleIapWebCloudRunServiceIamPolicy#cloud_run_service_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_iap_web_cloud_run_service_iam_policy#cloud_run_service_name GoogleIapWebCloudRunServiceIamPolicy#cloud_run_service_name}.'''
         result = self._values.get("cloud_run_service_name")
         assert result is not None, "Required property 'cloud_run_service_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def policy_data(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_iap_web_cloud_run_service_iam_policy#policy_data GoogleIapWebCloudRunServiceIamPolicy#policy_data}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_iap_web_cloud_run_service_iam_policy#policy_data GoogleIapWebCloudRunServiceIamPolicy#policy_data}.'''
         result = self._values.get("policy_data")
         assert result is not None, "Required property 'policy_data' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_iap_web_cloud_run_service_iam_policy#id GoogleIapWebCloudRunServiceIamPolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_iap_web_cloud_run_service_iam_policy#id GoogleIapWebCloudRunServiceIamPolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -424,13 +424,13 @@ class GoogleIapWebCloudRunServiceIamPolicyConfig(
 
     @builtins.property
     def location(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_iap_web_cloud_run_service_iam_policy#location GoogleIapWebCloudRunServiceIamPolicy#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_iap_web_cloud_run_service_iam_policy#location GoogleIapWebCloudRunServiceIamPolicy#location}.'''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_iap_web_cloud_run_service_iam_policy#project GoogleIapWebCloudRunServiceIamPolicy#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_iap_web_cloud_run_service_iam_policy#project GoogleIapWebCloudRunServiceIamPolicy#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 

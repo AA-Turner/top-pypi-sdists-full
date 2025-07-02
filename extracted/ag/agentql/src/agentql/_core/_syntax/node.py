@@ -1,14 +1,13 @@
-from typing import List, Optional
+from typing import TYPE_CHECKING, Annotated, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, SerializeAsAny
-from typing_extensions import TYPE_CHECKING, Annotated
 
 DEFAULT_INDENT = 2
 
 
 class _NodeWithChildrenMixin:
     if TYPE_CHECKING:
-        children: List["Node"]
+        children: list["Node"]
 
 
 class Node(BaseModel):
@@ -96,7 +95,7 @@ class ContainerNode(Node, _NodeWithChildrenMixin):
     }
     """
 
-    children: Annotated[SerializeAsAny[List["Node"]], Field(default_factory=List)]
+    children: Annotated[SerializeAsAny[list["Node"]], Field(default_factory=list)]
 
     # pylint: disable=unreachable
     def _dump(self, level: int = 0, indent: int = DEFAULT_INDENT) -> str:

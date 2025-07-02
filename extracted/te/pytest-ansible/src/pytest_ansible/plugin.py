@@ -2,19 +2,27 @@
 
 from __future__ import annotations
 
-import contextlib
 import logging
-import subprocess
+import shutil
+import subprocess  # noqa: S404
 import warnings
 
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
-import ansible
-import ansible.constants
-import ansible.errors
-import ansible.utils
-import ansible.utils.display
 import pytest
+
+
+try:
+    import ansible
+    import ansible.constants
+    import ansible.errors
+    import ansible.utils
+    import ansible.utils.display
+
+    HAS_ANSIBLE = True
+except ImportError:
+    HAS_ANSIBLE = False
 
 from typing_extensions import deprecated
 
@@ -32,8 +40,6 @@ from .units import inject, inject_only
 
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from _pytest.nodes import Node
 
 logger = logging.getLogger(__name__)
@@ -51,9 +57,50 @@ log_map = {
 }
 OUR_FIXTURES = ("ansible_adhoc", "ansible_module", "ansible_facts")
 
+# detected molecule scenarios
+scenarios: list[MoleculeScenario] = []
 
-def pytest_addoption(parser):  # type: ignore[no-untyped-def]  # noqa: ANN001, ANN201
-    """Add options to control ansible."""
+
+def _load_scenarios(config: pytest.Config) -> None:
+    # Find all molecule scenarios not gitignored
+    git_path = shutil.which("git")
+    if git_path:
+        args = f"{git_path} ls-files **/molecule/*/molecule.yml"
+        proc = subprocess.run(  # noqa: S602
+            args,
+            capture_output=True,
+            check=False,
+            text=True,
+            cwd=config.rootpath.as_posix(),
+            shell=True,  # always keep shell here is otherwise it will fail for some users
+        )
+        if proc.returncode == 0:
+            for fs_entry in proc.stdout.splitlines():
+                scenario = Path(fs_entry).parent
+                molecule_parent = scenario.parent.parent
+                scenarios.append(
+                    MoleculeScenario(
+                        parent_directory=molecule_parent,
+                        name=scenario.name,
+                        test_id=f"{molecule_parent.name}-{scenario.name}",
+                    ),
+                )
+        else:  # pragma: no-cover
+            msg = f"Failed to use git to identify molecule scenarios. {proc}"
+            logger.warning(msg)
+    else:  # pragma: no-cover
+        msg = "Unable to find git, molecule functionality will be disabled."
+        logger.warning(msg)
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    """Add options to control ansible.
+
+    Args:
+        parser: pytest.Parser
+    """
+    if not HAS_ANSIBLE:
+        return
     group = parser.getgroup("pytest-ansible")
     group.addoption(
         "--inventory",
@@ -192,8 +239,14 @@ def pytest_addoption(parser):  # type: ignore[no-untyped-def]  # noqa: ANN001, A
     parser.addini("ansible", "Ansible integration", "args")
 
 
-def pytest_configure(config):  # type: ignore[no-untyped-def]  # noqa: ANN001, ANN201
-    """Validate --ansible-* parameters."""
+def pytest_configure(config: pytest.Config) -> None:
+    """Validate --ansible-* parameters.
+
+    Args:
+        config: pytest.Config
+    """
+    if not HAS_ANSIBLE:
+        return
     config.addinivalue_line("markers", "ansible(**kwargs): Ansible integration")
 
     # Enable connection debugging
@@ -215,17 +268,27 @@ def pytest_configure(config):  # type: ignore[no-untyped-def]  # noqa: ANN001, A
         inject_only()
     else:
         start_path = config.invocation_params.dir
-        inject(start_path)
+        if (start_path / "galaxy.yml").exists():
+            inject(start_path)
+
+    # register an additional marker
+    config.addinivalue_line("markers", "no_driver: molecule test that uses no driver")
+    config.addinivalue_line("markers", "molecule: molecule test")
+    _load_scenarios(config)
+    for name in sorted({scenario.name for scenario in scenarios}):
+        config.addinivalue_line("markers", f"{name}: molecule scenario named '{name}'")
 
 
 def pytest_collect_file(
     file_path: Path | None,
     parent: pytest.Collector,
 ) -> Node | None:
-    """Transform each found molecule.yml into a pytest test."""
+    """Transform each found molecule.yml into a pytest test."""  # noqa: DOC201
+    if not hasattr(parent.config.option, "molecule"):
+        return None
     if not parent.config.option.molecule:
         return None
-    if not HAS_MOLECULE:
+    if not HAS_MOLECULE:  # pragma: no cover
         pytest.exit(
             f"molecule not installed or found, unable to collect test {file_path}",
         )
@@ -301,42 +364,6 @@ def pytest_generate_tests(metafunc):  # type: ignore[no-untyped-def]  # noqa: AN
         if not HAS_MOLECULE:
             pytest.exit("molecule not installed or found.")
 
-        # Find all molecule scenarios not gitignored
-        rootpath = metafunc.config.rootpath
-
-        scenarios = []
-
-        candidates = list(rootpath.glob("**/molecule/*/molecule.yml"))
-        command = ["git", "check-ignore", *candidates]
-        with contextlib.suppress(subprocess.CalledProcessError, FileNotFoundError):
-            proc = subprocess.run(
-                args=command,
-                capture_output=True,
-                check=True,
-                text=True,
-                shell=False,
-            )
-
-        try:
-            ignored = proc.stdout.splitlines()
-            scenario_paths = [
-                candidate for candidate in candidates if str(candidate) not in ignored
-            ]
-        except NameError:
-            scenario_paths = candidates
-
-        for fs_entry in scenario_paths:
-            scenario = fs_entry.parent
-            molecule_parent = scenario.parent.parent
-            scenarios.append(
-                MoleculeScenario(
-                    parent_directory=molecule_parent,
-                    name=scenario.name,
-                    test_id=f"{molecule_parent.name}-{scenario.name}",
-                ),
-            )
-        if not scenarios:
-            pytest.exit(f"No molecule scenarios found in: {rootpath}")
         metafunc.parametrize(
             "molecule_scenario",
             scenarios,
@@ -386,7 +413,11 @@ class PyTestAnsiblePlugin:
             self.assert_required_ansible_parameters(config)  # type: ignore[no-untyped-call]
 
     def _load_ansible_config(self, config):  # type: ignore[no-untyped-def]  # noqa: ANN001, ANN202
-        """Load ansible configuration from command-line."""
+        """Load ansible configuration from command-line.
+
+        Returns:
+            Dictionary
+        """
         option_names = [
             "ansible_inventory",
             "ansible_extra_inventory",
@@ -417,8 +448,15 @@ class PyTestAnsiblePlugin:
 
         return kwargs
 
-    def _load_request_config(self, request):  # type: ignore[no-untyped-def]  # noqa: ANN001, ANN202
-        """Load ansible configuration from decorator kwargs."""
+    def _load_request_config(self, request: pytest.FixtureRequest) -> dict[Any, Any]:
+        """Load ansible configuration from decorator kwargs.
+
+        Args:
+            request: pytest request fixture.
+
+        Returns:
+            Dictionary
+        """
         kwargs = {}
 
         # Override options from @pytest.mark.ansible
@@ -437,7 +475,7 @@ class PyTestAnsiblePlugin:
             ansible_cfg.update(self._load_ansible_config(config))  # type: ignore[no-untyped-call]
         # merge pytest request configuration options
         if request is not None:
-            ansible_cfg.update(self._load_request_config(request))  # type: ignore[no-untyped-call]
+            ansible_cfg.update(self._load_request_config(request))
         # merge in provided kwargs
         ansible_cfg.update(kwargs)
         return get_host_manager(**ansible_cfg)
@@ -455,7 +493,7 @@ class PyTestAnsiblePlugin:
         # defaults to '/etc/ansible/hosts'
         # Verify --ansible-inventory was provided
         ansible_inventory = config.getoption("ansible_inventory")
-        if ansible_inventory is None or ansible_inventory == "":
+        if not ansible_inventory:
             errors.append(
                 "Unable to find an inventory file, specify one with the --ansible-inventory/--inventory "  # noqa: E501
                 "parameter.",

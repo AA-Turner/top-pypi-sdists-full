@@ -1,7 +1,7 @@
 r'''
 # `google_app_engine_application`
 
-Refer to the Terraform Registry for docs: [`google_app_engine_application`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_app_engine_application).
+Refer to the Terraform Registry for docs: [`google_app_engine_application`](https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_app_engine_application).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleAppEngineApplication(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleAppEngineApplication.GoogleAppEngineApplication",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_app_engine_application google_app_engine_application}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_app_engine_application google_app_engine_application}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class GoogleAppEngineApplication(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_app_engine_application google_app_engine_application} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_app_engine_application google_app_engine_application} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location_id: The location to serve the app from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_app_engine_application#location_id GoogleAppEngineApplication#location_id}
-        :param auth_domain: The domain to authenticate users with when using App Engine's User API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_app_engine_application#auth_domain GoogleAppEngineApplication#auth_domain}
-        :param database_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_app_engine_application#database_type GoogleAppEngineApplication#database_type}.
-        :param feature_settings: feature_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_app_engine_application#feature_settings GoogleAppEngineApplication#feature_settings}
-        :param iap: iap block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_app_engine_application#iap GoogleAppEngineApplication#iap}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_app_engine_application#id GoogleAppEngineApplication#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: The project ID to create the application under. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_app_engine_application#project GoogleAppEngineApplication#project}
-        :param serving_status: The serving status of the app. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_app_engine_application#serving_status GoogleAppEngineApplication#serving_status}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_app_engine_application#timeouts GoogleAppEngineApplication#timeouts}
+        :param location_id: The location to serve the app from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_app_engine_application#location_id GoogleAppEngineApplication#location_id}
+        :param auth_domain: The domain to authenticate users with when using App Engine's User API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_app_engine_application#auth_domain GoogleAppEngineApplication#auth_domain}
+        :param database_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_app_engine_application#database_type GoogleAppEngineApplication#database_type}.
+        :param feature_settings: feature_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_app_engine_application#feature_settings GoogleAppEngineApplication#feature_settings}
+        :param iap: iap block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_app_engine_application#iap GoogleAppEngineApplication#iap}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_app_engine_application#id GoogleAppEngineApplication#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: The project ID to create the application under. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_app_engine_application#project GoogleAppEngineApplication#project}
+        :param serving_status: The serving status of the app. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_app_engine_application#serving_status GoogleAppEngineApplication#serving_status}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_app_engine_application#timeouts GoogleAppEngineApplication#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class GoogleAppEngineApplication(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleAppEngineApplication to import.
-        :param import_from_id: The id of the existing GoogleAppEngineApplication that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_app_engine_application#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleAppEngineApplication that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_app_engine_application#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleAppEngineApplication to import is found.
         '''
         if __debug__:
@@ -145,7 +145,7 @@ class GoogleAppEngineApplication(
         split_health_checks: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param split_health_checks: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_app_engine_application#split_health_checks GoogleAppEngineApplication#split_health_checks}.
+        :param split_health_checks: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_app_engine_application#split_health_checks GoogleAppEngineApplication#split_health_checks}.
         '''
         value = GoogleAppEngineApplicationFeatureSettings(
             split_health_checks=split_health_checks
@@ -162,9 +162,9 @@ class GoogleAppEngineApplication(
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param oauth2_client_id: OAuth2 client ID to use for the authentication flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_app_engine_application#oauth2_client_id GoogleAppEngineApplication#oauth2_client_id}
-        :param oauth2_client_secret: OAuth2 client secret to use for the authentication flow. The SHA-256 hash of the value is returned in the oauth2ClientSecretSha256 field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_app_engine_application#oauth2_client_secret GoogleAppEngineApplication#oauth2_client_secret}
-        :param enabled: Adapted for use with the app. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_app_engine_application#enabled GoogleAppEngineApplication#enabled}
+        :param oauth2_client_id: OAuth2 client ID to use for the authentication flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_app_engine_application#oauth2_client_id GoogleAppEngineApplication#oauth2_client_id}
+        :param oauth2_client_secret: OAuth2 client secret to use for the authentication flow. The SHA-256 hash of the value is returned in the oauth2ClientSecretSha256 field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_app_engine_application#oauth2_client_secret GoogleAppEngineApplication#oauth2_client_secret}
+        :param enabled: Adapted for use with the app. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_app_engine_application#enabled GoogleAppEngineApplication#enabled}
         '''
         value = GoogleAppEngineApplicationIap(
             oauth2_client_id=oauth2_client_id,
@@ -182,8 +182,8 @@ class GoogleAppEngineApplication(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_app_engine_application#create GoogleAppEngineApplication#create}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_app_engine_application#update GoogleAppEngineApplication#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_app_engine_application#create GoogleAppEngineApplication#create}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_app_engine_application#update GoogleAppEngineApplication#update}.
         '''
         value = GoogleAppEngineApplicationTimeouts(create=create, update=update)
 
@@ -459,15 +459,15 @@ class GoogleAppEngineApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location_id: The location to serve the app from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_app_engine_application#location_id GoogleAppEngineApplication#location_id}
-        :param auth_domain: The domain to authenticate users with when using App Engine's User API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_app_engine_application#auth_domain GoogleAppEngineApplication#auth_domain}
-        :param database_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_app_engine_application#database_type GoogleAppEngineApplication#database_type}.
-        :param feature_settings: feature_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_app_engine_application#feature_settings GoogleAppEngineApplication#feature_settings}
-        :param iap: iap block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_app_engine_application#iap GoogleAppEngineApplication#iap}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_app_engine_application#id GoogleAppEngineApplication#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: The project ID to create the application under. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_app_engine_application#project GoogleAppEngineApplication#project}
-        :param serving_status: The serving status of the app. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_app_engine_application#serving_status GoogleAppEngineApplication#serving_status}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_app_engine_application#timeouts GoogleAppEngineApplication#timeouts}
+        :param location_id: The location to serve the app from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_app_engine_application#location_id GoogleAppEngineApplication#location_id}
+        :param auth_domain: The domain to authenticate users with when using App Engine's User API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_app_engine_application#auth_domain GoogleAppEngineApplication#auth_domain}
+        :param database_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_app_engine_application#database_type GoogleAppEngineApplication#database_type}.
+        :param feature_settings: feature_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_app_engine_application#feature_settings GoogleAppEngineApplication#feature_settings}
+        :param iap: iap block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_app_engine_application#iap GoogleAppEngineApplication#iap}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_app_engine_application#id GoogleAppEngineApplication#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: The project ID to create the application under. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_app_engine_application#project GoogleAppEngineApplication#project}
+        :param serving_status: The serving status of the app. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_app_engine_application#serving_status GoogleAppEngineApplication#serving_status}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_app_engine_application#timeouts GoogleAppEngineApplication#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -597,7 +597,7 @@ class GoogleAppEngineApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location_id(self) -> builtins.str:
         '''The location to serve the app from.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_app_engine_application#location_id GoogleAppEngineApplication#location_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_app_engine_application#location_id GoogleAppEngineApplication#location_id}
         '''
         result = self._values.get("location_id")
         assert result is not None, "Required property 'location_id' is missing"
@@ -607,14 +607,14 @@ class GoogleAppEngineApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def auth_domain(self) -> typing.Optional[builtins.str]:
         '''The domain to authenticate users with when using App Engine's User API.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_app_engine_application#auth_domain GoogleAppEngineApplication#auth_domain}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_app_engine_application#auth_domain GoogleAppEngineApplication#auth_domain}
         '''
         result = self._values.get("auth_domain")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def database_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_app_engine_application#database_type GoogleAppEngineApplication#database_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_app_engine_application#database_type GoogleAppEngineApplication#database_type}.'''
         result = self._values.get("database_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -624,7 +624,7 @@ class GoogleAppEngineApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleAppEngineApplicationFeatureSettings"]:
         '''feature_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_app_engine_application#feature_settings GoogleAppEngineApplication#feature_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_app_engine_application#feature_settings GoogleAppEngineApplication#feature_settings}
         '''
         result = self._values.get("feature_settings")
         return typing.cast(typing.Optional["GoogleAppEngineApplicationFeatureSettings"], result)
@@ -633,14 +633,14 @@ class GoogleAppEngineApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def iap(self) -> typing.Optional["GoogleAppEngineApplicationIap"]:
         '''iap block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_app_engine_application#iap GoogleAppEngineApplication#iap}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_app_engine_application#iap GoogleAppEngineApplication#iap}
         '''
         result = self._values.get("iap")
         return typing.cast(typing.Optional["GoogleAppEngineApplicationIap"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_app_engine_application#id GoogleAppEngineApplication#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_app_engine_application#id GoogleAppEngineApplication#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -652,7 +652,7 @@ class GoogleAppEngineApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def project(self) -> typing.Optional[builtins.str]:
         '''The project ID to create the application under.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_app_engine_application#project GoogleAppEngineApplication#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_app_engine_application#project GoogleAppEngineApplication#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -661,7 +661,7 @@ class GoogleAppEngineApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def serving_status(self) -> typing.Optional[builtins.str]:
         '''The serving status of the app.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_app_engine_application#serving_status GoogleAppEngineApplication#serving_status}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_app_engine_application#serving_status GoogleAppEngineApplication#serving_status}
         '''
         result = self._values.get("serving_status")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -670,7 +670,7 @@ class GoogleAppEngineApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleAppEngineApplicationTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_app_engine_application#timeouts GoogleAppEngineApplication#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_app_engine_application#timeouts GoogleAppEngineApplication#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleAppEngineApplicationTimeouts"], result)
@@ -699,7 +699,7 @@ class GoogleAppEngineApplicationFeatureSettings:
         split_health_checks: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param split_health_checks: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_app_engine_application#split_health_checks GoogleAppEngineApplication#split_health_checks}.
+        :param split_health_checks: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_app_engine_application#split_health_checks GoogleAppEngineApplication#split_health_checks}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0a465c86c1b6c0662a2e02edb558895bed85f951ed866f71bd8d1079fbd0b3d0)
@@ -712,7 +712,7 @@ class GoogleAppEngineApplicationFeatureSettings:
     def split_health_checks(
         self,
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_app_engine_application#split_health_checks GoogleAppEngineApplication#split_health_checks}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_app_engine_application#split_health_checks GoogleAppEngineApplication#split_health_checks}.'''
         result = self._values.get("split_health_checks")
         assert result is not None, "Required property 'split_health_checks' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -809,9 +809,9 @@ class GoogleAppEngineApplicationIap:
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param oauth2_client_id: OAuth2 client ID to use for the authentication flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_app_engine_application#oauth2_client_id GoogleAppEngineApplication#oauth2_client_id}
-        :param oauth2_client_secret: OAuth2 client secret to use for the authentication flow. The SHA-256 hash of the value is returned in the oauth2ClientSecretSha256 field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_app_engine_application#oauth2_client_secret GoogleAppEngineApplication#oauth2_client_secret}
-        :param enabled: Adapted for use with the app. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_app_engine_application#enabled GoogleAppEngineApplication#enabled}
+        :param oauth2_client_id: OAuth2 client ID to use for the authentication flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_app_engine_application#oauth2_client_id GoogleAppEngineApplication#oauth2_client_id}
+        :param oauth2_client_secret: OAuth2 client secret to use for the authentication flow. The SHA-256 hash of the value is returned in the oauth2ClientSecretSha256 field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_app_engine_application#oauth2_client_secret GoogleAppEngineApplication#oauth2_client_secret}
+        :param enabled: Adapted for use with the app. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_app_engine_application#enabled GoogleAppEngineApplication#enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__86f1175978230d3f331acb05558bf3645e356963fea1f0e71cdbfa07c2bb68bd)
@@ -829,7 +829,7 @@ class GoogleAppEngineApplicationIap:
     def oauth2_client_id(self) -> builtins.str:
         '''OAuth2 client ID to use for the authentication flow.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_app_engine_application#oauth2_client_id GoogleAppEngineApplication#oauth2_client_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_app_engine_application#oauth2_client_id GoogleAppEngineApplication#oauth2_client_id}
         '''
         result = self._values.get("oauth2_client_id")
         assert result is not None, "Required property 'oauth2_client_id' is missing"
@@ -841,7 +841,7 @@ class GoogleAppEngineApplicationIap:
 
         The SHA-256 hash of the value is returned in the oauth2ClientSecretSha256 field.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_app_engine_application#oauth2_client_secret GoogleAppEngineApplication#oauth2_client_secret}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_app_engine_application#oauth2_client_secret GoogleAppEngineApplication#oauth2_client_secret}
         '''
         result = self._values.get("oauth2_client_secret")
         assert result is not None, "Required property 'oauth2_client_secret' is missing"
@@ -853,7 +853,7 @@ class GoogleAppEngineApplicationIap:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Adapted for use with the app.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_app_engine_application#enabled GoogleAppEngineApplication#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_app_engine_application#enabled GoogleAppEngineApplication#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -984,8 +984,8 @@ class GoogleAppEngineApplicationTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_app_engine_application#create GoogleAppEngineApplication#create}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_app_engine_application#update GoogleAppEngineApplication#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_app_engine_application#create GoogleAppEngineApplication#create}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_app_engine_application#update GoogleAppEngineApplication#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b1c822285b3fd1cf5a8619129b5179bc7cf71528eb98de8db4ec3f27f104560b)
@@ -999,13 +999,13 @@ class GoogleAppEngineApplicationTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_app_engine_application#create GoogleAppEngineApplication#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_app_engine_application#create GoogleAppEngineApplication#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_app_engine_application#update GoogleAppEngineApplication#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_app_engine_application#update GoogleAppEngineApplication#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

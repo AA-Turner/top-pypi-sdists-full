@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: rotary-embedding-torch
-Version: 0.8.6
+Version: 0.8.7
 Summary: Rotary Embedding - Pytorch
 Home-page: https://github.com/lucidrains/rotary-embedding-torch
 Author: Phil Wang
@@ -16,3 +16,13 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: einops>=0.7
 Requires-Dist: torch>=2.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary

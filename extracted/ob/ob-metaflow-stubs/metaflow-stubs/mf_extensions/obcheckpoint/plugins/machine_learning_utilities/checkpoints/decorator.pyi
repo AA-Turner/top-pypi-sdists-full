@@ -1,18 +1,18 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.15.18.1+obcheckpoint(0.2.1);ob(v1)                                                   #
-# Generated on 2025-06-26T22:38:03.096329                                                            #
+# MF version: 2.15.18.1+obcheckpoint(0.2.4);ob(v1)                                                   #
+# Generated on 2025-07-01T15:21:03.536189                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import typing
 import metaflow
+import typing
 if typing.TYPE_CHECKING:
     import os
-    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.datastructures
-    import metaflow
     import metaflow.decorators
+    import metaflow
+    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.datastructures
 
 from .exceptions import CheckpointException as CheckpointException
 from ..utils import flowspec_utils as flowspec_utils
@@ -210,6 +210,51 @@ class CheckpointDecorator(metaflow.decorators.StepDecorator, metaclass=type):
     """
     Enables checkpointing for a step.
     
+    > Examples
+    
+    - Saving Checkpoints
+    
+    ```python
+    @checkpoint
+    @step
+    def train(self):
+        model = create_model(self.parameters, checkpoint_path = None)
+        for i in range(self.epochs):
+            # some training logic
+            loss = model.train(self.dataset)
+            if i % 10 == 0:
+                model.save(
+                    current.checkpoint.directory,
+                )
+                # saves the contents of the `current.checkpoint.directory` as a checkpoint
+                # and returns a reference dictionary to the checkpoint saved in the datastore
+                self.latest_checkpoint = current.checkpoint.save(
+                    name="epoch_checkpoint",
+                    metadata={
+                        "epoch": i,
+                        "loss": loss,
+                    }
+                )
+    ```
+    
+    - Using Loaded Checkpoints
+    
+    ```python
+    @retry(times=3)
+    @checkpoint
+    @step
+    def train(self):
+        # Assume that the task has restarted and the previous attempt of the task
+        # saved a checkpoint
+        checkpoint_path = None
+        if current.checkpoint.is_loaded: # Check if a checkpoint is loaded
+            print("Loaded checkpoint from the previous attempt")
+            checkpoint_path = current.checkpoint.directory
+    
+        model = create_model(self.parameters, checkpoint_path = checkpoint_path)
+        for i in range(self.epochs):
+            ...
+    ```
     
     Parameters
     ----------
@@ -238,51 +283,8 @@ class CheckpointDecorator(metaflow.decorators.StepDecorator, metaclass=type):
         by using `current.checkpoint.info`. The `current.checkpoint.directory` returns the path to the checkpoint directory
         where the checkpoint maybe loaded or saved.
     
-        Usage (Saving Checkpoints):
-        -------
-        ```
-        @checkpoint
-        @step
-        def train(self):
-            model = create_model(self.parameters, checkpoint_path = None)
-            for i in range(self.epochs):
-                # some training logic
-                loss = model.train(self.dataset)
-                if i % 10 == 0:
-                    model.save(
-                        current.checkpoint.directory,
-                    )
-                    # saves the contents of the `current.checkpoint.directory` as a checkpoint
-                    # and returns a reference dictionary to the checkpoint saved in the datastore
-                    self.latest_checkpoint = current.checkpoint.save(
-                        name="epoch_checkpoint",
-                        metadata={
-                            "epoch": i,
-                            "loss": loss,
-                        }
-                    )
-        ```
-        Usage (Using Loaded Checkpoints):
-        -------
-        ```
-        @retry(times=3)
-        @checkpoint
-        @step
-        def train(self):
-            # Assume that the task has restarted and the previous attempt of the task
-            # saved a checkpoint
-            checkpoint_path = None
-            if current.checkpoint.is_loaded: # Check if a checkpoint is loaded
-                print("Loaded checkpoint from the previous attempt")
-                checkpoint_path = current.checkpoint.directory
-    
-            model = create_model(self.parameters, checkpoint_path = checkpoint_path)
-            for i in range(self.epochs):
-                ...
-        ```
-    
         @@ Returns
-        -------
+        ----------
         CurrentCheckpointer
             The object for handling checkpointing within a step.
     """

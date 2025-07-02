@@ -1,7 +1,7 @@
 r'''
 # `azurerm_private_link_service`
 
-Refer to the Terraform Registry for docs: [`azurerm_private_link_service`](https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service).
+Refer to the Terraform Registry for docs: [`azurerm_private_link_service`](https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,22 +44,23 @@ class PrivateLinkService(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.privateLinkService.PrivateLinkService",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service azurerm_private_link_service}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service azurerm_private_link_service}.'''
 
     def __init__(
         self,
         scope: _constructs_77d1e7e8.Construct,
         id_: builtins.str,
         *,
-        load_balancer_frontend_ip_configuration_ids: typing.Sequence[builtins.str],
         location: builtins.str,
         name: builtins.str,
         nat_ip_configuration: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["PrivateLinkServiceNatIpConfiguration", typing.Dict[builtins.str, typing.Any]]]],
         resource_group_name: builtins.str,
         auto_approval_subscription_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        destination_ip_address: typing.Optional[builtins.str] = None,
         enable_proxy_protocol: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         fqdns: typing.Optional[typing.Sequence[builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
+        load_balancer_frontend_ip_configuration_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeouts: typing.Optional[typing.Union["PrivateLinkServiceTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
         visibility_subscription_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -71,22 +72,23 @@ class PrivateLinkService(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service azurerm_private_link_service} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service azurerm_private_link_service} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param load_balancer_frontend_ip_configuration_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#load_balancer_frontend_ip_configuration_ids PrivateLinkService#load_balancer_frontend_ip_configuration_ids}.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#location PrivateLinkService#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#name PrivateLinkService#name}.
-        :param nat_ip_configuration: nat_ip_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#nat_ip_configuration PrivateLinkService#nat_ip_configuration}
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#resource_group_name PrivateLinkService#resource_group_name}.
-        :param auto_approval_subscription_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#auto_approval_subscription_ids PrivateLinkService#auto_approval_subscription_ids}.
-        :param enable_proxy_protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#enable_proxy_protocol PrivateLinkService#enable_proxy_protocol}.
-        :param fqdns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#fqdns PrivateLinkService#fqdns}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#id PrivateLinkService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#tags PrivateLinkService#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#timeouts PrivateLinkService#timeouts}
-        :param visibility_subscription_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#visibility_subscription_ids PrivateLinkService#visibility_subscription_ids}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#location PrivateLinkService#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#name PrivateLinkService#name}.
+        :param nat_ip_configuration: nat_ip_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#nat_ip_configuration PrivateLinkService#nat_ip_configuration}
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#resource_group_name PrivateLinkService#resource_group_name}.
+        :param auto_approval_subscription_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#auto_approval_subscription_ids PrivateLinkService#auto_approval_subscription_ids}.
+        :param destination_ip_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#destination_ip_address PrivateLinkService#destination_ip_address}.
+        :param enable_proxy_protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#enable_proxy_protocol PrivateLinkService#enable_proxy_protocol}.
+        :param fqdns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#fqdns PrivateLinkService#fqdns}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#id PrivateLinkService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param load_balancer_frontend_ip_configuration_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#load_balancer_frontend_ip_configuration_ids PrivateLinkService#load_balancer_frontend_ip_configuration_ids}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#tags PrivateLinkService#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#timeouts PrivateLinkService#timeouts}
+        :param visibility_subscription_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#visibility_subscription_ids PrivateLinkService#visibility_subscription_ids}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -100,15 +102,16 @@ class PrivateLinkService(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id_", value=id_, expected_type=type_hints["id_"])
         config = PrivateLinkServiceConfig(
-            load_balancer_frontend_ip_configuration_ids=load_balancer_frontend_ip_configuration_ids,
             location=location,
             name=name,
             nat_ip_configuration=nat_ip_configuration,
             resource_group_name=resource_group_name,
             auto_approval_subscription_ids=auto_approval_subscription_ids,
+            destination_ip_address=destination_ip_address,
             enable_proxy_protocol=enable_proxy_protocol,
             fqdns=fqdns,
             id=id,
+            load_balancer_frontend_ip_configuration_ids=load_balancer_frontend_ip_configuration_ids,
             tags=tags,
             timeouts=timeouts,
             visibility_subscription_ids=visibility_subscription_ids,
@@ -136,7 +139,7 @@ class PrivateLinkService(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the PrivateLinkService to import.
-        :param import_from_id: The id of the existing PrivateLinkService that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing PrivateLinkService that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the PrivateLinkService to import is found.
         '''
         if __debug__:
@@ -170,10 +173,10 @@ class PrivateLinkService(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#create PrivateLinkService#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#delete PrivateLinkService#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#read PrivateLinkService#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#update PrivateLinkService#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#create PrivateLinkService#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#delete PrivateLinkService#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#read PrivateLinkService#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#update PrivateLinkService#update}.
         '''
         value = PrivateLinkServiceTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -184,6 +187,10 @@ class PrivateLinkService(
     @jsii.member(jsii_name="resetAutoApprovalSubscriptionIds")
     def reset_auto_approval_subscription_ids(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetAutoApprovalSubscriptionIds", []))
+
+    @jsii.member(jsii_name="resetDestinationIpAddress")
+    def reset_destination_ip_address(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetDestinationIpAddress", []))
 
     @jsii.member(jsii_name="resetEnableProxyProtocol")
     def reset_enable_proxy_protocol(self) -> None:
@@ -196,6 +203,10 @@ class PrivateLinkService(
     @jsii.member(jsii_name="resetId")
     def reset_id(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetId", []))
+
+    @jsii.member(jsii_name="resetLoadBalancerFrontendIpConfigurationIds")
+    def reset_load_balancer_frontend_ip_configuration_ids(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetLoadBalancerFrontendIpConfigurationIds", []))
 
     @jsii.member(jsii_name="resetTags")
     def reset_tags(self) -> None:
@@ -243,6 +254,11 @@ class PrivateLinkService(
         self,
     ) -> typing.Optional[typing.List[builtins.str]]:
         return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "autoApprovalSubscriptionIdsInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="destinationIpAddressInput")
+    def destination_ip_address_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "destinationIpAddressInput"))
 
     @builtins.property
     @jsii.member(jsii_name="enableProxyProtocolInput")
@@ -320,6 +336,18 @@ class PrivateLinkService(
             type_hints = typing.get_type_hints(_typecheckingstub__8d86d58d751c10dc4e64922618168e70a2ac3772ba7534031767f5163eff8087)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "autoApprovalSubscriptionIds", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="destinationIpAddress")
+    def destination_ip_address(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "destinationIpAddress"))
+
+    @destination_ip_address.setter
+    def destination_ip_address(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__59ed1971b35b841a10907942179e764f05a04a568472c7b2ea7a288f351728cf)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "destinationIpAddress", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="enableProxyProtocol")
@@ -449,15 +477,16 @@ class PrivateLinkService(
         "lifecycle": "lifecycle",
         "provider": "provider",
         "provisioners": "provisioners",
-        "load_balancer_frontend_ip_configuration_ids": "loadBalancerFrontendIpConfigurationIds",
         "location": "location",
         "name": "name",
         "nat_ip_configuration": "natIpConfiguration",
         "resource_group_name": "resourceGroupName",
         "auto_approval_subscription_ids": "autoApprovalSubscriptionIds",
+        "destination_ip_address": "destinationIpAddress",
         "enable_proxy_protocol": "enableProxyProtocol",
         "fqdns": "fqdns",
         "id": "id",
+        "load_balancer_frontend_ip_configuration_ids": "loadBalancerFrontendIpConfigurationIds",
         "tags": "tags",
         "timeouts": "timeouts",
         "visibility_subscription_ids": "visibilitySubscriptionIds",
@@ -474,15 +503,16 @@ class PrivateLinkServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         lifecycle: typing.Optional[typing.Union[_cdktf_9a9027ec.TerraformResourceLifecycle, typing.Dict[builtins.str, typing.Any]]] = None,
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
-        load_balancer_frontend_ip_configuration_ids: typing.Sequence[builtins.str],
         location: builtins.str,
         name: builtins.str,
         nat_ip_configuration: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["PrivateLinkServiceNatIpConfiguration", typing.Dict[builtins.str, typing.Any]]]],
         resource_group_name: builtins.str,
         auto_approval_subscription_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        destination_ip_address: typing.Optional[builtins.str] = None,
         enable_proxy_protocol: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         fqdns: typing.Optional[typing.Sequence[builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
+        load_balancer_frontend_ip_configuration_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeouts: typing.Optional[typing.Union["PrivateLinkServiceTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
         visibility_subscription_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -495,18 +525,19 @@ class PrivateLinkServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param load_balancer_frontend_ip_configuration_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#load_balancer_frontend_ip_configuration_ids PrivateLinkService#load_balancer_frontend_ip_configuration_ids}.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#location PrivateLinkService#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#name PrivateLinkService#name}.
-        :param nat_ip_configuration: nat_ip_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#nat_ip_configuration PrivateLinkService#nat_ip_configuration}
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#resource_group_name PrivateLinkService#resource_group_name}.
-        :param auto_approval_subscription_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#auto_approval_subscription_ids PrivateLinkService#auto_approval_subscription_ids}.
-        :param enable_proxy_protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#enable_proxy_protocol PrivateLinkService#enable_proxy_protocol}.
-        :param fqdns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#fqdns PrivateLinkService#fqdns}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#id PrivateLinkService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#tags PrivateLinkService#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#timeouts PrivateLinkService#timeouts}
-        :param visibility_subscription_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#visibility_subscription_ids PrivateLinkService#visibility_subscription_ids}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#location PrivateLinkService#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#name PrivateLinkService#name}.
+        :param nat_ip_configuration: nat_ip_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#nat_ip_configuration PrivateLinkService#nat_ip_configuration}
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#resource_group_name PrivateLinkService#resource_group_name}.
+        :param auto_approval_subscription_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#auto_approval_subscription_ids PrivateLinkService#auto_approval_subscription_ids}.
+        :param destination_ip_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#destination_ip_address PrivateLinkService#destination_ip_address}.
+        :param enable_proxy_protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#enable_proxy_protocol PrivateLinkService#enable_proxy_protocol}.
+        :param fqdns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#fqdns PrivateLinkService#fqdns}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#id PrivateLinkService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param load_balancer_frontend_ip_configuration_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#load_balancer_frontend_ip_configuration_ids PrivateLinkService#load_balancer_frontend_ip_configuration_ids}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#tags PrivateLinkService#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#timeouts PrivateLinkService#timeouts}
+        :param visibility_subscription_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#visibility_subscription_ids PrivateLinkService#visibility_subscription_ids}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -521,20 +552,20 @@ class PrivateLinkServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument lifecycle", value=lifecycle, expected_type=type_hints["lifecycle"])
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
             check_type(argname="argument provisioners", value=provisioners, expected_type=type_hints["provisioners"])
-            check_type(argname="argument load_balancer_frontend_ip_configuration_ids", value=load_balancer_frontend_ip_configuration_ids, expected_type=type_hints["load_balancer_frontend_ip_configuration_ids"])
             check_type(argname="argument location", value=location, expected_type=type_hints["location"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument nat_ip_configuration", value=nat_ip_configuration, expected_type=type_hints["nat_ip_configuration"])
             check_type(argname="argument resource_group_name", value=resource_group_name, expected_type=type_hints["resource_group_name"])
             check_type(argname="argument auto_approval_subscription_ids", value=auto_approval_subscription_ids, expected_type=type_hints["auto_approval_subscription_ids"])
+            check_type(argname="argument destination_ip_address", value=destination_ip_address, expected_type=type_hints["destination_ip_address"])
             check_type(argname="argument enable_proxy_protocol", value=enable_proxy_protocol, expected_type=type_hints["enable_proxy_protocol"])
             check_type(argname="argument fqdns", value=fqdns, expected_type=type_hints["fqdns"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument load_balancer_frontend_ip_configuration_ids", value=load_balancer_frontend_ip_configuration_ids, expected_type=type_hints["load_balancer_frontend_ip_configuration_ids"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument timeouts", value=timeouts, expected_type=type_hints["timeouts"])
             check_type(argname="argument visibility_subscription_ids", value=visibility_subscription_ids, expected_type=type_hints["visibility_subscription_ids"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "load_balancer_frontend_ip_configuration_ids": load_balancer_frontend_ip_configuration_ids,
             "location": location,
             "name": name,
             "nat_ip_configuration": nat_ip_configuration,
@@ -556,12 +587,16 @@ class PrivateLinkServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["provisioners"] = provisioners
         if auto_approval_subscription_ids is not None:
             self._values["auto_approval_subscription_ids"] = auto_approval_subscription_ids
+        if destination_ip_address is not None:
+            self._values["destination_ip_address"] = destination_ip_address
         if enable_proxy_protocol is not None:
             self._values["enable_proxy_protocol"] = enable_proxy_protocol
         if fqdns is not None:
             self._values["fqdns"] = fqdns
         if id is not None:
             self._values["id"] = id
+        if load_balancer_frontend_ip_configuration_ids is not None:
+            self._values["load_balancer_frontend_ip_configuration_ids"] = load_balancer_frontend_ip_configuration_ids
         if tags is not None:
             self._values["tags"] = tags
         if timeouts is not None:
@@ -634,22 +669,15 @@ class PrivateLinkServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         return typing.cast(typing.Optional[typing.List[typing.Union[_cdktf_9a9027ec.FileProvisioner, _cdktf_9a9027ec.LocalExecProvisioner, _cdktf_9a9027ec.RemoteExecProvisioner]]], result)
 
     @builtins.property
-    def load_balancer_frontend_ip_configuration_ids(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#load_balancer_frontend_ip_configuration_ids PrivateLinkService#load_balancer_frontend_ip_configuration_ids}.'''
-        result = self._values.get("load_balancer_frontend_ip_configuration_ids")
-        assert result is not None, "Required property 'load_balancer_frontend_ip_configuration_ids' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#location PrivateLinkService#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#location PrivateLinkService#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#name PrivateLinkService#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#name PrivateLinkService#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -660,7 +688,7 @@ class PrivateLinkServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["PrivateLinkServiceNatIpConfiguration"]]:
         '''nat_ip_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#nat_ip_configuration PrivateLinkService#nat_ip_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#nat_ip_configuration PrivateLinkService#nat_ip_configuration}
         '''
         result = self._values.get("nat_ip_configuration")
         assert result is not None, "Required property 'nat_ip_configuration' is missing"
@@ -668,7 +696,7 @@ class PrivateLinkServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#resource_group_name PrivateLinkService#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#resource_group_name PrivateLinkService#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
@@ -677,27 +705,33 @@ class PrivateLinkServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def auto_approval_subscription_ids(
         self,
     ) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#auto_approval_subscription_ids PrivateLinkService#auto_approval_subscription_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#auto_approval_subscription_ids PrivateLinkService#auto_approval_subscription_ids}.'''
         result = self._values.get("auto_approval_subscription_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def destination_ip_address(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#destination_ip_address PrivateLinkService#destination_ip_address}.'''
+        result = self._values.get("destination_ip_address")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def enable_proxy_protocol(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#enable_proxy_protocol PrivateLinkService#enable_proxy_protocol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#enable_proxy_protocol PrivateLinkService#enable_proxy_protocol}.'''
         result = self._values.get("enable_proxy_protocol")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def fqdns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#fqdns PrivateLinkService#fqdns}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#fqdns PrivateLinkService#fqdns}.'''
         result = self._values.get("fqdns")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#id PrivateLinkService#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#id PrivateLinkService#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -706,8 +740,16 @@ class PrivateLinkServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def load_balancer_frontend_ip_configuration_ids(
+        self,
+    ) -> typing.Optional[typing.List[builtins.str]]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#load_balancer_frontend_ip_configuration_ids PrivateLinkService#load_balancer_frontend_ip_configuration_ids}.'''
+        result = self._values.get("load_balancer_frontend_ip_configuration_ids")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#tags PrivateLinkService#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#tags PrivateLinkService#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -715,14 +757,14 @@ class PrivateLinkServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["PrivateLinkServiceTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#timeouts PrivateLinkService#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#timeouts PrivateLinkService#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["PrivateLinkServiceTimeouts"], result)
 
     @builtins.property
     def visibility_subscription_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#visibility_subscription_ids PrivateLinkService#visibility_subscription_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#visibility_subscription_ids PrivateLinkService#visibility_subscription_ids}.'''
         result = self._values.get("visibility_subscription_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -760,11 +802,11 @@ class PrivateLinkServiceNatIpConfiguration:
         private_ip_address_version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#name PrivateLinkService#name}.
-        :param primary: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#primary PrivateLinkService#primary}.
-        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#subnet_id PrivateLinkService#subnet_id}.
-        :param private_ip_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#private_ip_address PrivateLinkService#private_ip_address}.
-        :param private_ip_address_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#private_ip_address_version PrivateLinkService#private_ip_address_version}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#name PrivateLinkService#name}.
+        :param primary: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#primary PrivateLinkService#primary}.
+        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#subnet_id PrivateLinkService#subnet_id}.
+        :param private_ip_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#private_ip_address PrivateLinkService#private_ip_address}.
+        :param private_ip_address_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#private_ip_address_version PrivateLinkService#private_ip_address_version}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__abafd611a3edb566f8b708d8f7e768c6010c6038bf80005032b95e18a57bf714)
@@ -785,34 +827,34 @@ class PrivateLinkServiceNatIpConfiguration:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#name PrivateLinkService#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#name PrivateLinkService#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def primary(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#primary PrivateLinkService#primary}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#primary PrivateLinkService#primary}.'''
         result = self._values.get("primary")
         assert result is not None, "Required property 'primary' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def subnet_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#subnet_id PrivateLinkService#subnet_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#subnet_id PrivateLinkService#subnet_id}.'''
         result = self._values.get("subnet_id")
         assert result is not None, "Required property 'subnet_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def private_ip_address(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#private_ip_address PrivateLinkService#private_ip_address}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#private_ip_address PrivateLinkService#private_ip_address}.'''
         result = self._values.get("private_ip_address")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def private_ip_address_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#private_ip_address_version PrivateLinkService#private_ip_address_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#private_ip_address_version PrivateLinkService#private_ip_address_version}.'''
         result = self._values.get("private_ip_address_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1083,10 +1125,10 @@ class PrivateLinkServiceTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#create PrivateLinkService#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#delete PrivateLinkService#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#read PrivateLinkService#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#update PrivateLinkService#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#create PrivateLinkService#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#delete PrivateLinkService#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#read PrivateLinkService#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#update PrivateLinkService#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4b05b06313bc7ac962892ebc49051952e7d77242335959fd4889840704c1df96)
@@ -1106,25 +1148,25 @@ class PrivateLinkServiceTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#create PrivateLinkService#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#create PrivateLinkService#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#delete PrivateLinkService#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#delete PrivateLinkService#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#read PrivateLinkService#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#read PrivateLinkService#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/private_link_service#update PrivateLinkService#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/private_link_service#update PrivateLinkService#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1278,15 +1320,16 @@ def _typecheckingstub__46e653eee72220e00ee3ee29caf514dbbec194464552ef288e4ff75d3
     scope: _constructs_77d1e7e8.Construct,
     id_: builtins.str,
     *,
-    load_balancer_frontend_ip_configuration_ids: typing.Sequence[builtins.str],
     location: builtins.str,
     name: builtins.str,
     nat_ip_configuration: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[PrivateLinkServiceNatIpConfiguration, typing.Dict[builtins.str, typing.Any]]]],
     resource_group_name: builtins.str,
     auto_approval_subscription_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    destination_ip_address: typing.Optional[builtins.str] = None,
     enable_proxy_protocol: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     fqdns: typing.Optional[typing.Sequence[builtins.str]] = None,
     id: typing.Optional[builtins.str] = None,
+    load_balancer_frontend_ip_configuration_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeouts: typing.Optional[typing.Union[PrivateLinkServiceTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,
     visibility_subscription_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -1318,6 +1361,12 @@ def _typecheckingstub__5afb95cd766123ba21fe445cda68f0ea4bb4643d48749064729c5c6ca
 
 def _typecheckingstub__8d86d58d751c10dc4e64922618168e70a2ac3772ba7534031767f5163eff8087(
     value: typing.List[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__59ed1971b35b841a10907942179e764f05a04a568472c7b2ea7a288f351728cf(
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1385,15 +1434,16 @@ def _typecheckingstub__623c15379a1cb08005e17a9591b95a4632649a5b5e1c8bbd70d8e58ea
     lifecycle: typing.Optional[typing.Union[_cdktf_9a9027ec.TerraformResourceLifecycle, typing.Dict[builtins.str, typing.Any]]] = None,
     provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
     provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
-    load_balancer_frontend_ip_configuration_ids: typing.Sequence[builtins.str],
     location: builtins.str,
     name: builtins.str,
     nat_ip_configuration: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[PrivateLinkServiceNatIpConfiguration, typing.Dict[builtins.str, typing.Any]]]],
     resource_group_name: builtins.str,
     auto_approval_subscription_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    destination_ip_address: typing.Optional[builtins.str] = None,
     enable_proxy_protocol: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     fqdns: typing.Optional[typing.Sequence[builtins.str]] = None,
     id: typing.Optional[builtins.str] = None,
+    load_balancer_frontend_ip_configuration_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeouts: typing.Optional[typing.Union[PrivateLinkServiceTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,
     visibility_subscription_ids: typing.Optional[typing.Sequence[builtins.str]] = None,

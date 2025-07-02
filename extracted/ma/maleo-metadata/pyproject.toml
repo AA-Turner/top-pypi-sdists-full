@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "maleo-metadata"  # PyPI package name
-version = "0.1.43"
+version = "0.1.45"
 description = "MaleoMetadata service package"
 authors = [
     { name = "Agra Bima Yuda", email = "agra@nexmedis.com" }
@@ -13,7 +13,7 @@ license = { text = "MIT" }
 readme = "README.md"
 requires-python = ">=3.7"
 dependencies = [
-    "maleo_foundation>=0.3.29"
+    "maleo_foundation>=0.3.31"
 ]
 
 [tool.setuptools.packages.find]

@@ -145,6 +145,9 @@ class CfnApp(
                 value="value"
             )],
             iam_service_role="iamServiceRole",
+            job_config=amplify.CfnApp.JobConfigProperty(
+                build_compute_type="buildComputeType"
+            ),
             oauth_token="oauthToken",
             platform="platform",
             repository="repository",
@@ -173,6 +176,7 @@ class CfnApp(
         enable_branch_auto_deletion: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         environment_variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApp.EnvironmentVariableProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         iam_service_role: typing.Optional[builtins.str] = None,
+        job_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApp.JobConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         oauth_token: typing.Optional[builtins.str] = None,
         platform: typing.Optional[builtins.str] = None,
         repository: typing.Optional[builtins.str] = None,
@@ -194,6 +198,7 @@ class CfnApp(
         :param enable_branch_auto_deletion: Automatically disconnect a branch in Amplify Hosting when you delete a branch from your Git repository.
         :param environment_variables: The environment variables for the Amplify app. For a list of the environment variables that are accessible to Amplify by default, see `Amplify Environment variables <https://docs.aws.amazon.com/amplify/latest/userguide/amplify-console-environment-variables.html>`_ in the *Amplify Hosting User Guide* .
         :param iam_service_role: AWS Identity and Access Management ( IAM ) service role for the Amazon Resource Name (ARN) of the Amplify app.
+        :param job_config: The configuration details that apply to the jobs for an Amplify app.
         :param oauth_token: The OAuth token for a third-party source control system for an Amplify app. The OAuth token is used to create a webhook and a read-only deploy key using SSH cloning. The OAuth token is not stored. Use ``OauthToken`` for repository providers other than GitHub, such as Bitbucket or CodeCommit. To authorize access to GitHub as your repository provider, use ``AccessToken`` . You must specify either ``OauthToken`` or ``AccessToken`` when you create a new app. Existing Amplify apps deployed from a GitHub repository using OAuth continue to work with CI/CD. However, we strongly recommend that you migrate these apps to use the GitHub App. For more information, see `Migrating an existing OAuth app to the Amplify GitHub App <https://docs.aws.amazon.com/amplify/latest/userguide/setting-up-GitHub-access.html#migrating-to-github-app-auth>`_ in the *Amplify User Guide* .
         :param platform: The platform for the Amplify app. For a static app, set the platform type to ``WEB`` . For a dynamic server-side rendered (SSR) app, set the platform type to ``WEB_COMPUTE`` . For an app requiring Amplify Hosting's original SSR support only, set the platform type to ``WEB_DYNAMIC`` . If you are deploying an SSG only app with Next.js version 14 or later, you must set the platform type to ``WEB_COMPUTE`` and set the artifacts ``baseDirectory`` to ``.next`` in the application's build settings. For an example of the build specification settings, see `Amplify build settings for a Next.js 14 SSG application <https://docs.aws.amazon.com/amplify/latest/userguide/deploy-nextjs-app.html#build-setting-detection-ssg-14>`_ in the *Amplify Hosting User Guide* .
         :param repository: The Git repository for the Amplify app.
@@ -217,6 +222,7 @@ class CfnApp(
             enable_branch_auto_deletion=enable_branch_auto_deletion,
             environment_variables=environment_variables,
             iam_service_role=iam_service_role,
+            job_config=job_config,
             oauth_token=oauth_token,
             platform=platform,
             repository=repository,
@@ -500,6 +506,24 @@ class CfnApp(
             type_hints = typing.get_type_hints(_typecheckingstub__378909021f9642b2e612e1ecd4b62069a17df2eef9f3461fa46cd5337a44dae9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "iamServiceRole", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="jobConfig")
+    def job_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApp.JobConfigProperty"]]:
+        '''The configuration details that apply to the jobs for an Amplify app.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApp.JobConfigProperty"]], jsii.get(self, "jobConfig"))
+
+    @job_config.setter
+    def job_config(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApp.JobConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0c5331757d4f14f0e25aa5a2af73920abaa3c57bb5542207c86cbd2511fb7ada)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "jobConfig", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="oauthToken")
@@ -1139,6 +1163,74 @@ class CfnApp(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_amplify.CfnApp.JobConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"build_compute_type": "buildComputeType"},
+    )
+    class JobConfigProperty:
+        def __init__(self, *, build_compute_type: builtins.str) -> None:
+            '''Describes the configuration details that apply to the jobs for an Amplify app.
+
+            Use ``JobConfig`` to apply configuration to jobs, such as customizing the build instance size when you create or update an Amplify app. For more information about customizable build instances, see `Custom build instances <https://docs.aws.amazon.com/amplify/latest/userguide/custom-build-instance.html>`_ in the *Amplify User Guide* .
+
+            :param build_compute_type: Specifies the size of the build instance. Amplify supports three instance sizes: ``STANDARD_8GB`` , ``LARGE_16GB`` , and ``XLARGE_72GB`` . If you don't specify a value, Amplify uses the ``STANDARD_8GB`` default. The following list describes the CPU, memory, and storage capacity for each build instance type: - **STANDARD_8GB** - - vCPUs: 4 - Memory: 8 GiB - Disk space: 128 GB - **LARGE_16GB** - - vCPUs: 8 - Memory: 16 GiB - Disk space: 128 GB - **XLARGE_72GB** - - vCPUs: 36 - Memory: 72 GiB - Disk space: 256 GB
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplify-app-jobconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_amplify as amplify
+                
+                job_config_property = amplify.CfnApp.JobConfigProperty(
+                    build_compute_type="buildComputeType"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__23396b8a9e988b0968a9bc45be771b246c847bee1770ffbdca295739ad4ede28)
+                check_type(argname="argument build_compute_type", value=build_compute_type, expected_type=type_hints["build_compute_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "build_compute_type": build_compute_type,
+            }
+
+        @builtins.property
+        def build_compute_type(self) -> builtins.str:
+            '''Specifies the size of the build instance.
+
+            Amplify supports three instance sizes: ``STANDARD_8GB`` , ``LARGE_16GB`` , and ``XLARGE_72GB`` . If you don't specify a value, Amplify uses the ``STANDARD_8GB`` default.
+
+            The following list describes the CPU, memory, and storage capacity for each build instance type:
+
+            - **STANDARD_8GB** - - vCPUs: 4
+            - Memory: 8 GiB
+            - Disk space: 128 GB
+            - **LARGE_16GB** - - vCPUs: 8
+            - Memory: 16 GiB
+            - Disk space: 128 GB
+            - **XLARGE_72GB** - - vCPUs: 36
+            - Memory: 72 GiB
+            - Disk space: 256 GB
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplify-app-jobconfig.html#cfn-amplify-app-jobconfig-buildcomputetype
+            '''
+            result = self._values.get("build_compute_type")
+            assert result is not None, "Required property 'build_compute_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "JobConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_amplify.CfnAppProps",
@@ -1157,6 +1249,7 @@ class CfnApp(
         "enable_branch_auto_deletion": "enableBranchAutoDeletion",
         "environment_variables": "environmentVariables",
         "iam_service_role": "iamServiceRole",
+        "job_config": "jobConfig",
         "oauth_token": "oauthToken",
         "platform": "platform",
         "repository": "repository",
@@ -1180,6 +1273,7 @@ class CfnAppProps:
         enable_branch_auto_deletion: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         environment_variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.EnvironmentVariableProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
         iam_service_role: typing.Optional[builtins.str] = None,
+        job_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.JobConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
         oauth_token: typing.Optional[builtins.str] = None,
         platform: typing.Optional[builtins.str] = None,
         repository: typing.Optional[builtins.str] = None,
@@ -1200,6 +1294,7 @@ class CfnAppProps:
         :param enable_branch_auto_deletion: Automatically disconnect a branch in Amplify Hosting when you delete a branch from your Git repository.
         :param environment_variables: The environment variables for the Amplify app. For a list of the environment variables that are accessible to Amplify by default, see `Amplify Environment variables <https://docs.aws.amazon.com/amplify/latest/userguide/amplify-console-environment-variables.html>`_ in the *Amplify Hosting User Guide* .
         :param iam_service_role: AWS Identity and Access Management ( IAM ) service role for the Amazon Resource Name (ARN) of the Amplify app.
+        :param job_config: The configuration details that apply to the jobs for an Amplify app.
         :param oauth_token: The OAuth token for a third-party source control system for an Amplify app. The OAuth token is used to create a webhook and a read-only deploy key using SSH cloning. The OAuth token is not stored. Use ``OauthToken`` for repository providers other than GitHub, such as Bitbucket or CodeCommit. To authorize access to GitHub as your repository provider, use ``AccessToken`` . You must specify either ``OauthToken`` or ``AccessToken`` when you create a new app. Existing Amplify apps deployed from a GitHub repository using OAuth continue to work with CI/CD. However, we strongly recommend that you migrate these apps to use the GitHub App. For more information, see `Migrating an existing OAuth app to the Amplify GitHub App <https://docs.aws.amazon.com/amplify/latest/userguide/setting-up-GitHub-access.html#migrating-to-github-app-auth>`_ in the *Amplify User Guide* .
         :param platform: The platform for the Amplify app. For a static app, set the platform type to ``WEB`` . For a dynamic server-side rendered (SSR) app, set the platform type to ``WEB_COMPUTE`` . For an app requiring Amplify Hosting's original SSR support only, set the platform type to ``WEB_DYNAMIC`` . If you are deploying an SSG only app with Next.js version 14 or later, you must set the platform type to ``WEB_COMPUTE`` and set the artifacts ``baseDirectory`` to ``.next`` in the application's build settings. For an example of the build specification settings, see `Amplify build settings for a Next.js 14 SSG application <https://docs.aws.amazon.com/amplify/latest/userguide/deploy-nextjs-app.html#build-setting-detection-ssg-14>`_ in the *Amplify Hosting User Guide* .
         :param repository: The Git repository for the Amplify app.
@@ -1265,6 +1360,9 @@ class CfnAppProps:
                     value="value"
                 )],
                 iam_service_role="iamServiceRole",
+                job_config=amplify.CfnApp.JobConfigProperty(
+                    build_compute_type="buildComputeType"
+                ),
                 oauth_token="oauthToken",
                 platform="platform",
                 repository="repository",
@@ -1289,6 +1387,7 @@ class CfnAppProps:
             check_type(argname="argument enable_branch_auto_deletion", value=enable_branch_auto_deletion, expected_type=type_hints["enable_branch_auto_deletion"])
             check_type(argname="argument environment_variables", value=environment_variables, expected_type=type_hints["environment_variables"])
             check_type(argname="argument iam_service_role", value=iam_service_role, expected_type=type_hints["iam_service_role"])
+            check_type(argname="argument job_config", value=job_config, expected_type=type_hints["job_config"])
             check_type(argname="argument oauth_token", value=oauth_token, expected_type=type_hints["oauth_token"])
             check_type(argname="argument platform", value=platform, expected_type=type_hints["platform"])
             check_type(argname="argument repository", value=repository, expected_type=type_hints["repository"])
@@ -1320,6 +1419,8 @@ class CfnAppProps:
             self._values["environment_variables"] = environment_variables
         if iam_service_role is not None:
             self._values["iam_service_role"] = iam_service_role
+        if job_config is not None:
+            self._values["job_config"] = job_config
         if oauth_token is not None:
             self._values["oauth_token"] = oauth_token
         if platform is not None:
@@ -1474,6 +1575,17 @@ class CfnAppProps:
         '''
         result = self._values.get("iam_service_role")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def job_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApp.JobConfigProperty]]:
+        '''The configuration details that apply to the jobs for an Amplify app.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-app.html#cfn-amplify-app-jobconfig
+        '''
+        result = self._values.get("job_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApp.JobConfigProperty]], result)
 
     @builtins.property
     def oauth_token(self) -> typing.Optional[builtins.str]:
@@ -3306,6 +3418,7 @@ def _typecheckingstub__8dc8d772047a068d22a76d907b344356448c6a26d23e419ed69cc622d
     enable_branch_auto_deletion: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     environment_variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.EnvironmentVariableProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     iam_service_role: typing.Optional[builtins.str] = None,
+    job_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.JobConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     oauth_token: typing.Optional[builtins.str] = None,
     platform: typing.Optional[builtins.str] = None,
     repository: typing.Optional[builtins.str] = None,
@@ -3404,6 +3517,12 @@ def _typecheckingstub__378909021f9642b2e612e1ecd4b62069a17df2eef9f3461fa46cd5337
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__0c5331757d4f14f0e25aa5a2af73920abaa3c57bb5542207c86cbd2511fb7ada(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApp.JobConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e4f1a9875121cc669c475a05f9524db58d7e32e0b0134143bf750ceca8d2d6ec(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -3479,6 +3598,13 @@ def _typecheckingstub__f76edc62ddffd84b573400931e580feb099c3a238dc1b312f88a08a68
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__23396b8a9e988b0968a9bc45be771b246c847bee1770ffbdca295739ad4ede28(
+    *,
+    build_compute_type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__cfa8f09e6d42b5d6d1122d3e9214ec780302e9c3fda48d7ca044dd07613d11db(
     *,
     name: builtins.str,
@@ -3494,6 +3620,7 @@ def _typecheckingstub__cfa8f09e6d42b5d6d1122d3e9214ec780302e9c3fda48d7ca044dd076
     enable_branch_auto_deletion: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     environment_variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.EnvironmentVariableProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     iam_service_role: typing.Optional[builtins.str] = None,
+    job_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.JobConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     oauth_token: typing.Optional[builtins.str] = None,
     platform: typing.Optional[builtins.str] = None,
     repository: typing.Optional[builtins.str] = None,

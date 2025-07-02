@@ -1,7 +1,7 @@
 r'''
 # `azurerm_oracle_autonomous_database`
 
-Refer to the Terraform Registry for docs: [`azurerm_oracle_autonomous_database`](https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database).
+Refer to the Terraform Registry for docs: [`azurerm_oracle_autonomous_database`](https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class OracleAutonomousDatabase(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.oracleAutonomousDatabase.OracleAutonomousDatabase",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database azurerm_oracle_autonomous_database}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database azurerm_oracle_autonomous_database}.'''
 
     def __init__(
         self,
@@ -72,6 +72,7 @@ class OracleAutonomousDatabase(
         virtual_network_id: builtins.str,
         customer_contacts: typing.Optional[typing.Sequence[builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
+        long_term_backup_schedule: typing.Optional[typing.Union["OracleAutonomousDatabaseLongTermBackupSchedule", typing.Dict[builtins.str, typing.Any]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeouts: typing.Optional[typing.Union["OracleAutonomousDatabaseTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -82,33 +83,34 @@ class OracleAutonomousDatabase(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database azurerm_oracle_autonomous_database} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database azurerm_oracle_autonomous_database} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param admin_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#admin_password OracleAutonomousDatabase#admin_password}.
-        :param auto_scaling_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#auto_scaling_enabled OracleAutonomousDatabase#auto_scaling_enabled}.
-        :param auto_scaling_for_storage_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#auto_scaling_for_storage_enabled OracleAutonomousDatabase#auto_scaling_for_storage_enabled}.
-        :param backup_retention_period_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#backup_retention_period_in_days OracleAutonomousDatabase#backup_retention_period_in_days}.
-        :param character_set: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#character_set OracleAutonomousDatabase#character_set}.
-        :param compute_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#compute_count OracleAutonomousDatabase#compute_count}.
-        :param compute_model: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#compute_model OracleAutonomousDatabase#compute_model}.
-        :param data_storage_size_in_tbs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#data_storage_size_in_tbs OracleAutonomousDatabase#data_storage_size_in_tbs}.
-        :param db_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#db_version OracleAutonomousDatabase#db_version}.
-        :param db_workload: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#db_workload OracleAutonomousDatabase#db_workload}.
-        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#display_name OracleAutonomousDatabase#display_name}.
-        :param license_model: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#license_model OracleAutonomousDatabase#license_model}.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#location OracleAutonomousDatabase#location}.
-        :param mtls_connection_required: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#mtls_connection_required OracleAutonomousDatabase#mtls_connection_required}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#name OracleAutonomousDatabase#name}.
-        :param national_character_set: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#national_character_set OracleAutonomousDatabase#national_character_set}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#resource_group_name OracleAutonomousDatabase#resource_group_name}.
-        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#subnet_id OracleAutonomousDatabase#subnet_id}.
-        :param virtual_network_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#virtual_network_id OracleAutonomousDatabase#virtual_network_id}.
-        :param customer_contacts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#customer_contacts OracleAutonomousDatabase#customer_contacts}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#id OracleAutonomousDatabase#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#tags OracleAutonomousDatabase#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#timeouts OracleAutonomousDatabase#timeouts}
+        :param admin_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#admin_password OracleAutonomousDatabase#admin_password}.
+        :param auto_scaling_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#auto_scaling_enabled OracleAutonomousDatabase#auto_scaling_enabled}.
+        :param auto_scaling_for_storage_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#auto_scaling_for_storage_enabled OracleAutonomousDatabase#auto_scaling_for_storage_enabled}.
+        :param backup_retention_period_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#backup_retention_period_in_days OracleAutonomousDatabase#backup_retention_period_in_days}.
+        :param character_set: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#character_set OracleAutonomousDatabase#character_set}.
+        :param compute_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#compute_count OracleAutonomousDatabase#compute_count}.
+        :param compute_model: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#compute_model OracleAutonomousDatabase#compute_model}.
+        :param data_storage_size_in_tbs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#data_storage_size_in_tbs OracleAutonomousDatabase#data_storage_size_in_tbs}.
+        :param db_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#db_version OracleAutonomousDatabase#db_version}.
+        :param db_workload: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#db_workload OracleAutonomousDatabase#db_workload}.
+        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#display_name OracleAutonomousDatabase#display_name}.
+        :param license_model: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#license_model OracleAutonomousDatabase#license_model}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#location OracleAutonomousDatabase#location}.
+        :param mtls_connection_required: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#mtls_connection_required OracleAutonomousDatabase#mtls_connection_required}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#name OracleAutonomousDatabase#name}.
+        :param national_character_set: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#national_character_set OracleAutonomousDatabase#national_character_set}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#resource_group_name OracleAutonomousDatabase#resource_group_name}.
+        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#subnet_id OracleAutonomousDatabase#subnet_id}.
+        :param virtual_network_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#virtual_network_id OracleAutonomousDatabase#virtual_network_id}.
+        :param customer_contacts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#customer_contacts OracleAutonomousDatabase#customer_contacts}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#id OracleAutonomousDatabase#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param long_term_backup_schedule: long_term_backup_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#long_term_backup_schedule OracleAutonomousDatabase#long_term_backup_schedule}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#tags OracleAutonomousDatabase#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#timeouts OracleAutonomousDatabase#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -143,6 +145,7 @@ class OracleAutonomousDatabase(
             virtual_network_id=virtual_network_id,
             customer_contacts=customer_contacts,
             id=id,
+            long_term_backup_schedule=long_term_backup_schedule,
             tags=tags,
             timeouts=timeouts,
             connection=connection,
@@ -169,7 +172,7 @@ class OracleAutonomousDatabase(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the OracleAutonomousDatabase to import.
-        :param import_from_id: The id of the existing OracleAutonomousDatabase that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing OracleAutonomousDatabase that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the OracleAutonomousDatabase to import is found.
         '''
         if __debug__:
@@ -179,6 +182,30 @@ class OracleAutonomousDatabase(
             check_type(argname="argument import_from_id", value=import_from_id, expected_type=type_hints["import_from_id"])
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
         return typing.cast(_cdktf_9a9027ec.ImportableResource, jsii.sinvoke(cls, "generateConfigForImport", [scope, import_to_id, import_from_id, provider]))
+
+    @jsii.member(jsii_name="putLongTermBackupSchedule")
+    def put_long_term_backup_schedule(
+        self,
+        *,
+        enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+        repeat_cadence: builtins.str,
+        retention_period_in_days: jsii.Number,
+        time_of_backup: builtins.str,
+    ) -> None:
+        '''
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#enabled OracleAutonomousDatabase#enabled}.
+        :param repeat_cadence: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#repeat_cadence OracleAutonomousDatabase#repeat_cadence}.
+        :param retention_period_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#retention_period_in_days OracleAutonomousDatabase#retention_period_in_days}.
+        :param time_of_backup: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#time_of_backup OracleAutonomousDatabase#time_of_backup}.
+        '''
+        value = OracleAutonomousDatabaseLongTermBackupSchedule(
+            enabled=enabled,
+            repeat_cadence=repeat_cadence,
+            retention_period_in_days=retention_period_in_days,
+            time_of_backup=time_of_backup,
+        )
+
+        return typing.cast(None, jsii.invoke(self, "putLongTermBackupSchedule", [value]))
 
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(
@@ -190,10 +217,10 @@ class OracleAutonomousDatabase(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#create OracleAutonomousDatabase#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#delete OracleAutonomousDatabase#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#read OracleAutonomousDatabase#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#update OracleAutonomousDatabase#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#create OracleAutonomousDatabase#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#delete OracleAutonomousDatabase#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#read OracleAutonomousDatabase#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#update OracleAutonomousDatabase#update}.
         '''
         value = OracleAutonomousDatabaseTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -208,6 +235,10 @@ class OracleAutonomousDatabase(
     @jsii.member(jsii_name="resetId")
     def reset_id(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetId", []))
+
+    @jsii.member(jsii_name="resetLongTermBackupSchedule")
+    def reset_long_term_backup_schedule(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetLongTermBackupSchedule", []))
 
     @jsii.member(jsii_name="resetTags")
     def reset_tags(self) -> None:
@@ -229,6 +260,13 @@ class OracleAutonomousDatabase(
     @jsii.member(jsii_name="tfResourceType")
     def TF_RESOURCE_TYPE(cls) -> builtins.str:
         return typing.cast(builtins.str, jsii.sget(cls, "tfResourceType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="longTermBackupSchedule")
+    def long_term_backup_schedule(
+        self,
+    ) -> "OracleAutonomousDatabaseLongTermBackupScheduleOutputReference":
+        return typing.cast("OracleAutonomousDatabaseLongTermBackupScheduleOutputReference", jsii.get(self, "longTermBackupSchedule"))
 
     @builtins.property
     @jsii.member(jsii_name="timeouts")
@@ -313,6 +351,13 @@ class OracleAutonomousDatabase(
     @jsii.member(jsii_name="locationInput")
     def location_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "locationInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="longTermBackupScheduleInput")
+    def long_term_backup_schedule_input(
+        self,
+    ) -> typing.Optional["OracleAutonomousDatabaseLongTermBackupSchedule"]:
+        return typing.cast(typing.Optional["OracleAutonomousDatabaseLongTermBackupSchedule"], jsii.get(self, "longTermBackupScheduleInput"))
 
     @builtins.property
     @jsii.member(jsii_name="mtlsConnectionRequiredInput")
@@ -670,6 +715,7 @@ class OracleAutonomousDatabase(
         "virtual_network_id": "virtualNetworkId",
         "customer_contacts": "customerContacts",
         "id": "id",
+        "long_term_backup_schedule": "longTermBackupSchedule",
         "tags": "tags",
         "timeouts": "timeouts",
     },
@@ -706,6 +752,7 @@ class OracleAutonomousDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         virtual_network_id: builtins.str,
         customer_contacts: typing.Optional[typing.Sequence[builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
+        long_term_backup_schedule: typing.Optional[typing.Union["OracleAutonomousDatabaseLongTermBackupSchedule", typing.Dict[builtins.str, typing.Any]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeouts: typing.Optional[typing.Union["OracleAutonomousDatabaseTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
@@ -717,32 +764,35 @@ class OracleAutonomousDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param admin_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#admin_password OracleAutonomousDatabase#admin_password}.
-        :param auto_scaling_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#auto_scaling_enabled OracleAutonomousDatabase#auto_scaling_enabled}.
-        :param auto_scaling_for_storage_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#auto_scaling_for_storage_enabled OracleAutonomousDatabase#auto_scaling_for_storage_enabled}.
-        :param backup_retention_period_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#backup_retention_period_in_days OracleAutonomousDatabase#backup_retention_period_in_days}.
-        :param character_set: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#character_set OracleAutonomousDatabase#character_set}.
-        :param compute_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#compute_count OracleAutonomousDatabase#compute_count}.
-        :param compute_model: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#compute_model OracleAutonomousDatabase#compute_model}.
-        :param data_storage_size_in_tbs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#data_storage_size_in_tbs OracleAutonomousDatabase#data_storage_size_in_tbs}.
-        :param db_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#db_version OracleAutonomousDatabase#db_version}.
-        :param db_workload: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#db_workload OracleAutonomousDatabase#db_workload}.
-        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#display_name OracleAutonomousDatabase#display_name}.
-        :param license_model: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#license_model OracleAutonomousDatabase#license_model}.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#location OracleAutonomousDatabase#location}.
-        :param mtls_connection_required: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#mtls_connection_required OracleAutonomousDatabase#mtls_connection_required}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#name OracleAutonomousDatabase#name}.
-        :param national_character_set: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#national_character_set OracleAutonomousDatabase#national_character_set}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#resource_group_name OracleAutonomousDatabase#resource_group_name}.
-        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#subnet_id OracleAutonomousDatabase#subnet_id}.
-        :param virtual_network_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#virtual_network_id OracleAutonomousDatabase#virtual_network_id}.
-        :param customer_contacts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#customer_contacts OracleAutonomousDatabase#customer_contacts}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#id OracleAutonomousDatabase#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#tags OracleAutonomousDatabase#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#timeouts OracleAutonomousDatabase#timeouts}
+        :param admin_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#admin_password OracleAutonomousDatabase#admin_password}.
+        :param auto_scaling_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#auto_scaling_enabled OracleAutonomousDatabase#auto_scaling_enabled}.
+        :param auto_scaling_for_storage_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#auto_scaling_for_storage_enabled OracleAutonomousDatabase#auto_scaling_for_storage_enabled}.
+        :param backup_retention_period_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#backup_retention_period_in_days OracleAutonomousDatabase#backup_retention_period_in_days}.
+        :param character_set: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#character_set OracleAutonomousDatabase#character_set}.
+        :param compute_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#compute_count OracleAutonomousDatabase#compute_count}.
+        :param compute_model: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#compute_model OracleAutonomousDatabase#compute_model}.
+        :param data_storage_size_in_tbs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#data_storage_size_in_tbs OracleAutonomousDatabase#data_storage_size_in_tbs}.
+        :param db_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#db_version OracleAutonomousDatabase#db_version}.
+        :param db_workload: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#db_workload OracleAutonomousDatabase#db_workload}.
+        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#display_name OracleAutonomousDatabase#display_name}.
+        :param license_model: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#license_model OracleAutonomousDatabase#license_model}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#location OracleAutonomousDatabase#location}.
+        :param mtls_connection_required: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#mtls_connection_required OracleAutonomousDatabase#mtls_connection_required}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#name OracleAutonomousDatabase#name}.
+        :param national_character_set: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#national_character_set OracleAutonomousDatabase#national_character_set}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#resource_group_name OracleAutonomousDatabase#resource_group_name}.
+        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#subnet_id OracleAutonomousDatabase#subnet_id}.
+        :param virtual_network_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#virtual_network_id OracleAutonomousDatabase#virtual_network_id}.
+        :param customer_contacts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#customer_contacts OracleAutonomousDatabase#customer_contacts}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#id OracleAutonomousDatabase#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param long_term_backup_schedule: long_term_backup_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#long_term_backup_schedule OracleAutonomousDatabase#long_term_backup_schedule}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#tags OracleAutonomousDatabase#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#timeouts OracleAutonomousDatabase#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
+        if isinstance(long_term_backup_schedule, dict):
+            long_term_backup_schedule = OracleAutonomousDatabaseLongTermBackupSchedule(**long_term_backup_schedule)
         if isinstance(timeouts, dict):
             timeouts = OracleAutonomousDatabaseTimeouts(**timeouts)
         if __debug__:
@@ -775,6 +825,7 @@ class OracleAutonomousDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument virtual_network_id", value=virtual_network_id, expected_type=type_hints["virtual_network_id"])
             check_type(argname="argument customer_contacts", value=customer_contacts, expected_type=type_hints["customer_contacts"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument long_term_backup_schedule", value=long_term_backup_schedule, expected_type=type_hints["long_term_backup_schedule"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument timeouts", value=timeouts, expected_type=type_hints["timeouts"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -816,6 +867,8 @@ class OracleAutonomousDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["customer_contacts"] = customer_contacts
         if id is not None:
             self._values["id"] = id
+        if long_term_backup_schedule is not None:
+            self._values["long_term_backup_schedule"] = long_term_backup_schedule
         if tags is not None:
             self._values["tags"] = tags
         if timeouts is not None:
@@ -887,7 +940,7 @@ class OracleAutonomousDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def admin_password(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#admin_password OracleAutonomousDatabase#admin_password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#admin_password OracleAutonomousDatabase#admin_password}.'''
         result = self._values.get("admin_password")
         assert result is not None, "Required property 'admin_password' is missing"
         return typing.cast(builtins.str, result)
@@ -896,7 +949,7 @@ class OracleAutonomousDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def auto_scaling_enabled(
         self,
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#auto_scaling_enabled OracleAutonomousDatabase#auto_scaling_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#auto_scaling_enabled OracleAutonomousDatabase#auto_scaling_enabled}.'''
         result = self._values.get("auto_scaling_enabled")
         assert result is not None, "Required property 'auto_scaling_enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -905,77 +958,77 @@ class OracleAutonomousDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def auto_scaling_for_storage_enabled(
         self,
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#auto_scaling_for_storage_enabled OracleAutonomousDatabase#auto_scaling_for_storage_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#auto_scaling_for_storage_enabled OracleAutonomousDatabase#auto_scaling_for_storage_enabled}.'''
         result = self._values.get("auto_scaling_for_storage_enabled")
         assert result is not None, "Required property 'auto_scaling_for_storage_enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def backup_retention_period_in_days(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#backup_retention_period_in_days OracleAutonomousDatabase#backup_retention_period_in_days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#backup_retention_period_in_days OracleAutonomousDatabase#backup_retention_period_in_days}.'''
         result = self._values.get("backup_retention_period_in_days")
         assert result is not None, "Required property 'backup_retention_period_in_days' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def character_set(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#character_set OracleAutonomousDatabase#character_set}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#character_set OracleAutonomousDatabase#character_set}.'''
         result = self._values.get("character_set")
         assert result is not None, "Required property 'character_set' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def compute_count(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#compute_count OracleAutonomousDatabase#compute_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#compute_count OracleAutonomousDatabase#compute_count}.'''
         result = self._values.get("compute_count")
         assert result is not None, "Required property 'compute_count' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def compute_model(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#compute_model OracleAutonomousDatabase#compute_model}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#compute_model OracleAutonomousDatabase#compute_model}.'''
         result = self._values.get("compute_model")
         assert result is not None, "Required property 'compute_model' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def data_storage_size_in_tbs(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#data_storage_size_in_tbs OracleAutonomousDatabase#data_storage_size_in_tbs}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#data_storage_size_in_tbs OracleAutonomousDatabase#data_storage_size_in_tbs}.'''
         result = self._values.get("data_storage_size_in_tbs")
         assert result is not None, "Required property 'data_storage_size_in_tbs' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def db_version(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#db_version OracleAutonomousDatabase#db_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#db_version OracleAutonomousDatabase#db_version}.'''
         result = self._values.get("db_version")
         assert result is not None, "Required property 'db_version' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def db_workload(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#db_workload OracleAutonomousDatabase#db_workload}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#db_workload OracleAutonomousDatabase#db_workload}.'''
         result = self._values.get("db_workload")
         assert result is not None, "Required property 'db_workload' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def display_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#display_name OracleAutonomousDatabase#display_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#display_name OracleAutonomousDatabase#display_name}.'''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def license_model(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#license_model OracleAutonomousDatabase#license_model}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#license_model OracleAutonomousDatabase#license_model}.'''
         result = self._values.get("license_model")
         assert result is not None, "Required property 'license_model' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#location OracleAutonomousDatabase#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#location OracleAutonomousDatabase#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
@@ -984,55 +1037,55 @@ class OracleAutonomousDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def mtls_connection_required(
         self,
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#mtls_connection_required OracleAutonomousDatabase#mtls_connection_required}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#mtls_connection_required OracleAutonomousDatabase#mtls_connection_required}.'''
         result = self._values.get("mtls_connection_required")
         assert result is not None, "Required property 'mtls_connection_required' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#name OracleAutonomousDatabase#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#name OracleAutonomousDatabase#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def national_character_set(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#national_character_set OracleAutonomousDatabase#national_character_set}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#national_character_set OracleAutonomousDatabase#national_character_set}.'''
         result = self._values.get("national_character_set")
         assert result is not None, "Required property 'national_character_set' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#resource_group_name OracleAutonomousDatabase#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#resource_group_name OracleAutonomousDatabase#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def subnet_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#subnet_id OracleAutonomousDatabase#subnet_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#subnet_id OracleAutonomousDatabase#subnet_id}.'''
         result = self._values.get("subnet_id")
         assert result is not None, "Required property 'subnet_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def virtual_network_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#virtual_network_id OracleAutonomousDatabase#virtual_network_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#virtual_network_id OracleAutonomousDatabase#virtual_network_id}.'''
         result = self._values.get("virtual_network_id")
         assert result is not None, "Required property 'virtual_network_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def customer_contacts(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#customer_contacts OracleAutonomousDatabase#customer_contacts}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#customer_contacts OracleAutonomousDatabase#customer_contacts}.'''
         result = self._values.get("customer_contacts")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#id OracleAutonomousDatabase#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#id OracleAutonomousDatabase#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1041,8 +1094,19 @@ class OracleAutonomousDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def long_term_backup_schedule(
+        self,
+    ) -> typing.Optional["OracleAutonomousDatabaseLongTermBackupSchedule"]:
+        '''long_term_backup_schedule block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#long_term_backup_schedule OracleAutonomousDatabase#long_term_backup_schedule}
+        '''
+        result = self._values.get("long_term_backup_schedule")
+        return typing.cast(typing.Optional["OracleAutonomousDatabaseLongTermBackupSchedule"], result)
+
+    @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#tags OracleAutonomousDatabase#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#tags OracleAutonomousDatabase#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1050,7 +1114,7 @@ class OracleAutonomousDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["OracleAutonomousDatabaseTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#timeouts OracleAutonomousDatabase#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#timeouts OracleAutonomousDatabase#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["OracleAutonomousDatabaseTimeouts"], result)
@@ -1065,6 +1129,195 @@ class OracleAutonomousDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         return "OracleAutonomousDatabaseConfig(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-azurerm.oracleAutonomousDatabase.OracleAutonomousDatabaseLongTermBackupSchedule",
+    jsii_struct_bases=[],
+    name_mapping={
+        "enabled": "enabled",
+        "repeat_cadence": "repeatCadence",
+        "retention_period_in_days": "retentionPeriodInDays",
+        "time_of_backup": "timeOfBackup",
+    },
+)
+class OracleAutonomousDatabaseLongTermBackupSchedule:
+    def __init__(
+        self,
+        *,
+        enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+        repeat_cadence: builtins.str,
+        retention_period_in_days: jsii.Number,
+        time_of_backup: builtins.str,
+    ) -> None:
+        '''
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#enabled OracleAutonomousDatabase#enabled}.
+        :param repeat_cadence: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#repeat_cadence OracleAutonomousDatabase#repeat_cadence}.
+        :param retention_period_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#retention_period_in_days OracleAutonomousDatabase#retention_period_in_days}.
+        :param time_of_backup: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#time_of_backup OracleAutonomousDatabase#time_of_backup}.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4cd9f9b67caa86156a7751cfce7a5547e06912432094d9e5e506a19a07428131)
+            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            check_type(argname="argument repeat_cadence", value=repeat_cadence, expected_type=type_hints["repeat_cadence"])
+            check_type(argname="argument retention_period_in_days", value=retention_period_in_days, expected_type=type_hints["retention_period_in_days"])
+            check_type(argname="argument time_of_backup", value=time_of_backup, expected_type=type_hints["time_of_backup"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "enabled": enabled,
+            "repeat_cadence": repeat_cadence,
+            "retention_period_in_days": retention_period_in_days,
+            "time_of_backup": time_of_backup,
+        }
+
+    @builtins.property
+    def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#enabled OracleAutonomousDatabase#enabled}.'''
+        result = self._values.get("enabled")
+        assert result is not None, "Required property 'enabled' is missing"
+        return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
+
+    @builtins.property
+    def repeat_cadence(self) -> builtins.str:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#repeat_cadence OracleAutonomousDatabase#repeat_cadence}.'''
+        result = self._values.get("repeat_cadence")
+        assert result is not None, "Required property 'repeat_cadence' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def retention_period_in_days(self) -> jsii.Number:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#retention_period_in_days OracleAutonomousDatabase#retention_period_in_days}.'''
+        result = self._values.get("retention_period_in_days")
+        assert result is not None, "Required property 'retention_period_in_days' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def time_of_backup(self) -> builtins.str:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#time_of_backup OracleAutonomousDatabase#time_of_backup}.'''
+        result = self._values.get("time_of_backup")
+        assert result is not None, "Required property 'time_of_backup' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "OracleAutonomousDatabaseLongTermBackupSchedule(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class OracleAutonomousDatabaseLongTermBackupScheduleOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-azurerm.oracleAutonomousDatabase.OracleAutonomousDatabaseLongTermBackupScheduleOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3f521b358a7c1d2fe632d4dc6e3f656d1a9a1d688b3bd79963beb02cebcb6b6d)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @builtins.property
+    @jsii.member(jsii_name="enabledInput")
+    def enabled_input(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], jsii.get(self, "enabledInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="repeatCadenceInput")
+    def repeat_cadence_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "repeatCadenceInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="retentionPeriodInDaysInput")
+    def retention_period_in_days_input(self) -> typing.Optional[jsii.Number]:
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "retentionPeriodInDaysInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="timeOfBackupInput")
+    def time_of_backup_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "timeOfBackupInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="enabled")
+    def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
+        return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], jsii.get(self, "enabled"))
+
+    @enabled.setter
+    def enabled(
+        self,
+        value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3bfbbb9d1bf286b0b969444f24f661b273accc850ca5be6143c361d1f3e85e27)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "enabled", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="repeatCadence")
+    def repeat_cadence(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "repeatCadence"))
+
+    @repeat_cadence.setter
+    def repeat_cadence(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e10bed0edf6b94bebb5d79ed8c3ab12a200dc2b4cbb2cb033c4c596f2ecba288)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "repeatCadence", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="retentionPeriodInDays")
+    def retention_period_in_days(self) -> jsii.Number:
+        return typing.cast(jsii.Number, jsii.get(self, "retentionPeriodInDays"))
+
+    @retention_period_in_days.setter
+    def retention_period_in_days(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__794be9d70c5d8898d31da3d6edee1cad261bb4b1ea906fe65d1f3f0fe1cea944)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "retentionPeriodInDays", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="timeOfBackup")
+    def time_of_backup(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "timeOfBackup"))
+
+    @time_of_backup.setter
+    def time_of_backup(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__84bd44c505fc0b4e2b3884395f1be808edfdc040c5ae66ff30e4dab952b19252)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "timeOfBackup", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[OracleAutonomousDatabaseLongTermBackupSchedule]:
+        return typing.cast(typing.Optional[OracleAutonomousDatabaseLongTermBackupSchedule], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[OracleAutonomousDatabaseLongTermBackupSchedule],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__73010eb61337f02d68984ee44efcd7b3dbdeb40719c662deb446f06974357538)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -1087,10 +1340,10 @@ class OracleAutonomousDatabaseTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#create OracleAutonomousDatabase#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#delete OracleAutonomousDatabase#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#read OracleAutonomousDatabase#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#update OracleAutonomousDatabase#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#create OracleAutonomousDatabase#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#delete OracleAutonomousDatabase#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#read OracleAutonomousDatabase#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#update OracleAutonomousDatabase#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__874b4250858adda1a396c7100809ec9ce6460e01ff9bb6556cd13933bd24e628)
@@ -1110,25 +1363,25 @@ class OracleAutonomousDatabaseTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#create OracleAutonomousDatabase#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#create OracleAutonomousDatabase#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#delete OracleAutonomousDatabase#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#delete OracleAutonomousDatabase#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#read OracleAutonomousDatabase#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#read OracleAutonomousDatabase#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs/resources/oracle_autonomous_database#update OracleAutonomousDatabase#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs/resources/oracle_autonomous_database#update OracleAutonomousDatabase#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1269,6 +1522,8 @@ class OracleAutonomousDatabaseTimeoutsOutputReference(
 __all__ = [
     "OracleAutonomousDatabase",
     "OracleAutonomousDatabaseConfig",
+    "OracleAutonomousDatabaseLongTermBackupSchedule",
+    "OracleAutonomousDatabaseLongTermBackupScheduleOutputReference",
     "OracleAutonomousDatabaseTimeouts",
     "OracleAutonomousDatabaseTimeoutsOutputReference",
 ]
@@ -1300,6 +1555,7 @@ def _typecheckingstub__20a6b9361df9a91ea45a4133a36f84cb4a141450c8d0439488f921686
     virtual_network_id: builtins.str,
     customer_contacts: typing.Optional[typing.Sequence[builtins.str]] = None,
     id: typing.Optional[builtins.str] = None,
+    long_term_backup_schedule: typing.Optional[typing.Union[OracleAutonomousDatabaseLongTermBackupSchedule, typing.Dict[builtins.str, typing.Any]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeouts: typing.Optional[typing.Union[OracleAutonomousDatabaseTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -1484,8 +1740,56 @@ def _typecheckingstub__71d34e3ac75e73d28aeec5f59ab50a5993155bc63b3cde63986300637
     virtual_network_id: builtins.str,
     customer_contacts: typing.Optional[typing.Sequence[builtins.str]] = None,
     id: typing.Optional[builtins.str] = None,
+    long_term_backup_schedule: typing.Optional[typing.Union[OracleAutonomousDatabaseLongTermBackupSchedule, typing.Dict[builtins.str, typing.Any]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeouts: typing.Optional[typing.Union[OracleAutonomousDatabaseTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4cd9f9b67caa86156a7751cfce7a5547e06912432094d9e5e506a19a07428131(
+    *,
+    enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+    repeat_cadence: builtins.str,
+    retention_period_in_days: jsii.Number,
+    time_of_backup: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3f521b358a7c1d2fe632d4dc6e3f656d1a9a1d688b3bd79963beb02cebcb6b6d(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3bfbbb9d1bf286b0b969444f24f661b273accc850ca5be6143c361d1f3e85e27(
+    value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e10bed0edf6b94bebb5d79ed8c3ab12a200dc2b4cbb2cb033c4c596f2ecba288(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__794be9d70c5d8898d31da3d6edee1cad261bb4b1ea906fe65d1f3f0fe1cea944(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__84bd44c505fc0b4e2b3884395f1be808edfdc040c5ae66ff30e4dab952b19252(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__73010eb61337f02d68984ee44efcd7b3dbdeb40719c662deb446f06974357538(
+    value: typing.Optional[OracleAutonomousDatabaseLongTermBackupSchedule],
 ) -> None:
     """Type checking stubs"""
     pass

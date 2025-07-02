@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "maleo_foundation"
-version = "0.3.29"
+version = "0.3.31"
 description = "Foundation package for Maleo"
 authors = [
     { name = "Agra Bima Yuda", email = "agra@nexmedis.com" }

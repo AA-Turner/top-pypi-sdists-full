@@ -104,6 +104,9 @@ class CfnApplication(
                 enabled=False,
                 idle_timeout_minutes=123
             ),
+            identity_center_configuration=emrserverless.CfnApplication.IdentityCenterConfigurationProperty(
+                identity_center_instance_arn="identityCenterInstanceArn"
+            ),
             image_configuration=emrserverless.CfnApplication.ImageConfigurationInputProperty(
                 image_uri="imageUri"
             ),
@@ -197,6 +200,7 @@ class CfnApplication(
         architecture: typing.Optional[builtins.str] = None,
         auto_start_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.AutoStartConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         auto_stop_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.AutoStopConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        identity_center_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.IdentityCenterConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         image_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.ImageConfigurationInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         initial_capacity: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.InitialCapacityConfigKeyValuePairProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         interactive_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.InteractiveConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -217,6 +221,7 @@ class CfnApplication(
         :param architecture: The CPU architecture of an application.
         :param auto_start_configuration: The configuration for an application to automatically start on job submission.
         :param auto_stop_configuration: The configuration for an application to automatically stop after a certain amount of time being idle.
+        :param identity_center_configuration: The IAM IdentityCenter configuration for trusted-identity-propagation on this application. Supported with release labels emr-7.8.0 and above.
         :param image_configuration: The image configuration applied to all worker types.
         :param initial_capacity: The initial capacity of the application.
         :param interactive_configuration: The interactive configuration object that enables the interactive use cases for an application.
@@ -239,6 +244,7 @@ class CfnApplication(
             architecture=architecture,
             auto_start_configuration=auto_start_configuration,
             auto_stop_configuration=auto_stop_configuration,
+            identity_center_configuration=identity_center_configuration,
             image_configuration=image_configuration,
             initial_capacity=initial_capacity,
             interactive_configuration=interactive_configuration,
@@ -387,6 +393,24 @@ class CfnApplication(
             type_hints = typing.get_type_hints(_typecheckingstub__6f1b3d83107f5e408234e2bfc84b1e4ecd5f468b8f46ba51ddf116c1b97908f3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "autoStopConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="identityCenterConfiguration")
+    def identity_center_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.IdentityCenterConfigurationProperty"]]:
+        '''The IAM IdentityCenter configuration for trusted-identity-propagation on this application.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.IdentityCenterConfigurationProperty"]], jsii.get(self, "identityCenterConfiguration"))
+
+    @identity_center_configuration.setter
+    def identity_center_configuration(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.IdentityCenterConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f1eed40ed1dc7d44d38be43c5f1ba67a1974e1b84a61945af44e0b33ee6910a0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "identityCenterConfiguration", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="imageConfiguration")
@@ -947,6 +971,63 @@ class CfnApplication(
 
         def __repr__(self) -> str:
             return "ConfigurationObjectProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_emrserverless.CfnApplication.IdentityCenterConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"identity_center_instance_arn": "identityCenterInstanceArn"},
+    )
+    class IdentityCenterConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            identity_center_instance_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The IAM IdentityCenter configuration for trusted-identity-propagation on this application.
+
+            Supported with release labels emr-7.8.0 and above.
+
+            :param identity_center_instance_arn: The IAM IdentityCenter instance arn.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emrserverless-application-identitycenterconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_emrserverless as emrserverless
+                
+                identity_center_configuration_property = emrserverless.CfnApplication.IdentityCenterConfigurationProperty(
+                    identity_center_instance_arn="identityCenterInstanceArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__e39791b3c0e4b2bc25ba2e752692f0e0b9015cac1be177ed585a88beab629a2e)
+                check_type(argname="argument identity_center_instance_arn", value=identity_center_instance_arn, expected_type=type_hints["identity_center_instance_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if identity_center_instance_arn is not None:
+                self._values["identity_center_instance_arn"] = identity_center_instance_arn
+
+        @builtins.property
+        def identity_center_instance_arn(self) -> typing.Optional[builtins.str]:
+            '''The IAM IdentityCenter instance arn.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emrserverless-application-identitycenterconfiguration.html#cfn-emrserverless-application-identitycenterconfiguration-identitycenterinstancearn
+            '''
+            result = self._values.get("identity_center_instance_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "IdentityCenterConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -2077,6 +2158,7 @@ class CfnApplication(
         "architecture": "architecture",
         "auto_start_configuration": "autoStartConfiguration",
         "auto_stop_configuration": "autoStopConfiguration",
+        "identity_center_configuration": "identityCenterConfiguration",
         "image_configuration": "imageConfiguration",
         "initial_capacity": "initialCapacity",
         "interactive_configuration": "interactiveConfiguration",
@@ -2099,6 +2181,7 @@ class CfnApplicationProps:
         architecture: typing.Optional[builtins.str] = None,
         auto_start_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.AutoStartConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
         auto_stop_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.AutoStopConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        identity_center_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.IdentityCenterConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
         image_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.ImageConfigurationInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
         initial_capacity: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.InitialCapacityConfigKeyValuePairProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
         interactive_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.InteractiveConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -2118,6 +2201,7 @@ class CfnApplicationProps:
         :param architecture: The CPU architecture of an application.
         :param auto_start_configuration: The configuration for an application to automatically start on job submission.
         :param auto_stop_configuration: The configuration for an application to automatically stop after a certain amount of time being idle.
+        :param identity_center_configuration: The IAM IdentityCenter configuration for trusted-identity-propagation on this application. Supported with release labels emr-7.8.0 and above.
         :param image_configuration: The image configuration applied to all worker types.
         :param initial_capacity: The initial capacity of the application.
         :param interactive_configuration: The interactive configuration object that enables the interactive use cases for an application.
@@ -2153,6 +2237,9 @@ class CfnApplicationProps:
                 auto_stop_configuration=emrserverless.CfnApplication.AutoStopConfigurationProperty(
                     enabled=False,
                     idle_timeout_minutes=123
+                ),
+                identity_center_configuration=emrserverless.CfnApplication.IdentityCenterConfigurationProperty(
+                    identity_center_instance_arn="identityCenterInstanceArn"
                 ),
                 image_configuration=emrserverless.CfnApplication.ImageConfigurationInputProperty(
                     image_uri="imageUri"
@@ -2243,6 +2330,7 @@ class CfnApplicationProps:
             check_type(argname="argument architecture", value=architecture, expected_type=type_hints["architecture"])
             check_type(argname="argument auto_start_configuration", value=auto_start_configuration, expected_type=type_hints["auto_start_configuration"])
             check_type(argname="argument auto_stop_configuration", value=auto_stop_configuration, expected_type=type_hints["auto_stop_configuration"])
+            check_type(argname="argument identity_center_configuration", value=identity_center_configuration, expected_type=type_hints["identity_center_configuration"])
             check_type(argname="argument image_configuration", value=image_configuration, expected_type=type_hints["image_configuration"])
             check_type(argname="argument initial_capacity", value=initial_capacity, expected_type=type_hints["initial_capacity"])
             check_type(argname="argument interactive_configuration", value=interactive_configuration, expected_type=type_hints["interactive_configuration"])
@@ -2264,6 +2352,8 @@ class CfnApplicationProps:
             self._values["auto_start_configuration"] = auto_start_configuration
         if auto_stop_configuration is not None:
             self._values["auto_stop_configuration"] = auto_stop_configuration
+        if identity_center_configuration is not None:
+            self._values["identity_center_configuration"] = identity_center_configuration
         if image_configuration is not None:
             self._values["image_configuration"] = image_configuration
         if initial_capacity is not None:
@@ -2337,6 +2427,19 @@ class CfnApplicationProps:
         '''
         result = self._values.get("auto_stop_configuration")
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.AutoStopConfigurationProperty]], result)
+
+    @builtins.property
+    def identity_center_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.IdentityCenterConfigurationProperty]]:
+        '''The IAM IdentityCenter configuration for trusted-identity-propagation on this application.
+
+        Supported with release labels emr-7.8.0 and above.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrserverless-application.html#cfn-emrserverless-application-identitycenterconfiguration
+        '''
+        result = self._values.get("identity_center_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.IdentityCenterConfigurationProperty]], result)
 
     @builtins.property
     def image_configuration(
@@ -2489,6 +2592,7 @@ def _typecheckingstub__73910249d55cbd2983a3ea1bb4666acedb0e3e84df9686bbdeecd191b
     architecture: typing.Optional[builtins.str] = None,
     auto_start_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.AutoStartConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     auto_stop_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.AutoStopConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    identity_center_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.IdentityCenterConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     image_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.ImageConfigurationInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     initial_capacity: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.InitialCapacityConfigKeyValuePairProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     interactive_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.InteractiveConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -2542,6 +2646,12 @@ def _typecheckingstub__250efc466f983b8a885240945cba35864cbd2a6767d45f9c36fd1d25d
 
 def _typecheckingstub__6f1b3d83107f5e408234e2bfc84b1e4ecd5f468b8f46ba51ddf116c1b97908f3(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.AutoStopConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f1eed40ed1dc7d44d38be43c5f1ba67a1974e1b84a61945af44e0b33ee6910a0(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.IdentityCenterConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2643,6 +2753,13 @@ def _typecheckingstub__f6631f05a0f985523b64829ba85bb2686c8aecd114d8a1c04c994338e
     classification: builtins.str,
     configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.ConfigurationObjectProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e39791b3c0e4b2bc25ba2e752692f0e0b9015cac1be177ed585a88beab629a2e(
+    *,
+    identity_center_instance_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2768,6 +2885,7 @@ def _typecheckingstub__e3151e77334ffa97e03663b371e17d90f7842dc4da33dee36252fd84d
     architecture: typing.Optional[builtins.str] = None,
     auto_start_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.AutoStartConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     auto_stop_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.AutoStopConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    identity_center_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.IdentityCenterConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     image_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.ImageConfigurationInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     initial_capacity: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.InitialCapacityConfigKeyValuePairProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     interactive_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.InteractiveConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,

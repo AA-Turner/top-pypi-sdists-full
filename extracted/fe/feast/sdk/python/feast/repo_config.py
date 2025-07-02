@@ -44,11 +44,11 @@ REGISTRY_CLASS_FOR_TYPE = {
 }
 
 BATCH_ENGINE_CLASS_FOR_TYPE = {
-    "local": "feast.infra.materialization.local_engine.LocalMaterializationEngine",
-    "snowflake.engine": "feast.infra.materialization.snowflake_engine.SnowflakeMaterializationEngine",
-    "lambda": "feast.infra.materialization.aws_lambda.lambda_engine.LambdaMaterializationEngine",
-    "k8s": "feast.infra.materialization.kubernetes.k8s_materialization_engine.KubernetesMaterializationEngine",
-    "spark.engine": "feast.infra.materialization.contrib.spark.spark_materialization_engine.SparkMaterializationEngine",
+    "local": "feast.infra.compute_engines.local.compute.LocalComputeEngine",
+    "snowflake.engine": "feast.infra.compute_engines.snowflake.snowflake_engine.SnowflakeComputeEngine",
+    "lambda": "feast.infra.compute_engines.aws_lambda.lambda_engine.LambdaComputeEngine",
+    "k8s": "feast.infra.compute_engines.kubernetes.k8s_engine.KubernetesComputeEngine",
+    "spark.engine": "feast.infra.compute_engines.spark.compute.SparkComputeEngine",
 }
 
 LEGACY_ONLINE_STORE_CLASS_FOR_TYPE = {
@@ -100,10 +100,12 @@ OFFLINE_STORE_CLASS_FOR_TYPE = {
     "duckdb": "feast.infra.offline_stores.duckdb.DuckDBOfflineStore",
     "remote": "feast.infra.offline_stores.remote.RemoteOfflineStore",
     "couchbase.offline": "feast.infra.offline_stores.contrib.couchbase_offline_store.couchbase.CouchbaseColumnarOfflineStore",
+    "clickhouse": "feast.infra.offline_stores.contrib.clickhouse_offline_store.clickhouse.ClickhouseOfflineStore",
 }
 
 FEATURE_SERVER_CONFIG_CLASS_FOR_TYPE = {
     "local": "feast.infra.feature_servers.local_process.config.LocalFeatureServerConfig",
+    "mcp": "feast.infra.mcp_servers.mcp_config.McpFeatureServerConfig",
 }
 
 ALLOWED_AUTH_TYPES = ["no_auth", "kubernetes", "oidc"]
@@ -213,16 +215,12 @@ class RepoConfig(FeastBaseModel):
     repo_path: Optional[Path] = None
     """When using relative path in FileSource path, this parameter is mandatory"""
 
-    entity_key_serialization_version: StrictInt = 1
+    entity_key_serialization_version: StrictInt = 3
     """ Entity key serialization version: This version is used to control what serialization scheme is
     used when writing data to the online store.
-    A value <= 1 uses the serialization scheme used by feast up to Feast 0.22.
-    A value of 2 uses a newer serialization scheme, supported as of Feast 0.23.
     A value of 3 uses the latest serialization scheme, supported as of Feast 0.38.
-    The main difference between the three schema is that
-    v1: the serialization scheme v1 stored `long` values as `int`s, which would result in errors trying to serialize a range of values.
-    v2: fixes this error, but v1 is kept around to ensure backwards compatibility - specifically the ability to read
-    feature values for entities that have already been written into the online store.
+
+    Version Schemas:
     v3: add entity_key value length to serialized bytes to enable deserialization, which can be used in retrieval of entity_key in document retrieval.
     """
 
@@ -264,9 +262,9 @@ class RepoConfig(FeastBaseModel):
                 self.feature_server["type"]
             )(**self.feature_server)
 
-        if self.entity_key_serialization_version <= 2:
+        if self.entity_key_serialization_version < 3:
             warnings.warn(
-                "The serialization version 2 and below will be deprecated in the next release. "
+                "The serialization version below 3 are deprecated. "
                 "Specifying `entity_key_serialization_version` to 3 is recommended.",
                 DeprecationWarning,
             )

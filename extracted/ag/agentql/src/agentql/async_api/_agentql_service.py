@@ -2,7 +2,7 @@ import json
 import logging
 import os
 from http import HTTPStatus
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Optional
 
 import httpx
 
@@ -64,9 +64,7 @@ async def generate_query_from_agentql_server(
 
         headers = {"X-API-Key": api_key}
         async with httpx.AsyncClient() as client:
-            response = await client.post(
-                url, data=form_body, headers=headers, timeout=timeout, follow_redirects=True
-            )
+            response = await client.post(url, data=form_body, headers=headers, timeout=timeout, follow_redirects=True)
             response.raise_for_status()
             return response.json()["query"]
 
@@ -74,9 +72,7 @@ async def generate_query_from_agentql_server(
         raise AgentQLServerTimeoutError() from e
     except httpx.HTTPStatusError as e:
         error_response = e.response
-        request_id = (
-            error_response.headers.get(X_REQUEST_ID, None) if error_response is not None else None
-        )
+        request_id = error_response.headers.get(X_REQUEST_ID, None) if error_response is not None else None
         error_code = error_response.status_code
         server_error = error_response.text
 
@@ -152,17 +148,13 @@ async def query_agentql_server(
             response_json = response.json()
 
             minified_query = minify_query(query)
-            log.debug(
-                f"Request ID for the query request {minified_query} is {response_json['request_id']}"
-            )
+            log.debug(f"Request ID for the query request {minified_query} is {response_json['request_id']}")
             return response_json["response"]
     except httpx.TimeoutException as e:
         raise AgentQLServerTimeoutError() from e
     except httpx.HTTPStatusError as e:
         error_response = e.response
-        request_id = (
-            error_response.headers.get(X_REQUEST_ID, None) if error_response is not None else None
-        )
+        request_id = error_response.headers.get(X_REQUEST_ID, None) if error_response is not None else None
         error_code = error_response.status_code
         server_error = error_response.text
 
@@ -181,7 +173,7 @@ async def query_agentql_server(
 
 
 async def query_agentql_server_document(
-    file: Dict[str, Tuple[Optional[str], bytes]],
+    file: dict[str, tuple[Optional[str], bytes]],
     query: Optional[str],
     prompt: Optional[str],
     timeout: int,
@@ -209,7 +201,7 @@ async def query_agentql_server_document(
         raise APIKeyError(API_KEY_NOT_SET_MESSAGE)
 
     try:
-        form_data: Dict[str, Any] = {
+        form_data: dict[str, Any] = {
             "params": {"mode": mode},
         }
 
@@ -245,17 +237,13 @@ async def query_agentql_server_document(
             else:
                 identifier = prompt
 
-            log.debug(
-                f"Request ID for the query request {identifier} is {response_json['metadata']['request_id']}"
-            )
+            log.debug(f"Request ID for the query request {identifier} is {response_json['metadata']['request_id']}")
             return response_json["data"]
     except httpx.TimeoutException as e:
         raise AgentQLServerTimeoutError() from e
     except httpx.HTTPStatusError as e:
         error_response = e.response
-        request_id = (
-            error_response.headers.get(X_REQUEST_ID, None) if error_response is not None else None
-        )
+        request_id = error_response.headers.get(X_REQUEST_ID, None) if error_response is not None else None
         error_code = error_response.status_code
         server_error = error_response.text
         if error_code == HTTPStatus.UNAUTHORIZED:
@@ -290,9 +278,7 @@ async def validate_api_key(api_key: str, timeout: int = 30):
         url = os.getenv("AGENTQL_API_HOST", SERVICE_URL) + VALIDATE_API_KEY_ENDPOINT
         headers = {"X-API-Key": api_key}
         async with httpx.AsyncClient() as client:
-            response = await client.get(
-                url, headers=headers, timeout=timeout, follow_redirects=True
-            )
+            response = await client.get(url, headers=headers, timeout=timeout, follow_redirects=True)
             response.raise_for_status()
             return True
     except httpx.HTTPStatusError:

@@ -5,17 +5,16 @@
 # ------------------------------------------------------
 from collections.abc import Mapping, Sequence
 from types import SimpleNamespace
-from typing import Any, Literal, overload
+from typing import Any, Literal
 
 from reflex.components.core.breakpoints import Breakpoints
 from reflex.components.radix.themes.base import RadixThemesComponent
-from reflex.event import EventType
+from reflex.event import EventType, PointerEventInfo
 from reflex.vars.base import Var
 
 class CheckboxCardsRoot(RadixThemesComponent):
-    @overload
     @classmethod
-    def create(  # type: ignore
+    def create(
         cls,
         *children,
         size: Breakpoints[str, Literal["1", "2", "3"]]
@@ -119,9 +118,9 @@ class CheckboxCardsRoot(RadixThemesComponent):
         autofocus: bool | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
-        on_click: EventType[()] | None = None,
-        on_context_menu: EventType[()] | None = None,
-        on_double_click: EventType[()] | None = None,
+        on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
+        on_context_menu: EventType[()] | EventType[PointerEventInfo] | None = None,
+        on_double_click: EventType[()] | EventType[PointerEventInfo] | None = None,
         on_focus: EventType[()] | None = None,
         on_mount: EventType[()] | None = None,
         on_mouse_down: EventType[()] | None = None,
@@ -132,6 +131,7 @@ class CheckboxCardsRoot(RadixThemesComponent):
         on_mouse_over: EventType[()] | None = None,
         on_mouse_up: EventType[()] | None = None,
         on_scroll: EventType[()] | None = None,
+        on_scroll_end: EventType[()] | None = None,
         on_unmount: EventType[()] | None = None,
         **props,
     ) -> CheckboxCardsRoot:
@@ -162,9 +162,8 @@ class CheckboxCardsRoot(RadixThemesComponent):
         """
 
 class CheckboxCardsItem(RadixThemesComponent):
-    @overload
     @classmethod
-    def create(  # type: ignore
+    def create(
         cls,
         *children,
         style: Sequence[Mapping[str, Any]]
@@ -179,9 +178,9 @@ class CheckboxCardsItem(RadixThemesComponent):
         autofocus: bool | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
-        on_click: EventType[()] | None = None,
-        on_context_menu: EventType[()] | None = None,
-        on_double_click: EventType[()] | None = None,
+        on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
+        on_context_menu: EventType[()] | EventType[PointerEventInfo] | None = None,
+        on_double_click: EventType[()] | EventType[PointerEventInfo] | None = None,
         on_focus: EventType[()] | None = None,
         on_mount: EventType[()] | None = None,
         on_mouse_down: EventType[()] | None = None,
@@ -192,6 +191,7 @@ class CheckboxCardsItem(RadixThemesComponent):
         on_mouse_over: EventType[()] | None = None,
         on_mouse_up: EventType[()] | None = None,
         on_scroll: EventType[()] | None = None,
+        on_scroll_end: EventType[()] | None = None,
         on_unmount: EventType[()] | None = None,
         **props,
     ) -> CheckboxCardsItem:

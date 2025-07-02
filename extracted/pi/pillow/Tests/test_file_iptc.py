@@ -5,7 +5,7 @@ from io import BytesIO, StringIO
 
 import pytest
 
-from PIL import Image, IptcImagePlugin
+from PIL import Image, IptcImagePlugin, TiffImagePlugin, TiffTags
 
 from .helper import assert_image_equal, hopper
 
@@ -22,6 +22,9 @@ def test_open() -> None:
     with Image.open(f) as im:
         assert im.tile == [("iptc", (0, 0, 1, 1), 25, "raw")]
         assert_image_equal(im, expected)
+
+    with Image.open(f) as im:
+        assert im.load() is not None
 
 
 def test_getiptcinfo_jpg_none() -> None:
@@ -75,13 +78,19 @@ def test_getiptcinfo_zero_padding() -> None:
 
 
 def test_getiptcinfo_tiff() -> None:
-    # Arrange
+    expected = {(1, 90): b"\x1b%G", (2, 0): b"\xcf\xc0"}
+
     with Image.open("Tests/images/hopper.Lab.tif") as im:
-        # Act
         iptc = IptcImagePlugin.getiptcinfo(im)
 
-    # Assert
-    assert iptc == {(1, 90): b"\x1b%G", (2, 0): b"\xcf\xc0"}
+    assert iptc == expected
+
+    # Test with LONG tag type
+    with Image.open("Tests/images/hopper.Lab.tif") as im:
+        im.tag_v2.tagtype[TiffImagePlugin.IPTC_NAA_CHUNK] = TiffTags.LONG
+        iptc = IptcImagePlugin.getiptcinfo(im)
+
+    assert iptc == expected
 
 
 def test_getiptcinfo_tiff_none() -> None:
@@ -99,7 +108,7 @@ def test_i() -> None:
     c = b"a"
 
     # Act
-    with pytest.warns(DeprecationWarning):
+    with pytest.warns(DeprecationWarning, match="IptcImagePlugin.i"):
         ret = IptcImagePlugin.i(c)
 
     # Assert
@@ -114,7 +123,7 @@ def test_dump(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(sys, "stdout", mystdout)
 
     # Act
-    with pytest.warns(DeprecationWarning):
+    with pytest.warns(DeprecationWarning, match="IptcImagePlugin.dump"):
         IptcImagePlugin.dump(c)
 
     # Assert
@@ -122,5 +131,5 @@ def test_dump(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_pad_deprecation() -> None:
-    with pytest.warns(DeprecationWarning):
+    with pytest.warns(DeprecationWarning, match="IptcImagePlugin.PAD"):
         assert IptcImagePlugin.PAD == b"\0\0\0\0"

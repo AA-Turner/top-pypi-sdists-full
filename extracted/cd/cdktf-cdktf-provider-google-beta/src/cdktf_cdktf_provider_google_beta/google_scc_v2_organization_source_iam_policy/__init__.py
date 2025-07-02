@@ -1,7 +1,7 @@
 r'''
 # `google_scc_v2_organization_source_iam_policy`
 
-Refer to the Terraform Registry for docs: [`google_scc_v2_organization_source_iam_policy`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_source_iam_policy).
+Refer to the Terraform Registry for docs: [`google_scc_v2_organization_source_iam_policy`](https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_source_iam_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleSccV2OrganizationSourceIamPolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleSccV2OrganizationSourceIamPolicy.GoogleSccV2OrganizationSourceIamPolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_source_iam_policy google_scc_v2_organization_source_iam_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_source_iam_policy google_scc_v2_organization_source_iam_policy}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class GoogleSccV2OrganizationSourceIamPolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_source_iam_policy google_scc_v2_organization_source_iam_policy} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_source_iam_policy google_scc_v2_organization_source_iam_policy} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param organization: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_source_iam_policy#organization GoogleSccV2OrganizationSourceIamPolicy#organization}.
-        :param policy_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_source_iam_policy#policy_data GoogleSccV2OrganizationSourceIamPolicy#policy_data}.
-        :param source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_source_iam_policy#source GoogleSccV2OrganizationSourceIamPolicy#source}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_source_iam_policy#id GoogleSccV2OrganizationSourceIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param organization: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_source_iam_policy#organization GoogleSccV2OrganizationSourceIamPolicy#organization}.
+        :param policy_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_source_iam_policy#policy_data GoogleSccV2OrganizationSourceIamPolicy#policy_data}.
+        :param source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_source_iam_policy#source GoogleSccV2OrganizationSourceIamPolicy#source}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_source_iam_policy#id GoogleSccV2OrganizationSourceIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class GoogleSccV2OrganizationSourceIamPolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleSccV2OrganizationSourceIamPolicy to import.
-        :param import_from_id: The id of the existing GoogleSccV2OrganizationSourceIamPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_source_iam_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleSccV2OrganizationSourceIamPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_source_iam_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleSccV2OrganizationSourceIamPolicy to import is found.
         '''
         if __debug__:
@@ -257,10 +257,10 @@ class GoogleSccV2OrganizationSourceIamPolicyConfig(
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param organization: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_source_iam_policy#organization GoogleSccV2OrganizationSourceIamPolicy#organization}.
-        :param policy_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_source_iam_policy#policy_data GoogleSccV2OrganizationSourceIamPolicy#policy_data}.
-        :param source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_source_iam_policy#source GoogleSccV2OrganizationSourceIamPolicy#source}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_source_iam_policy#id GoogleSccV2OrganizationSourceIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param organization: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_source_iam_policy#organization GoogleSccV2OrganizationSourceIamPolicy#organization}.
+        :param policy_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_source_iam_policy#policy_data GoogleSccV2OrganizationSourceIamPolicy#policy_data}.
+        :param source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_source_iam_policy#source GoogleSccV2OrganizationSourceIamPolicy#source}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_source_iam_policy#id GoogleSccV2OrganizationSourceIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -365,28 +365,28 @@ class GoogleSccV2OrganizationSourceIamPolicyConfig(
 
     @builtins.property
     def organization(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_source_iam_policy#organization GoogleSccV2OrganizationSourceIamPolicy#organization}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_source_iam_policy#organization GoogleSccV2OrganizationSourceIamPolicy#organization}.'''
         result = self._values.get("organization")
         assert result is not None, "Required property 'organization' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def policy_data(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_source_iam_policy#policy_data GoogleSccV2OrganizationSourceIamPolicy#policy_data}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_source_iam_policy#policy_data GoogleSccV2OrganizationSourceIamPolicy#policy_data}.'''
         result = self._values.get("policy_data")
         assert result is not None, "Required property 'policy_data' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def source(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_source_iam_policy#source GoogleSccV2OrganizationSourceIamPolicy#source}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_source_iam_policy#source GoogleSccV2OrganizationSourceIamPolicy#source}.'''
         result = self._values.get("source")
         assert result is not None, "Required property 'source' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_source_iam_policy#id GoogleSccV2OrganizationSourceIamPolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_source_iam_policy#id GoogleSccV2OrganizationSourceIamPolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

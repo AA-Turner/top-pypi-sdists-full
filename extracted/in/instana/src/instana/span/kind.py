@@ -13,6 +13,7 @@ HTTP_SPANS = (
     "aiohttp-server",
     "django",
     "http",
+    "httpx",
     "tornado-client",
     "tornado-server",
     "urllib3",
@@ -21,6 +22,7 @@ HTTP_SPANS = (
 )
 
 ENTRY_SPANS = (
+    "aioamqp-consumer",
     "aiohttp-server",
     "aws.lambda.entry",
     "celery-worker",
@@ -35,12 +37,14 @@ ENTRY_SPANS = (
 )
 
 EXIT_SPANS = (
+    "aioamqp-publisher",
     "aiohttp-client",
     "boto3",
     "cassandra",
     "celery-client",
     "couchbase",
     "dynamodb",
+    "httpx",
     "log",
     "memcache",
     "mongo",

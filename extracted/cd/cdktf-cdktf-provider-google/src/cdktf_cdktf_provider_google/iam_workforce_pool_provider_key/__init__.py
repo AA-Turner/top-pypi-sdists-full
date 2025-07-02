@@ -1,7 +1,7 @@
 r'''
 # `google_iam_workforce_pool_provider_key`
 
-Refer to the Terraform Registry for docs: [`google_iam_workforce_pool_provider_key`](https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/iam_workforce_pool_provider_key).
+Refer to the Terraform Registry for docs: [`google_iam_workforce_pool_provider_key`](https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/iam_workforce_pool_provider_key).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class IamWorkforcePoolProviderKey(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.iamWorkforcePoolProviderKey.IamWorkforcePoolProviderKey",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/iam_workforce_pool_provider_key google_iam_workforce_pool_provider_key}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/iam_workforce_pool_provider_key google_iam_workforce_pool_provider_key}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class IamWorkforcePoolProviderKey(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/iam_workforce_pool_provider_key google_iam_workforce_pool_provider_key} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/iam_workforce_pool_provider_key google_iam_workforce_pool_provider_key} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param key_data: key_data block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/iam_workforce_pool_provider_key#key_data IamWorkforcePoolProviderKey#key_data}
-        :param key_id: The ID to use for the key, which becomes the final component of the resource name. This value must be 4-32 characters, and may contain the characters [a-z0-9-]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/iam_workforce_pool_provider_key#key_id IamWorkforcePoolProviderKey#key_id}
-        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/iam_workforce_pool_provider_key#location IamWorkforcePoolProviderKey#location}
-        :param provider_id: The ID of the provider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/iam_workforce_pool_provider_key#provider_id IamWorkforcePoolProviderKey#provider_id}
-        :param use: The purpose of the key. Possible values: ["ENCRYPTION"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/iam_workforce_pool_provider_key#use IamWorkforcePoolProviderKey#use}
-        :param workforce_pool_id: The ID of the workforce pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/iam_workforce_pool_provider_key#workforce_pool_id IamWorkforcePoolProviderKey#workforce_pool_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/iam_workforce_pool_provider_key#id IamWorkforcePoolProviderKey#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/iam_workforce_pool_provider_key#timeouts IamWorkforcePoolProviderKey#timeouts}
+        :param key_data: key_data block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/iam_workforce_pool_provider_key#key_data IamWorkforcePoolProviderKey#key_data}
+        :param key_id: The ID to use for the key, which becomes the final component of the resource name. This value must be 4-32 characters, and may contain the characters [a-z0-9-]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/iam_workforce_pool_provider_key#key_id IamWorkforcePoolProviderKey#key_id}
+        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/iam_workforce_pool_provider_key#location IamWorkforcePoolProviderKey#location}
+        :param provider_id: The ID of the provider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/iam_workforce_pool_provider_key#provider_id IamWorkforcePoolProviderKey#provider_id}
+        :param use: The purpose of the key. Possible values: ["ENCRYPTION"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/iam_workforce_pool_provider_key#use IamWorkforcePoolProviderKey#use}
+        :param workforce_pool_id: The ID of the workforce pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/iam_workforce_pool_provider_key#workforce_pool_id IamWorkforcePoolProviderKey#workforce_pool_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/iam_workforce_pool_provider_key#id IamWorkforcePoolProviderKey#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/iam_workforce_pool_provider_key#timeouts IamWorkforcePoolProviderKey#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class IamWorkforcePoolProviderKey(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the IamWorkforcePoolProviderKey to import.
-        :param import_from_id: The id of the existing IamWorkforcePoolProviderKey that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/iam_workforce_pool_provider_key#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing IamWorkforcePoolProviderKey that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/iam_workforce_pool_provider_key#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the IamWorkforcePoolProviderKey to import is found.
         '''
         if __debug__:
@@ -138,7 +138,7 @@ class IamWorkforcePoolProviderKey(
     @jsii.member(jsii_name="putKeyData")
     def put_key_data(self, *, key_spec: builtins.str) -> None:
         '''
-        :param key_spec: The specifications for the key. Possible values: ["RSA_2048", "RSA_3072", "RSA_4096"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/iam_workforce_pool_provider_key#key_spec IamWorkforcePoolProviderKey#key_spec}
+        :param key_spec: The specifications for the key. Possible values: ["RSA_2048", "RSA_3072", "RSA_4096"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/iam_workforce_pool_provider_key#key_spec IamWorkforcePoolProviderKey#key_spec}
         '''
         value = IamWorkforcePoolProviderKeyKeyData(key_spec=key_spec)
 
@@ -152,8 +152,8 @@ class IamWorkforcePoolProviderKey(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/iam_workforce_pool_provider_key#create IamWorkforcePoolProviderKey#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/iam_workforce_pool_provider_key#delete IamWorkforcePoolProviderKey#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/iam_workforce_pool_provider_key#create IamWorkforcePoolProviderKey#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/iam_workforce_pool_provider_key#delete IamWorkforcePoolProviderKey#delete}.
         '''
         value = IamWorkforcePoolProviderKeyTimeouts(create=create, delete=delete)
 
@@ -369,14 +369,14 @@ class IamWorkforcePoolProviderKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param key_data: key_data block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/iam_workforce_pool_provider_key#key_data IamWorkforcePoolProviderKey#key_data}
-        :param key_id: The ID to use for the key, which becomes the final component of the resource name. This value must be 4-32 characters, and may contain the characters [a-z0-9-]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/iam_workforce_pool_provider_key#key_id IamWorkforcePoolProviderKey#key_id}
-        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/iam_workforce_pool_provider_key#location IamWorkforcePoolProviderKey#location}
-        :param provider_id: The ID of the provider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/iam_workforce_pool_provider_key#provider_id IamWorkforcePoolProviderKey#provider_id}
-        :param use: The purpose of the key. Possible values: ["ENCRYPTION"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/iam_workforce_pool_provider_key#use IamWorkforcePoolProviderKey#use}
-        :param workforce_pool_id: The ID of the workforce pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/iam_workforce_pool_provider_key#workforce_pool_id IamWorkforcePoolProviderKey#workforce_pool_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/iam_workforce_pool_provider_key#id IamWorkforcePoolProviderKey#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/iam_workforce_pool_provider_key#timeouts IamWorkforcePoolProviderKey#timeouts}
+        :param key_data: key_data block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/iam_workforce_pool_provider_key#key_data IamWorkforcePoolProviderKey#key_data}
+        :param key_id: The ID to use for the key, which becomes the final component of the resource name. This value must be 4-32 characters, and may contain the characters [a-z0-9-]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/iam_workforce_pool_provider_key#key_id IamWorkforcePoolProviderKey#key_id}
+        :param location: The location for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/iam_workforce_pool_provider_key#location IamWorkforcePoolProviderKey#location}
+        :param provider_id: The ID of the provider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/iam_workforce_pool_provider_key#provider_id IamWorkforcePoolProviderKey#provider_id}
+        :param use: The purpose of the key. Possible values: ["ENCRYPTION"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/iam_workforce_pool_provider_key#use IamWorkforcePoolProviderKey#use}
+        :param workforce_pool_id: The ID of the workforce pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/iam_workforce_pool_provider_key#workforce_pool_id IamWorkforcePoolProviderKey#workforce_pool_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/iam_workforce_pool_provider_key#id IamWorkforcePoolProviderKey#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/iam_workforce_pool_provider_key#timeouts IamWorkforcePoolProviderKey#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -496,7 +496,7 @@ class IamWorkforcePoolProviderKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def key_data(self) -> "IamWorkforcePoolProviderKeyKeyData":
         '''key_data block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/iam_workforce_pool_provider_key#key_data IamWorkforcePoolProviderKey#key_data}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/iam_workforce_pool_provider_key#key_data IamWorkforcePoolProviderKey#key_data}
         '''
         result = self._values.get("key_data")
         assert result is not None, "Required property 'key_data' is missing"
@@ -508,7 +508,7 @@ class IamWorkforcePoolProviderKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This value must be 4-32 characters, and may contain the characters [a-z0-9-].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/iam_workforce_pool_provider_key#key_id IamWorkforcePoolProviderKey#key_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/iam_workforce_pool_provider_key#key_id IamWorkforcePoolProviderKey#key_id}
         '''
         result = self._values.get("key_id")
         assert result is not None, "Required property 'key_id' is missing"
@@ -518,7 +518,7 @@ class IamWorkforcePoolProviderKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The location for the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/iam_workforce_pool_provider_key#location IamWorkforcePoolProviderKey#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/iam_workforce_pool_provider_key#location IamWorkforcePoolProviderKey#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -528,7 +528,7 @@ class IamWorkforcePoolProviderKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def provider_id(self) -> builtins.str:
         '''The ID of the provider.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/iam_workforce_pool_provider_key#provider_id IamWorkforcePoolProviderKey#provider_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/iam_workforce_pool_provider_key#provider_id IamWorkforcePoolProviderKey#provider_id}
         '''
         result = self._values.get("provider_id")
         assert result is not None, "Required property 'provider_id' is missing"
@@ -538,7 +538,7 @@ class IamWorkforcePoolProviderKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def use(self) -> builtins.str:
         '''The purpose of the key. Possible values: ["ENCRYPTION"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/iam_workforce_pool_provider_key#use IamWorkforcePoolProviderKey#use}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/iam_workforce_pool_provider_key#use IamWorkforcePoolProviderKey#use}
         '''
         result = self._values.get("use")
         assert result is not None, "Required property 'use' is missing"
@@ -548,7 +548,7 @@ class IamWorkforcePoolProviderKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def workforce_pool_id(self) -> builtins.str:
         '''The ID of the workforce pool.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/iam_workforce_pool_provider_key#workforce_pool_id IamWorkforcePoolProviderKey#workforce_pool_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/iam_workforce_pool_provider_key#workforce_pool_id IamWorkforcePoolProviderKey#workforce_pool_id}
         '''
         result = self._values.get("workforce_pool_id")
         assert result is not None, "Required property 'workforce_pool_id' is missing"
@@ -556,7 +556,7 @@ class IamWorkforcePoolProviderKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/iam_workforce_pool_provider_key#id IamWorkforcePoolProviderKey#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/iam_workforce_pool_provider_key#id IamWorkforcePoolProviderKey#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -568,7 +568,7 @@ class IamWorkforcePoolProviderKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["IamWorkforcePoolProviderKeyTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/iam_workforce_pool_provider_key#timeouts IamWorkforcePoolProviderKey#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/iam_workforce_pool_provider_key#timeouts IamWorkforcePoolProviderKey#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["IamWorkforcePoolProviderKeyTimeouts"], result)
@@ -593,7 +593,7 @@ class IamWorkforcePoolProviderKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class IamWorkforcePoolProviderKeyKeyData:
     def __init__(self, *, key_spec: builtins.str) -> None:
         '''
-        :param key_spec: The specifications for the key. Possible values: ["RSA_2048", "RSA_3072", "RSA_4096"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/iam_workforce_pool_provider_key#key_spec IamWorkforcePoolProviderKey#key_spec}
+        :param key_spec: The specifications for the key. Possible values: ["RSA_2048", "RSA_3072", "RSA_4096"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/iam_workforce_pool_provider_key#key_spec IamWorkforcePoolProviderKey#key_spec}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f9a2ded370e0005e2ea99dfff1e4446e8a50b415ea797d75cb82b30b9103392a)
@@ -606,7 +606,7 @@ class IamWorkforcePoolProviderKeyKeyData:
     def key_spec(self) -> builtins.str:
         '''The specifications for the key. Possible values: ["RSA_2048", "RSA_3072", "RSA_4096"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/iam_workforce_pool_provider_key#key_spec IamWorkforcePoolProviderKey#key_spec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/iam_workforce_pool_provider_key#key_spec IamWorkforcePoolProviderKey#key_spec}
         '''
         result = self._values.get("key_spec")
         assert result is not None, "Required property 'key_spec' is missing"
@@ -710,8 +710,8 @@ class IamWorkforcePoolProviderKeyTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/iam_workforce_pool_provider_key#create IamWorkforcePoolProviderKey#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/iam_workforce_pool_provider_key#delete IamWorkforcePoolProviderKey#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/iam_workforce_pool_provider_key#create IamWorkforcePoolProviderKey#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/iam_workforce_pool_provider_key#delete IamWorkforcePoolProviderKey#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2bb45a20d93d92514e2ae6d0ba936f26fc1849589629afe0b6ad780eb6931f5e)
@@ -725,13 +725,13 @@ class IamWorkforcePoolProviderKeyTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/iam_workforce_pool_provider_key#create IamWorkforcePoolProviderKey#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/iam_workforce_pool_provider_key#create IamWorkforcePoolProviderKey#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/iam_workforce_pool_provider_key#delete IamWorkforcePoolProviderKey#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/iam_workforce_pool_provider_key#delete IamWorkforcePoolProviderKey#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

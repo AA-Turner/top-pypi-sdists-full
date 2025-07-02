@@ -8703,7 +8703,11 @@ SWIG_init(void) {
   SWIG_InstallConstants(d,swig_const_table);
   
   
+#if SWIG_VERSION >= 0x040400
+  import_array1(-1);
+#else
   import_array();
+#endif
   PyDateTime_IMPORT;
   GDALRegister_NUMPY();
   

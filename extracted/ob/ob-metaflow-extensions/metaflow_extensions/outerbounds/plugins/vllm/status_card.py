@@ -160,10 +160,10 @@ class VLLMStatusCard(CardRefresher):
             # Keep only last 10 events
             self.status_data["events"] = self.status_data["events"][:10]
 
-    def get_circuit_breaker_emoji(self, state):
-        """Get status emoji for circuit breaker state"""
-        emoji_map = {"CLOSED": "🟢", "OPEN": "🔴", "HALF_OPEN": "🟡"}
-        return emoji_map.get(state, "⚪")
+    # def get_circuit_breaker_emoji(self, state):
+    #     """Get status emoji for circuit breaker state"""
+    #     emoji_map = {"CLOSED": "🟢", "OPEN": "🔴", "HALF_OPEN": "🟡"}
+    #     return emoji_map.get(state, "⚪")
 
     def get_uptime_string(self, start_time):
         """Calculate uptime string"""
@@ -252,11 +252,11 @@ class VLLMStatusCard(CardRefresher):
             )
 
         # Simplified monitoring note
-        current_card.append(
-            Markdown(
-                "## 🔧 Monitoring\n**Advanced Features:** Disabled (Circuit Breaker, Request Interception)"
-            )
-        )
+        # current_card.append(
+        #     Markdown(
+        #         "## 🔧 Monitoring\n**Advanced Features:** Disabled (Circuit Breaker, Request Interception)"
+        #     )
+        # )
 
         # Performance metrics
         perf_data = data["performance"]

@@ -22,7 +22,7 @@ class Dirs(SimpleNamespace):
     """Various directories/paths used by Reflex."""
 
     # The frontend directories in a project.
-    # The web folder where the NextJS app is compiled to.
+    # The web folder where the frontend app is compiled to.
     WEB = ".web"
     # The directory where uploaded files are stored.
     UPLOADED_FILES = "uploaded_files"
@@ -38,14 +38,18 @@ class Dirs(SimpleNamespace):
     COMPONENTS_PATH = UTILS + "/components"
     # The name of the contexts file.
     CONTEXTS_PATH = UTILS + "/context"
-    # The name of the output static directory.
-    STATIC = "_static"
+    # The name of the output directory.
+    BUILD_DIR = "build"
+    # The name of the static files directory.
+    STATIC = BUILD_DIR + "/client"
     # The name of the public html directory served at "/"
     PUBLIC = "public"
     # The directory where styles are located.
     STYLES = "styles"
     # The name of the pages directory.
-    PAGES = "pages"
+    PAGES = "app"
+    # The name of the routes directory.
+    ROUTES = "routes"
     # The name of the env json file.
     ENV_JSON = "env.json"
     # The name of the reflex json file.
@@ -194,19 +198,32 @@ class Templates(SimpleNamespace):
         CODE = "code"
 
 
-class Next(SimpleNamespace):
-    """Constants related to NextJS."""
+class Javascript(SimpleNamespace):
+    """Constants related to Javascript."""
 
-    # The NextJS config file
-    CONFIG_FILE = "next.config.js"
-    # The sitemap config file.
-    SITEMAP_CONFIG_FILE = "next-sitemap.config.js"
     # The node modules directory.
     NODE_MODULES = "node_modules"
+
     # The package lock file.
     PACKAGE_LOCK = "package-lock.json"
+
+
+class ReactRouter(Javascript):
+    """Constants related to React Router."""
+
+    # The react router config file
+    CONFIG_FILE = "react-router.config.js"
+
     # Regex to check for message displayed when frontend comes up
-    FRONTEND_LISTENING_REGEX = "Local:[\\s]+(.*)"
+    DEV_FRONTEND_LISTENING_REGEX = r"Local:[\s]+"
+
+    # Regex to pattern the route path in the config file
+    # INFO  Accepting connections at http://localhost:3000
+    PROD_FRONTEND_LISTENING_REGEX = r"Accepting connections at[\s]+"
+
+    FRONTEND_LISTENING_REGEX = (
+        rf"(?:{DEV_FRONTEND_LISTENING_REGEX}|{PROD_FRONTEND_LISTENING_REGEX})(.*)"
+    )
 
 
 # Color mode variables

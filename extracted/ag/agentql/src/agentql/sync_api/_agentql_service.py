@@ -1,7 +1,7 @@
 import json
 import logging
 import os
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Optional
 
 import requests
 
@@ -62,15 +62,11 @@ def generate_query_from_agentql_server(
         url = os.getenv("AGENTQL_API_HOST", SERVICE_URL) + QUERY_GENERATE_ENDPOINT
 
         headers = {"X-API-Key": api_key}
-        response = requests.post(
-            url, data=form_body, headers=headers, timeout=timeout, allow_redirects=True
-        )
+        response = requests.post(url, data=form_body, headers=headers, timeout=timeout, allow_redirects=True)
         response.raise_for_status()
         return response.json()["query"]
     except requests.exceptions.RequestException as e:
-        request_id = (
-            e.response.headers.get("X_REQUEST_ID", None) if e.response is not None else None
-        )
+        request_id = e.response.headers.get("X_REQUEST_ID", None) if e.response is not None else None
 
         if isinstance(e, requests.exceptions.ReadTimeout):
             raise AgentQLServerTimeoutError() from e
@@ -139,21 +135,15 @@ def query_agentql_server(
             url = os.getenv("AGENTQL_API_HOST", SERVICE_URL) + GET_AGENTQL_ELEMENT_ENDPOINT
 
         headers = {"X-API-Key": api_key}
-        response = requests.post(
-            url, json=request_data, headers=headers, timeout=timeout, allow_redirects=True
-        )
+        response = requests.post(url, json=request_data, headers=headers, timeout=timeout, allow_redirects=True)
         response.raise_for_status()
 
         minified_query = minify_query(query)
-        log.debug(
-            f"Request ID for the query request {minified_query} is {response.json()['request_id']}"
-        )
+        log.debug(f"Request ID for the query request {minified_query} is {response.json()['request_id']}")
 
         return response.json()["response"]
     except requests.exceptions.RequestException as e:
-        request_id = (
-            e.response.headers.get("X_REQUEST_ID", None) if e.response is not None else None
-        )
+        request_id = e.response.headers.get("X_REQUEST_ID", None) if e.response is not None else None
 
         if isinstance(e, requests.exceptions.ReadTimeout):
             raise AgentQLServerTimeoutError() from e
@@ -172,7 +162,7 @@ def query_agentql_server(
 
 
 def query_agentql_server_document(
-    file: Dict[str, Tuple[Optional[str], bytes]],
+    file: dict[str, tuple[Optional[str], bytes]],
     query: Optional[str],
     prompt: Optional[str],
     timeout: int,
@@ -200,7 +190,7 @@ def query_agentql_server_document(
         raise APIKeyError(API_KEY_NOT_SET_MESSAGE)
 
     try:
-        form_data: Dict[str, Any] = {
+        form_data: dict[str, Any] = {
             "params": {"mode": mode},
         }
 
@@ -235,9 +225,7 @@ def query_agentql_server_document(
         else:
             identifier = prompt
 
-        log.debug(
-            f"Request ID for the query request {identifier} is {response_json['metadata']['request_id']}"
-        )
+        log.debug(f"Request ID for the query request {identifier} is {response_json['metadata']['request_id']}")
         return response_json["data"]
     except requests.exceptions.RequestException as e:
         if isinstance(e, requests.exceptions.ReadTimeout):

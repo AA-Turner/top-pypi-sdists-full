@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import copy
 from contextlib import suppress
 from datetime import timezone
 from functools import partial
@@ -17,7 +16,8 @@ from polyfactory.factories.base import BuildContext as BaseBuildContext
 from polyfactory.field_meta import Constraints, FieldMeta, Null
 from polyfactory.utils.deprecation import check_for_deprecated_parameters
 from polyfactory.utils.helpers import unwrap_new_type, unwrap_optional
-from polyfactory.utils.predicates import is_optional, is_safe_subclass, is_union
+from polyfactory.utils.normalize_type import normalize_type
+from polyfactory.utils.predicates import is_annotated, is_optional, is_safe_subclass, is_union
 from polyfactory.utils.types import NoneType
 from polyfactory.value_generators.primitives import create_random_bytes
 
@@ -168,6 +168,10 @@ class PydanticFieldMeta(FieldMeta):
                 ("random", random),
             ),
         )
+        field_info = FieldInfo.merge_field_infos(
+            field_info, FieldInfo.from_annotation(normalize_type(field_info.annotation))
+        )
+
         if callable(field_info.default_factory):
             default_value = field_info.default_factory
         else:
@@ -182,14 +186,21 @@ class PydanticFieldMeta(FieldMeta):
         if is_union(annotation):
             constraints = {}
             children = []
+
+            # create a child for each of the possible union values
             for arg in get_args(annotation):
+                # don't add the NoneType in an optional to the list of children
                 if arg is NoneType:
                     continue
                 child_field_info = FieldInfo.from_annotation(arg)
                 merged_field_info = FieldInfo.merge_field_infos(field_info, child_field_info)
+
                 children.append(
+                    # recurse for each element of the union
                     cls.from_field_info(
-                        field_name="",
+                        # this is a fake field name, but it makes it possible to debug which type variant
+                        # is the source of an exception downstream
+                        field_name=field_name,
                         field_info=merged_field_info,
                         use_alias=use_alias,
                     ),
@@ -214,7 +225,7 @@ class PydanticFieldMeta(FieldMeta):
             if is_json:
                 constraints["json"] = True
 
-        result = PydanticFieldMeta.from_type(
+        result = super().from_type(
             annotation=annotation,
             children=children,
             constraints=cast("Constraints", {k: v for k, v in constraints.items() if v is not None}) or None,
@@ -271,31 +282,37 @@ class PydanticFieldMeta(FieldMeta):
             else unwrap_new_type(model_field.annotation)
         )
 
-        constraints = cast(
-            "Constraints",
-            {
-                "ge": getattr(outer_type, "ge", model_field.field_info.ge),
-                "gt": getattr(outer_type, "gt", model_field.field_info.gt),
-                "le": getattr(outer_type, "le", model_field.field_info.le),
-                "lt": getattr(outer_type, "lt", model_field.field_info.lt),
-                "min_length": (
-                    getattr(outer_type, "min_length", model_field.field_info.min_length)
-                    or getattr(outer_type, "min_items", model_field.field_info.min_items)
-                ),
-                "max_length": (
-                    getattr(outer_type, "max_length", model_field.field_info.max_length)
-                    or getattr(outer_type, "max_items", model_field.field_info.max_items)
-                ),
-                "pattern": getattr(outer_type, "regex", model_field.field_info.regex),
-                "unique_items": getattr(outer_type, "unique_items", model_field.field_info.unique_items),
-                "decimal_places": getattr(outer_type, "decimal_places", None),
-                "max_digits": getattr(outer_type, "max_digits", None),
-                "multiple_of": getattr(outer_type, "multiple_of", None),
-                "upper_case": getattr(outer_type, "to_upper", None),
-                "lower_case": getattr(outer_type, "to_lower", None),
-                "item_type": getattr(outer_type, "item_type", None),
-            },
-        )
+        # In pydantic v1, we need to check if the annotation is directly annotated to properly extract constraints
+        # from the metadata, as v1 doesn't automatically propagate constraints like v2 does
+        annotation_constraints: Constraints = {}
+        if is_annotated(model_field.annotation):
+            annotation_metadata = cls.get_constraints_metadata(model_field.annotation)
+            annotation_constraints = cls.parse_constraints(annotation_metadata) if annotation_metadata else {}
+
+        field_info_constraints = {
+            "ge": getattr(outer_type, "ge", model_field.field_info.ge),
+            "gt": getattr(outer_type, "gt", model_field.field_info.gt),
+            "le": getattr(outer_type, "le", model_field.field_info.le),
+            "lt": getattr(outer_type, "lt", model_field.field_info.lt),
+            "min_length": (
+                getattr(outer_type, "min_length", model_field.field_info.min_length)
+                or getattr(outer_type, "min_items", model_field.field_info.min_items)
+            ),
+            "max_length": (
+                getattr(outer_type, "max_length", model_field.field_info.max_length)
+                or getattr(outer_type, "max_items", model_field.field_info.max_items)
+            ),
+            "pattern": getattr(outer_type, "regex", model_field.field_info.regex),
+            "unique_items": getattr(outer_type, "unique_items", model_field.field_info.unique_items),
+            "decimal_places": getattr(outer_type, "decimal_places", None),
+            "max_digits": getattr(outer_type, "max_digits", None),
+            "multiple_of": getattr(outer_type, "multiple_of", None),
+            "upper_case": getattr(outer_type, "to_upper", None),
+            "lower_case": getattr(outer_type, "to_lower", None),
+            "item_type": getattr(outer_type, "item_type", None),
+        }
+
+        constraints = cast("Constraints", {**field_info_constraints, **annotation_constraints})
 
         # pydantic v1 has constraints set for these values, but we generate them using faker
         if unwrap_optional(annotation) in (
@@ -396,13 +413,16 @@ class ModelFactory(Generic[T], BaseFactory[T]):
     def __init_subclass__(cls, *args: Any, **kwargs: Any) -> None:
         super().__init_subclass__(*args, **kwargs)
 
-        if (
-            getattr(cls, "__model__", None)
-            and _is_pydantic_v1_model(cls.__model__)
-            and hasattr(cls.__model__, "update_forward_refs")
-        ):
+        model = getattr(cls, "__model__", None)
+        if model is None:
+            return
+
+        if _is_pydantic_v1_model(model) and hasattr(cls.__model__, "update_forward_refs"):
             with suppress(NameError):  # pragma: no cover
-                cls.__model__.update_forward_refs(**cls.__forward_ref_resolution_type_mapping__)  # type: ignore[attr-defined]
+                cls.__model__.update_forward_refs(**cls.__forward_ref_resolution_type_mapping__)
+
+        if _is_pydantic_v2_model(model):
+            model.model_rebuild()
 
     @classmethod
     def is_supported_type(cls, value: Any) -> TypeGuard[type[T]]:
@@ -526,15 +546,11 @@ class ModelFactory(Generic[T], BaseFactory[T]):
         :returns: PydanticBuildContext
 
         """
-        if build_context is None:
-            return {"seen_models": set(), "factory_use_construct": False}
+        build_context = cast("PydanticBuildContext", super()._get_build_context(build_context))
+        if build_context.get("factory_use_construct") is None:
+            build_context["factory_use_construct"] = False
 
-        factory_use_construct = bool(build_context.get("factory_use_construct", False))
-
-        return {
-            "seen_models": copy.deepcopy(build_context["seen_models"]),
-            "factory_use_construct": factory_use_construct,
-        }
+        return build_context
 
     @classmethod
     def _create_model(cls, _build_context: PydanticBuildContext, **kwargs: Any) -> T:
@@ -546,7 +562,7 @@ class ModelFactory(Generic[T], BaseFactory[T]):
         :returns: An instance of type T.
 
         """
-        if cls._get_build_context(_build_context).get("factory_use_construct"):
+        if _build_context.get("factory_use_construct"):
             if _is_pydantic_v1_model(cls.__model__):
                 return cls.__model__.construct(**kwargs)  # type: ignore[return-value]
             return cls.__model__.model_construct(**kwargs)

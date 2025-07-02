@@ -5316,6 +5316,7 @@ class UpdateProjectInputTypeDef(TypedDict):
     domainIdentifier: str
     identifier: str
     description: NotRequired[str]
+    domainUnitId: NotRequired[str]
     environmentDeploymentDetails: NotRequired[EnvironmentDeploymentDetailsUnionTypeDef]
     glossaryTerms: NotRequired[Sequence[str]]
     name: NotRequired[str]

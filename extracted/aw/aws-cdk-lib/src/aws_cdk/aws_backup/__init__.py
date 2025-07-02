@@ -86,6 +86,7 @@ plan.add_selection("Selection",
 To add rules to a plan, use `addRule()`:
 
 ```python
+from aws_cdk import TimeZone
 # plan: backup.BackupPlan
 
 plan.add_rule(backup.BackupPlanRule(
@@ -95,6 +96,7 @@ plan.add_rule(backup.BackupPlanRule(
         day="15",
         hour="3",
         minute="30"),
+    schedule_expression_timezone=TimeZone.ETC_UTC,
     move_to_cold_storage_after=Duration.days(30)
 ))
 ```
@@ -304,6 +306,7 @@ from .. import (
     RemovalPolicy as _RemovalPolicy_9f93c814,
     Resource as _Resource_45bc6135,
     TagManager as _TagManager_0a598cb3,
+    TimeZone as _TimeZone_cdd72ac9,
     TreeInspector as _TreeInspector_488e0dd5,
 )
 from ..aws_dynamodb import ITable as _ITable_504fd401
@@ -557,6 +560,7 @@ class BackupPlanRule(
         recovery_point_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         rule_name: typing.Optional[builtins.str] = None,
         schedule_expression: typing.Optional[_Schedule_c151d01f] = None,
+        schedule_expression_timezone: typing.Optional[_TimeZone_cdd72ac9] = None,
         start_window: typing.Optional[_Duration_4839e8c3] = None,
     ) -> None:
         '''
@@ -569,6 +573,7 @@ class BackupPlanRule(
         :param recovery_point_tags: To help organize your resources, you can assign your own metadata to the resources that you create. Each tag is a key-value pair. Default: - no recovery point tags.
         :param rule_name: A display name for the backup rule. Default: - a CDK generated name
         :param schedule_expression: A CRON expression specifying when AWS Backup initiates a backup job. Default: - no schedule
+        :param schedule_expression_timezone: The timezone in which the schedule expression is set. Default: - UTC
         :param start_window: The duration after a backup is scheduled before a job is canceled if it doesn't start successfully. Default: - 8 hours
         '''
         props = BackupPlanRuleProps(
@@ -581,6 +586,7 @@ class BackupPlanRule(
             recovery_point_tags=recovery_point_tags,
             rule_name=rule_name,
             schedule_expression=schedule_expression,
+            schedule_expression_timezone=schedule_expression_timezone,
             start_window=start_window,
         )
 
@@ -681,6 +687,7 @@ class BackupPlanRule(
         "recovery_point_tags": "recoveryPointTags",
         "rule_name": "ruleName",
         "schedule_expression": "scheduleExpression",
+        "schedule_expression_timezone": "scheduleExpressionTimezone",
         "start_window": "startWindow",
     },
 )
@@ -697,6 +704,7 @@ class BackupPlanRuleProps:
         recovery_point_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         rule_name: typing.Optional[builtins.str] = None,
         schedule_expression: typing.Optional[_Schedule_c151d01f] = None,
+        schedule_expression_timezone: typing.Optional[_TimeZone_cdd72ac9] = None,
         start_window: typing.Optional[_Duration_4839e8c3] = None,
     ) -> None:
         '''Properties for a BackupPlanRule.
@@ -710,6 +718,7 @@ class BackupPlanRuleProps:
         :param recovery_point_tags: To help organize your resources, you can assign your own metadata to the resources that you create. Each tag is a key-value pair. Default: - no recovery point tags.
         :param rule_name: A display name for the backup rule. Default: - a CDK generated name
         :param schedule_expression: A CRON expression specifying when AWS Backup initiates a backup job. Default: - no schedule
+        :param schedule_expression_timezone: The timezone in which the schedule expression is set. Default: - UTC
         :param start_window: The duration after a backup is scheduled before a job is canceled if it doesn't start successfully. Default: - 8 hours
 
         :exampleMetadata: infused
@@ -738,6 +747,7 @@ class BackupPlanRuleProps:
             check_type(argname="argument recovery_point_tags", value=recovery_point_tags, expected_type=type_hints["recovery_point_tags"])
             check_type(argname="argument rule_name", value=rule_name, expected_type=type_hints["rule_name"])
             check_type(argname="argument schedule_expression", value=schedule_expression, expected_type=type_hints["schedule_expression"])
+            check_type(argname="argument schedule_expression_timezone", value=schedule_expression_timezone, expected_type=type_hints["schedule_expression_timezone"])
             check_type(argname="argument start_window", value=start_window, expected_type=type_hints["start_window"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if backup_vault is not None:
@@ -758,6 +768,8 @@ class BackupPlanRuleProps:
             self._values["rule_name"] = rule_name
         if schedule_expression is not None:
             self._values["schedule_expression"] = schedule_expression
+        if schedule_expression_timezone is not None:
+            self._values["schedule_expression_timezone"] = schedule_expression_timezone
         if start_window is not None:
             self._values["start_window"] = start_window
 
@@ -855,6 +867,15 @@ class BackupPlanRuleProps:
         '''
         result = self._values.get("schedule_expression")
         return typing.cast(typing.Optional[_Schedule_c151d01f], result)
+
+    @builtins.property
+    def schedule_expression_timezone(self) -> typing.Optional[_TimeZone_cdd72ac9]:
+        '''The timezone in which the schedule expression is set.
+
+        :default: - UTC
+        '''
+        result = self._values.get("schedule_expression_timezone")
+        return typing.cast(typing.Optional[_TimeZone_cdd72ac9], result)
 
     @builtins.property
     def start_window(self) -> typing.Optional[_Duration_4839e8c3]:
@@ -7714,6 +7735,7 @@ def _typecheckingstub__521e43eca71db1c8347b5dbf1e88135cbc1fd43f07248784b33b55d83
     recovery_point_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     rule_name: typing.Optional[builtins.str] = None,
     schedule_expression: typing.Optional[_Schedule_c151d01f] = None,
+    schedule_expression_timezone: typing.Optional[_TimeZone_cdd72ac9] = None,
     start_window: typing.Optional[_Duration_4839e8c3] = None,
 ) -> None:
     """Type checking stubs"""

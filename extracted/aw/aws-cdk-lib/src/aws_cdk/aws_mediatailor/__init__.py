@@ -1712,9 +1712,23 @@ class CfnPlaybackConfiguration(
             hls_configuration=mediatailor.CfnPlaybackConfiguration.HlsConfigurationProperty(
                 manifest_endpoint_prefix="manifestEndpointPrefix"
             ),
+            insertion_mode="insertionMode",
             live_pre_roll_configuration=mediatailor.CfnPlaybackConfiguration.LivePreRollConfigurationProperty(
                 ad_decision_server_url="adDecisionServerUrl",
                 max_duration_seconds=123
+            ),
+            log_configuration=mediatailor.CfnPlaybackConfiguration.LogConfigurationProperty(
+                percent_enabled=123,
+        
+                # the properties below are optional
+                ads_interaction_log=mediatailor.CfnPlaybackConfiguration.AdsInteractionLogProperty(
+                    exclude_event_types=["excludeEventTypes"],
+                    publish_opt_in_event_types=["publishOptInEventTypes"]
+                ),
+                enabled_logging_strategies=["enabledLoggingStrategies"],
+                manifest_service_interaction_log=mediatailor.CfnPlaybackConfiguration.ManifestServiceInteractionLogProperty(
+                    exclude_event_types=["excludeEventTypes"]
+                )
             ),
             manifest_processing_rules=mediatailor.CfnPlaybackConfiguration.ManifestProcessingRulesProperty(
                 ad_marker_passthrough=mediatailor.CfnPlaybackConfiguration.AdMarkerPassthroughProperty(
@@ -1746,7 +1760,9 @@ class CfnPlaybackConfiguration(
         configuration_aliases: typing.Optional[typing.Union[typing.Mapping[builtins.str, typing.Any], _IResolvable_da3f097b]] = None,
         dash_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlaybackConfiguration.DashConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         hls_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlaybackConfiguration.HlsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        insertion_mode: typing.Optional[builtins.str] = None,
         live_pre_roll_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlaybackConfiguration.LivePreRollConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        log_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlaybackConfiguration.LogConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         manifest_processing_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlaybackConfiguration.ManifestProcessingRulesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         personalization_threshold_seconds: typing.Optional[jsii.Number] = None,
         slate_ad_url: typing.Optional[builtins.str] = None,
@@ -1766,7 +1782,9 @@ class CfnPlaybackConfiguration(
         :param configuration_aliases: The player parameters and aliases used as dynamic variables during session initialization. For more information, see `Domain Variables <https://docs.aws.amazon.com/mediatailor/latest/ug/variables-domain.html>`_ .
         :param dash_configuration: The configuration for a DASH source.
         :param hls_configuration: The configuration for HLS content.
+        :param insertion_mode: The setting that controls whether players can use stitched or guided ad insertion. The default, ``STITCHED_ONLY`` , forces all player sessions to use stitched (server-side) ad insertion. Choosing ``PLAYER_SELECT`` allows players to select either stitched or guided ad insertion at session-initialization time. The default for players that do not specify an insertion mode is stitched.
         :param live_pre_roll_configuration: The configuration for pre-roll ad insertion.
+        :param log_configuration: Defines where AWS Elemental MediaTailor sends logs for the playback configuration.
         :param manifest_processing_rules: The configuration for manifest processing rules. Manifest processing rules enable customization of the personalized manifests created by MediaTailor.
         :param personalization_threshold_seconds: Defines the maximum duration of underfilled ad time (in seconds) allowed in an ad break. If the duration of underfilled ad time exceeds the personalization threshold, then the personalization of the ad break is abandoned and the underlying content is shown. This feature applies to *ad replacement* in live and VOD streams, rather than ad insertion, because it relies on an underlying content stream. For more information about ad break behavior, including ad replacement and insertion, see `Ad Behavior in AWS Elemental MediaTailor <https://docs.aws.amazon.com/mediatailor/latest/ug/ad-behavior.html>`_ .
         :param slate_ad_url: The URL for a video asset to transcode and use to fill in time that's not used by ads. AWS Elemental MediaTailor shows the slate to fill in gaps in media content. Configuring the slate is optional for non-VPAID playback configurations. For VPAID, the slate is required because MediaTailor provides it in the slots designated for dynamic ad content. The slate must be a high-quality asset that contains both audio and video.
@@ -1788,7 +1806,9 @@ class CfnPlaybackConfiguration(
             configuration_aliases=configuration_aliases,
             dash_configuration=dash_configuration,
             hls_configuration=hls_configuration,
+            insertion_mode=insertion_mode,
             live_pre_roll_configuration=live_pre_roll_configuration,
+            log_configuration=log_configuration,
             manifest_processing_rules=manifest_processing_rules,
             personalization_threshold_seconds=personalization_threshold_seconds,
             slate_ad_url=slate_ad_url,
@@ -2056,6 +2076,19 @@ class CfnPlaybackConfiguration(
         jsii.set(self, "hlsConfiguration", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="insertionMode")
+    def insertion_mode(self) -> typing.Optional[builtins.str]:
+        '''The setting that controls whether players can use stitched or guided ad insertion.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "insertionMode"))
+
+    @insertion_mode.setter
+    def insertion_mode(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8db08ab0a15b5e71226bad5d4d94682032ded680bfe3f777d4f4ef02bad39cbf)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "insertionMode", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="livePreRollConfiguration")
     def live_pre_roll_configuration(
         self,
@@ -2072,6 +2105,24 @@ class CfnPlaybackConfiguration(
             type_hints = typing.get_type_hints(_typecheckingstub__d20db08db40dad827f8fdbbfd9ec60bdd03cf18a0cf5f764aedb5ed9040d782f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "livePreRollConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="logConfiguration")
+    def log_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlaybackConfiguration.LogConfigurationProperty"]]:
+        '''Defines where AWS Elemental MediaTailor sends logs for the playback configuration.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlaybackConfiguration.LogConfigurationProperty"]], jsii.get(self, "logConfiguration"))
+
+    @log_configuration.setter
+    def log_configuration(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlaybackConfiguration.LogConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a6fbfb7358fa4aedc54b5bb197d51ad46d862c18709b40e671060ad3ab400894)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "logConfiguration", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="manifestProcessingRules")
@@ -2258,6 +2309,83 @@ class CfnPlaybackConfiguration(
 
         def __repr__(self) -> str:
             return "AdMarkerPassthroughProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediatailor.CfnPlaybackConfiguration.AdsInteractionLogProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "exclude_event_types": "excludeEventTypes",
+            "publish_opt_in_event_types": "publishOptInEventTypes",
+        },
+    )
+    class AdsInteractionLogProperty:
+        def __init__(
+            self,
+            *,
+            exclude_event_types: typing.Optional[typing.Sequence[builtins.str]] = None,
+            publish_opt_in_event_types: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''Settings for customizing what events are included in logs for interactions with the ad decision server (ADS).
+
+            For more information about ADS logs, inlcuding descriptions of the event types, see `MediaTailor ADS logs description and event types <https://docs.aws.amazon.com/mediatailor/latest/ug/ads-log-format.html>`_ in AWS Elemental MediaTailor User Guide.
+
+            :param exclude_event_types: Indicates that MediaTailor won't emit the selected events in the logs for playback sessions that are initialized with this configuration.
+            :param publish_opt_in_event_types: Indicates that MediaTailor emits ``RAW_ADS_RESPONSE`` logs for playback sessions that are initialized with this configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-adsinteractionlog.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediatailor as mediatailor
+                
+                ads_interaction_log_property = mediatailor.CfnPlaybackConfiguration.AdsInteractionLogProperty(
+                    exclude_event_types=["excludeEventTypes"],
+                    publish_opt_in_event_types=["publishOptInEventTypes"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__325f2da032e4a3f14a765ea1c946c8707bfd649b7df813a9bf9d270b2edfcd0f)
+                check_type(argname="argument exclude_event_types", value=exclude_event_types, expected_type=type_hints["exclude_event_types"])
+                check_type(argname="argument publish_opt_in_event_types", value=publish_opt_in_event_types, expected_type=type_hints["publish_opt_in_event_types"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if exclude_event_types is not None:
+                self._values["exclude_event_types"] = exclude_event_types
+            if publish_opt_in_event_types is not None:
+                self._values["publish_opt_in_event_types"] = publish_opt_in_event_types
+
+        @builtins.property
+        def exclude_event_types(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''Indicates that MediaTailor won't emit the selected events in the logs for playback sessions that are initialized with this configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-adsinteractionlog.html#cfn-mediatailor-playbackconfiguration-adsinteractionlog-excludeeventtypes
+            '''
+            result = self._values.get("exclude_event_types")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def publish_opt_in_event_types(
+            self,
+        ) -> typing.Optional[typing.List[builtins.str]]:
+            '''Indicates that MediaTailor emits ``RAW_ADS_RESPONSE`` logs for playback sessions that are initialized with this configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-adsinteractionlog.html#cfn-mediatailor-playbackconfiguration-adsinteractionlog-publishoptineventtypes
+            '''
+            result = self._values.get("publish_opt_in_event_types")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AdsInteractionLogProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -2733,6 +2861,131 @@ class CfnPlaybackConfiguration(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediatailor.CfnPlaybackConfiguration.LogConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "percent_enabled": "percentEnabled",
+            "ads_interaction_log": "adsInteractionLog",
+            "enabled_logging_strategies": "enabledLoggingStrategies",
+            "manifest_service_interaction_log": "manifestServiceInteractionLog",
+        },
+    )
+    class LogConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            percent_enabled: jsii.Number,
+            ads_interaction_log: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlaybackConfiguration.AdsInteractionLogProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            enabled_logging_strategies: typing.Optional[typing.Sequence[builtins.str]] = None,
+            manifest_service_interaction_log: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlaybackConfiguration.ManifestServiceInteractionLogProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Defines where AWS Elemental MediaTailor sends logs for the playback configuration.
+
+            :param percent_enabled: The percentage of session logs that MediaTailor sends to your configured log destination. For example, if your playback configuration has 1000 sessions and ``percentEnabled`` is set to ``60`` , MediaTailor sends logs for 600 of the sessions to CloudWatch Logs. MediaTailor decides at random which of the playback configuration sessions to send logs for. If you want to view logs for a specific session, you can use the `debug log mode <https://docs.aws.amazon.com/mediatailor/latest/ug/debug-log-mode.html>`_ . Valid values: ``0`` - ``100``
+            :param ads_interaction_log: Settings for customizing what events are included in logs for interactions with the ad decision server (ADS).
+            :param enabled_logging_strategies: The method used for collecting logs from AWS Elemental MediaTailor. ``LEGACY_CLOUDWATCH`` indicates that MediaTailor is sending logs directly to Amazon CloudWatch Logs. ``VENDED_LOGS`` indicates that MediaTailor is sending logs to CloudWatch, which then vends the logs to your destination of choice. Supported destinations are CloudWatch Logs log group, Amazon S3 bucket, and Amazon Data Firehose stream.
+            :param manifest_service_interaction_log: Settings for customizing what events are included in logs for interactions with the origin server.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-logconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediatailor as mediatailor
+                
+                log_configuration_property = mediatailor.CfnPlaybackConfiguration.LogConfigurationProperty(
+                    percent_enabled=123,
+                
+                    # the properties below are optional
+                    ads_interaction_log=mediatailor.CfnPlaybackConfiguration.AdsInteractionLogProperty(
+                        exclude_event_types=["excludeEventTypes"],
+                        publish_opt_in_event_types=["publishOptInEventTypes"]
+                    ),
+                    enabled_logging_strategies=["enabledLoggingStrategies"],
+                    manifest_service_interaction_log=mediatailor.CfnPlaybackConfiguration.ManifestServiceInteractionLogProperty(
+                        exclude_event_types=["excludeEventTypes"]
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__0b1a16aa41d90a41939aee256096b129464d60c87f4e8ac32c6ce9c43de9dcfd)
+                check_type(argname="argument percent_enabled", value=percent_enabled, expected_type=type_hints["percent_enabled"])
+                check_type(argname="argument ads_interaction_log", value=ads_interaction_log, expected_type=type_hints["ads_interaction_log"])
+                check_type(argname="argument enabled_logging_strategies", value=enabled_logging_strategies, expected_type=type_hints["enabled_logging_strategies"])
+                check_type(argname="argument manifest_service_interaction_log", value=manifest_service_interaction_log, expected_type=type_hints["manifest_service_interaction_log"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "percent_enabled": percent_enabled,
+            }
+            if ads_interaction_log is not None:
+                self._values["ads_interaction_log"] = ads_interaction_log
+            if enabled_logging_strategies is not None:
+                self._values["enabled_logging_strategies"] = enabled_logging_strategies
+            if manifest_service_interaction_log is not None:
+                self._values["manifest_service_interaction_log"] = manifest_service_interaction_log
+
+        @builtins.property
+        def percent_enabled(self) -> jsii.Number:
+            '''The percentage of session logs that MediaTailor sends to your configured log destination.
+
+            For example, if your playback configuration has 1000 sessions and ``percentEnabled`` is set to ``60`` , MediaTailor sends logs for 600 of the sessions to CloudWatch Logs. MediaTailor decides at random which of the playback configuration sessions to send logs for. If you want to view logs for a specific session, you can use the `debug log mode <https://docs.aws.amazon.com/mediatailor/latest/ug/debug-log-mode.html>`_ .
+
+            Valid values: ``0`` - ``100``
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-logconfiguration.html#cfn-mediatailor-playbackconfiguration-logconfiguration-percentenabled
+            '''
+            result = self._values.get("percent_enabled")
+            assert result is not None, "Required property 'percent_enabled' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def ads_interaction_log(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlaybackConfiguration.AdsInteractionLogProperty"]]:
+            '''Settings for customizing what events are included in logs for interactions with the ad decision server (ADS).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-logconfiguration.html#cfn-mediatailor-playbackconfiguration-logconfiguration-adsinteractionlog
+            '''
+            result = self._values.get("ads_interaction_log")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlaybackConfiguration.AdsInteractionLogProperty"]], result)
+
+        @builtins.property
+        def enabled_logging_strategies(
+            self,
+        ) -> typing.Optional[typing.List[builtins.str]]:
+            '''The method used for collecting logs from AWS Elemental MediaTailor.
+
+            ``LEGACY_CLOUDWATCH`` indicates that MediaTailor is sending logs directly to Amazon CloudWatch Logs. ``VENDED_LOGS`` indicates that MediaTailor is sending logs to CloudWatch, which then vends the logs to your destination of choice. Supported destinations are CloudWatch Logs log group, Amazon S3 bucket, and Amazon Data Firehose stream.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-logconfiguration.html#cfn-mediatailor-playbackconfiguration-logconfiguration-enabledloggingstrategies
+            '''
+            result = self._values.get("enabled_logging_strategies")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def manifest_service_interaction_log(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlaybackConfiguration.ManifestServiceInteractionLogProperty"]]:
+            '''Settings for customizing what events are included in logs for interactions with the origin server.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-logconfiguration.html#cfn-mediatailor-playbackconfiguration-logconfiguration-manifestserviceinteractionlog
+            '''
+            result = self._values.get("manifest_service_interaction_log")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlaybackConfiguration.ManifestServiceInteractionLogProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LogConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mediatailor.CfnPlaybackConfiguration.ManifestProcessingRulesProperty",
         jsii_struct_bases=[],
         name_mapping={"ad_marker_passthrough": "adMarkerPassthrough"},
@@ -2795,6 +3048,63 @@ class CfnPlaybackConfiguration(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediatailor.CfnPlaybackConfiguration.ManifestServiceInteractionLogProperty",
+        jsii_struct_bases=[],
+        name_mapping={"exclude_event_types": "excludeEventTypes"},
+    )
+    class ManifestServiceInteractionLogProperty:
+        def __init__(
+            self,
+            *,
+            exclude_event_types: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''Settings for customizing what events are included in logs for interactions with the origin server.
+
+            For more information about manifest service logs, including descriptions of the event types, see `MediaTailor manifest logs description and event types <https://docs.aws.amazon.com/mediatailor/latest/ug/log-types.html>`_ in AWS Elemental MediaTailor User Guide.
+
+            :param exclude_event_types: Indicates that MediaTailor won't emit the selected events in the logs for playback sessions that are initialized with this configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-manifestserviceinteractionlog.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediatailor as mediatailor
+                
+                manifest_service_interaction_log_property = mediatailor.CfnPlaybackConfiguration.ManifestServiceInteractionLogProperty(
+                    exclude_event_types=["excludeEventTypes"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__877d8a60ce1cb5812848b2604b2ff4a34e5662596f05cca7a6a335a5facd5374)
+                check_type(argname="argument exclude_event_types", value=exclude_event_types, expected_type=type_hints["exclude_event_types"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if exclude_event_types is not None:
+                self._values["exclude_event_types"] = exclude_event_types
+
+        @builtins.property
+        def exclude_event_types(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''Indicates that MediaTailor won't emit the selected events in the logs for playback sessions that are initialized with this configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-manifestserviceinteractionlog.html#cfn-mediatailor-playbackconfiguration-manifestserviceinteractionlog-excludeeventtypes
+            '''
+            result = self._values.get("exclude_event_types")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ManifestServiceInteractionLogProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_mediatailor.CfnPlaybackConfigurationProps",
@@ -2810,7 +3120,9 @@ class CfnPlaybackConfiguration(
         "configuration_aliases": "configurationAliases",
         "dash_configuration": "dashConfiguration",
         "hls_configuration": "hlsConfiguration",
+        "insertion_mode": "insertionMode",
         "live_pre_roll_configuration": "livePreRollConfiguration",
+        "log_configuration": "logConfiguration",
         "manifest_processing_rules": "manifestProcessingRules",
         "personalization_threshold_seconds": "personalizationThresholdSeconds",
         "slate_ad_url": "slateAdUrl",
@@ -2832,7 +3144,9 @@ class CfnPlaybackConfigurationProps:
         configuration_aliases: typing.Optional[typing.Union[typing.Mapping[builtins.str, typing.Any], _IResolvable_da3f097b]] = None,
         dash_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.DashConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
         hls_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.HlsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        insertion_mode: typing.Optional[builtins.str] = None,
         live_pre_roll_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.LivePreRollConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        log_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.LogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
         manifest_processing_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.ManifestProcessingRulesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
         personalization_threshold_seconds: typing.Optional[jsii.Number] = None,
         slate_ad_url: typing.Optional[builtins.str] = None,
@@ -2851,7 +3165,9 @@ class CfnPlaybackConfigurationProps:
         :param configuration_aliases: The player parameters and aliases used as dynamic variables during session initialization. For more information, see `Domain Variables <https://docs.aws.amazon.com/mediatailor/latest/ug/variables-domain.html>`_ .
         :param dash_configuration: The configuration for a DASH source.
         :param hls_configuration: The configuration for HLS content.
+        :param insertion_mode: The setting that controls whether players can use stitched or guided ad insertion. The default, ``STITCHED_ONLY`` , forces all player sessions to use stitched (server-side) ad insertion. Choosing ``PLAYER_SELECT`` allows players to select either stitched or guided ad insertion at session-initialization time. The default for players that do not specify an insertion mode is stitched.
         :param live_pre_roll_configuration: The configuration for pre-roll ad insertion.
+        :param log_configuration: Defines where AWS Elemental MediaTailor sends logs for the playback configuration.
         :param manifest_processing_rules: The configuration for manifest processing rules. Manifest processing rules enable customization of the personalized manifests created by MediaTailor.
         :param personalization_threshold_seconds: Defines the maximum duration of underfilled ad time (in seconds) allowed in an ad break. If the duration of underfilled ad time exceeds the personalization threshold, then the personalization of the ad break is abandoned and the underlying content is shown. This feature applies to *ad replacement* in live and VOD streams, rather than ad insertion, because it relies on an underlying content stream. For more information about ad break behavior, including ad replacement and insertion, see `Ad Behavior in AWS Elemental MediaTailor <https://docs.aws.amazon.com/mediatailor/latest/ug/ad-behavior.html>`_ .
         :param slate_ad_url: The URL for a video asset to transcode and use to fill in time that's not used by ads. AWS Elemental MediaTailor shows the slate to fill in gaps in media content. Configuring the slate is optional for non-VPAID playback configurations. For VPAID, the slate is required because MediaTailor provides it in the slots designated for dynamic ad content. The slate must be a high-quality asset that contains both audio and video.
@@ -2902,9 +3218,23 @@ class CfnPlaybackConfigurationProps:
                 hls_configuration=mediatailor.CfnPlaybackConfiguration.HlsConfigurationProperty(
                     manifest_endpoint_prefix="manifestEndpointPrefix"
                 ),
+                insertion_mode="insertionMode",
                 live_pre_roll_configuration=mediatailor.CfnPlaybackConfiguration.LivePreRollConfigurationProperty(
                     ad_decision_server_url="adDecisionServerUrl",
                     max_duration_seconds=123
+                ),
+                log_configuration=mediatailor.CfnPlaybackConfiguration.LogConfigurationProperty(
+                    percent_enabled=123,
+            
+                    # the properties below are optional
+                    ads_interaction_log=mediatailor.CfnPlaybackConfiguration.AdsInteractionLogProperty(
+                        exclude_event_types=["excludeEventTypes"],
+                        publish_opt_in_event_types=["publishOptInEventTypes"]
+                    ),
+                    enabled_logging_strategies=["enabledLoggingStrategies"],
+                    manifest_service_interaction_log=mediatailor.CfnPlaybackConfiguration.ManifestServiceInteractionLogProperty(
+                        exclude_event_types=["excludeEventTypes"]
+                    )
                 ),
                 manifest_processing_rules=mediatailor.CfnPlaybackConfiguration.ManifestProcessingRulesProperty(
                     ad_marker_passthrough=mediatailor.CfnPlaybackConfiguration.AdMarkerPassthroughProperty(
@@ -2932,7 +3262,9 @@ class CfnPlaybackConfigurationProps:
             check_type(argname="argument configuration_aliases", value=configuration_aliases, expected_type=type_hints["configuration_aliases"])
             check_type(argname="argument dash_configuration", value=dash_configuration, expected_type=type_hints["dash_configuration"])
             check_type(argname="argument hls_configuration", value=hls_configuration, expected_type=type_hints["hls_configuration"])
+            check_type(argname="argument insertion_mode", value=insertion_mode, expected_type=type_hints["insertion_mode"])
             check_type(argname="argument live_pre_roll_configuration", value=live_pre_roll_configuration, expected_type=type_hints["live_pre_roll_configuration"])
+            check_type(argname="argument log_configuration", value=log_configuration, expected_type=type_hints["log_configuration"])
             check_type(argname="argument manifest_processing_rules", value=manifest_processing_rules, expected_type=type_hints["manifest_processing_rules"])
             check_type(argname="argument personalization_threshold_seconds", value=personalization_threshold_seconds, expected_type=type_hints["personalization_threshold_seconds"])
             check_type(argname="argument slate_ad_url", value=slate_ad_url, expected_type=type_hints["slate_ad_url"])
@@ -2957,8 +3289,12 @@ class CfnPlaybackConfigurationProps:
             self._values["dash_configuration"] = dash_configuration
         if hls_configuration is not None:
             self._values["hls_configuration"] = hls_configuration
+        if insertion_mode is not None:
+            self._values["insertion_mode"] = insertion_mode
         if live_pre_roll_configuration is not None:
             self._values["live_pre_roll_configuration"] = live_pre_roll_configuration
+        if log_configuration is not None:
+            self._values["log_configuration"] = log_configuration
         if manifest_processing_rules is not None:
             self._values["manifest_processing_rules"] = manifest_processing_rules
         if personalization_threshold_seconds is not None:
@@ -3088,6 +3424,17 @@ class CfnPlaybackConfigurationProps:
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPlaybackConfiguration.HlsConfigurationProperty]], result)
 
     @builtins.property
+    def insertion_mode(self) -> typing.Optional[builtins.str]:
+        '''The setting that controls whether players can use stitched or guided ad insertion.
+
+        The default, ``STITCHED_ONLY`` , forces all player sessions to use stitched (server-side) ad insertion. Choosing ``PLAYER_SELECT`` allows players to select either stitched or guided ad insertion at session-initialization time. The default for players that do not specify an insertion mode is stitched.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-insertionmode
+        '''
+        result = self._values.get("insertion_mode")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def live_pre_roll_configuration(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPlaybackConfiguration.LivePreRollConfigurationProperty]]:
@@ -3097,6 +3444,17 @@ class CfnPlaybackConfigurationProps:
         '''
         result = self._values.get("live_pre_roll_configuration")
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPlaybackConfiguration.LivePreRollConfigurationProperty]], result)
+
+    @builtins.property
+    def log_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPlaybackConfiguration.LogConfigurationProperty]]:
+        '''Defines where AWS Elemental MediaTailor sends logs for the playback configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-logconfiguration
+        '''
+        result = self._values.get("log_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPlaybackConfiguration.LogConfigurationProperty]], result)
 
     @builtins.property
     def manifest_processing_rules(
@@ -4603,7 +4961,9 @@ def _typecheckingstub__3dcfb97a898a80ee6a7b069e26028183e8a797f0c48fdbd4fe6ecb8ad
     configuration_aliases: typing.Optional[typing.Union[typing.Mapping[builtins.str, typing.Any], _IResolvable_da3f097b]] = None,
     dash_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.DashConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     hls_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.HlsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    insertion_mode: typing.Optional[builtins.str] = None,
     live_pre_roll_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.LivePreRollConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    log_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.LogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     manifest_processing_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.ManifestProcessingRulesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     personalization_threshold_seconds: typing.Optional[jsii.Number] = None,
     slate_ad_url: typing.Optional[builtins.str] = None,
@@ -4685,8 +5045,20 @@ def _typecheckingstub__8c53800db93b8d74956b4a23e4372e79b770aeb9e98d1001196859bcb
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__8db08ab0a15b5e71226bad5d4d94682032ded680bfe3f777d4f4ef02bad39cbf(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__d20db08db40dad827f8fdbbfd9ec60bdd03cf18a0cf5f764aedb5ed9040d782f(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPlaybackConfiguration.LivePreRollConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a6fbfb7358fa4aedc54b5bb197d51ad46d862c18709b40e671060ad3ab400894(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPlaybackConfiguration.LogConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4731,6 +5103,14 @@ def _typecheckingstub__86f7802737ba8294b0aa8d203c7f9bc7ff38b98bf17f1f9066c772b20
 def _typecheckingstub__c84cc8c470c35ea1870d24a6e58a722cc2d0952d699c858000349755866ccea6(
     *,
     enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__325f2da032e4a3f14a765ea1c946c8707bfd649b7df813a9bf9d270b2edfcd0f(
+    *,
+    exclude_event_types: typing.Optional[typing.Sequence[builtins.str]] = None,
+    publish_opt_in_event_types: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4784,9 +5164,26 @@ def _typecheckingstub__be1326ff9046a5c3b87adfaac42a0610149574f9d367d1c04949ccf8a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__0b1a16aa41d90a41939aee256096b129464d60c87f4e8ac32c6ce9c43de9dcfd(
+    *,
+    percent_enabled: jsii.Number,
+    ads_interaction_log: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.AdsInteractionLogProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    enabled_logging_strategies: typing.Optional[typing.Sequence[builtins.str]] = None,
+    manifest_service_interaction_log: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.ManifestServiceInteractionLogProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__ef5bb7a5b9697fa8ca9b867a5d8f7f8c6041a353ed9fad8ec9b06f14fd300d73(
     *,
     ad_marker_passthrough: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.AdMarkerPassthroughProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__877d8a60ce1cb5812848b2604b2ff4a34e5662596f05cca7a6a335a5facd5374(
+    *,
+    exclude_event_types: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4803,7 +5200,9 @@ def _typecheckingstub__935886ab495203cc213786b925e7fd8fe4acd3f9db5864d4f1f5c0115
     configuration_aliases: typing.Optional[typing.Union[typing.Mapping[builtins.str, typing.Any], _IResolvable_da3f097b]] = None,
     dash_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.DashConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     hls_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.HlsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    insertion_mode: typing.Optional[builtins.str] = None,
     live_pre_roll_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.LivePreRollConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    log_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.LogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     manifest_processing_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.ManifestProcessingRulesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     personalization_threshold_seconds: typing.Optional[jsii.Number] = None,
     slate_ad_url: typing.Optional[builtins.str] = None,

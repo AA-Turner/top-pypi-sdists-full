@@ -16,7 +16,7 @@ if not isinstance(long_description, str):
 long_description = io.StringIO(long_description, newline=None).read()
 
 COMPLETE = {
-    "metadata_version": "2.1",
+    "metadata_version": "2.4",
     "name": "complete",
     "version": "1.0.dev1",
     "description": "This is a test package for pyroma.",
@@ -30,6 +30,19 @@ COMPLETE = {
         "Programming Language :: Python :: 3.2",
         "Programming Language :: Python :: 3.3",
         "License :: OSI Approved :: MIT License",
+    ],
+    "dynamic": [
+        "author",
+        "author-email",
+        "classifier",
+        "description",
+        "home-page",
+        "keywords",
+        "license",
+        "project-url",
+        "requires-dist",
+        "requires-python",
+        "summary",
     ],
     "keywords": "pypi,quality,example",
     "author": "Lennart Regebro",
@@ -100,13 +113,12 @@ proxystub = ProxyStub()
 
 
 class RatingsTest(unittest.TestCase):
-
     maxDiff = None
 
-    def _get_file_rating(self, dirname):
+    def _get_file_rating(self, dirname, skip_tests=None):
         directory = resource_filename(__name__, os.path.join("testdata", dirname))
         data = projectdata.get_data(directory)
-        return rate(data)
+        return rate(data, skip_tests)
 
     def test_complete(self):
         rating = self._get_file_rating("complete")
@@ -115,7 +127,19 @@ class RatingsTest(unittest.TestCase):
 
     def test_setup_config(self):
         rating = self._get_file_rating("setup_config")
-        self.assertEqual(rating, (10, []))
+        self.assertEqual(
+            rating,
+            (
+                9,
+                [
+                    "Your project does not have a pyproject.toml file, which is highly recommended.\n"
+                    "You probably want to create one with the following configuration:\n\n"
+                    "    [build-system]\n"
+                    '    requires = ["setuptools>=42"]\n'
+                    '    build-backend = "setuptools.build_meta"\n\n',
+                ],
+            ),
+        )
 
     def test_only_config(self):
         rating = self._get_file_rating("only_config")
@@ -123,7 +147,7 @@ class RatingsTest(unittest.TestCase):
         self.assertEqual(
             rating,
             (
-                7,
+                6,
                 [
                     (
                         "You should specify what Python versions you support with "
@@ -135,9 +159,22 @@ class RatingsTest(unittest.TestCase):
                     "    [build-system]\n"
                     '    requires = ["setuptools>=42"]\n'
                     '    build-backend = "setuptools.build_meta"\n\n'
-                    "In the future this will become a hard failure and your package will be "
+                    "In the future this may become a hard failure and your package may be "
                     'rated as "not cheese".',
+                    "Check-manifest returned errors",
                 ],
+            ),
+        )
+
+    def test_skip_tests(self):
+        rating = self._get_file_rating(
+            "only_config", skip_tests=["PythonRequiresVersion", "MissingBuildSystem", "CheckManifest"]
+        )
+        self.assertEqual(
+            rating,
+            (
+                10,
+                [],
             ),
         )
 
@@ -185,6 +222,7 @@ class RatingsTest(unittest.TestCase):
                     "Your package does neither have a license field nor any license classifiers.",
                     "Specifying a development status in the classifiers gives users "
                     "a hint of how stable your software is.",
+                    "Check-manifest returned errors",
                 ],
             ),
         )
@@ -215,6 +253,11 @@ class RatingsTest(unittest.TestCase):
                     "start-string without end-string.",
                     "Specifying a development status in the classifiers gives users "
                     "a hint of how stable your software is.",
+                    "Your project does not have a pyproject.toml file, which is highly recommended.\n"
+                    "You probably want to create one with the following configuration:\n\n"
+                    "    [build-system]\n"
+                    '    requires = ["setuptools>=42"]\n'
+                    '    build-backend = "setuptools.build_meta"\n\n',
                 ],
             ),
         )
@@ -225,7 +268,7 @@ class RatingsTest(unittest.TestCase):
         self.assertEqual(
             rating,
             (
-                2,
+                3,
                 [
                     "The package's description should be longer than 10 characters.",
                     "The package's long_description is quite short.",
@@ -247,6 +290,10 @@ class RatingsTest(unittest.TestCase):
             ),
         )
 
+    def test_private_classifier(self):
+        rating = self._get_file_rating("private_classifier")
+        self.assertEqual(rating, (10, []))
+
     def test_markdown(self):
         # Markdown and text shouldn't get ReST errors
         testdata = COMPLETE.copy()
@@ -261,14 +308,13 @@ class RatingsTest(unittest.TestCase):
 
 
 class PyPITest(unittest.TestCase):
-
     maxDiff = None
 
     @unittest.mock.patch("xmlrpc.client.ServerProxy", proxystub)
     @unittest.mock.patch("pyroma.pypidata._get_project_data")
     def test_distribute(self, projectdatamock):
         datafile = resource_filename(__name__, os.path.join("testdata", "jsondata", "distribute.json"))
-        with open(datafile, "rt", encoding="UTF-8") as file:
+        with open(datafile, encoding="UTF-8") as file:
             projectdatamock.return_value = json.load(file)
 
         proxystub.set_debug_context("distributedata.py", xmlrpclib.ServerProxy, False)
@@ -296,13 +342,18 @@ class PyPITest(unittest.TestCase):
 
     @unittest.mock.patch("xmlrpc.client.ServerProxy", proxystub)
     @unittest.mock.patch("pyroma.pypidata._get_project_data")
-    def test_complete(self, projectdatamock):
+    @unittest.mock.patch("requests.get")
+    def test_complete(self, requestmock, projectdatamock):
         datafile = resource_filename(__name__, os.path.join("testdata", "jsondata", "complete.json"))
-        with open(datafile, "rt", encoding="UTF-8") as file:
+        with open(datafile, encoding="UTF-8") as file:
             projectdatamock.return_value = json.load(file)
 
-        proxystub.set_debug_context("completedata.py", xmlrpclib.ServerProxy, False)
+        srcfile = resource_filename(__name__, os.path.join("testdata", "distributions", "complete-1.0.dev1.tar.gz"))
+        with open(srcfile, "rb") as file:
+            requestmock.return_value = unittest.mock.Mock()
+            requestmock.return_value.content = file.read()
 
+        proxystub.set_debug_context("completedata.py", xmlrpclib.ServerProxy, False)
         data = pypidata.get_data("complete")
         rating = rate(data)
 
@@ -310,18 +361,17 @@ class PyPITest(unittest.TestCase):
 
 
 class ProjectDataTest(unittest.TestCase):
-
     maxDiff = None
 
     def test_complete(self):
         directory = resource_filename(__name__, os.path.join("testdata", "complete"))
 
         data = projectdata.get_data(directory)
+        del data["_path"]  # This changes, so I just ignore it
         self.assertEqual(data, COMPLETE)
 
 
 class DistroDataTest(unittest.TestCase):
-
     maxDiff = None
 
     def test_complete(self):

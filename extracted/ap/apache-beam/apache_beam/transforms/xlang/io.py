@@ -99,6 +99,7 @@ class TfrecordWrite(ExternalTransform):
       output_prefix,
       error_handling=None,
       filename_suffix=None,
+      max_num_writers_per_bundle=None,
       no_spilling=None,
       shard_template=None,
       expansion_service=None):
@@ -113,6 +114,9 @@ class TfrecordWrite(ExternalTransform):
       This option specifies whether and where to output unwritable rows. 
     :param filename_suffix: (str)
       The suffix of each file written, combined with prefix and shardTemplate. 
+    :param max_num_writers_per_bundle: (int32)
+      Maximum number of writers created in a bundle before spilling to
+      shuffle. 
     :param no_spilling: (boolean)
       Whether to skip the spilling of data caused by having
       maxNumWritersPerBundle. 
@@ -128,6 +132,7 @@ class TfrecordWrite(ExternalTransform):
         output_prefix=output_prefix,
         error_handling=error_handling,
         filename_suffix=filename_suffix,
+        max_num_writers_per_bundle=max_num_writers_per_bundle,
         no_spilling=no_spilling,
         shard_template=shard_template,
         expansion_service=expansion_service)

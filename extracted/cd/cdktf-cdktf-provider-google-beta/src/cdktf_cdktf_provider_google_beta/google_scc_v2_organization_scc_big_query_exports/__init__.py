@@ -1,7 +1,7 @@
 r'''
 # `google_scc_v2_organization_scc_big_query_exports`
 
-Refer to the Terraform Registry for docs: [`google_scc_v2_organization_scc_big_query_exports`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_scc_big_query_exports).
+Refer to the Terraform Registry for docs: [`google_scc_v2_organization_scc_big_query_exports`](https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_scc_big_query_exports).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleSccV2OrganizationSccBigQueryExports(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleSccV2OrganizationSccBigQueryExports.GoogleSccV2OrganizationSccBigQueryExports",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_scc_big_query_exports google_scc_v2_organization_scc_big_query_exports}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_scc_big_query_exports google_scc_v2_organization_scc_big_query_exports}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class GoogleSccV2OrganizationSccBigQueryExports(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_scc_big_query_exports google_scc_v2_organization_scc_big_query_exports} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_scc_big_query_exports google_scc_v2_organization_scc_big_query_exports} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param big_query_export_id: This must be unique within the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#big_query_export_id GoogleSccV2OrganizationSccBigQueryExports#big_query_export_id}
-        :param organization: The organization whose Cloud Security Command Center the Big Query Export Config lives in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#organization GoogleSccV2OrganizationSccBigQueryExports#organization}
-        :param dataset: The dataset to write findings' updates to. Its format is "projects/[projectId]/datasets/[bigquery_dataset_id]". BigQuery Dataset unique ID must contain only letters (a-z, A-Z), numbers (0-9), or underscores (_). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#dataset GoogleSccV2OrganizationSccBigQueryExports#dataset}
-        :param description: The description of the notification config (max of 1024 characters). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#description GoogleSccV2OrganizationSccBigQueryExports#description}
-        :param filter: Expression that defines the filter to apply across create/update events of findings. The expression is a list of zero or more restrictions combined via logical operators AND and OR. Parentheses are supported, and OR has higher precedence than AND. Restrictions have the form and may have a - character in front of them to indicate negation. The fields map to those defined in the corresponding resource. The supported operators are: - = for all value types. - .. epigraph:: , <, >=, <= for integer values. - :, meaning substring matching, for strings. The supported value types are: - string literals in quotes. - integer literals without quotes. - boolean literals true and false without quotes. See `Filtering notifications <https://cloud.google.com/security-command-center/docs/how-to-api-filter-notifications>`_ for information on how to write a filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#filter GoogleSccV2OrganizationSccBigQueryExports#filter}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#id GoogleSccV2OrganizationSccBigQueryExports#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location: location Id is provided by organization. If not provided, Use global as default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#location GoogleSccV2OrganizationSccBigQueryExports#location}
-        :param name: The resource name of this export, in the format 'organizations/{{organization}}/locations/{{location}}/bigQueryExports/{{big_query_export_id}}'. This field is provided in responses, and is ignored when provided in create requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#name GoogleSccV2OrganizationSccBigQueryExports#name}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#timeouts GoogleSccV2OrganizationSccBigQueryExports#timeouts}
+        :param big_query_export_id: This must be unique within the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#big_query_export_id GoogleSccV2OrganizationSccBigQueryExports#big_query_export_id}
+        :param organization: The organization whose Cloud Security Command Center the Big Query Export Config lives in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#organization GoogleSccV2OrganizationSccBigQueryExports#organization}
+        :param dataset: The dataset to write findings' updates to. Its format is "projects/[projectId]/datasets/[bigquery_dataset_id]". BigQuery Dataset unique ID must contain only letters (a-z, A-Z), numbers (0-9), or underscores (_). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#dataset GoogleSccV2OrganizationSccBigQueryExports#dataset}
+        :param description: The description of the notification config (max of 1024 characters). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#description GoogleSccV2OrganizationSccBigQueryExports#description}
+        :param filter: Expression that defines the filter to apply across create/update events of findings. The expression is a list of zero or more restrictions combined via logical operators AND and OR. Parentheses are supported, and OR has higher precedence than AND. Restrictions have the form and may have a - character in front of them to indicate negation. The fields map to those defined in the corresponding resource. The supported operators are: - = for all value types. - .. epigraph:: , <, >=, <= for integer values. - :, meaning substring matching, for strings. The supported value types are: - string literals in quotes. - integer literals without quotes. - boolean literals true and false without quotes. See `Filtering notifications <https://cloud.google.com/security-command-center/docs/how-to-api-filter-notifications>`_ for information on how to write a filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#filter GoogleSccV2OrganizationSccBigQueryExports#filter}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#id GoogleSccV2OrganizationSccBigQueryExports#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: location Id is provided by organization. If not provided, Use global as default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#location GoogleSccV2OrganizationSccBigQueryExports#location}
+        :param name: The resource name of this export, in the format 'organizations/{{organization}}/locations/{{location}}/bigQueryExports/{{big_query_export_id}}'. This field is provided in responses, and is ignored when provided in create requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#name GoogleSccV2OrganizationSccBigQueryExports#name}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#timeouts GoogleSccV2OrganizationSccBigQueryExports#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class GoogleSccV2OrganizationSccBigQueryExports(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleSccV2OrganizationSccBigQueryExports to import.
-        :param import_from_id: The id of the existing GoogleSccV2OrganizationSccBigQueryExports that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleSccV2OrganizationSccBigQueryExports that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleSccV2OrganizationSccBigQueryExports to import is found.
         '''
         if __debug__:
@@ -147,9 +147,9 @@ class GoogleSccV2OrganizationSccBigQueryExports(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#create GoogleSccV2OrganizationSccBigQueryExports#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#delete GoogleSccV2OrganizationSccBigQueryExports#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#update GoogleSccV2OrganizationSccBigQueryExports#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#create GoogleSccV2OrganizationSccBigQueryExports#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#delete GoogleSccV2OrganizationSccBigQueryExports#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#update GoogleSccV2OrganizationSccBigQueryExports#update}.
         '''
         value = GoogleSccV2OrganizationSccBigQueryExportsTimeouts(
             create=create, delete=delete, update=update
@@ -422,15 +422,15 @@ class GoogleSccV2OrganizationSccBigQueryExportsConfig(
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param big_query_export_id: This must be unique within the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#big_query_export_id GoogleSccV2OrganizationSccBigQueryExports#big_query_export_id}
-        :param organization: The organization whose Cloud Security Command Center the Big Query Export Config lives in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#organization GoogleSccV2OrganizationSccBigQueryExports#organization}
-        :param dataset: The dataset to write findings' updates to. Its format is "projects/[projectId]/datasets/[bigquery_dataset_id]". BigQuery Dataset unique ID must contain only letters (a-z, A-Z), numbers (0-9), or underscores (_). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#dataset GoogleSccV2OrganizationSccBigQueryExports#dataset}
-        :param description: The description of the notification config (max of 1024 characters). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#description GoogleSccV2OrganizationSccBigQueryExports#description}
-        :param filter: Expression that defines the filter to apply across create/update events of findings. The expression is a list of zero or more restrictions combined via logical operators AND and OR. Parentheses are supported, and OR has higher precedence than AND. Restrictions have the form and may have a - character in front of them to indicate negation. The fields map to those defined in the corresponding resource. The supported operators are: - = for all value types. - .. epigraph:: , <, >=, <= for integer values. - :, meaning substring matching, for strings. The supported value types are: - string literals in quotes. - integer literals without quotes. - boolean literals true and false without quotes. See `Filtering notifications <https://cloud.google.com/security-command-center/docs/how-to-api-filter-notifications>`_ for information on how to write a filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#filter GoogleSccV2OrganizationSccBigQueryExports#filter}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#id GoogleSccV2OrganizationSccBigQueryExports#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location: location Id is provided by organization. If not provided, Use global as default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#location GoogleSccV2OrganizationSccBigQueryExports#location}
-        :param name: The resource name of this export, in the format 'organizations/{{organization}}/locations/{{location}}/bigQueryExports/{{big_query_export_id}}'. This field is provided in responses, and is ignored when provided in create requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#name GoogleSccV2OrganizationSccBigQueryExports#name}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#timeouts GoogleSccV2OrganizationSccBigQueryExports#timeouts}
+        :param big_query_export_id: This must be unique within the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#big_query_export_id GoogleSccV2OrganizationSccBigQueryExports#big_query_export_id}
+        :param organization: The organization whose Cloud Security Command Center the Big Query Export Config lives in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#organization GoogleSccV2OrganizationSccBigQueryExports#organization}
+        :param dataset: The dataset to write findings' updates to. Its format is "projects/[projectId]/datasets/[bigquery_dataset_id]". BigQuery Dataset unique ID must contain only letters (a-z, A-Z), numbers (0-9), or underscores (_). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#dataset GoogleSccV2OrganizationSccBigQueryExports#dataset}
+        :param description: The description of the notification config (max of 1024 characters). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#description GoogleSccV2OrganizationSccBigQueryExports#description}
+        :param filter: Expression that defines the filter to apply across create/update events of findings. The expression is a list of zero or more restrictions combined via logical operators AND and OR. Parentheses are supported, and OR has higher precedence than AND. Restrictions have the form and may have a - character in front of them to indicate negation. The fields map to those defined in the corresponding resource. The supported operators are: - = for all value types. - .. epigraph:: , <, >=, <= for integer values. - :, meaning substring matching, for strings. The supported value types are: - string literals in quotes. - integer literals without quotes. - boolean literals true and false without quotes. See `Filtering notifications <https://cloud.google.com/security-command-center/docs/how-to-api-filter-notifications>`_ for information on how to write a filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#filter GoogleSccV2OrganizationSccBigQueryExports#filter}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#id GoogleSccV2OrganizationSccBigQueryExports#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: location Id is provided by organization. If not provided, Use global as default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#location GoogleSccV2OrganizationSccBigQueryExports#location}
+        :param name: The resource name of this export, in the format 'organizations/{{organization}}/locations/{{location}}/bigQueryExports/{{big_query_export_id}}'. This field is provided in responses, and is ignored when provided in create requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#name GoogleSccV2OrganizationSccBigQueryExports#name}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#timeouts GoogleSccV2OrganizationSccBigQueryExports#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -555,7 +555,7 @@ class GoogleSccV2OrganizationSccBigQueryExportsConfig(
     def big_query_export_id(self) -> builtins.str:
         '''This must be unique within the organization.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#big_query_export_id GoogleSccV2OrganizationSccBigQueryExports#big_query_export_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#big_query_export_id GoogleSccV2OrganizationSccBigQueryExports#big_query_export_id}
         '''
         result = self._values.get("big_query_export_id")
         assert result is not None, "Required property 'big_query_export_id' is missing"
@@ -565,7 +565,7 @@ class GoogleSccV2OrganizationSccBigQueryExportsConfig(
     def organization(self) -> builtins.str:
         '''The organization whose Cloud Security Command Center the Big Query Export Config lives in.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#organization GoogleSccV2OrganizationSccBigQueryExports#organization}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#organization GoogleSccV2OrganizationSccBigQueryExports#organization}
         '''
         result = self._values.get("organization")
         assert result is not None, "Required property 'organization' is missing"
@@ -578,7 +578,7 @@ class GoogleSccV2OrganizationSccBigQueryExportsConfig(
         Its format is "projects/[projectId]/datasets/[bigquery_dataset_id]".
         BigQuery Dataset unique ID must contain only letters (a-z, A-Z), numbers (0-9), or underscores (_).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#dataset GoogleSccV2OrganizationSccBigQueryExports#dataset}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#dataset GoogleSccV2OrganizationSccBigQueryExports#dataset}
         '''
         result = self._values.get("dataset")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -587,7 +587,7 @@ class GoogleSccV2OrganizationSccBigQueryExportsConfig(
     def description(self) -> typing.Optional[builtins.str]:
         '''The description of the notification config (max of 1024 characters).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#description GoogleSccV2OrganizationSccBigQueryExports#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#description GoogleSccV2OrganizationSccBigQueryExports#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -623,14 +623,14 @@ class GoogleSccV2OrganizationSccBigQueryExportsConfig(
         `Filtering notifications <https://cloud.google.com/security-command-center/docs/how-to-api-filter-notifications>`_
         for information on how to write a filter.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#filter GoogleSccV2OrganizationSccBigQueryExports#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#filter GoogleSccV2OrganizationSccBigQueryExports#filter}
         '''
         result = self._values.get("filter")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#id GoogleSccV2OrganizationSccBigQueryExports#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#id GoogleSccV2OrganizationSccBigQueryExports#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -642,7 +642,7 @@ class GoogleSccV2OrganizationSccBigQueryExportsConfig(
     def location(self) -> typing.Optional[builtins.str]:
         '''location Id is provided by organization. If not provided, Use global as default.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#location GoogleSccV2OrganizationSccBigQueryExports#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#location GoogleSccV2OrganizationSccBigQueryExports#location}
         '''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -653,7 +653,7 @@ class GoogleSccV2OrganizationSccBigQueryExportsConfig(
 
         This field is provided in responses, and is ignored when provided in create requests.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#name GoogleSccV2OrganizationSccBigQueryExports#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#name GoogleSccV2OrganizationSccBigQueryExports#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -664,7 +664,7 @@ class GoogleSccV2OrganizationSccBigQueryExportsConfig(
     ) -> typing.Optional["GoogleSccV2OrganizationSccBigQueryExportsTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#timeouts GoogleSccV2OrganizationSccBigQueryExports#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#timeouts GoogleSccV2OrganizationSccBigQueryExports#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleSccV2OrganizationSccBigQueryExportsTimeouts"], result)
@@ -695,9 +695,9 @@ class GoogleSccV2OrganizationSccBigQueryExportsTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#create GoogleSccV2OrganizationSccBigQueryExports#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#delete GoogleSccV2OrganizationSccBigQueryExports#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#update GoogleSccV2OrganizationSccBigQueryExports#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#create GoogleSccV2OrganizationSccBigQueryExports#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#delete GoogleSccV2OrganizationSccBigQueryExports#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#update GoogleSccV2OrganizationSccBigQueryExports#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5a10cf807bc54924b8bf27a21871d22dd863117fc0d2ecc1973ffcda9f81d948)
@@ -714,19 +714,19 @@ class GoogleSccV2OrganizationSccBigQueryExportsTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#create GoogleSccV2OrganizationSccBigQueryExports#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#create GoogleSccV2OrganizationSccBigQueryExports#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#delete GoogleSccV2OrganizationSccBigQueryExports#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#delete GoogleSccV2OrganizationSccBigQueryExports#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#update GoogleSccV2OrganizationSccBigQueryExports#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_scc_v2_organization_scc_big_query_exports#update GoogleSccV2OrganizationSccBigQueryExports#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

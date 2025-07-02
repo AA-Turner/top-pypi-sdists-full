@@ -1,7 +1,12 @@
+from collections.abc import Callable
 import functools
+import dataclasses
+from typing import Any
 
 from pytestqt.exceptions import TimeoutError
 from pytestqt.qt_compat import qt_api
+
+CheckParamsCb = Callable[..., bool]
 
 
 class _AbstractSignalBlocker:
@@ -24,12 +29,12 @@ class _AbstractSignalBlocker:
         self.raising = raising
         self._signals = None  # will be initialized by inheriting implementations
         self._timeout_message = ""
-        if timeout is None or timeout == 0:
-            self._timer = None
-        else:
-            self._timer = qt_api.QtCore.QTimer(self._loop)
-            self._timer.setSingleShot(True)
+
+        self._timer = qt_api.QtCore.QTimer(self._loop)
+        self._timer.setSingleShot(True)
+        if timeout is not None:
             self._timer.setInterval(timeout)
+        self._timer.timeout.connect(self._quit_loop_by_timeout)
 
     def wait(self):
         """
@@ -43,11 +48,13 @@ class _AbstractSignalBlocker:
             return
         if self.timeout is None and not self._signals:
             raise ValueError("No signals or timeout specified.")
-        if self._timer is not None:
-            self._timer.timeout.connect(self._quit_loop_by_timeout)
-            self._timer.start()
 
         if self.timeout != 0:
+            if self.timeout is not None:
+                # asserts as a stop-gap for possible multithreading issues
+                assert not self.signal_triggered
+                self._timer.start()
+                assert not self.signal_triggered
             qt_api.exec(self._loop)
 
         if not self.signal_triggered and self.raising:
@@ -62,10 +69,7 @@ class _AbstractSignalBlocker:
     def _cleanup(self):
         # store timeout message before the data to construct it is lost
         self._timeout_message = self._get_timeout_error_message()
-        if self._timer is not None:
-            _silent_disconnect(self._timer.timeout, self._quit_loop_by_timeout)
-            self._timer.stop()
-            self._timer = None
+        self._timer.stop()
 
     def _get_timeout_error_message(self):
         """Subclasses have to implement this, returning an appropriate error message for a TimeoutError."""
@@ -258,12 +262,12 @@ class SignalBlocker(_AbstractSignalBlocker):
             )
 
 
+@dataclasses.dataclass
 class SignalAndArgs:
-    def __init__(self, signal_name, args):
-        self.signal_name = signal_name
-        self.args = args
+    signal_name: str
+    args: tuple[Any, ...]
 
-    def _get_readable_signal_with_optional_args(self):
+    def __str__(self) -> str:
         args = repr(self.args) if self.args else ""
 
         # remove signal parameter signature, e.g. turn "some_signal(str,int)" to "some_signal", because we're adding
@@ -273,18 +277,9 @@ class SignalAndArgs:
 
         return signal_name + args
 
-    def __str__(self):
-        return self._get_readable_signal_with_optional_args()
 
-    def __eq__(self, other):
-        if isinstance(other, self.__class__):
-            return self.__dict__ == other.__dict__
-        else:
-            return False
-
-
-# Returns e.g. "3rd" for 3, or "21st" for 21
-def get_ordinal_str(n):
+def get_ordinal_str(n: int) -> str:
+    """Return e.g. "3rd" for 3, or "21st" for 21."""
     return "%d%s" % (n, {1: "st", 2: "nd", 3: "rd"}.get(n if n < 20 else n % 10, "th"))
 
 
@@ -309,22 +304,17 @@ class MultiSignalBlocker(_AbstractSignalBlocker):
         super().__init__(timeout, raising=raising)
         self._order = order
         self._check_params_callbacks = check_params_cbs
-        self._signals_emitted = (
-            []
-        )  # list of booleans, indicates whether the signal was already emitted
-        self._signals_map = (
-            {}
-        )  # maps from a unique Signal to a list of indices where to expect signal instance emits
-        self._signals = (
-            []
-        )  # list of all Signals (for compatibility with _AbstractSignalBlocker)
+        self._signals_emitted: list[bool] = []  # whether the signal was already emitted
+        # maps from a unique Signal to a list of indices where to expect signal instance emits
+        self._signals_map = {}
+        # list of all Signals (for compatibility with _AbstractSignalBlocker)
+        self._signals = []
         self._slots = []  # list of slot functions
         self._signal_expected_index = 0  # only used when forcing order
         self._strict_order_violated = False
         self._actual_signal_and_args_at_violation = None
-        self._signal_names = (
-            {}
-        )  # maps from the unique Signal to the name of the signal (as string)
+        # maps from the unique Signal to the name of the signal (as string)
+        self._signal_names = {}
         self.all_signals_and_args = []  # list of SignalAndArgs instances
 
     def add_signals(self, signals):
@@ -571,9 +561,7 @@ class MultiSignalBlocker(_AbstractSignalBlocker):
 
     def _cleanup(self):
         super()._cleanup()
-        for i in range(len(self._signals)):
-            signal = self._signals[i]
-            slot = self._slots[i]
+        for signal, slot in zip(self._signals, self._slots):
             _silent_disconnect(signal, slot)
         del self._signals_emitted[:]
         self._signals_map.clear()
@@ -649,12 +637,12 @@ class CallbackBlocker:
         self.kwargs = None
         self.called = False
         self._loop = qt_api.QtCore.QEventLoop()
-        if timeout is None:
-            self._timer = None
-        else:
-            self._timer = qt_api.QtCore.QTimer(self._loop)
-            self._timer.setSingleShot(True)
+
+        self._timer = qt_api.QtCore.QTimer(self._loop)
+        self._timer.setSingleShot(True)
+        if timeout is not None:
             self._timer.setInterval(timeout)
+        self._timer.timeout.connect(self._quit_loop_by_timeout)
 
     def wait(self):
         """
@@ -664,8 +652,7 @@ class CallbackBlocker:
         __tracebackhide__ = True
         if self.called:
             return
-        if self._timer is not None:
-            self._timer.timeout.connect(self._quit_loop_by_timeout)
+        if self.timeout is not None:
             self._timer.start()
         qt_api.exec(self._loop)
         if not self.called and self.raising:
@@ -687,10 +674,7 @@ class CallbackBlocker:
             self._loop.quit()
 
     def _cleanup(self):
-        if self._timer is not None:
-            _silent_disconnect(self._timer.timeout, self._quit_loop_by_timeout)
-            self._timer.stop()
-            self._timer = None
+        self._timer.stop()
 
     def __call__(self, *args, **kwargs):
         # Not inside the try: block, as if self.called is True, we did quit the

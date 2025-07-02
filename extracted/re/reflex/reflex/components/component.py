@@ -7,7 +7,6 @@ import copy
 import dataclasses
 import functools
 import inspect
-import sys
 import typing
 from abc import ABC, ABCMeta, abstractmethod
 from collections.abc import Callable, Iterator, Mapping, Sequence
@@ -15,27 +14,17 @@ from dataclasses import _MISSING_TYPE, MISSING
 from functools import wraps
 from hashlib import md5
 from types import SimpleNamespace
-from typing import (
-    TYPE_CHECKING,
-    Annotated,
-    Any,
-    ClassVar,
-    ForwardRef,
-    Generic,
-    TypeVar,
-    _eval_type,  # pyright: ignore [reportAttributeAccessIssue]
-    cast,
-    get_args,
-    get_origin,
-)
+from typing import TYPE_CHECKING, Any, ClassVar, TypeVar, cast, get_args, get_origin
 
 from rich.markup import escape
 from typing_extensions import dataclass_transform
 
 import reflex.state
+from reflex import constants
 from reflex.compiler.templates import STATEFUL_COMPONENT
 from reflex.components.core.breakpoints import Breakpoints
 from reflex.components.dynamic import load_dynamic_serializer
+from reflex.components.field import BaseField, FieldBasedMeta
 from reflex.components.tags import Tag
 from reflex.constants import (
     Dirs,
@@ -55,6 +44,7 @@ from reflex.event import (
     EventSpec,
     no_args_event_spec,
     parse_args_spec,
+    pointer_event_spec,
     run_script,
     unwrap_var_annotation,
 )
@@ -74,50 +64,10 @@ from reflex.vars.number import ternary_operation
 from reflex.vars.object import ObjectVar
 from reflex.vars.sequence import LiteralArrayVar, LiteralStringVar, StringVar
 
-
-def resolve_annotations(
-    raw_annotations: Mapping[str, type[Any]], module_name: str | None
-) -> dict[str, type[Any]]:
-    """Partially taken from typing.get_type_hints.
-
-    Resolve string or ForwardRef annotations into type objects if possible.
-
-    Args:
-        raw_annotations: The raw annotations to resolve.
-        module_name: The name of the module.
-
-    Returns:
-        The resolved annotations.
-    """
-    module = sys.modules.get(module_name, None) if module_name is not None else None
-
-    base_globals: dict[str, Any] | None = (
-        module.__dict__ if module is not None else None
-    )
-
-    annotations = {}
-    for name, value in raw_annotations.items():
-        if isinstance(value, str):
-            if sys.version_info == (3, 10, 0):
-                value = ForwardRef(value, is_argument=False)
-            else:
-                value = ForwardRef(value, is_argument=False, is_class=True)
-        try:
-            if sys.version_info >= (3, 13):
-                value = _eval_type(value, base_globals, None, type_params=())
-            else:
-                value = _eval_type(value, base_globals, None)
-        except NameError:
-            # this is ok, it can be fixed with update_forward_refs
-            pass
-        annotations[name] = value
-    return annotations
-
-
 FIELD_TYPE = TypeVar("FIELD_TYPE")
 
 
-class ComponentField(Generic[FIELD_TYPE]):
+class ComponentField(BaseField[FIELD_TYPE]):
     """A field for a component."""
 
     def __init__(
@@ -135,30 +85,8 @@ class ComponentField(Generic[FIELD_TYPE]):
             is_javascript: Whether the field is a javascript property.
             annotated_type: The annotated type for the field.
         """
-        self.default = default
-        self.default_factory = default_factory
+        super().__init__(default, default_factory, annotated_type)
         self.is_javascript = is_javascript
-        self.outer_type_ = self.annotated_type = annotated_type
-        type_origin = get_origin(annotated_type) or annotated_type
-        if type_origin is Annotated:
-            type_origin = annotated_type.__origin__  # pyright: ignore [reportAttributeAccessIssue]
-        self.type_ = self.type_origin = type_origin
-
-    def default_value(self) -> FIELD_TYPE:
-        """Get the default value for the field.
-
-        Returns:
-            The default value for the field.
-
-        Raises:
-            ValueError: If no default value or factory is provided.
-        """
-        if self.default is not MISSING:
-            return self.default
-        if self.default_factory is not None:
-            return self.default_factory()
-        msg = "No default value or factory provided."
-        raise ValueError(msg)
 
     def __repr__(self) -> str:
         """Represent the field in a readable format.
@@ -205,7 +133,7 @@ def field(
 
 
 @dataclass_transform(kw_only_default=True, field_specifiers=(field,))
-class BaseComponentMeta(ABCMeta):
+class BaseComponentMeta(FieldBasedMeta, ABCMeta):
     """Meta class for BaseComponent."""
 
     if TYPE_CHECKING:
@@ -214,46 +142,24 @@ class BaseComponentMeta(ABCMeta):
         _fields: Mapping[str, ComponentField]
         _js_fields: Mapping[str, ComponentField]
 
-    def __new__(cls, name: str, bases: tuple[type], namespace: dict[str, Any]) -> type:
-        """Create a new class.
-
-        Args:
-            name: The name of the class.
-            bases: The bases of the class.
-            namespace: The namespace of the class.
-
-        Returns:
-            The new class.
-        """
-        # Add the field to the class
-        inherited_fields: dict[str, ComponentField] = {}
-        own_fields: dict[str, ComponentField] = {}
-        resolved_annotations = resolve_annotations(
+    @classmethod
+    def _resolve_annotations(
+        cls, namespace: dict[str, Any], name: str
+    ) -> dict[str, Any]:
+        return types.resolve_annotations(
             namespace.get("__annotations__", {}), namespace["__module__"]
         )
 
-        for base in bases[::-1]:
-            if hasattr(base, "_inherited_fields"):
-                inherited_fields.update(base._inherited_fields)
-        for base in bases[::-1]:
-            if hasattr(base, "_own_fields"):
-                inherited_fields.update(base._own_fields)
+    @classmethod
+    def _process_annotated_fields(
+        cls,
+        namespace: dict[str, Any],
+        annotations: dict[str, Any],
+        inherited_fields: dict[str, ComponentField],
+    ) -> dict[str, ComponentField]:
+        own_fields: dict[str, ComponentField] = {}
 
-        for key, value, inherited_field in [
-            (key, value, inherited_field)
-            for key, value in namespace.items()
-            if key not in resolved_annotations
-            and ((inherited_field := inherited_fields.get(key)) is not None)
-        ]:
-            new_value = ComponentField(
-                default=value,
-                is_javascript=inherited_field.is_javascript,
-                annotated_type=inherited_field.annotated_type,
-            )
-
-            own_fields[key] = new_value
-
-        for key, annotation in resolved_annotations.items():
+        for key, annotation in annotations.items():
             value = namespace.get(key, MISSING)
 
             if types.is_classvar(annotation):
@@ -286,16 +192,63 @@ class BaseComponentMeta(ABCMeta):
 
             own_fields[key] = value
 
-        namespace["_own_fields"] = own_fields
-        namespace["_inherited_fields"] = inherited_fields
-        all_fields = inherited_fields | own_fields
-        namespace["_fields"] = all_fields
+        return own_fields
+
+    @classmethod
+    def _create_field(
+        cls,
+        annotated_type: Any,
+        default: Any = MISSING,
+        default_factory: Callable[[], Any] | None = None,
+    ) -> ComponentField:
+        return ComponentField(
+            annotated_type=annotated_type,
+            default=default,
+            default_factory=default_factory,
+            is_javascript=True,  # Default for components
+        )
+
+    @classmethod
+    def _process_field_overrides(
+        cls,
+        namespace: dict[str, Any],
+        annotations: dict[str, Any],
+        inherited_fields: dict[str, Any],
+    ) -> dict[str, ComponentField]:
+        own_fields: dict[str, ComponentField] = {}
+
+        for key, value, inherited_field in [
+            (key, value, inherited_field)
+            for key, value in namespace.items()
+            if key not in annotations
+            and ((inherited_field := inherited_fields.get(key)) is not None)
+        ]:
+            new_field = ComponentField(
+                default=value,
+                is_javascript=inherited_field.is_javascript,
+                annotated_type=inherited_field.annotated_type,
+            )
+            own_fields[key] = new_field
+
+        return own_fields
+
+    @classmethod
+    def _finalize_fields(
+        cls,
+        namespace: dict[str, Any],
+        inherited_fields: dict[str, ComponentField],
+        own_fields: dict[str, ComponentField],
+    ) -> None:
+        # Call parent implementation
+        super()._finalize_fields(namespace, inherited_fields, own_fields)
+
+        # Add JavaScript fields mapping
+        all_fields = namespace["_fields"]
         namespace["_js_fields"] = {
             key: value
             for key, value in all_fields.items()
             if value.is_javascript is True
         }
-        return super().__new__(cls, name, bases, namespace)
 
 
 class BaseComponent(metaclass=BaseComponentMeta):
@@ -314,11 +267,6 @@ class BaseComponent(metaclass=BaseComponentMeta):
 
     # List here the non-react dependency needed by `library`
     lib_dependencies: list[str] = field(
-        default_factory=list, is_javascript_property=False
-    )
-
-    # List here the dependencies that need to be transpiled by Next.js
-    transpile_packages: list[str] = field(
         default_factory=list, is_javascript_property=False
     )
 
@@ -504,12 +452,9 @@ def satisfies_type_hint(obj: Any, type_hint: Any) -> bool:
             if not isinstance(obj, Var)
             else (obj._var_value if isinstance(obj, LiteralVar) else obj)
         )
-        console.deprecate(
-            "implicit-none-for-component-fields",
-            reason="Passing Vars with possible None values to component fields not explicitly marked as Optional is deprecated. "
-            + f"Passed {obj!s} of type {escape(str(type(obj) if not isinstance(obj, Var) else obj._var_type))} to {escape(str(type_hint))}.",
-            deprecation_version="0.7.2",
-            removal_version="0.8.0",
+        console.warn(
+            "Passing None to a Var that is not explicitly marked as Optional (| None) is deprecated. "
+            f"Passed {obj!s} of type {escape(str(type(obj) if not isinstance(obj, Var) else obj._var_type))} to {escape(str(type_hint))}."
         )
         return True
     return False
@@ -534,12 +479,12 @@ def _components_from(
     return ()
 
 
-DEFAULT_TRIGGERS: dict[str, types.ArgsSpec | Sequence[types.ArgsSpec]] = {
+DEFAULT_TRIGGERS: Mapping[str, types.ArgsSpec | Sequence[types.ArgsSpec]] = {
     EventTriggers.ON_FOCUS: no_args_event_spec,
     EventTriggers.ON_BLUR: no_args_event_spec,
-    EventTriggers.ON_CLICK: no_args_event_spec,
-    EventTriggers.ON_CONTEXT_MENU: no_args_event_spec,
-    EventTriggers.ON_DOUBLE_CLICK: no_args_event_spec,
+    EventTriggers.ON_CLICK: pointer_event_spec,  # pyright: ignore [reportAssignmentType]
+    EventTriggers.ON_CONTEXT_MENU: pointer_event_spec,  # pyright: ignore [reportAssignmentType]
+    EventTriggers.ON_DOUBLE_CLICK: pointer_event_spec,  # pyright: ignore [reportAssignmentType]
     EventTriggers.ON_MOUSE_DOWN: no_args_event_spec,
     EventTriggers.ON_MOUSE_ENTER: no_args_event_spec,
     EventTriggers.ON_MOUSE_LEAVE: no_args_event_spec,
@@ -548,6 +493,7 @@ DEFAULT_TRIGGERS: dict[str, types.ArgsSpec | Sequence[types.ArgsSpec]] = {
     EventTriggers.ON_MOUSE_OVER: no_args_event_spec,
     EventTriggers.ON_MOUSE_UP: no_args_event_spec,
     EventTriggers.ON_SCROLL: no_args_event_spec,
+    EventTriggers.ON_SCROLL_END: no_args_event_spec,
     EventTriggers.ON_MOUNT: no_args_event_spec,
     EventTriggers.ON_UNMOUNT: no_args_event_spec,
 }
@@ -728,16 +674,10 @@ class Component(BaseComponent, ABC):
         Args:
             **kwargs: The kwargs to pass to the component.
         """
-        super().__init__(
-            children=kwargs.get("children", []),
+        console.error(
+            "Instantiating components directly is not supported."
+            f" Use `{self.__class__.__name__}.create` method instead."
         )
-        console.deprecate(
-            "component-direct-instantiation",
-            reason="Use the `create` method instead.",
-            deprecation_version="0.7.2",
-            removal_version="0.8.0",
-        )
-        self._post_init(**kwargs)
 
     def _post_init(self, *args, **kwargs):
         """Initialize the component.
@@ -907,9 +847,8 @@ class Component(BaseComponent, ABC):
         for key, value in kwargs.items():
             setattr(self, key, value)
 
-    def get_event_triggers(
-        self,
-    ) -> dict[str, types.ArgsSpec | Sequence[types.ArgsSpec]]:
+    @classmethod
+    def get_event_triggers(cls) -> dict[str, types.ArgsSpec | Sequence[types.ArgsSpec]]:
         """Get the event triggers for the component.
 
         Returns:
@@ -926,9 +865,9 @@ class Component(BaseComponent, ABC):
                 )
                 else no_args_event_spec
             )
-            for name, field in self.get_fields().items()
+            for name, field in cls.get_fields().items()
             if field.type_origin is EventHandler
-        }
+        }  # pyright: ignore [reportOperatorIssue]
 
     def __repr__(self) -> str:
         """Represent the component in React.
@@ -1607,20 +1546,6 @@ class Component(BaseComponent, ABC):
         # Return the dynamic imports
         return dynamic_imports
 
-    def _should_transpile(self, dep: str | None) -> bool:
-        """Check if a dependency should be transpiled.
-
-        Args:
-            dep: The dependency to check.
-
-        Returns:
-            True if the dependency should be transpiled.
-        """
-        return bool(self.transpile_packages) and (
-            dep in self.transpile_packages
-            or format.format_library_name(dep or "") in self.transpile_packages
-        )
-
     def _get_dependencies_imports(self) -> ParsedImportDict:
         """Get the imports from lib_dependencies for installing.
 
@@ -1628,14 +1553,7 @@ class Component(BaseComponent, ABC):
             The dependencies imports of the component.
         """
         return {
-            dep: [
-                ImportVar(
-                    tag=None,
-                    render=False,
-                    transpile=self._should_transpile(dep),
-                )
-            ]
-            for dep in self.lib_dependencies
+            dep: [ImportVar(tag=None, render=False)] for dep in self.lib_dependencies
         }
 
     def _get_hooks_imports(self) -> ParsedImportDict:
@@ -1693,7 +1611,7 @@ class Component(BaseComponent, ABC):
 
         # Import this component's tag from the main library.
         if self.library is not None and self.tag is not None:
-            _imports[self.library] = {self.import_var}
+            _imports[self.library] = self.import_var
 
         # Get static imports required for event processing.
         event_imports = Imports.EVENTS if self.event_triggers else {}
@@ -1719,7 +1637,7 @@ class Component(BaseComponent, ABC):
         return imports.merge_imports(
             self._get_dependencies_imports(),
             self._get_hooks_imports(),
-            _imports,
+            {**_imports},
             event_imports,
             *var_imports,
             *added_import_dicts,
@@ -1960,12 +1878,7 @@ class Component(BaseComponent, ABC):
         # If the tag is dot-qualified, only import the left-most name.
         tag = self.tag.partition(".")[0] if self.tag else None
         alias = self.alias.partition(".")[0] if self.alias else None
-        return ImportVar(
-            tag=tag,
-            is_default=self.is_default,
-            alias=alias,
-            transpile=self._should_transpile(self.library),
-        )
+        return ImportVar(tag=tag, is_default=self.is_default, alias=alias)
 
     @staticmethod
     def _get_app_wrap_components() -> dict[tuple[int, str], Component]:
@@ -2178,7 +2091,7 @@ class CustomComponent(Component):
                         annotation=arg._var_type,
                     )
                     for name, arg in zip(
-                        names, parse_args_spec(event.args_spec), strict=True
+                        names, parse_args_spec(event.args_spec)[0], strict=True
                     )
                 ]
             )
@@ -2320,8 +2233,11 @@ class NoSSRComponent(Component):
         Returns:
             The imports for dynamically importing the component at module load time.
         """
-        # Next.js dynamic import mechanism.
-        dynamic_import = {"next/dynamic": [ImportVar(tag="dynamic", is_default=True)]}
+        # React lazy import mechanism.
+        dynamic_import = {
+            "react": [ImportVar(tag="lazy")],
+            f"$/{constants.Dirs.UTILS}/context": [ImportVar(tag="ClientSide")],
+        }
 
         # The normal imports for this component.
         _imports = super()._get_imports()
@@ -2331,13 +2247,7 @@ class NoSSRComponent(Component):
         if import_name is not None:
             with contextlib.suppress(ValueError):
                 _imports[import_name].remove(self.import_var)
-            _imports[import_name].append(
-                imports.ImportVar(
-                    tag=None,
-                    render=False,
-                    transpile=self._should_transpile(self.library),
-                )
-            )
+            _imports[import_name].append(ImportVar(tag=None, render=False))
 
         return imports.merge_imports(
             dynamic_import,
@@ -2346,8 +2256,6 @@ class NoSSRComponent(Component):
         )
 
     def _get_dynamic_imports(self) -> str:
-        opts_fragment = ", { ssr: false });"
-
         # extract the correct import name from library name
         base_import_name = self._get_import_name()
         if base_import_name is None:
@@ -2355,12 +2263,19 @@ class NoSSRComponent(Component):
             raise ValueError(msg)
         import_name = format.format_library_name(base_import_name)
 
-        library_import = f"const {self.alias if self.alias else self.tag} = dynamic(() => import('{import_name}')"
+        library_import = f"import('{import_name}')"
         mod_import = (
             # https://nextjs.org/docs/pages/building-your-application/optimizing/lazy-loading#with-named-exports
-            f".then((mod) => mod.{self.tag})" if not self.is_default else ""
+            f".then((mod) => ({{default: mod.{self.tag}}}))"
+            if not self.is_default
+            else ""
         )
-        return library_import + mod_import + opts_fragment
+        return (
+            f"const {self.alias if self.alias else self.tag} = ClientSide(lazy(() => "
+            + library_import
+            + mod_import
+            + "))"
+        )
 
 
 class StatefulComponent(BaseComponent):
@@ -2378,16 +2293,19 @@ class StatefulComponent(BaseComponent):
     tag_to_stateful_component: ClassVar[dict[str, StatefulComponent]] = {}
 
     # Reference to the original component that was memoized into this component.
-    component: Component
-
-    # The rendered (memoized) code that will be emitted.
-    code: str
+    component: Component = field(
+        default_factory=Component, is_javascript_property=False
+    )
 
     # How many times this component is referenced in the app.
-    references: int = 0
+    references: int = field(default=0, is_javascript_property=False)
 
     # Whether the component has already been rendered to a shared file.
-    rendered_as_shared: bool = False
+    rendered_as_shared: bool = field(default=False, is_javascript_property=False)
+
+    memo_trigger_hooks: list[str] = field(
+        default_factory=list, is_javascript_property=False
+    )
 
     @classmethod
     def create(cls, component: Component) -> StatefulComponent | None:
@@ -2447,8 +2365,7 @@ class StatefulComponent(BaseComponent):
             # Look up the tag in the cache
             stateful_component = cls.tag_to_stateful_component.get(tag_name)
             if stateful_component is None:
-                # Render the component as a string of javascript code.
-                code = cls._render_stateful_code(component, tag_name=tag_name)
+                memo_trigger_hooks = cls._fix_event_triggers(component)
                 # Set the stateful component in the cache for the given tag.
                 stateful_component = cls.tag_to_stateful_component.setdefault(
                     tag_name,
@@ -2456,7 +2373,7 @@ class StatefulComponent(BaseComponent):
                         children=component.children,
                         component=component,
                         tag=tag_name,
-                        code=code,
+                        memo_trigger_hooks=memo_trigger_hooks,
                     ),
                 )
             # Bump the reference count -- multiple pages referencing the same component
@@ -2520,26 +2437,38 @@ class StatefulComponent(BaseComponent):
             f"{component.tag or 'Comp'}_{code_hash}"
         ).capitalize()
 
-    @classmethod
     def _render_stateful_code(
+        self,
+        export: bool = False,
+    ) -> str:
+        if not self.tag:
+            return ""
+        # Render the code for this component and hooks.
+        return STATEFUL_COMPONENT.render(
+            tag_name=self.tag,
+            memo_trigger_hooks=self.memo_trigger_hooks,
+            component=self.component,
+            export=export,
+        )
+
+    @classmethod
+    def _fix_event_triggers(
         cls,
         component: Component,
-        tag_name: str,
-    ) -> str:
+    ) -> list[str]:
         """Render the code for a stateful component.
 
         Args:
             component: The component to render.
-            tag_name: The tag name for the stateful component (see _get_tag_name).
 
         Returns:
-            The rendered code.
+            The memoized event trigger hooks for the component.
         """
         # Memoize event triggers useCallback to avoid unnecessary re-renders.
         memo_event_triggers = tuple(cls._get_memoized_event_triggers(component).items())
 
         # Trigger hooks stored separately to write after the normal hooks (see stateful_component.js.jinja2)
-        memo_trigger_hooks = []
+        memo_trigger_hooks: list[str] = []
 
         if memo_event_triggers:
             # Copy the component to avoid mutating the original.
@@ -2553,12 +2482,7 @@ class StatefulComponent(BaseComponent):
                 memo_trigger_hooks.append(memo_trigger_hook)
                 component.event_triggers[event_trigger] = memo_trigger
 
-        # Render the code for this component and hooks.
-        return STATEFUL_COMPONENT.render(
-            tag_name=tag_name,
-            memo_trigger_hooks=memo_trigger_hooks,
-            component=component,
-        )
+        return memo_trigger_hooks
 
     @staticmethod
     def _get_hook_deps(hook: str) -> list[str]:
@@ -2716,15 +2640,20 @@ class StatefulComponent(BaseComponent):
             return set()
         return self.component._get_all_dynamic_imports()
 
-    def _get_all_custom_code(self) -> set[str]:
+    def _get_all_custom_code(self, export: bool = False) -> set[str]:
         """Get custom code for the component.
+
+        Args:
+            export: Whether to export the component.
 
         Returns:
             The custom code.
         """
         if self.rendered_as_shared:
             return set()
-        return self.component._get_all_custom_code().union({self.code})
+        return self.component._get_all_custom_code().union(
+            {self._render_stateful_code(export=export)}
+        )
 
     def _get_all_refs(self) -> set[str]:
         """Get the refs for the children of the component.

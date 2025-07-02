@@ -33,6 +33,9 @@ Keyword arguments:
 - bd (string | number; optional):
     Border.
 
+- bdrs (number; optional):
+    BorderRadius, theme key: theme.radius.
+
 - bg (optional):
     Background, theme key: theme.colors.
 
@@ -74,6 +77,10 @@ Keyword arguments:
     Disables slider.
 
 - display (optional)
+
+- domain (list of 2 elements: [number, number]; optional):
+    Domain of the slider, defines the full range of possible values,
+    `[min, max]` by default.
 
 - ff (optional):
     FontFamily.
@@ -279,6 +286,10 @@ Keyword arguments:
 - pt (number; optional):
     PaddingTop, theme key: theme.spacing.
 
+- pushOnOverlap (boolean; optional):
+    Determines whether the other thumb should be pushed by the current
+    thumb dragging when minRange/maxRange is reached, True by default.
+
 - px (number; optional):
     PaddingInline, theme key: theme.spacing.
 
@@ -424,6 +435,8 @@ Keyword arguments:
         updatemode: typing.Optional[Literal["mouseup", "drag"]] = None,
         restrictToMarks: typing.Optional[bool] = None,
         scale: typing.Optional[typing.Any] = None,
+        domain: typing.Optional[typing.Tuple[NumberType, NumberType]] = None,
+        pushOnOverlap: typing.Optional[bool] = None,
         className: typing.Optional[str] = None,
         style: typing.Optional[typing.Any] = None,
         hiddenFrom: typing.Optional[typing.Union[Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
@@ -450,6 +463,7 @@ Keyword arguments:
         pl: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         pr: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         bd: typing.Optional[typing.Union[str, NumberType]] = None,
+        bdrs: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         bg: typing.Optional[typing.Union[Literal["dark"], Literal["gray"], Literal["red"], Literal["pink"], Literal["grape"], Literal["violet"], Literal["indigo"], Literal["blue"], Literal["cyan"], Literal["green"], Literal["lime"], Literal["yellow"], Literal["orange"], Literal["teal"]]] = None,
         c: typing.Optional[typing.Union[Literal["dark"], Literal["gray"], Literal["red"], Literal["pink"], Literal["grape"], Literal["violet"], Literal["indigo"], Literal["blue"], Literal["cyan"], Literal["green"], Literal["lime"], Literal["yellow"], Literal["orange"], Literal["teal"]]] = None,
         opacity: typing.Optional[typing.Union[Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"]]] = None,
@@ -492,9 +506,9 @@ Keyword arguments:
         persistence_type: typing.Optional[Literal["local", "session", "memory"]] = None,
         **kwargs
     ):
-        self._prop_names = ['id', 'aria-*', 'bd', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'color', 'darkHidden', 'data-*', 'disabled', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inset', 'inverted', 'label', 'labelAlwaysOn', 'labelTransitionProps', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'marks', 'maw', 'max', 'maxRange', 'mb', 'me', 'mih', 'min', 'minRange', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'name', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'pos', 'pr', 'precision', 'ps', 'pt', 'px', 'py', 'radius', 'restrictToMarks', 'right', 'scale', 'showLabelOnHover', 'size', 'step', 'style', 'styles', 'ta', 'tabIndex', 'td', 'thumbChildren', 'thumbFromLabel', 'thumbSize', 'thumbToLabel', 'top', 'tt', 'unstyled', 'updatemode', 'value', 'variant', 'visibleFrom', 'w']
+        self._prop_names = ['id', 'aria-*', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'color', 'darkHidden', 'data-*', 'disabled', 'display', 'domain', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inset', 'inverted', 'label', 'labelAlwaysOn', 'labelTransitionProps', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'marks', 'maw', 'max', 'maxRange', 'mb', 'me', 'mih', 'min', 'minRange', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'name', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'pos', 'pr', 'precision', 'ps', 'pt', 'pushOnOverlap', 'px', 'py', 'radius', 'restrictToMarks', 'right', 'scale', 'showLabelOnHover', 'size', 'step', 'style', 'styles', 'ta', 'tabIndex', 'td', 'thumbChildren', 'thumbFromLabel', 'thumbSize', 'thumbToLabel', 'top', 'tt', 'unstyled', 'updatemode', 'value', 'variant', 'visibleFrom', 'w']
         self._valid_wildcard_attributes =            ['data-', 'aria-']
-        self.available_properties = ['id', 'aria-*', 'bd', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'color', 'darkHidden', 'data-*', 'disabled', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inset', 'inverted', 'label', 'labelAlwaysOn', 'labelTransitionProps', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'marks', 'maw', 'max', 'maxRange', 'mb', 'me', 'mih', 'min', 'minRange', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'name', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'pos', 'pr', 'precision', 'ps', 'pt', 'px', 'py', 'radius', 'restrictToMarks', 'right', 'scale', 'showLabelOnHover', 'size', 'step', 'style', 'styles', 'ta', 'tabIndex', 'td', 'thumbChildren', 'thumbFromLabel', 'thumbSize', 'thumbToLabel', 'top', 'tt', 'unstyled', 'updatemode', 'value', 'variant', 'visibleFrom', 'w']
+        self.available_properties = ['id', 'aria-*', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'color', 'darkHidden', 'data-*', 'disabled', 'display', 'domain', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inset', 'inverted', 'label', 'labelAlwaysOn', 'labelTransitionProps', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'marks', 'maw', 'max', 'maxRange', 'mb', 'me', 'mih', 'min', 'minRange', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'name', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'pos', 'pr', 'precision', 'ps', 'pt', 'pushOnOverlap', 'px', 'py', 'radius', 'restrictToMarks', 'right', 'scale', 'showLabelOnHover', 'size', 'step', 'style', 'styles', 'ta', 'tabIndex', 'td', 'thumbChildren', 'thumbFromLabel', 'thumbSize', 'thumbToLabel', 'top', 'tt', 'unstyled', 'updatemode', 'value', 'variant', 'visibleFrom', 'w']
         self.available_wildcard_properties =            ['data-', 'aria-']
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

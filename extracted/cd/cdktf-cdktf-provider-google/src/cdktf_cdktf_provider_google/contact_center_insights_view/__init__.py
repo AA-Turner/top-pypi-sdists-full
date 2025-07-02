@@ -1,7 +1,7 @@
 r'''
 # `google_contact_center_insights_view`
 
-Refer to the Terraform Registry for docs: [`google_contact_center_insights_view`](https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/contact_center_insights_view).
+Refer to the Terraform Registry for docs: [`google_contact_center_insights_view`](https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/contact_center_insights_view).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ContactCenterInsightsView(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.contactCenterInsightsView.ContactCenterInsightsView",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/contact_center_insights_view google_contact_center_insights_view}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/contact_center_insights_view google_contact_center_insights_view}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class ContactCenterInsightsView(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/contact_center_insights_view google_contact_center_insights_view} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/contact_center_insights_view google_contact_center_insights_view} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: Location of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/contact_center_insights_view#location ContactCenterInsightsView#location}
-        :param display_name: The human-readable display name of the view. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/contact_center_insights_view#display_name ContactCenterInsightsView#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/contact_center_insights_view#id ContactCenterInsightsView#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/contact_center_insights_view#project ContactCenterInsightsView#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/contact_center_insights_view#timeouts ContactCenterInsightsView#timeouts}
-        :param value: A filter to reduce conversation results to a specific subset. Refer to https://cloud.google.com/contact-center/insights/docs/filtering for details. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/contact_center_insights_view#value ContactCenterInsightsView#value}
+        :param location: Location of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/contact_center_insights_view#location ContactCenterInsightsView#location}
+        :param display_name: The human-readable display name of the view. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/contact_center_insights_view#display_name ContactCenterInsightsView#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/contact_center_insights_view#id ContactCenterInsightsView#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/contact_center_insights_view#project ContactCenterInsightsView#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/contact_center_insights_view#timeouts ContactCenterInsightsView#timeouts}
+        :param value: A filter to reduce conversation results to a specific subset. Refer to https://cloud.google.com/contact-center/insights/docs/filtering for details. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/contact_center_insights_view#value ContactCenterInsightsView#value}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class ContactCenterInsightsView(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ContactCenterInsightsView to import.
-        :param import_from_id: The id of the existing ContactCenterInsightsView that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/contact_center_insights_view#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ContactCenterInsightsView that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/contact_center_insights_view#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ContactCenterInsightsView to import is found.
         '''
         if __debug__:
@@ -138,9 +138,9 @@ class ContactCenterInsightsView(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/contact_center_insights_view#create ContactCenterInsightsView#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/contact_center_insights_view#delete ContactCenterInsightsView#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/contact_center_insights_view#update ContactCenterInsightsView#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/contact_center_insights_view#create ContactCenterInsightsView#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/contact_center_insights_view#delete ContactCenterInsightsView#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/contact_center_insights_view#update ContactCenterInsightsView#update}.
         '''
         value = ContactCenterInsightsViewTimeouts(
             create=create, delete=delete, update=update
@@ -339,12 +339,12 @@ class ContactCenterInsightsViewConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: Location of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/contact_center_insights_view#location ContactCenterInsightsView#location}
-        :param display_name: The human-readable display name of the view. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/contact_center_insights_view#display_name ContactCenterInsightsView#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/contact_center_insights_view#id ContactCenterInsightsView#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/contact_center_insights_view#project ContactCenterInsightsView#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/contact_center_insights_view#timeouts ContactCenterInsightsView#timeouts}
-        :param value: A filter to reduce conversation results to a specific subset. Refer to https://cloud.google.com/contact-center/insights/docs/filtering for details. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/contact_center_insights_view#value ContactCenterInsightsView#value}
+        :param location: Location of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/contact_center_insights_view#location ContactCenterInsightsView#location}
+        :param display_name: The human-readable display name of the view. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/contact_center_insights_view#display_name ContactCenterInsightsView#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/contact_center_insights_view#id ContactCenterInsightsView#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/contact_center_insights_view#project ContactCenterInsightsView#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/contact_center_insights_view#timeouts ContactCenterInsightsView#timeouts}
+        :param value: A filter to reduce conversation results to a specific subset. Refer to https://cloud.google.com/contact-center/insights/docs/filtering for details. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/contact_center_insights_view#value ContactCenterInsightsView#value}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -461,7 +461,7 @@ class ContactCenterInsightsViewConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''Location of the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/contact_center_insights_view#location ContactCenterInsightsView#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/contact_center_insights_view#location ContactCenterInsightsView#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -471,14 +471,14 @@ class ContactCenterInsightsViewConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> typing.Optional[builtins.str]:
         '''The human-readable display name of the view.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/contact_center_insights_view#display_name ContactCenterInsightsView#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/contact_center_insights_view#display_name ContactCenterInsightsView#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/contact_center_insights_view#id ContactCenterInsightsView#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/contact_center_insights_view#id ContactCenterInsightsView#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -488,7 +488,7 @@ class ContactCenterInsightsViewConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/contact_center_insights_view#project ContactCenterInsightsView#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/contact_center_insights_view#project ContactCenterInsightsView#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -496,7 +496,7 @@ class ContactCenterInsightsViewConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ContactCenterInsightsViewTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/contact_center_insights_view#timeouts ContactCenterInsightsView#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/contact_center_insights_view#timeouts ContactCenterInsightsView#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ContactCenterInsightsViewTimeouts"], result)
@@ -505,7 +505,7 @@ class ContactCenterInsightsViewConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def value(self) -> typing.Optional[builtins.str]:
         '''A filter to reduce conversation results to a specific subset. Refer to https://cloud.google.com/contact-center/insights/docs/filtering for details.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/contact_center_insights_view#value ContactCenterInsightsView#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/contact_center_insights_view#value ContactCenterInsightsView#value}
         '''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -536,9 +536,9 @@ class ContactCenterInsightsViewTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/contact_center_insights_view#create ContactCenterInsightsView#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/contact_center_insights_view#delete ContactCenterInsightsView#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/contact_center_insights_view#update ContactCenterInsightsView#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/contact_center_insights_view#create ContactCenterInsightsView#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/contact_center_insights_view#delete ContactCenterInsightsView#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/contact_center_insights_view#update ContactCenterInsightsView#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1595eb2bc7361d74e85d53a89cab1114c349e25051d1de154342986ba2b65f33)
@@ -555,19 +555,19 @@ class ContactCenterInsightsViewTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/contact_center_insights_view#create ContactCenterInsightsView#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/contact_center_insights_view#create ContactCenterInsightsView#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/contact_center_insights_view#delete ContactCenterInsightsView#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/contact_center_insights_view#delete ContactCenterInsightsView#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.41.0/docs/resources/contact_center_insights_view#update ContactCenterInsightsView#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.42.0/docs/resources/contact_center_insights_view#update ContactCenterInsightsView#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

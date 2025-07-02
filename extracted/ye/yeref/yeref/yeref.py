@@ -8388,6 +8388,104 @@ async def get_method_data(address, KEYS_JSON, is_test_only=False, method_name='g
         await asyncio.sleep(round(random.uniform(0, 1), 2))
     finally:
         return result
+
+
+async def get_next_admin_address(address, KEYS_JSON, is_test_only=False):
+    result = {}
+    try:
+        pfx_testnet = "testnet." if is_test_only else ""
+        async with aiofiles.open(KEYS_JSON, mode='r') as f:
+            data = json.loads(await f.read())
+
+        items = []
+        for provider, keys in data["ton"].items():
+            for _ in keys:
+                if provider == "tonapi":
+                    key = random.choice([it['all'] for it in keys if 'all' in it]) if keys else None
+                    if key:
+                        items.append([
+                            'tonapi',
+                            f'https://{pfx_testnet}tonapi.io/v2/blockchain/accounts/{address}/methods/get_next_admin_address',
+                            {
+                                'accept': 'application/json',
+                                'Authorization': f'Bearer {key}'
+                            }
+                        ])
+                elif provider == "toncenter":
+                    key = next((it['testnet'] if is_test_only else it['mainnet'] for it in keys if (is_test_only and 'testnet' in it) or (not is_test_only and 'mainnet' in it)), None)
+                    if key:
+                        items.append([
+                            'toncenter',
+                            f'https://{pfx_testnet}toncenter.com/api/v3/runGetMethod',
+                            {
+                                'accept': 'application/json',
+                                'X-API-Key': key
+                            }
+                        ])
+
+        while True:
+            random.shuffle(items)
+            for item in items:
+                try:
+                    name, url, headers = item
+                    print(f"{item=}")
+
+                    if name == 'tonapi':
+                        async with aiohttp.ClientSession() as session:
+                            async with session.get(url, headers=headers) as response:
+                                response.raise_for_status()
+                                data = await response.json()
+
+                        # print('sooooo', data)
+                        if 'error' in data or not data['success']: return
+                        print(f"{data['decoded']=}")
+                        result['next_admin_address'] = data['decoded']['next_admin_address']
+                    else:
+                        payload = {"address": address, "method": get_next_admin_address, "stack": []}
+                        async with aiohttp.ClientSession() as session:
+                            async with session.post(url, headers=headers, json=payload) as response:
+                                response.raise_for_status()
+                                data = await response.json()
+                        if await check_error(data): return
+
+                        try:
+                            print(f"{data=}")
+                            result['next_admin_address'] = (Cell.one_from_boc(data['stack'][0]['value']).begin_parse().load_address()).to_str(is_user_friendly = False)
+                        except Exception as _:
+                            result['next_admin_address'] = ""
+
+                    await asyncio.sleep(0.6)
+                    # return
+                except Exception as e:
+                    logger.info(log_ % str(e))
+                    await asyncio.sleep(round(random.uniform(0, 1), 2))
+            break
+    except Exception as e:
+        logger.info(log_ % str(e))
+        await asyncio.sleep(round(random.uniform(0, 1), 2))
+    finally:
+        return result
+
+
+async def calculate_wallet_address_old(owner_address, master_address, jetton_wallet_code):
+    result = None
+    try:
+        code = Cell.one_from_boc(jetton_wallet_code)
+        data = (
+            begin_cell()
+            .store_coins(0)
+            .store_address(Address(owner_address))
+            .store_address(Address(master_address))
+            .store_ref(Cell.one_from_boc(jetton_wallet_code))
+            .end_cell()
+        )
+        state_init_wallet = StateInit(code=code, data=data)
+        result = Address((0, state_init_wallet.serialize().hash)).to_str(is_bounceable=True, is_test_only=is_test_only)
+        print(f"{owner_address=}, {master_address=}, calc {result=}")
+    except Exception as e:
+        logger.info(log_ % str(e))
+        await asyncio.sleep(round(random.uniform(0, 1), 2))
+    return result
 # endregion
 
 

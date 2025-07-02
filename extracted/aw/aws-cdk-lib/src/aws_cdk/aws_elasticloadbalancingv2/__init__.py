@@ -3858,7 +3858,7 @@ class CfnListener(
         :param default_actions: The actions for the default rule. You cannot define a condition for a default rule. To create additional rules for an Application Load Balancer, use `AWS::ElasticLoadBalancingV2::ListenerRule <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-listenerrule.html>`_ .
         :param load_balancer_arn: The Amazon Resource Name (ARN) of the load balancer.
         :param alpn_policy: [TLS listener] The name of the Application-Layer Protocol Negotiation (ALPN) policy.
-        :param certificates: The default SSL server certificate for a secure listener. You must provide exactly one certificate if the listener protocol is HTTPS or TLS. To create a certificate list for a secure listener, use `AWS::ElasticLoadBalancingV2::ListenerCertificate <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-listenercertificate.html>`_ .
+        :param certificates: The default SSL server certificate for a secure listener. You must provide exactly one certificate if the listener protocol is HTTPS or TLS. For an HTTPS listener, update requires some interruptions. For a TLS listener, update requires no interruption. To create a certificate list for a secure listener, use `AWS::ElasticLoadBalancingV2::ListenerCertificate <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-listenercertificate.html>`_ .
         :param listener_attributes: The listener attributes. Attributes that you do not modify retain their current values.
         :param mutual_authentication: The mutual authentication configuration information.
         :param port: The port on which the load balancer is listening. You can't specify a port for a Gateway Load Balancer.
@@ -5807,7 +5807,7 @@ class CfnListenerProps:
         :param default_actions: The actions for the default rule. You cannot define a condition for a default rule. To create additional rules for an Application Load Balancer, use `AWS::ElasticLoadBalancingV2::ListenerRule <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-listenerrule.html>`_ .
         :param load_balancer_arn: The Amazon Resource Name (ARN) of the load balancer.
         :param alpn_policy: [TLS listener] The name of the Application-Layer Protocol Negotiation (ALPN) policy.
-        :param certificates: The default SSL server certificate for a secure listener. You must provide exactly one certificate if the listener protocol is HTTPS or TLS. To create a certificate list for a secure listener, use `AWS::ElasticLoadBalancingV2::ListenerCertificate <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-listenercertificate.html>`_ .
+        :param certificates: The default SSL server certificate for a secure listener. You must provide exactly one certificate if the listener protocol is HTTPS or TLS. For an HTTPS listener, update requires some interruptions. For a TLS listener, update requires no interruption. To create a certificate list for a secure listener, use `AWS::ElasticLoadBalancingV2::ListenerCertificate <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-listenercertificate.html>`_ .
         :param listener_attributes: The listener attributes. Attributes that you do not modify retain their current values.
         :param mutual_authentication: The mutual authentication configuration information.
         :param port: The port on which the load balancer is listening. You can't specify a port for a Gateway Load Balancer.
@@ -5982,6 +5982,8 @@ class CfnListenerProps:
         '''The default SSL server certificate for a secure listener.
 
         You must provide exactly one certificate if the listener protocol is HTTPS or TLS.
+
+        For an HTTPS listener, update requires some interruptions. For a TLS listener, update requires no interruption.
 
         To create a certificate list for a secure listener, use `AWS::ElasticLoadBalancingV2::ListenerCertificate <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-listenercertificate.html>`_ .
 

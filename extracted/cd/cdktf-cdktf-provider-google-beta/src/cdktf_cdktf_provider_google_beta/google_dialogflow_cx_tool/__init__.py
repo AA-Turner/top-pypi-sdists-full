@@ -1,7 +1,7 @@
 r'''
 # `google_dialogflow_cx_tool`
 
-Refer to the Terraform Registry for docs: [`google_dialogflow_cx_tool`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool).
+Refer to the Terraform Registry for docs: [`google_dialogflow_cx_tool`](https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleDialogflowCxTool(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleDialogflowCxTool.GoogleDialogflowCxTool",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool google_dialogflow_cx_tool}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool google_dialogflow_cx_tool}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class GoogleDialogflowCxTool(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool google_dialogflow_cx_tool} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool google_dialogflow_cx_tool} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param description: High level description of the Tool and its usage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#description GoogleDialogflowCxTool#description}
-        :param display_name: The human-readable name of the tool, unique within the agent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#display_name GoogleDialogflowCxTool#display_name}
-        :param data_store_spec: data_store_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#data_store_spec GoogleDialogflowCxTool#data_store_spec}
-        :param function_spec: function_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#function_spec GoogleDialogflowCxTool#function_spec}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#id GoogleDialogflowCxTool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param open_api_spec: open_api_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#open_api_spec GoogleDialogflowCxTool#open_api_spec}
-        :param parent: The agent to create a Tool for. Format: projects//locations//agents/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#parent GoogleDialogflowCxTool#parent}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#timeouts GoogleDialogflowCxTool#timeouts}
+        :param description: High level description of the Tool and its usage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#description GoogleDialogflowCxTool#description}
+        :param display_name: The human-readable name of the tool, unique within the agent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#display_name GoogleDialogflowCxTool#display_name}
+        :param data_store_spec: data_store_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#data_store_spec GoogleDialogflowCxTool#data_store_spec}
+        :param function_spec: function_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#function_spec GoogleDialogflowCxTool#function_spec}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#id GoogleDialogflowCxTool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param open_api_spec: open_api_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#open_api_spec GoogleDialogflowCxTool#open_api_spec}
+        :param parent: The agent to create a Tool for. Format: projects//locations//agents/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#parent GoogleDialogflowCxTool#parent}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#timeouts GoogleDialogflowCxTool#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class GoogleDialogflowCxTool(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleDialogflowCxTool to import.
-        :param import_from_id: The id of the existing GoogleDialogflowCxTool that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleDialogflowCxTool that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleDialogflowCxTool to import is found.
         '''
         if __debug__:
@@ -143,8 +143,8 @@ class GoogleDialogflowCxTool(
         fallback_prompt: typing.Union["GoogleDialogflowCxToolDataStoreSpecFallbackPrompt", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param data_store_connections: data_store_connections block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#data_store_connections GoogleDialogflowCxTool#data_store_connections}
-        :param fallback_prompt: fallback_prompt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#fallback_prompt GoogleDialogflowCxTool#fallback_prompt}
+        :param data_store_connections: data_store_connections block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#data_store_connections GoogleDialogflowCxTool#data_store_connections}
+        :param fallback_prompt: fallback_prompt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#fallback_prompt GoogleDialogflowCxTool#fallback_prompt}
         '''
         value = GoogleDialogflowCxToolDataStoreSpec(
             data_store_connections=data_store_connections,
@@ -161,8 +161,8 @@ class GoogleDialogflowCxTool(
         output_schema: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param input_schema: Optional. The JSON schema is encapsulated in a `google.protobuf.Struct <https://protobuf.dev/reference/protobuf/google.protobuf/#struct>`_ to describe the input of the function. This input is a JSON object that contains the function's parameters as properties of the object Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#input_schema GoogleDialogflowCxTool#input_schema}
-        :param output_schema: Optional. The JSON schema is encapsulated in a `google.protobuf.Struct <https://protobuf.dev/reference/protobuf/google.protobuf/#struct>`_ to describe the output of the function. This output is a JSON object that contains the function's parameters as properties of the object Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#output_schema GoogleDialogflowCxTool#output_schema}
+        :param input_schema: Optional. The JSON schema is encapsulated in a `google.protobuf.Struct <https://protobuf.dev/reference/protobuf/google.protobuf/#struct>`_ to describe the input of the function. This input is a JSON object that contains the function's parameters as properties of the object Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#input_schema GoogleDialogflowCxTool#input_schema}
+        :param output_schema: Optional. The JSON schema is encapsulated in a `google.protobuf.Struct <https://protobuf.dev/reference/protobuf/google.protobuf/#struct>`_ to describe the output of the function. This output is a JSON object that contains the function's parameters as properties of the object Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#output_schema GoogleDialogflowCxTool#output_schema}
         '''
         value = GoogleDialogflowCxToolFunctionSpec(
             input_schema=input_schema, output_schema=output_schema
@@ -180,10 +180,10 @@ class GoogleDialogflowCxTool(
         tls_config: typing.Optional[typing.Union["GoogleDialogflowCxToolOpenApiSpecTlsConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param text_schema: The OpenAPI schema specified as a text. This field is part of a union field 'schema': only one of 'textSchema' may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#text_schema GoogleDialogflowCxTool#text_schema}
-        :param authentication: authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#authentication GoogleDialogflowCxTool#authentication}
-        :param service_directory_config: service_directory_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#service_directory_config GoogleDialogflowCxTool#service_directory_config}
-        :param tls_config: tls_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#tls_config GoogleDialogflowCxTool#tls_config}
+        :param text_schema: The OpenAPI schema specified as a text. This field is part of a union field 'schema': only one of 'textSchema' may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#text_schema GoogleDialogflowCxTool#text_schema}
+        :param authentication: authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#authentication GoogleDialogflowCxTool#authentication}
+        :param service_directory_config: service_directory_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#service_directory_config GoogleDialogflowCxTool#service_directory_config}
+        :param tls_config: tls_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#tls_config GoogleDialogflowCxTool#tls_config}
         '''
         value = GoogleDialogflowCxToolOpenApiSpec(
             text_schema=text_schema,
@@ -203,9 +203,9 @@ class GoogleDialogflowCxTool(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#create GoogleDialogflowCxTool#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#delete GoogleDialogflowCxTool#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#update GoogleDialogflowCxTool#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#create GoogleDialogflowCxTool#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#delete GoogleDialogflowCxTool#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#update GoogleDialogflowCxTool#update}.
         '''
         value = GoogleDialogflowCxToolTimeouts(
             create=create, delete=delete, update=update
@@ -426,14 +426,14 @@ class GoogleDialogflowCxToolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param description: High level description of the Tool and its usage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#description GoogleDialogflowCxTool#description}
-        :param display_name: The human-readable name of the tool, unique within the agent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#display_name GoogleDialogflowCxTool#display_name}
-        :param data_store_spec: data_store_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#data_store_spec GoogleDialogflowCxTool#data_store_spec}
-        :param function_spec: function_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#function_spec GoogleDialogflowCxTool#function_spec}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#id GoogleDialogflowCxTool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param open_api_spec: open_api_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#open_api_spec GoogleDialogflowCxTool#open_api_spec}
-        :param parent: The agent to create a Tool for. Format: projects//locations//agents/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#parent GoogleDialogflowCxTool#parent}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#timeouts GoogleDialogflowCxTool#timeouts}
+        :param description: High level description of the Tool and its usage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#description GoogleDialogflowCxTool#description}
+        :param display_name: The human-readable name of the tool, unique within the agent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#display_name GoogleDialogflowCxTool#display_name}
+        :param data_store_spec: data_store_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#data_store_spec GoogleDialogflowCxTool#data_store_spec}
+        :param function_spec: function_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#function_spec GoogleDialogflowCxTool#function_spec}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#id GoogleDialogflowCxTool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param open_api_spec: open_api_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#open_api_spec GoogleDialogflowCxTool#open_api_spec}
+        :param parent: The agent to create a Tool for. Format: projects//locations//agents/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#parent GoogleDialogflowCxTool#parent}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#timeouts GoogleDialogflowCxTool#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -561,7 +561,7 @@ class GoogleDialogflowCxToolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> builtins.str:
         '''High level description of the Tool and its usage.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#description GoogleDialogflowCxTool#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#description GoogleDialogflowCxTool#description}
         '''
         result = self._values.get("description")
         assert result is not None, "Required property 'description' is missing"
@@ -571,7 +571,7 @@ class GoogleDialogflowCxToolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> builtins.str:
         '''The human-readable name of the tool, unique within the agent.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#display_name GoogleDialogflowCxTool#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#display_name GoogleDialogflowCxTool#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -581,7 +581,7 @@ class GoogleDialogflowCxToolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def data_store_spec(self) -> typing.Optional["GoogleDialogflowCxToolDataStoreSpec"]:
         '''data_store_spec block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#data_store_spec GoogleDialogflowCxTool#data_store_spec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#data_store_spec GoogleDialogflowCxTool#data_store_spec}
         '''
         result = self._values.get("data_store_spec")
         return typing.cast(typing.Optional["GoogleDialogflowCxToolDataStoreSpec"], result)
@@ -590,14 +590,14 @@ class GoogleDialogflowCxToolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def function_spec(self) -> typing.Optional["GoogleDialogflowCxToolFunctionSpec"]:
         '''function_spec block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#function_spec GoogleDialogflowCxTool#function_spec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#function_spec GoogleDialogflowCxTool#function_spec}
         '''
         result = self._values.get("function_spec")
         return typing.cast(typing.Optional["GoogleDialogflowCxToolFunctionSpec"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#id GoogleDialogflowCxTool#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#id GoogleDialogflowCxTool#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -609,7 +609,7 @@ class GoogleDialogflowCxToolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def open_api_spec(self) -> typing.Optional["GoogleDialogflowCxToolOpenApiSpec"]:
         '''open_api_spec block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#open_api_spec GoogleDialogflowCxTool#open_api_spec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#open_api_spec GoogleDialogflowCxTool#open_api_spec}
         '''
         result = self._values.get("open_api_spec")
         return typing.cast(typing.Optional["GoogleDialogflowCxToolOpenApiSpec"], result)
@@ -618,7 +618,7 @@ class GoogleDialogflowCxToolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def parent(self) -> typing.Optional[builtins.str]:
         '''The agent to create a Tool for. Format: projects//locations//agents/.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#parent GoogleDialogflowCxTool#parent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#parent GoogleDialogflowCxTool#parent}
         '''
         result = self._values.get("parent")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -627,7 +627,7 @@ class GoogleDialogflowCxToolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleDialogflowCxToolTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#timeouts GoogleDialogflowCxTool#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#timeouts GoogleDialogflowCxTool#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleDialogflowCxToolTimeouts"], result)
@@ -660,8 +660,8 @@ class GoogleDialogflowCxToolDataStoreSpec:
         fallback_prompt: typing.Union["GoogleDialogflowCxToolDataStoreSpecFallbackPrompt", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param data_store_connections: data_store_connections block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#data_store_connections GoogleDialogflowCxTool#data_store_connections}
-        :param fallback_prompt: fallback_prompt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#fallback_prompt GoogleDialogflowCxTool#fallback_prompt}
+        :param data_store_connections: data_store_connections block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#data_store_connections GoogleDialogflowCxTool#data_store_connections}
+        :param fallback_prompt: fallback_prompt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#fallback_prompt GoogleDialogflowCxTool#fallback_prompt}
         '''
         if isinstance(fallback_prompt, dict):
             fallback_prompt = GoogleDialogflowCxToolDataStoreSpecFallbackPrompt(**fallback_prompt)
@@ -680,7 +680,7 @@ class GoogleDialogflowCxToolDataStoreSpec:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDialogflowCxToolDataStoreSpecDataStoreConnections"]]:
         '''data_store_connections block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#data_store_connections GoogleDialogflowCxTool#data_store_connections}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#data_store_connections GoogleDialogflowCxTool#data_store_connections}
         '''
         result = self._values.get("data_store_connections")
         assert result is not None, "Required property 'data_store_connections' is missing"
@@ -690,7 +690,7 @@ class GoogleDialogflowCxToolDataStoreSpec:
     def fallback_prompt(self) -> "GoogleDialogflowCxToolDataStoreSpecFallbackPrompt":
         '''fallback_prompt block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#fallback_prompt GoogleDialogflowCxTool#fallback_prompt}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#fallback_prompt GoogleDialogflowCxTool#fallback_prompt}
         '''
         result = self._values.get("fallback_prompt")
         assert result is not None, "Required property 'fallback_prompt' is missing"
@@ -726,9 +726,9 @@ class GoogleDialogflowCxToolDataStoreSpecDataStoreConnections:
         document_processing_mode: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param data_store: The full name of the referenced data store. Formats: projects/{project}/locations/{location}/collections/{collection}/dataStores/{dataStore} projects/{project}/locations/{location}/dataStores/{dataStore}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#data_store GoogleDialogflowCxTool#data_store}
-        :param data_store_type: The type of the connected data store. See `DataStoreType <https://cloud.google.com/dialogflow/cx/docs/reference/rest/v3/DataStoreConnection#datastoretype>`_ for valid values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#data_store_type GoogleDialogflowCxTool#data_store_type}
-        :param document_processing_mode: The document processing mode for the data store connection. Should only be set for PUBLIC_WEB and UNSTRUCTURED data stores. If not set it is considered as DOCUMENTS, as this is the legacy mode. See `DocumentProcessingMode <https://cloud.google.com/dialogflow/cx/docs/reference/rest/v3/DataStoreConnection#documentprocessingmode>`_ for valid values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#document_processing_mode GoogleDialogflowCxTool#document_processing_mode}
+        :param data_store: The full name of the referenced data store. Formats: projects/{project}/locations/{location}/collections/{collection}/dataStores/{dataStore} projects/{project}/locations/{location}/dataStores/{dataStore}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#data_store GoogleDialogflowCxTool#data_store}
+        :param data_store_type: The type of the connected data store. See `DataStoreType <https://cloud.google.com/dialogflow/cx/docs/reference/rest/v3/DataStoreConnection#datastoretype>`_ for valid values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#data_store_type GoogleDialogflowCxTool#data_store_type}
+        :param document_processing_mode: The document processing mode for the data store connection. Should only be set for PUBLIC_WEB and UNSTRUCTURED data stores. If not set it is considered as DOCUMENTS, as this is the legacy mode. See `DocumentProcessingMode <https://cloud.google.com/dialogflow/cx/docs/reference/rest/v3/DataStoreConnection#documentprocessingmode>`_ for valid values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#document_processing_mode GoogleDialogflowCxTool#document_processing_mode}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4a493cb8a63c887c9c40d6ded239ce5939f0ad817d6cb1be3712846c3f0847de)
@@ -747,7 +747,7 @@ class GoogleDialogflowCxToolDataStoreSpecDataStoreConnections:
     def data_store(self) -> typing.Optional[builtins.str]:
         '''The full name of the referenced data store. Formats: projects/{project}/locations/{location}/collections/{collection}/dataStores/{dataStore} projects/{project}/locations/{location}/dataStores/{dataStore}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#data_store GoogleDialogflowCxTool#data_store}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#data_store GoogleDialogflowCxTool#data_store}
         '''
         result = self._values.get("data_store")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -756,7 +756,7 @@ class GoogleDialogflowCxToolDataStoreSpecDataStoreConnections:
     def data_store_type(self) -> typing.Optional[builtins.str]:
         '''The type of the connected data store. See `DataStoreType <https://cloud.google.com/dialogflow/cx/docs/reference/rest/v3/DataStoreConnection#datastoretype>`_ for valid values.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#data_store_type GoogleDialogflowCxTool#data_store_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#data_store_type GoogleDialogflowCxTool#data_store_type}
         '''
         result = self._values.get("data_store_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -768,7 +768,7 @@ class GoogleDialogflowCxToolDataStoreSpecDataStoreConnections:
         Should only be set for PUBLIC_WEB and UNSTRUCTURED data stores. If not set it is considered as DOCUMENTS, as this is the legacy mode.
         See `DocumentProcessingMode <https://cloud.google.com/dialogflow/cx/docs/reference/rest/v3/DataStoreConnection#documentprocessingmode>`_ for valid values.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#document_processing_mode GoogleDialogflowCxTool#document_processing_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#document_processing_mode GoogleDialogflowCxTool#document_processing_mode}
         '''
         result = self._values.get("document_processing_mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1140,8 +1140,8 @@ class GoogleDialogflowCxToolFunctionSpec:
         output_schema: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param input_schema: Optional. The JSON schema is encapsulated in a `google.protobuf.Struct <https://protobuf.dev/reference/protobuf/google.protobuf/#struct>`_ to describe the input of the function. This input is a JSON object that contains the function's parameters as properties of the object Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#input_schema GoogleDialogflowCxTool#input_schema}
-        :param output_schema: Optional. The JSON schema is encapsulated in a `google.protobuf.Struct <https://protobuf.dev/reference/protobuf/google.protobuf/#struct>`_ to describe the output of the function. This output is a JSON object that contains the function's parameters as properties of the object Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#output_schema GoogleDialogflowCxTool#output_schema}
+        :param input_schema: Optional. The JSON schema is encapsulated in a `google.protobuf.Struct <https://protobuf.dev/reference/protobuf/google.protobuf/#struct>`_ to describe the input of the function. This input is a JSON object that contains the function's parameters as properties of the object Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#input_schema GoogleDialogflowCxTool#input_schema}
+        :param output_schema: Optional. The JSON schema is encapsulated in a `google.protobuf.Struct <https://protobuf.dev/reference/protobuf/google.protobuf/#struct>`_ to describe the output of the function. This output is a JSON object that contains the function's parameters as properties of the object Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#output_schema GoogleDialogflowCxTool#output_schema}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__52eb615b90f04e8f5ac08fa8585f8815ab5c7737d21b6a500fd71bac701952e2)
@@ -1160,7 +1160,7 @@ class GoogleDialogflowCxToolFunctionSpec:
         The JSON schema is encapsulated in a `google.protobuf.Struct <https://protobuf.dev/reference/protobuf/google.protobuf/#struct>`_ to describe the input of the function.
         This input is a JSON object that contains the function's parameters as properties of the object
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#input_schema GoogleDialogflowCxTool#input_schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#input_schema GoogleDialogflowCxTool#input_schema}
         '''
         result = self._values.get("input_schema")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1172,7 +1172,7 @@ class GoogleDialogflowCxToolFunctionSpec:
         The JSON schema is encapsulated in a `google.protobuf.Struct <https://protobuf.dev/reference/protobuf/google.protobuf/#struct>`_ to describe the output of the function.
         This output is a JSON object that contains the function's parameters as properties of the object
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#output_schema GoogleDialogflowCxTool#output_schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#output_schema GoogleDialogflowCxTool#output_schema}
         '''
         result = self._values.get("output_schema")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1287,10 +1287,10 @@ class GoogleDialogflowCxToolOpenApiSpec:
         tls_config: typing.Optional[typing.Union["GoogleDialogflowCxToolOpenApiSpecTlsConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param text_schema: The OpenAPI schema specified as a text. This field is part of a union field 'schema': only one of 'textSchema' may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#text_schema GoogleDialogflowCxTool#text_schema}
-        :param authentication: authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#authentication GoogleDialogflowCxTool#authentication}
-        :param service_directory_config: service_directory_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#service_directory_config GoogleDialogflowCxTool#service_directory_config}
-        :param tls_config: tls_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#tls_config GoogleDialogflowCxTool#tls_config}
+        :param text_schema: The OpenAPI schema specified as a text. This field is part of a union field 'schema': only one of 'textSchema' may be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#text_schema GoogleDialogflowCxTool#text_schema}
+        :param authentication: authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#authentication GoogleDialogflowCxTool#authentication}
+        :param service_directory_config: service_directory_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#service_directory_config GoogleDialogflowCxTool#service_directory_config}
+        :param tls_config: tls_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#tls_config GoogleDialogflowCxTool#tls_config}
         '''
         if isinstance(authentication, dict):
             authentication = GoogleDialogflowCxToolOpenApiSpecAuthentication(**authentication)
@@ -1320,7 +1320,7 @@ class GoogleDialogflowCxToolOpenApiSpec:
 
         This field is part of a union field 'schema': only one of 'textSchema' may be set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#text_schema GoogleDialogflowCxTool#text_schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#text_schema GoogleDialogflowCxTool#text_schema}
         '''
         result = self._values.get("text_schema")
         assert result is not None, "Required property 'text_schema' is missing"
@@ -1332,7 +1332,7 @@ class GoogleDialogflowCxToolOpenApiSpec:
     ) -> typing.Optional["GoogleDialogflowCxToolOpenApiSpecAuthentication"]:
         '''authentication block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#authentication GoogleDialogflowCxTool#authentication}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#authentication GoogleDialogflowCxTool#authentication}
         '''
         result = self._values.get("authentication")
         return typing.cast(typing.Optional["GoogleDialogflowCxToolOpenApiSpecAuthentication"], result)
@@ -1343,7 +1343,7 @@ class GoogleDialogflowCxToolOpenApiSpec:
     ) -> typing.Optional["GoogleDialogflowCxToolOpenApiSpecServiceDirectoryConfig"]:
         '''service_directory_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#service_directory_config GoogleDialogflowCxTool#service_directory_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#service_directory_config GoogleDialogflowCxTool#service_directory_config}
         '''
         result = self._values.get("service_directory_config")
         return typing.cast(typing.Optional["GoogleDialogflowCxToolOpenApiSpecServiceDirectoryConfig"], result)
@@ -1354,7 +1354,7 @@ class GoogleDialogflowCxToolOpenApiSpec:
     ) -> typing.Optional["GoogleDialogflowCxToolOpenApiSpecTlsConfig"]:
         '''tls_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#tls_config GoogleDialogflowCxTool#tls_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#tls_config GoogleDialogflowCxTool#tls_config}
         '''
         result = self._values.get("tls_config")
         return typing.cast(typing.Optional["GoogleDialogflowCxToolOpenApiSpecTlsConfig"], result)
@@ -1391,10 +1391,10 @@ class GoogleDialogflowCxToolOpenApiSpecAuthentication:
         service_agent_auth_config: typing.Optional[typing.Union["GoogleDialogflowCxToolOpenApiSpecAuthenticationServiceAgentAuthConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param api_key_config: api_key_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#api_key_config GoogleDialogflowCxTool#api_key_config}
-        :param bearer_token_config: bearer_token_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#bearer_token_config GoogleDialogflowCxTool#bearer_token_config}
-        :param oauth_config: oauth_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#oauth_config GoogleDialogflowCxTool#oauth_config}
-        :param service_agent_auth_config: service_agent_auth_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#service_agent_auth_config GoogleDialogflowCxTool#service_agent_auth_config}
+        :param api_key_config: api_key_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#api_key_config GoogleDialogflowCxTool#api_key_config}
+        :param bearer_token_config: bearer_token_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#bearer_token_config GoogleDialogflowCxTool#bearer_token_config}
+        :param oauth_config: oauth_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#oauth_config GoogleDialogflowCxTool#oauth_config}
+        :param service_agent_auth_config: service_agent_auth_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#service_agent_auth_config GoogleDialogflowCxTool#service_agent_auth_config}
         '''
         if isinstance(api_key_config, dict):
             api_key_config = GoogleDialogflowCxToolOpenApiSpecAuthenticationApiKeyConfig(**api_key_config)
@@ -1426,7 +1426,7 @@ class GoogleDialogflowCxToolOpenApiSpecAuthentication:
     ) -> typing.Optional["GoogleDialogflowCxToolOpenApiSpecAuthenticationApiKeyConfig"]:
         '''api_key_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#api_key_config GoogleDialogflowCxTool#api_key_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#api_key_config GoogleDialogflowCxTool#api_key_config}
         '''
         result = self._values.get("api_key_config")
         return typing.cast(typing.Optional["GoogleDialogflowCxToolOpenApiSpecAuthenticationApiKeyConfig"], result)
@@ -1437,7 +1437,7 @@ class GoogleDialogflowCxToolOpenApiSpecAuthentication:
     ) -> typing.Optional["GoogleDialogflowCxToolOpenApiSpecAuthenticationBearerTokenConfig"]:
         '''bearer_token_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#bearer_token_config GoogleDialogflowCxTool#bearer_token_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#bearer_token_config GoogleDialogflowCxTool#bearer_token_config}
         '''
         result = self._values.get("bearer_token_config")
         return typing.cast(typing.Optional["GoogleDialogflowCxToolOpenApiSpecAuthenticationBearerTokenConfig"], result)
@@ -1448,7 +1448,7 @@ class GoogleDialogflowCxToolOpenApiSpecAuthentication:
     ) -> typing.Optional["GoogleDialogflowCxToolOpenApiSpecAuthenticationOauthConfig"]:
         '''oauth_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#oauth_config GoogleDialogflowCxTool#oauth_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#oauth_config GoogleDialogflowCxTool#oauth_config}
         '''
         result = self._values.get("oauth_config")
         return typing.cast(typing.Optional["GoogleDialogflowCxToolOpenApiSpecAuthenticationOauthConfig"], result)
@@ -1459,7 +1459,7 @@ class GoogleDialogflowCxToolOpenApiSpecAuthentication:
     ) -> typing.Optional["GoogleDialogflowCxToolOpenApiSpecAuthenticationServiceAgentAuthConfig"]:
         '''service_agent_auth_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#service_agent_auth_config GoogleDialogflowCxTool#service_agent_auth_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#service_agent_auth_config GoogleDialogflowCxTool#service_agent_auth_config}
         '''
         result = self._values.get("service_agent_auth_config")
         return typing.cast(typing.Optional["GoogleDialogflowCxToolOpenApiSpecAuthenticationServiceAgentAuthConfig"], result)
@@ -1496,10 +1496,10 @@ class GoogleDialogflowCxToolOpenApiSpecAuthenticationApiKeyConfig:
         secret_version_for_api_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param key_name: The parameter name or the header name of the API key. E.g., If the API request is "https://example.com/act?X-Api-Key=", "X-Api-Key" would be the parameter name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#key_name GoogleDialogflowCxTool#key_name}
-        :param request_location: Key location in the request. See `RequestLocation <https://cloud.google.com/dialogflow/cx/docs/reference/rest/v3/projects.locations.agents.tools#requestlocation>`_ for valid values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#request_location GoogleDialogflowCxTool#request_location}
-        :param api_key: Optional. The API key. If the 'secretVersionForApiKey'' field is set, this field will be ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#api_key GoogleDialogflowCxTool#api_key}
-        :param secret_version_for_api_key: Optional. The name of the SecretManager secret version resource storing the API key. If this field is set, the apiKey field will be ignored. Format: projects/{project}/secrets/{secret}/versions/{version} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#secret_version_for_api_key GoogleDialogflowCxTool#secret_version_for_api_key}
+        :param key_name: The parameter name or the header name of the API key. E.g., If the API request is "https://example.com/act?X-Api-Key=", "X-Api-Key" would be the parameter name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#key_name GoogleDialogflowCxTool#key_name}
+        :param request_location: Key location in the request. See `RequestLocation <https://cloud.google.com/dialogflow/cx/docs/reference/rest/v3/projects.locations.agents.tools#requestlocation>`_ for valid values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#request_location GoogleDialogflowCxTool#request_location}
+        :param api_key: Optional. The API key. If the 'secretVersionForApiKey'' field is set, this field will be ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#api_key GoogleDialogflowCxTool#api_key}
+        :param secret_version_for_api_key: Optional. The name of the SecretManager secret version resource storing the API key. If this field is set, the apiKey field will be ignored. Format: projects/{project}/secrets/{secret}/versions/{version} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#secret_version_for_api_key GoogleDialogflowCxTool#secret_version_for_api_key}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0729af0f54fd03c0d8e3a91b16cb26a3bcf8a710630cbf9b235e0ca3ff375f42)
@@ -1522,7 +1522,7 @@ class GoogleDialogflowCxToolOpenApiSpecAuthenticationApiKeyConfig:
 
         E.g., If the API request is "https://example.com/act?X-Api-Key=", "X-Api-Key" would be the parameter name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#key_name GoogleDialogflowCxTool#key_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#key_name GoogleDialogflowCxTool#key_name}
         '''
         result = self._values.get("key_name")
         assert result is not None, "Required property 'key_name' is missing"
@@ -1532,7 +1532,7 @@ class GoogleDialogflowCxToolOpenApiSpecAuthenticationApiKeyConfig:
     def request_location(self) -> builtins.str:
         '''Key location in the request. See `RequestLocation <https://cloud.google.com/dialogflow/cx/docs/reference/rest/v3/projects.locations.agents.tools#requestlocation>`_ for valid values.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#request_location GoogleDialogflowCxTool#request_location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#request_location GoogleDialogflowCxTool#request_location}
         '''
         result = self._values.get("request_location")
         assert result is not None, "Required property 'request_location' is missing"
@@ -1542,7 +1542,7 @@ class GoogleDialogflowCxToolOpenApiSpecAuthenticationApiKeyConfig:
     def api_key(self) -> typing.Optional[builtins.str]:
         '''Optional. The API key. If the 'secretVersionForApiKey'' field is set, this field will be ignored.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#api_key GoogleDialogflowCxTool#api_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#api_key GoogleDialogflowCxTool#api_key}
         '''
         result = self._values.get("api_key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1555,7 +1555,7 @@ class GoogleDialogflowCxToolOpenApiSpecAuthenticationApiKeyConfig:
         If this field is set, the apiKey field will be ignored.
         Format: projects/{project}/secrets/{secret}/versions/{version}
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#secret_version_for_api_key GoogleDialogflowCxTool#secret_version_for_api_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#secret_version_for_api_key GoogleDialogflowCxTool#secret_version_for_api_key}
         '''
         result = self._values.get("secret_version_for_api_key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1702,8 +1702,8 @@ class GoogleDialogflowCxToolOpenApiSpecAuthenticationBearerTokenConfig:
         token: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param secret_version_for_token: Optional. The name of the SecretManager secret version resource storing the Bearer token. If this field is set, the 'token' field will be ignored. Format: projects/{project}/secrets/{secret}/versions/{version} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#secret_version_for_token GoogleDialogflowCxTool#secret_version_for_token}
-        :param token: Optional. The text token appended to the text Bearer to the request Authorization header. `Session parameters reference <https://cloud.google.com/dialogflow/cx/docs/concept/parameter#session-ref>`_ can be used to pass the token dynamically, e.g. '$session.params.parameter-id'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#token GoogleDialogflowCxTool#token}
+        :param secret_version_for_token: Optional. The name of the SecretManager secret version resource storing the Bearer token. If this field is set, the 'token' field will be ignored. Format: projects/{project}/secrets/{secret}/versions/{version} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#secret_version_for_token GoogleDialogflowCxTool#secret_version_for_token}
+        :param token: Optional. The text token appended to the text Bearer to the request Authorization header. `Session parameters reference <https://cloud.google.com/dialogflow/cx/docs/concept/parameter#session-ref>`_ can be used to pass the token dynamically, e.g. '$session.params.parameter-id'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#token GoogleDialogflowCxTool#token}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__721713aee34d9ccb0c64ddf2cd59da14bc1c3ad9c03bdab5d07aedba2387985a)
@@ -1722,7 +1722,7 @@ class GoogleDialogflowCxToolOpenApiSpecAuthenticationBearerTokenConfig:
         The name of the SecretManager secret version resource storing the Bearer token. If this field is set, the 'token' field will be ignored.
         Format: projects/{project}/secrets/{secret}/versions/{version}
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#secret_version_for_token GoogleDialogflowCxTool#secret_version_for_token}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#secret_version_for_token GoogleDialogflowCxTool#secret_version_for_token}
         '''
         result = self._values.get("secret_version_for_token")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1734,7 +1734,7 @@ class GoogleDialogflowCxToolOpenApiSpecAuthenticationBearerTokenConfig:
         The text token appended to the text Bearer to the request Authorization header.
         `Session parameters reference <https://cloud.google.com/dialogflow/cx/docs/concept/parameter#session-ref>`_ can be used to pass the token dynamically, e.g. '$session.params.parameter-id'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#token GoogleDialogflowCxTool#token}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#token GoogleDialogflowCxTool#token}
         '''
         result = self._values.get("token")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1855,12 +1855,12 @@ class GoogleDialogflowCxToolOpenApiSpecAuthenticationOauthConfig:
         secret_version_for_client_secret: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param client_id: The client ID from the OAuth provider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#client_id GoogleDialogflowCxTool#client_id}
-        :param oauth_grant_type: OAuth grant types. See `OauthGrantType <https://cloud.google.com/dialogflow/cx/docs/reference/rest/v3/projects.locations.agents.tools#oauthgranttype>`_ for valid values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#oauth_grant_type GoogleDialogflowCxTool#oauth_grant_type}
-        :param token_endpoint: The token endpoint in the OAuth provider to exchange for an access token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#token_endpoint GoogleDialogflowCxTool#token_endpoint}
-        :param client_secret: Optional. The client secret from the OAuth provider. If the 'secretVersionForClientSecret' field is set, this field will be ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#client_secret GoogleDialogflowCxTool#client_secret}
-        :param scopes: Optional. The OAuth scopes to grant. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#scopes GoogleDialogflowCxTool#scopes}
-        :param secret_version_for_client_secret: Optional. The name of the SecretManager secret version resource storing the client secret. If this field is set, the clientSecret field will be ignored. Format: projects/{project}/secrets/{secret}/versions/{version} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#secret_version_for_client_secret GoogleDialogflowCxTool#secret_version_for_client_secret}
+        :param client_id: The client ID from the OAuth provider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#client_id GoogleDialogflowCxTool#client_id}
+        :param oauth_grant_type: OAuth grant types. See `OauthGrantType <https://cloud.google.com/dialogflow/cx/docs/reference/rest/v3/projects.locations.agents.tools#oauthgranttype>`_ for valid values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#oauth_grant_type GoogleDialogflowCxTool#oauth_grant_type}
+        :param token_endpoint: The token endpoint in the OAuth provider to exchange for an access token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#token_endpoint GoogleDialogflowCxTool#token_endpoint}
+        :param client_secret: Optional. The client secret from the OAuth provider. If the 'secretVersionForClientSecret' field is set, this field will be ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#client_secret GoogleDialogflowCxTool#client_secret}
+        :param scopes: Optional. The OAuth scopes to grant. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#scopes GoogleDialogflowCxTool#scopes}
+        :param secret_version_for_client_secret: Optional. The name of the SecretManager secret version resource storing the client secret. If this field is set, the clientSecret field will be ignored. Format: projects/{project}/secrets/{secret}/versions/{version} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#secret_version_for_client_secret GoogleDialogflowCxTool#secret_version_for_client_secret}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ebe330cebbe08b530547ad11eee30f27fb0d0c058cd721637b36fd2f85304348)
@@ -1886,7 +1886,7 @@ class GoogleDialogflowCxToolOpenApiSpecAuthenticationOauthConfig:
     def client_id(self) -> builtins.str:
         '''The client ID from the OAuth provider.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#client_id GoogleDialogflowCxTool#client_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#client_id GoogleDialogflowCxTool#client_id}
         '''
         result = self._values.get("client_id")
         assert result is not None, "Required property 'client_id' is missing"
@@ -1896,7 +1896,7 @@ class GoogleDialogflowCxToolOpenApiSpecAuthenticationOauthConfig:
     def oauth_grant_type(self) -> builtins.str:
         '''OAuth grant types. See `OauthGrantType <https://cloud.google.com/dialogflow/cx/docs/reference/rest/v3/projects.locations.agents.tools#oauthgranttype>`_ for valid values.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#oauth_grant_type GoogleDialogflowCxTool#oauth_grant_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#oauth_grant_type GoogleDialogflowCxTool#oauth_grant_type}
         '''
         result = self._values.get("oauth_grant_type")
         assert result is not None, "Required property 'oauth_grant_type' is missing"
@@ -1906,7 +1906,7 @@ class GoogleDialogflowCxToolOpenApiSpecAuthenticationOauthConfig:
     def token_endpoint(self) -> builtins.str:
         '''The token endpoint in the OAuth provider to exchange for an access token.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#token_endpoint GoogleDialogflowCxTool#token_endpoint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#token_endpoint GoogleDialogflowCxTool#token_endpoint}
         '''
         result = self._values.get("token_endpoint")
         assert result is not None, "Required property 'token_endpoint' is missing"
@@ -1916,7 +1916,7 @@ class GoogleDialogflowCxToolOpenApiSpecAuthenticationOauthConfig:
     def client_secret(self) -> typing.Optional[builtins.str]:
         '''Optional. The client secret from the OAuth provider. If the 'secretVersionForClientSecret' field is set, this field will be ignored.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#client_secret GoogleDialogflowCxTool#client_secret}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#client_secret GoogleDialogflowCxTool#client_secret}
         '''
         result = self._values.get("client_secret")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1925,7 +1925,7 @@ class GoogleDialogflowCxToolOpenApiSpecAuthenticationOauthConfig:
     def scopes(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Optional. The OAuth scopes to grant.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#scopes GoogleDialogflowCxTool#scopes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#scopes GoogleDialogflowCxTool#scopes}
         '''
         result = self._values.get("scopes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1938,7 +1938,7 @@ class GoogleDialogflowCxToolOpenApiSpecAuthenticationOauthConfig:
         If this field is set, the clientSecret field will be ignored.
         Format: projects/{project}/secrets/{secret}/versions/{version}
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#secret_version_for_client_secret GoogleDialogflowCxTool#secret_version_for_client_secret}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#secret_version_for_client_secret GoogleDialogflowCxTool#secret_version_for_client_secret}
         '''
         result = self._values.get("secret_version_for_client_secret")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2137,10 +2137,10 @@ class GoogleDialogflowCxToolOpenApiSpecAuthenticationOutputReference(
         secret_version_for_api_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param key_name: The parameter name or the header name of the API key. E.g., If the API request is "https://example.com/act?X-Api-Key=", "X-Api-Key" would be the parameter name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#key_name GoogleDialogflowCxTool#key_name}
-        :param request_location: Key location in the request. See `RequestLocation <https://cloud.google.com/dialogflow/cx/docs/reference/rest/v3/projects.locations.agents.tools#requestlocation>`_ for valid values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#request_location GoogleDialogflowCxTool#request_location}
-        :param api_key: Optional. The API key. If the 'secretVersionForApiKey'' field is set, this field will be ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#api_key GoogleDialogflowCxTool#api_key}
-        :param secret_version_for_api_key: Optional. The name of the SecretManager secret version resource storing the API key. If this field is set, the apiKey field will be ignored. Format: projects/{project}/secrets/{secret}/versions/{version} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#secret_version_for_api_key GoogleDialogflowCxTool#secret_version_for_api_key}
+        :param key_name: The parameter name or the header name of the API key. E.g., If the API request is "https://example.com/act?X-Api-Key=", "X-Api-Key" would be the parameter name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#key_name GoogleDialogflowCxTool#key_name}
+        :param request_location: Key location in the request. See `RequestLocation <https://cloud.google.com/dialogflow/cx/docs/reference/rest/v3/projects.locations.agents.tools#requestlocation>`_ for valid values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#request_location GoogleDialogflowCxTool#request_location}
+        :param api_key: Optional. The API key. If the 'secretVersionForApiKey'' field is set, this field will be ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#api_key GoogleDialogflowCxTool#api_key}
+        :param secret_version_for_api_key: Optional. The name of the SecretManager secret version resource storing the API key. If this field is set, the apiKey field will be ignored. Format: projects/{project}/secrets/{secret}/versions/{version} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#secret_version_for_api_key GoogleDialogflowCxTool#secret_version_for_api_key}
         '''
         value = GoogleDialogflowCxToolOpenApiSpecAuthenticationApiKeyConfig(
             key_name=key_name,
@@ -2159,8 +2159,8 @@ class GoogleDialogflowCxToolOpenApiSpecAuthenticationOutputReference(
         token: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param secret_version_for_token: Optional. The name of the SecretManager secret version resource storing the Bearer token. If this field is set, the 'token' field will be ignored. Format: projects/{project}/secrets/{secret}/versions/{version} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#secret_version_for_token GoogleDialogflowCxTool#secret_version_for_token}
-        :param token: Optional. The text token appended to the text Bearer to the request Authorization header. `Session parameters reference <https://cloud.google.com/dialogflow/cx/docs/concept/parameter#session-ref>`_ can be used to pass the token dynamically, e.g. '$session.params.parameter-id'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#token GoogleDialogflowCxTool#token}
+        :param secret_version_for_token: Optional. The name of the SecretManager secret version resource storing the Bearer token. If this field is set, the 'token' field will be ignored. Format: projects/{project}/secrets/{secret}/versions/{version} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#secret_version_for_token GoogleDialogflowCxTool#secret_version_for_token}
+        :param token: Optional. The text token appended to the text Bearer to the request Authorization header. `Session parameters reference <https://cloud.google.com/dialogflow/cx/docs/concept/parameter#session-ref>`_ can be used to pass the token dynamically, e.g. '$session.params.parameter-id'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#token GoogleDialogflowCxTool#token}
         '''
         value = GoogleDialogflowCxToolOpenApiSpecAuthenticationBearerTokenConfig(
             secret_version_for_token=secret_version_for_token, token=token
@@ -2180,12 +2180,12 @@ class GoogleDialogflowCxToolOpenApiSpecAuthenticationOutputReference(
         secret_version_for_client_secret: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param client_id: The client ID from the OAuth provider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#client_id GoogleDialogflowCxTool#client_id}
-        :param oauth_grant_type: OAuth grant types. See `OauthGrantType <https://cloud.google.com/dialogflow/cx/docs/reference/rest/v3/projects.locations.agents.tools#oauthgranttype>`_ for valid values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#oauth_grant_type GoogleDialogflowCxTool#oauth_grant_type}
-        :param token_endpoint: The token endpoint in the OAuth provider to exchange for an access token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#token_endpoint GoogleDialogflowCxTool#token_endpoint}
-        :param client_secret: Optional. The client secret from the OAuth provider. If the 'secretVersionForClientSecret' field is set, this field will be ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#client_secret GoogleDialogflowCxTool#client_secret}
-        :param scopes: Optional. The OAuth scopes to grant. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#scopes GoogleDialogflowCxTool#scopes}
-        :param secret_version_for_client_secret: Optional. The name of the SecretManager secret version resource storing the client secret. If this field is set, the clientSecret field will be ignored. Format: projects/{project}/secrets/{secret}/versions/{version} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#secret_version_for_client_secret GoogleDialogflowCxTool#secret_version_for_client_secret}
+        :param client_id: The client ID from the OAuth provider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#client_id GoogleDialogflowCxTool#client_id}
+        :param oauth_grant_type: OAuth grant types. See `OauthGrantType <https://cloud.google.com/dialogflow/cx/docs/reference/rest/v3/projects.locations.agents.tools#oauthgranttype>`_ for valid values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#oauth_grant_type GoogleDialogflowCxTool#oauth_grant_type}
+        :param token_endpoint: The token endpoint in the OAuth provider to exchange for an access token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#token_endpoint GoogleDialogflowCxTool#token_endpoint}
+        :param client_secret: Optional. The client secret from the OAuth provider. If the 'secretVersionForClientSecret' field is set, this field will be ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#client_secret GoogleDialogflowCxTool#client_secret}
+        :param scopes: Optional. The OAuth scopes to grant. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#scopes GoogleDialogflowCxTool#scopes}
+        :param secret_version_for_client_secret: Optional. The name of the SecretManager secret version resource storing the client secret. If this field is set, the clientSecret field will be ignored. Format: projects/{project}/secrets/{secret}/versions/{version} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#secret_version_for_client_secret GoogleDialogflowCxTool#secret_version_for_client_secret}
         '''
         value = GoogleDialogflowCxToolOpenApiSpecAuthenticationOauthConfig(
             client_id=client_id,
@@ -2205,7 +2205,7 @@ class GoogleDialogflowCxToolOpenApiSpecAuthenticationOutputReference(
         service_agent_auth: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param service_agent_auth: Optional. Indicate the auth token type generated from the Diglogflow service agent. The generated token is sent in the Authorization header. See `ServiceAgentAuth <https://cloud.google.com/dialogflow/cx/docs/reference/rest/v3/projects.locations.agents.tools#serviceagentauth>`_ for valid values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#service_agent_auth GoogleDialogflowCxTool#service_agent_auth}
+        :param service_agent_auth: Optional. Indicate the auth token type generated from the Diglogflow service agent. The generated token is sent in the Authorization header. See `ServiceAgentAuth <https://cloud.google.com/dialogflow/cx/docs/reference/rest/v3/projects.locations.agents.tools#serviceagentauth>`_ for valid values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#service_agent_auth GoogleDialogflowCxTool#service_agent_auth}
         '''
         value = GoogleDialogflowCxToolOpenApiSpecAuthenticationServiceAgentAuthConfig(
             service_agent_auth=service_agent_auth
@@ -2315,7 +2315,7 @@ class GoogleDialogflowCxToolOpenApiSpecAuthenticationServiceAgentAuthConfig:
         service_agent_auth: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param service_agent_auth: Optional. Indicate the auth token type generated from the Diglogflow service agent. The generated token is sent in the Authorization header. See `ServiceAgentAuth <https://cloud.google.com/dialogflow/cx/docs/reference/rest/v3/projects.locations.agents.tools#serviceagentauth>`_ for valid values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#service_agent_auth GoogleDialogflowCxTool#service_agent_auth}
+        :param service_agent_auth: Optional. Indicate the auth token type generated from the Diglogflow service agent. The generated token is sent in the Authorization header. See `ServiceAgentAuth <https://cloud.google.com/dialogflow/cx/docs/reference/rest/v3/projects.locations.agents.tools#serviceagentauth>`_ for valid values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#service_agent_auth GoogleDialogflowCxTool#service_agent_auth}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__981865e24cb64754a43e893005d3dce748e6dd056115571d7d85e0b75d472855)
@@ -2332,7 +2332,7 @@ class GoogleDialogflowCxToolOpenApiSpecAuthenticationServiceAgentAuthConfig:
         The generated token is sent in the Authorization header.
         See `ServiceAgentAuth <https://cloud.google.com/dialogflow/cx/docs/reference/rest/v3/projects.locations.agents.tools#serviceagentauth>`_ for valid values.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#service_agent_auth GoogleDialogflowCxTool#service_agent_auth}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#service_agent_auth GoogleDialogflowCxTool#service_agent_auth}
         '''
         result = self._values.get("service_agent_auth")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2438,10 +2438,10 @@ class GoogleDialogflowCxToolOpenApiSpecOutputReference(
         service_agent_auth_config: typing.Optional[typing.Union[GoogleDialogflowCxToolOpenApiSpecAuthenticationServiceAgentAuthConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param api_key_config: api_key_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#api_key_config GoogleDialogflowCxTool#api_key_config}
-        :param bearer_token_config: bearer_token_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#bearer_token_config GoogleDialogflowCxTool#bearer_token_config}
-        :param oauth_config: oauth_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#oauth_config GoogleDialogflowCxTool#oauth_config}
-        :param service_agent_auth_config: service_agent_auth_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#service_agent_auth_config GoogleDialogflowCxTool#service_agent_auth_config}
+        :param api_key_config: api_key_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#api_key_config GoogleDialogflowCxTool#api_key_config}
+        :param bearer_token_config: bearer_token_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#bearer_token_config GoogleDialogflowCxTool#bearer_token_config}
+        :param oauth_config: oauth_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#oauth_config GoogleDialogflowCxTool#oauth_config}
+        :param service_agent_auth_config: service_agent_auth_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#service_agent_auth_config GoogleDialogflowCxTool#service_agent_auth_config}
         '''
         value = GoogleDialogflowCxToolOpenApiSpecAuthentication(
             api_key_config=api_key_config,
@@ -2455,7 +2455,7 @@ class GoogleDialogflowCxToolOpenApiSpecOutputReference(
     @jsii.member(jsii_name="putServiceDirectoryConfig")
     def put_service_directory_config(self, *, service: builtins.str) -> None:
         '''
-        :param service: The name of `Service Directory <https://cloud.google.com/service-directory/docs>`_ service. Format: projects//locations//namespaces//services/. LocationID of the service directory must be the same as the location of the agent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#service GoogleDialogflowCxTool#service}
+        :param service: The name of `Service Directory <https://cloud.google.com/service-directory/docs>`_ service. Format: projects//locations//namespaces//services/. LocationID of the service directory must be the same as the location of the agent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#service GoogleDialogflowCxTool#service}
         '''
         value = GoogleDialogflowCxToolOpenApiSpecServiceDirectoryConfig(
             service=service
@@ -2470,7 +2470,7 @@ class GoogleDialogflowCxToolOpenApiSpecOutputReference(
         ca_certs: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleDialogflowCxToolOpenApiSpecTlsConfigCaCerts", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param ca_certs: ca_certs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#ca_certs GoogleDialogflowCxTool#ca_certs}
+        :param ca_certs: ca_certs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#ca_certs GoogleDialogflowCxTool#ca_certs}
         '''
         value = GoogleDialogflowCxToolOpenApiSpecTlsConfig(ca_certs=ca_certs)
 
@@ -2569,7 +2569,7 @@ class GoogleDialogflowCxToolOpenApiSpecOutputReference(
 class GoogleDialogflowCxToolOpenApiSpecServiceDirectoryConfig:
     def __init__(self, *, service: builtins.str) -> None:
         '''
-        :param service: The name of `Service Directory <https://cloud.google.com/service-directory/docs>`_ service. Format: projects//locations//namespaces//services/. LocationID of the service directory must be the same as the location of the agent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#service GoogleDialogflowCxTool#service}
+        :param service: The name of `Service Directory <https://cloud.google.com/service-directory/docs>`_ service. Format: projects//locations//namespaces//services/. LocationID of the service directory must be the same as the location of the agent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#service GoogleDialogflowCxTool#service}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c651253ba09247b15b358dad1b342e086ff5ac9c1c099b381181da58fdf818d0)
@@ -2582,7 +2582,7 @@ class GoogleDialogflowCxToolOpenApiSpecServiceDirectoryConfig:
     def service(self) -> builtins.str:
         '''The name of `Service Directory <https://cloud.google.com/service-directory/docs>`_ service. Format: projects//locations//namespaces//services/. LocationID of the service directory must be the same as the location of the agent.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#service GoogleDialogflowCxTool#service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#service GoogleDialogflowCxTool#service}
         '''
         result = self._values.get("service")
         assert result is not None, "Required property 'service' is missing"
@@ -2667,7 +2667,7 @@ class GoogleDialogflowCxToolOpenApiSpecTlsConfig:
         ca_certs: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleDialogflowCxToolOpenApiSpecTlsConfigCaCerts", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param ca_certs: ca_certs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#ca_certs GoogleDialogflowCxTool#ca_certs}
+        :param ca_certs: ca_certs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#ca_certs GoogleDialogflowCxTool#ca_certs}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__935d3cccb8fa278c2d1c05fc0a13293c9010f4027aa6acfd2645fa57c090bee4)
@@ -2682,7 +2682,7 @@ class GoogleDialogflowCxToolOpenApiSpecTlsConfig:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDialogflowCxToolOpenApiSpecTlsConfigCaCerts"]]:
         '''ca_certs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#ca_certs GoogleDialogflowCxTool#ca_certs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#ca_certs GoogleDialogflowCxTool#ca_certs}
         '''
         result = self._values.get("ca_certs")
         assert result is not None, "Required property 'ca_certs' is missing"
@@ -2708,8 +2708,8 @@ class GoogleDialogflowCxToolOpenApiSpecTlsConfig:
 class GoogleDialogflowCxToolOpenApiSpecTlsConfigCaCerts:
     def __init__(self, *, cert: builtins.str, display_name: builtins.str) -> None:
         '''
-        :param cert: The allowed custom CA certificates (in DER format) for HTTPS verification. This overrides the default SSL trust store. If this is empty or unspecified, Dialogflow will use Google's default trust store to verify certificates. N.B. Make sure the HTTPS server certificates are signed with "subject alt name". For instance a certificate can be self-signed using the following command:: openssl x509 -req -days 200 -in example.com.csr \\ -signkey example.com.key \\ -out example.com.crt \\ -extfile <(printf "\\nsubjectAltName='DNS:www.example.com'") A base64-encoded string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#cert GoogleDialogflowCxTool#cert}
-        :param display_name: The name of the allowed custom CA certificates. This can be used to disambiguate the custom CA certificates. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#display_name GoogleDialogflowCxTool#display_name}
+        :param cert: The allowed custom CA certificates (in DER format) for HTTPS verification. This overrides the default SSL trust store. If this is empty or unspecified, Dialogflow will use Google's default trust store to verify certificates. N.B. Make sure the HTTPS server certificates are signed with "subject alt name". For instance a certificate can be self-signed using the following command:: openssl x509 -req -days 200 -in example.com.csr \\ -signkey example.com.key \\ -out example.com.crt \\ -extfile <(printf "\\nsubjectAltName='DNS:www.example.com'") A base64-encoded string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#cert GoogleDialogflowCxTool#cert}
+        :param display_name: The name of the allowed custom CA certificates. This can be used to disambiguate the custom CA certificates. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#display_name GoogleDialogflowCxTool#display_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d2de2e459c596b4b2d0a8f30300d1356bcb12ce978c04c85e6b1b291f9c339a4)
@@ -2736,7 +2736,7 @@ class GoogleDialogflowCxToolOpenApiSpecTlsConfigCaCerts:
 
         A base64-encoded string.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#cert GoogleDialogflowCxTool#cert}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#cert GoogleDialogflowCxTool#cert}
         '''
         result = self._values.get("cert")
         assert result is not None, "Required property 'cert' is missing"
@@ -2746,7 +2746,7 @@ class GoogleDialogflowCxToolOpenApiSpecTlsConfigCaCerts:
     def display_name(self) -> builtins.str:
         '''The name of the allowed custom CA certificates. This can be used to disambiguate the custom CA certificates.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#display_name GoogleDialogflowCxTool#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#display_name GoogleDialogflowCxTool#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -3012,9 +3012,9 @@ class GoogleDialogflowCxToolTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#create GoogleDialogflowCxTool#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#delete GoogleDialogflowCxTool#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#update GoogleDialogflowCxTool#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#create GoogleDialogflowCxTool#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#delete GoogleDialogflowCxTool#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#update GoogleDialogflowCxTool#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6c99a40866197a29bec99d8827d8565bc555560a9b528de1a29d152e8ffd219c)
@@ -3031,19 +3031,19 @@ class GoogleDialogflowCxToolTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#create GoogleDialogflowCxTool#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#create GoogleDialogflowCxTool#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#delete GoogleDialogflowCxTool#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#delete GoogleDialogflowCxTool#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_dialogflow_cx_tool#update GoogleDialogflowCxTool#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_dialogflow_cx_tool#update GoogleDialogflowCxTool#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

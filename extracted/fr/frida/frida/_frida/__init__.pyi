@@ -803,7 +803,9 @@ class PackageManager(Object):
     def install(
         self,
         project_root: Optional[str] = None,
+        role: Optional[str] = None,
         specs: Optional[Sequence[str]] = None,
+        omits: Optional[Sequence[str]] = None,
     ) -> PackageInstallResult:
         """
         Install one or more packages.

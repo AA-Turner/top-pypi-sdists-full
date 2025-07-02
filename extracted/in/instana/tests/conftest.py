@@ -23,12 +23,24 @@ from instana.span.base_span import BaseSpan
 from instana.span.span import InstanaSpan
 from instana.span_context import SpanContext
 from instana.tracer import InstanaTracerProvider
+from instana.util.runtime import get_runtime_env_info
 
 collect_ignore_glob = [
     "*test_gevent*",
     "*collector/test_gcr*",
     "*agent/test_google*",
 ]
+
+# ppc64le and s390x have limitations with some supported libraries.
+machine, py_version = get_runtime_env_info()
+if machine in ["ppc64le", "s390x"]:
+    collect_ignore_glob.extend([
+        "*test_google-cloud*",
+        "*test_pymongo*",
+    ])
+
+    if machine == "ppc64le":
+        collect_ignore_glob.append("*test_grpcio*")
 
 # # Cassandra and gevent tests are run in dedicated jobs on CircleCI and will
 # # be run explicitly.  (So always exclude them here)
@@ -39,8 +51,10 @@ if not os.environ.get("COUCHBASE_TEST"):
     collect_ignore_glob.append("*test_couchbase*")
 
 if not os.environ.get("GEVENT_STARLETTE_TEST"):
-    collect_ignore_glob.append("*test_gevent*")
-    collect_ignore_glob.append("*test_starlette*")
+    collect_ignore_glob.extend([
+        "*test_gevent*",
+        "*test_starlette*",
+    ])
 
 if not os.environ.get("KAFKA_TEST"):
     collect_ignore_glob.append("*kafka/test*")
@@ -50,17 +64,15 @@ if sys.version_info >= (3, 12):
     collect_ignore_glob.append("*test_spyne*")
 
 
-if sys.version_info >= (3, 13):
-    # Currently not installable dependencies because of 3.13 incompatibilities
-    collect_ignore_glob.append("*test_sanic*")
-
-
 if sys.version_info >= (3, 14):
-    # Currently not installable dependencies because of 3.14 incompatibilities
-    collect_ignore_glob.append("*test_fastapi*")
-    # aiohttp-server tests failing due to deprecated methods used
-    collect_ignore_glob.append("*test_aiohttp_server*")
-
+    collect_ignore_glob.extend([
+        # Currently not installable dependencies because of 3.14 incompatibilities
+        "*test_fastapi*",
+        # aiohttp-server tests failing due to deprecated methods used
+        "*test_aiohttp_server*",
+        # Currently Sanic does not support python >= 3.14
+        "*test_sanic*",
+    ])
 
 @pytest.fixture(scope="session")
 def celery_config():
@@ -240,3 +252,16 @@ def announce(monkeypatch, request) -> None:
         monkeypatch.setattr(HostAgent, "announce", HostAgent.announce)
     else:
         monkeypatch.setattr(HostAgent, "announce", always_true)
+
+# Mocking the import of uwsgi
+def _uwsgi_masterpid() -> int:
+    return 12345
+
+module = type(sys)("uwsgi")
+module.opt = {
+    "master": True,
+    "lazy-apps": True,
+    "enable-threads": True,
+}
+module.masterpid = _uwsgi_masterpid
+sys.modules["uwsgi"] = module

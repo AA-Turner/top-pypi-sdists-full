@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import typing as t
 
-from globus_sdk import GlobusHTTPResponse, client, utils
+from globus_sdk import MISSING, GlobusHTTPResponse, MissingType, client, utils
 from globus_sdk._types import UUIDLike
 from globus_sdk.scopes import ComputeScopes, Scope
 
@@ -101,8 +101,10 @@ class ComputeClientV2(client.BaseClient):
         """  # noqa: E501
         return self.get(f"/v2/endpoints/{endpoint_id}/status")
 
-    def get_endpoints(self) -> GlobusHTTPResponse:
+    def get_endpoints(self, role: str | MissingType = MISSING) -> GlobusHTTPResponse:
         """Get a list of registered endpoints associated with the authenticated user.
+
+        :param role: Role of the user in relation to endpoints. (e.g.: owner, any)
 
         .. tab-set::
 
@@ -112,7 +114,8 @@ class ComputeClientV2(client.BaseClient):
                     :service: compute
                     :ref: Endpoints/operation/get_endpoints_v2_endpoints_get
         """  # noqa: E501
-        return self.get("/v2/endpoints")
+        query_params = {"role": role} if role else None
+        return self.get("/v2/endpoints", query_params=query_params)
 
     def delete_endpoint(self, endpoint_id: UUIDLike) -> GlobusHTTPResponse:
         """Delete a registered endpoint.

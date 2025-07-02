@@ -45,7 +45,9 @@ class TrainRun(object):
         'total_attempts': 'int',
         'job_details': 'JobDetails',
         'session_name': 'str',
-        'controller_log_id': 'str'
+        'controller_log_id': 'str',
+        'train_run_panels': 'list[DashboardPanel]',
+        'train_worker_panels': 'list[DashboardPanel]'
     }
 
     attribute_map = {
@@ -61,10 +63,12 @@ class TrainRun(object):
         'total_attempts': 'total_attempts',
         'job_details': 'job_details',
         'session_name': 'session_name',
-        'controller_log_id': 'controller_log_id'
+        'controller_log_id': 'controller_log_id',
+        'train_run_panels': 'train_run_panels',
+        'train_worker_panels': 'train_worker_panels'
     }
 
-    def __init__(self, id=None, name=None, job_id=None, controller_actor_id=None, status=None, status_detail=None, start_time_ms=None, end_time_ms=None, attempts=None, total_attempts=None, job_details=None, session_name=None, controller_log_id=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, name=None, job_id=None, controller_actor_id=None, status=None, status_detail=None, start_time_ms=None, end_time_ms=None, attempts=None, total_attempts=None, job_details=None, session_name=None, controller_log_id=None, train_run_panels=None, train_worker_panels=None, local_vars_configuration=None):  # noqa: E501
         """TrainRun - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -83,6 +87,8 @@ class TrainRun(object):
         self._job_details = None
         self._session_name = None
         self._controller_log_id = None
+        self._train_run_panels = None
+        self._train_worker_panels = None
         self.discriminator = None
 
         self.id = id
@@ -103,6 +109,10 @@ class TrainRun(object):
             self.session_name = session_name
         if controller_log_id is not None:
             self.controller_log_id = controller_log_id
+        if train_run_panels is not None:
+            self.train_run_panels = train_run_panels
+        if train_worker_panels is not None:
+            self.train_worker_panels = train_worker_panels
 
     @property
     def id(self):
@@ -392,6 +402,48 @@ class TrainRun(object):
         """
 
         self._controller_log_id = controller_log_id
+
+    @property
+    def train_run_panels(self):
+        """Gets the train_run_panels of this TrainRun.  # noqa: E501
+
+
+        :return: The train_run_panels of this TrainRun.  # noqa: E501
+        :rtype: list[DashboardPanel]
+        """
+        return self._train_run_panels
+
+    @train_run_panels.setter
+    def train_run_panels(self, train_run_panels):
+        """Sets the train_run_panels of this TrainRun.
+
+
+        :param train_run_panels: The train_run_panels of this TrainRun.  # noqa: E501
+        :type: list[DashboardPanel]
+        """
+
+        self._train_run_panels = train_run_panels
+
+    @property
+    def train_worker_panels(self):
+        """Gets the train_worker_panels of this TrainRun.  # noqa: E501
+
+
+        :return: The train_worker_panels of this TrainRun.  # noqa: E501
+        :rtype: list[DashboardPanel]
+        """
+        return self._train_worker_panels
+
+    @train_worker_panels.setter
+    def train_worker_panels(self, train_worker_panels):
+        """Sets the train_worker_panels of this TrainRun.
+
+
+        :param train_worker_panels: The train_worker_panels of this TrainRun.  # noqa: E501
+        :type: list[DashboardPanel]
+        """
+
+        self._train_worker_panels = train_worker_panels
 
     def to_dict(self):
         """Returns the model properties as a dict"""

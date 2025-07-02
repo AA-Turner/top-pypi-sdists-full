@@ -11841,18 +11841,18 @@ class SamlMetadataDocument(
 ):
     '''A SAML metadata document.
 
-    :exampleMetadata: infused
+    :exampleMetadata: fixture=client-vpn infused
 
     Example::
 
-        provider = iam.SamlProvider(self, "Provider",
-            metadata_document=iam.SamlMetadataDocument.from_file("/path/to/saml-metadata-document.xml")
+        vpc.add_client_vpn_endpoint("Endpoint",
+            cidr="10.100.0.0/16",
+            server_certificate_arn="arn:aws:acm:us-east-1:123456789012:certificate/server-certificate-id",
+            # Mutual authentication
+            client_certificate_arn="arn:aws:acm:us-east-1:123456789012:certificate/client-certificate-id",
+            # User-based authentication
+            user_based_authentication=ec2.ClientVpnUserBasedAuthentication.federated(saml_provider)
         )
-        principal = iam.SamlPrincipal(provider, {
-            "StringEquals": {
-                "SAML:iss": "issuer"
-            }
-        })
     '''
 
     def __init__(self) -> None:

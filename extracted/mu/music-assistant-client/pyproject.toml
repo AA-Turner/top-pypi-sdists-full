@@ -10,14 +10,14 @@ classifiers = [
 ]
 dependencies = [
     "aiohttp>=3.8.6",
-    "music_assistant_models==1.1.43",
+    "music_assistant_models==1.1.50",
     "orjson>=3.9",
 ]
 description = "Music Assistant Client"
 name = "music_assistant_client"
 readme = "README.md"
 requires-python = ">=3.11"
-version = "1.2.0"
+version = "1.2.3"
 
 [project.license]
 text = "Apache-2.0"
@@ -26,11 +26,11 @@ text = "Apache-2.0"
 test = [
     "codespell==2.4.1",
     "isort==6.0.1",
-    "mypy==1.15.0",
+    "mypy==1.16.1",
     "pre-commit==4.2.0",
     "pre-commit-hooks==5.0.0",
     "tomli==2.2.1",
-    "ruff==0.11.2",
+    "ruff==0.12.1",
 ]
 
 [tool.setuptools]

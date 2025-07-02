@@ -122,9 +122,7 @@ class Lexer:
 
         return self._create_token(TokenKind.EOF, body_length, body_length)
 
-    def _create_token(
-        self, kind: TokenKind, start: int, end: int, value: Optional[str] = None
-    ) -> Token:
+    def _create_token(self, kind: TokenKind, start: int, end: int, value: Optional[str] = None) -> Token:
         """Create a token with line and column location information.
 
         Parameters:
@@ -169,9 +167,7 @@ class Lexer:
                 if not open_paren_count:
                     position += 1
                     break
-            elif not is_description_continue(
-                code=code
-            ):  # Check if the non-special characters are valid
+            elif not is_description_continue(code=code):  # Check if the non-special characters are valid
                 raise QuerySyntaxError(
                     message="Invalid character in query description.",
                     unexpected_token=body[position],
@@ -196,9 +192,7 @@ class Lexer:
         if len(description) == 2:
             return ""  # Empty description
 
-        description = description[
-            1:-1
-        ]  # Unwrap the parentheses. We can assume that the description is of valid shape.
+        description = description[1:-1]  # Unwrap the parentheses. We can assume that the description is of valid shape.
 
         left: int = 0
         right: int = len(description) - 1

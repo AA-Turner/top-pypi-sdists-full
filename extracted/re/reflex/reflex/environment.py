@@ -69,7 +69,7 @@ def interpret_boolean_env(value: str, field_name: str) -> bool:
         return True
     if value.lower() in false_values:
         return False
-    msg = f"Invalid boolean value: {value} for {field_name}"
+    msg = f"Invalid boolean value: {value!r} for {field_name}"
     raise EnvironmentVarValueError(msg)
 
 
@@ -89,7 +89,7 @@ def interpret_int_env(value: str, field_name: str) -> int:
     try:
         return int(value)
     except ValueError as ve:
-        msg = f"Invalid integer value: {value} for {field_name}"
+        msg = f"Invalid integer value: {value!r} for {field_name}"
         raise EnvironmentVarValueError(msg) from ve
 
 
@@ -108,7 +108,7 @@ def interpret_existing_path_env(value: str, field_name: str) -> ExistingPath:
     """
     path = Path(value)
     if not path.exists():
-        msg = f"Path does not exist: {path} for {field_name}"
+        msg = f"Path does not exist: {path!r} for {field_name}"
         raise EnvironmentVarValueError(msg)
     return path
 
@@ -143,7 +143,7 @@ def interpret_enum_env(value: str, field_type: GenericType, field_name: str) -> 
     try:
         return field_type(value)
     except ValueError as ve:
-        msg = f"Invalid enum value: {value} for {field_name}"
+        msg = f"Invalid enum value: {value!r} for {field_name}"
         raise EnvironmentVarValueError(msg) from ve
 
 
@@ -168,6 +168,8 @@ def interpret_env_var_value(
     if is_union(field_type):
         msg = f"Union types are not supported for environment variables: {field_name}."
         raise ValueError(msg)
+
+    value = value.strip()
 
     if field_type is bool:
         return interpret_boolean_env(value, field_name)
@@ -475,7 +477,7 @@ class EnvironmentVariables:
     # Whether to use the system installed bun. If set to false, bun will be bundled with the app.
     REFLEX_USE_SYSTEM_BUN: EnvVar[bool] = env_var(False)
 
-    # The working directory for the next.js commands.
+    # The working directory for the frontend directory.
     REFLEX_WEB_WORKDIR: EnvVar[Path] = env_var(Path(constants.Dirs.WEB))
 
     # The working directory for the states directory.
@@ -604,3 +606,73 @@ class EnvironmentVariables:
 
 
 environment = EnvironmentVariables()
+
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    load_dotenv = None
+
+
+def _paths_from_env_files(env_files: str) -> list[Path]:
+    """Convert a string of paths separated by os.pathsep into a list of Path objects.
+
+    Args:
+        env_files: The string of paths.
+
+    Returns:
+        A list of Path objects.
+    """
+    # load env files in reverse order
+    return list(
+        reversed(
+            [
+                Path(path)
+                for path_element in env_files.split(os.pathsep)
+                if (path := path_element.strip())
+            ]
+        )
+    )
+
+
+def _load_dotenv_from_files(files: list[Path]):
+    """Load environment variables from a list of files.
+
+    Args:
+        files: A list of Path objects representing the environment variable files.
+    """
+    from reflex.utils import console
+
+    if not files:
+        return
+
+    if load_dotenv is None:
+        console.error(
+            """The `python-dotenv` package is required to load environment variables from a file. Run `pip install "python-dotenv>=1.1.0"`."""
+        )
+        return
+
+    for env_file in files:
+        if env_file.exists():
+            load_dotenv(env_file, override=True)
+
+
+def _paths_from_environment() -> list[Path]:
+    """Get the paths from the REFLEX_ENV_FILE environment variable.
+
+    Returns:
+        A list of Path objects.
+    """
+    env_files = os.environ.get("REFLEX_ENV_FILE")
+    if not env_files:
+        return []
+
+    return _paths_from_env_files(env_files)
+
+
+def _load_dotenv_from_env():
+    """Load environment variables from paths specified in REFLEX_ENV_FILE."""
+    _load_dotenv_from_files(_paths_from_environment())
+
+
+# Load the env files at import time if they are set in the ENV_FILE environment variable.
+_load_dotenv_from_env()

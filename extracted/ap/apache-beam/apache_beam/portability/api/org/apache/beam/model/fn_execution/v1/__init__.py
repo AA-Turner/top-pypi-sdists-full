@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 from . import beam_fn_api_pb2
-from . import beam_provision_api_pb2_grpc
-from . import beam_fn_api_pb2_urns
 from . import beam_provision_api_pb2
 from . import beam_fn_api_pb2_grpc
+from . import beam_fn_api_pb2_urns
+from . import beam_provision_api_pb2_grpc

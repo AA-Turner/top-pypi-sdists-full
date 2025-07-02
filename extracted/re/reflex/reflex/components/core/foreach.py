@@ -8,10 +8,11 @@ from collections.abc import Callable, Iterable
 from typing import Any
 
 from reflex.components.base.fragment import Fragment
-from reflex.components.component import Component
+from reflex.components.component import Component, field
 from reflex.components.core.cond import cond
 from reflex.components.tags import IterTag
 from reflex.constants import MemoizationMode
+from reflex.constants.state import FIELD_MARKER
 from reflex.state import ComponentState
 from reflex.utils import types
 from reflex.utils.exceptions import UntypedVarError
@@ -35,7 +36,7 @@ class Foreach(Component):
     iterable: Var[Iterable]
 
     # A function from the render args to the component.
-    render_fn: Callable = Fragment.create
+    render_fn: Callable = field(default=Fragment.create, is_javascript_property=False)
 
     @classmethod
     def create(
@@ -132,11 +133,11 @@ class Foreach(Component):
 
         if len(params) >= 1:
             # Determine the arg var name based on the params accepted by render_fn.
-            props["arg_var_name"] = params[0].name
+            props["arg_var_name"] = params[0].name + FIELD_MARKER
 
         if len(params) == 2:
             # Determine the index var name based on the params accepted by render_fn.
-            props["index_var_name"] = params[1].name
+            props["index_var_name"] = params[1].name + FIELD_MARKER
         else:
             render_fn = self.render_fn
             # Otherwise, use a deterministic index, based on the render function bytecode.

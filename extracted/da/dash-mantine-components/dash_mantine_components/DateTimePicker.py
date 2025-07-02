@@ -54,6 +54,9 @@ Keyword arguments:
 - bd (string | number; optional):
     Border.
 
+- bdrs (number; optional):
+    BorderRadius, theme key: theme.radius.
+
 - bg (optional):
     Background, theme key: theme.colors.
 
@@ -131,6 +134,9 @@ Keyword arguments:
     dayjs label format to display decade label or a function that
     returns decade label based on date value, defaults to \"YYYY\".
 
+- defaultDate (string; optional):
+    Initial displayed date.
+
 - description (a list of or a singular dash component, string or number; optional):
     Contents of `Input.Description` component. If not set, description
     is not rendered.
@@ -175,12 +181,29 @@ Keyword arguments:
 - fz (number; optional):
     FontSize, theme key: theme.fontSizes.
 
+- getDayProps (boolean | number | string | dict | list; optional):
+    A function that passes props down Day component  based on date.
+    (See https://www.dash-mantine-components.com/functions-as-props).
+
+- getMonthControlProps (boolean | number | string | dict | list; optional):
+    A function that passes props down month picker control based on
+    date. (See
+    https://www.dash-mantine-components.com/functions-as-props).
+
+- getYearControlProps (boolean | number | string | dict | list; optional):
+    A function that passes props down to year picker control based on
+    date. (See
+    https://www.dash-mantine-components.com/functions-as-props).
+
 - h (string | number; optional):
     Height, theme key: theme.spacing.
 
 - hasNextLevel (boolean; optional):
     Determines whether next level button should be enabled, defaults
     to True.
+
+- headerControlsOrder (list of a value equal to: 'level', 'next', 'previous's; optional):
+    Controls order, `['previous', 'level', 'next']`` by default.
 
 - hiddenFrom (optional):
     Breakpoint above which the component is hidden with `display:
@@ -384,6 +407,9 @@ Keyword arguments:
 
     - bd (string | number; optional):
         Border.
+
+    - bdrs (number; optional):
+        BorderRadius, theme key: theme.radius.
 
     - bg (optional):
         Background, theme key: theme.colors.
@@ -657,6 +683,9 @@ Keyword arguments:
         - bd (string | number; optional):
             Border.
 
+        - bdrs (number; optional):
+            BorderRadius, theme key: theme.radius.
+
         - bg (optional):
             Background, theme key: theme.colors.
 
@@ -902,6 +931,9 @@ Keyword arguments:
 
         - bd (string | number; optional):
             Border.
+
+        - bdrs (number; optional):
+            BorderRadius, theme key: theme.radius.
 
         - bg (optional):
             Background, theme key: theme.colors.
@@ -1330,6 +1362,15 @@ Keyword arguments:
 - pr (number; optional):
     PaddingRight, theme key: theme.spacing.
 
+- presets (list of dicts; optional):
+    Predefined values to pick from.
+
+    `presets` is a list of dicts with keys:
+
+    - value (string; required)
+
+    - label (string; required)
+
 - previousIcon (a list of or a singular dash component, string or number; optional):
     Change previous icon.
 
@@ -1355,6 +1396,10 @@ Keyword arguments:
 
 - readOnly (boolean; optional):
     Determines whether the user can modify the value.
+
+- renderDay (boolean | number | string | dict | list; optional):
+    A function that controls day value rendering. (See
+    https://www.dash-mantine-components.com/functions-as-props).
 
 - required (boolean; optional):
     Adds required attribute to the input and a red asterisk on the
@@ -1466,6 +1511,14 @@ Keyword arguments:
     _base_nodes = ['leftSection', 'rightSection', 'label', 'description', 'error', 'nextIcon', 'previousIcon', 'children']
     _namespace = 'dash_mantine_components'
     _type = 'DateTimePicker'
+    Presets = TypedDict(
+        "Presets",
+            {
+            "value": str,
+            "label": str
+        }
+    )
+
     LoadingState = TypedDict(
         "LoadingState",
             {
@@ -1649,6 +1702,7 @@ Keyword arguments:
             "pl": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
             "pr": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
             "bd": NotRequired[typing.Union[str, NumberType]],
+            "bdrs": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
             "bg": NotRequired[typing.Union[Literal["blue"], Literal["cyan"], Literal["gray"], Literal["green"], Literal["indigo"], Literal["lime"], Literal["orange"], Literal["pink"], Literal["red"], Literal["teal"], Literal["violet"], Literal["yellow"], Literal["dark"], Literal["grape"]]],
             "c": NotRequired[typing.Union[Literal["blue"], Literal["cyan"], Literal["gray"], Literal["green"], Literal["indigo"], Literal["lime"], Literal["orange"], Literal["pink"], Literal["red"], Literal["teal"], Literal["violet"], Literal["yellow"], Literal["dark"], Literal["grape"]]],
             "opacity": NotRequired[typing.Union[Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"]]],
@@ -1727,6 +1781,7 @@ Keyword arguments:
             "pl": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
             "pr": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
             "bd": NotRequired[typing.Union[str, NumberType]],
+            "bdrs": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
             "bg": NotRequired[typing.Union[Literal["blue"], Literal["cyan"], Literal["gray"], Literal["green"], Literal["indigo"], Literal["lime"], Literal["orange"], Literal["pink"], Literal["red"], Literal["teal"], Literal["violet"], Literal["yellow"], Literal["dark"], Literal["grape"]]],
             "c": NotRequired[typing.Union[Literal["blue"], Literal["cyan"], Literal["gray"], Literal["green"], Literal["indigo"], Literal["lime"], Literal["orange"], Literal["pink"], Literal["red"], Literal["teal"], Literal["violet"], Literal["yellow"], Literal["dark"], Literal["grape"]]],
             "opacity": NotRequired[typing.Union[Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"]]],
@@ -1789,6 +1844,7 @@ Keyword arguments:
             "pl": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
             "pr": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
             "bd": NotRequired[typing.Union[str, NumberType]],
+            "bdrs": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
             "bg": NotRequired[typing.Union[Literal["blue"], Literal["cyan"], Literal["gray"], Literal["green"], Literal["indigo"], Literal["lime"], Literal["orange"], Literal["pink"], Literal["red"], Literal["teal"], Literal["violet"], Literal["yellow"], Literal["dark"], Literal["grape"]]],
             "c": NotRequired[typing.Union[Literal["blue"], Literal["cyan"], Literal["gray"], Literal["green"], Literal["indigo"], Literal["lime"], Literal["orange"], Literal["pink"], Literal["red"], Literal["teal"], Literal["violet"], Literal["yellow"], Literal["dark"], Literal["grape"]]],
             "opacity": NotRequired[typing.Union[Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"]]],
@@ -1873,6 +1929,8 @@ Keyword arguments:
         n_submit: typing.Optional[NumberType] = None,
         debounce: typing.Optional[NumberType] = None,
         highlightToday: typing.Optional[bool] = None,
+        presets: typing.Optional[typing.Sequence["Presets"]] = None,
+        defaultDate: typing.Optional[str] = None,
         id: typing.Optional[typing.Union[str, dict]] = None,
         tabIndex: typing.Optional[NumberType] = None,
         loading_state: typing.Optional["LoadingState"] = None,
@@ -1905,6 +1963,7 @@ Keyword arguments:
         pl: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         pr: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         bd: typing.Optional[typing.Union[str, NumberType]] = None,
+        bdrs: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         bg: typing.Optional[typing.Union[Literal["blue"], Literal["cyan"], Literal["gray"], Literal["green"], Literal["indigo"], Literal["lime"], Literal["orange"], Literal["pink"], Literal["red"], Literal["teal"], Literal["violet"], Literal["yellow"], Literal["dark"], Literal["grape"]]] = None,
         c: typing.Optional[typing.Union[Literal["blue"], Literal["cyan"], Literal["gray"], Literal["green"], Literal["indigo"], Literal["lime"], Literal["orange"], Literal["pink"], Literal["red"], Literal["teal"], Literal["violet"], Literal["yellow"], Literal["dark"], Literal["grape"]]] = None,
         opacity: typing.Optional[typing.Union[Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"]]] = None,
@@ -1977,14 +2036,17 @@ Keyword arguments:
         previousIcon: typing.Optional[ComponentType] = None,
         nextLabel: typing.Optional[str] = None,
         previousLabel: typing.Optional[str] = None,
+        headerControlsOrder: typing.Optional[typing.Sequence[Literal["level", "next", "previous"]]] = None,
         minDate: typing.Optional[str] = None,
         maxDate: typing.Optional[str] = None,
         decadeLabelFormat: typing.Optional[str] = None,
         yearsListFormat: typing.Optional[str] = None,
         withCellSpacing: typing.Optional[bool] = None,
+        getYearControlProps: typing.Optional[typing.Any] = None,
         hasNextLevel: typing.Optional[bool] = None,
         yearLabelFormat: typing.Optional[str] = None,
         monthsListFormat: typing.Optional[str] = None,
+        getMonthControlProps: typing.Optional[typing.Any] = None,
         monthLabelFormat: typing.Optional[str] = None,
         firstDayOfWeek: typing.Optional[Literal[0, 1, 2, 3, 4, 5, 6]] = None,
         weekdayFormat: typing.Optional[str] = None,
@@ -1992,15 +2054,17 @@ Keyword arguments:
         hideOutsideDates: typing.Optional[bool] = None,
         hideWeekdays: typing.Optional[bool] = None,
         withWeekNumbers: typing.Optional[bool] = None,
+        getDayProps: typing.Optional[typing.Any] = None,
+        renderDay: typing.Optional[typing.Any] = None,
         classNames: typing.Optional[dict] = None,
         styles: typing.Optional[typing.Any] = None,
         unstyled: typing.Optional[bool] = None,
         variant: typing.Optional[str] = None,
         **kwargs
     ):
-        self._prop_names = ['id', 'aria-*', 'ariaLabels', 'bd', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'clearButtonProps', 'clearable', 'columnsToScroll', 'darkHidden', 'data-*', 'debounce', 'decadeLabelFormat', 'description', 'descriptionProps', 'disabled', 'disabledDates', 'display', 'dropdownType', 'error', 'errorProps', 'ff', 'firstDayOfWeek', 'flex', 'fs', 'fw', 'fz', 'h', 'hasNextLevel', 'hiddenFrom', 'hideOutsideDates', 'hideWeekdays', 'highlightToday', 'inputProps', 'inputWrapperOrder', 'inset', 'label', 'labelProps', 'labelSeparator', 'left', 'leftSection', 'leftSectionPointerEvents', 'leftSectionProps', 'leftSectionWidth', 'level', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxDate', 'mb', 'me', 'mih', 'minDate', 'miw', 'ml', 'mod', 'modalProps', 'monthLabelFormat', 'monthsListFormat', 'mr', 'ms', 'mt', 'mx', 'my', 'n_submit', 'name', 'nextIcon', 'nextLabel', 'numberOfColumns', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'placeholder', 'pointer', 'popoverProps', 'pos', 'pr', 'previousIcon', 'previousLabel', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'required', 'right', 'rightSection', 'rightSectionPointerEvents', 'rightSectionProps', 'rightSectionWidth', 'size', 'sortDates', 'style', 'styles', 'submitButtonProps', 'ta', 'tabIndex', 'td', 'timePickerProps', 'top', 'tt', 'unstyled', 'value', 'valueFormat', 'variant', 'visibleFrom', 'w', 'weekdayFormat', 'weekendDays', 'withAsterisk', 'withCellSpacing', 'withErrorStyles', 'withSeconds', 'withWeekNumbers', 'wrapperProps', 'yearLabelFormat', 'yearsListFormat']
+        self._prop_names = ['id', 'aria-*', 'ariaLabels', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'clearButtonProps', 'clearable', 'columnsToScroll', 'darkHidden', 'data-*', 'debounce', 'decadeLabelFormat', 'defaultDate', 'description', 'descriptionProps', 'disabled', 'disabledDates', 'display', 'dropdownType', 'error', 'errorProps', 'ff', 'firstDayOfWeek', 'flex', 'fs', 'fw', 'fz', 'getDayProps', 'getMonthControlProps', 'getYearControlProps', 'h', 'hasNextLevel', 'headerControlsOrder', 'hiddenFrom', 'hideOutsideDates', 'hideWeekdays', 'highlightToday', 'inputProps', 'inputWrapperOrder', 'inset', 'label', 'labelProps', 'labelSeparator', 'left', 'leftSection', 'leftSectionPointerEvents', 'leftSectionProps', 'leftSectionWidth', 'level', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxDate', 'mb', 'me', 'mih', 'minDate', 'miw', 'ml', 'mod', 'modalProps', 'monthLabelFormat', 'monthsListFormat', 'mr', 'ms', 'mt', 'mx', 'my', 'n_submit', 'name', 'nextIcon', 'nextLabel', 'numberOfColumns', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'placeholder', 'pointer', 'popoverProps', 'pos', 'pr', 'presets', 'previousIcon', 'previousLabel', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'renderDay', 'required', 'right', 'rightSection', 'rightSectionPointerEvents', 'rightSectionProps', 'rightSectionWidth', 'size', 'sortDates', 'style', 'styles', 'submitButtonProps', 'ta', 'tabIndex', 'td', 'timePickerProps', 'top', 'tt', 'unstyled', 'value', 'valueFormat', 'variant', 'visibleFrom', 'w', 'weekdayFormat', 'weekendDays', 'withAsterisk', 'withCellSpacing', 'withErrorStyles', 'withSeconds', 'withWeekNumbers', 'wrapperProps', 'yearLabelFormat', 'yearsListFormat']
         self._valid_wildcard_attributes =            ['data-', 'aria-']
-        self.available_properties = ['id', 'aria-*', 'ariaLabels', 'bd', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'clearButtonProps', 'clearable', 'columnsToScroll', 'darkHidden', 'data-*', 'debounce', 'decadeLabelFormat', 'description', 'descriptionProps', 'disabled', 'disabledDates', 'display', 'dropdownType', 'error', 'errorProps', 'ff', 'firstDayOfWeek', 'flex', 'fs', 'fw', 'fz', 'h', 'hasNextLevel', 'hiddenFrom', 'hideOutsideDates', 'hideWeekdays', 'highlightToday', 'inputProps', 'inputWrapperOrder', 'inset', 'label', 'labelProps', 'labelSeparator', 'left', 'leftSection', 'leftSectionPointerEvents', 'leftSectionProps', 'leftSectionWidth', 'level', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxDate', 'mb', 'me', 'mih', 'minDate', 'miw', 'ml', 'mod', 'modalProps', 'monthLabelFormat', 'monthsListFormat', 'mr', 'ms', 'mt', 'mx', 'my', 'n_submit', 'name', 'nextIcon', 'nextLabel', 'numberOfColumns', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'placeholder', 'pointer', 'popoverProps', 'pos', 'pr', 'previousIcon', 'previousLabel', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'required', 'right', 'rightSection', 'rightSectionPointerEvents', 'rightSectionProps', 'rightSectionWidth', 'size', 'sortDates', 'style', 'styles', 'submitButtonProps', 'ta', 'tabIndex', 'td', 'timePickerProps', 'top', 'tt', 'unstyled', 'value', 'valueFormat', 'variant', 'visibleFrom', 'w', 'weekdayFormat', 'weekendDays', 'withAsterisk', 'withCellSpacing', 'withErrorStyles', 'withSeconds', 'withWeekNumbers', 'wrapperProps', 'yearLabelFormat', 'yearsListFormat']
+        self.available_properties = ['id', 'aria-*', 'ariaLabels', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'clearButtonProps', 'clearable', 'columnsToScroll', 'darkHidden', 'data-*', 'debounce', 'decadeLabelFormat', 'defaultDate', 'description', 'descriptionProps', 'disabled', 'disabledDates', 'display', 'dropdownType', 'error', 'errorProps', 'ff', 'firstDayOfWeek', 'flex', 'fs', 'fw', 'fz', 'getDayProps', 'getMonthControlProps', 'getYearControlProps', 'h', 'hasNextLevel', 'headerControlsOrder', 'hiddenFrom', 'hideOutsideDates', 'hideWeekdays', 'highlightToday', 'inputProps', 'inputWrapperOrder', 'inset', 'label', 'labelProps', 'labelSeparator', 'left', 'leftSection', 'leftSectionPointerEvents', 'leftSectionProps', 'leftSectionWidth', 'level', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxDate', 'mb', 'me', 'mih', 'minDate', 'miw', 'ml', 'mod', 'modalProps', 'monthLabelFormat', 'monthsListFormat', 'mr', 'ms', 'mt', 'mx', 'my', 'n_submit', 'name', 'nextIcon', 'nextLabel', 'numberOfColumns', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'placeholder', 'pointer', 'popoverProps', 'pos', 'pr', 'presets', 'previousIcon', 'previousLabel', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'renderDay', 'required', 'right', 'rightSection', 'rightSectionPointerEvents', 'rightSectionProps', 'rightSectionWidth', 'size', 'sortDates', 'style', 'styles', 'submitButtonProps', 'ta', 'tabIndex', 'td', 'timePickerProps', 'top', 'tt', 'unstyled', 'value', 'valueFormat', 'variant', 'visibleFrom', 'w', 'weekdayFormat', 'weekendDays', 'withAsterisk', 'withCellSpacing', 'withErrorStyles', 'withSeconds', 'withWeekNumbers', 'wrapperProps', 'yearLabelFormat', 'yearsListFormat']
         self.available_wildcard_properties =            ['data-', 'aria-']
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

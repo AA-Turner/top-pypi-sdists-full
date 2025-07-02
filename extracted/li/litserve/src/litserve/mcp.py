@@ -20,17 +20,26 @@ import weakref
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union, get_args, get_origin
 
-import mcp.types as types
 from fastapi import FastAPI
-from mcp.server.fastmcp.server import _convert_to_content
-from mcp.server.lowlevel import Server as MCPServer
-from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 from pydantic import BaseModel
 from starlette.applications import Starlette
 from starlette.routing import Mount
 from starlette.types import Receive, Scope, Send
 
 from litserve.utils import is_package_installed
+
+_is_mcp_installed = is_package_installed("fastmcp")
+
+
+if _is_mcp_installed:
+    from fastapi import FastAPI
+    from mcp.server.fastmcp.server import _convert_to_content
+    from mcp.server.lowlevel import Server as MCPServer
+    from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
+    from mcp.types import Tool as ToolType
+
+else:
+    ToolType = object
 
 if TYPE_CHECKING:
     from litserve.api import LitAPI
@@ -243,22 +252,92 @@ async def _call_handler(handler, **kwargs):
     return _convert_to_content(await handler(*bound.args, **bound.kwargs))
 
 
-class ToolEndpointType(types.Tool):
+class ToolEndpointType(ToolType):
     endpoint: str
 
 
 class MCP:
-    """MCP is a spec that can be used to create MCP tools for LitServe endpoints. It doesn't affect LitAPI.
+    """Enable Model Context Protocol (MCP) integration for LitServe APIs.
 
-    Example:
-        >>> api = LitAPI(mcp=MCP(description="A simple API", input_schema={"name": "string"}))
+    This enables LitServe APIs to be seamlessly integrated into MCP-compatible AI systems,
+    making models accessible as tools within larger AI workflows and agent frameworks.
 
+    Quick Start:
+        ```python
+        from pydantic import BaseModel
+        from litserve.mcp import MCP
+        import litserve as ls
 
-    Spec vs MCP:
-        - specs (like the OpenAI spec) affects the API endpoint, the request-response format, and the LitAPI methods.
-        - MCP, on the other hand, works differently. It doesn't follow the OpenAI spec. Instead, it only uses metadata like the name and description to generate an additional endpoint via MCPServer.
+        class PowerRequest(BaseModel):
+            input: float
 
-    """  # noqa: E501
+        class MyLitAPI(ls.test_examples.SimpleLitAPI):
+            def decode_request(self, request: PowerRequest) -> int:
+                return request.input
+
+        if __name__ == "__main__":
+            mcp=MCP(description="Returns the power of a number.")
+            api = MyLitAPI(mcp=mcp)
+            server = ls.LitServer(api)
+            server.run()
+        ```
+
+    Args:
+        name:
+            Tool name for MCP registration. Defaults to None (uses api_path).
+
+            - Should be descriptive and unique within the MCP server
+            - Automatically converts "/" to "_" for compatibility
+            - Used by AI systems to identify and call the tool
+
+        description:
+            Human-readable description of what the tool does. Defaults to None (uses class docstring).
+
+            - Essential for AI systems to understand when to use the tool
+            - Should clearly explain the purpose and capabilities
+            - Used in tool selection and orchestration
+
+        input_schema:
+            JSON Schema defining expected input format. Defaults to None (auto-extracted).
+
+            - Describes the structure and types of input parameters
+            - Helps AI systems format requests correctly
+            - Auto-extracted from decode_request method if not provided
+
+    Schema Auto-Extraction:
+        If no input_schema is provided, MCP automatically extracts it from type hints in the decode_request method:
+
+        ```python
+        from pydantic import BaseModel
+
+        class Request(BaseModel):
+            input: str
+
+        class AutoSchemaAPI(ls.LitAPI):
+            def decode_request(self, request: Request)->str:
+                # MCP analyzes the type hints to generate schema:
+                # input: str -> {"input": {"type": "string", "title": "Input"}}
+                return request.input
+        ```
+
+        Supported type annotations:
+        - Basic types: `str`, `int`, `float`, `bool`, `list`, `dict`
+        - Optional types: `Optional[str]`, `Union[str, None]`
+        - Pydantic models: Full schema extraction with validation
+        - Complex types: `List[str]`, `Dict[str, Any]`
+
+    Notes:
+        - MCP integration is optional and doesn't affect non-MCP clients
+        - Tool names are automatically sanitized (/ becomes _)
+        - Original API endpoints remain unchanged and fully functional
+        - Compatible with all LitServe features (batching, streaming, etc.)
+
+    See Also:
+        - Model Context Protocol documentation: https://lightning.ai/docs/litserve/features/mcp
+        - LitAPI: Base class for API implementation
+        - LitServer: Server class for hosting APIs
+
+    """
 
     def __init__(
         self,
@@ -278,6 +357,11 @@ class MCP:
         self.input_schema = input_schema
         self._connected = False
 
+        if not is_package_installed("fastmcp"):
+            raise RuntimeError(
+                "mcp package is required for MCP support. To install, run `pip install fastmcp` in the terminal."
+            )
+
     @property
     def name(self) -> str:
         return self._name
@@ -294,11 +378,6 @@ class MCP:
         self._connected = True
 
     def as_tool(self) -> ToolEndpointType:
-        if not is_package_installed("mcp"):
-            raise RuntimeError(
-                "MCP is not installed. Please install it with `pip install mcp[cli]` or `uv pip install mcp[cli]`"
-            )
-
         if not self._connected:
             raise RuntimeError("MCP is not connected to a LitAPI.")
 
@@ -330,7 +409,7 @@ class MCP:
 
 
 class _MCPRequestHandler:
-    def __init__(self, mcp_server: MCPServer):
+    def __init__(self, mcp_server: "MCPServer"):
         self.mcp_server = mcp_server
         self._session_manager = None
 
@@ -466,7 +545,7 @@ class _LitMCPServerConnector:
         starlette_app = self.request_handler.streamable_http_app()
         app.mount("/", starlette_app, name="mcp")
 
-    def connect_mcp_server(self, mcp_tools: List[types.Tool], app: FastAPI):
+    def connect_mcp_server(self, mcp_tools: List[ToolType], app: FastAPI):
         """LitServer calls this method to connect MCP server to the FastAPI app.
 
         Args:

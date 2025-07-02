@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: application_properties
-Version: 0.8.3
+Version: 0.9.0
 Summary: A simple, easy to use, unified manner of accessing program properties.
 Home-page: https://github.com/jackdewinter/application_properties
 Author: Jack De Winter
@@ -28,6 +28,7 @@ License-File: LICENSE.txt
 Requires-Dist: typing-extensions>=4.5.0
 Requires-Dist: tomli>=2.0.1
 Requires-Dist: pyyaml>=5.4.1
+Requires-Dist: pyjson5>=1.6.9
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

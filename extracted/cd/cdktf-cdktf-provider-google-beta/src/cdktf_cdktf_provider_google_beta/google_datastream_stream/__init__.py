@@ -1,7 +1,7 @@
 r'''
 # `google_datastream_stream`
 
-Refer to the Terraform Registry for docs: [`google_datastream_stream`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream).
+Refer to the Terraform Registry for docs: [`google_datastream_stream`](https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleDatastreamStream(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleDatastreamStream.GoogleDatastreamStream",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream google_datastream_stream}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream google_datastream_stream}.'''
 
     def __init__(
         self,
@@ -73,24 +73,24 @@ class GoogleDatastreamStream(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream google_datastream_stream} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream google_datastream_stream} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param destination_config: destination_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#destination_config GoogleDatastreamStream#destination_config}
-        :param display_name: Display name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#display_name GoogleDatastreamStream#display_name}
-        :param location: The name of the location this stream is located in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#location GoogleDatastreamStream#location}
-        :param source_config: source_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#source_config GoogleDatastreamStream#source_config}
-        :param stream_id: The stream identifier. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#stream_id GoogleDatastreamStream#stream_id}
-        :param backfill_all: backfill_all block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#backfill_all GoogleDatastreamStream#backfill_all}
-        :param backfill_none: backfill_none block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#backfill_none GoogleDatastreamStream#backfill_none}
-        :param create_without_validation: Create the stream without validating it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#create_without_validation GoogleDatastreamStream#create_without_validation}
-        :param customer_managed_encryption_key: A reference to a KMS encryption key. If provided, it will be used to encrypt the data. If left blank, data will be encrypted using an internal Stream-specific encryption key provisioned through KMS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#customer_managed_encryption_key GoogleDatastreamStream#customer_managed_encryption_key}
-        :param desired_state: Desired state of the Stream. Set this field to 'RUNNING' to start the stream, 'NOT_STARTED' to create the stream without starting and 'PAUSED' to pause the stream from a 'RUNNING' state. Possible values: NOT_STARTED, RUNNING, PAUSED. Default: NOT_STARTED Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#desired_state GoogleDatastreamStream#desired_state}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#id GoogleDatastreamStream#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Labels. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#labels GoogleDatastreamStream#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#project GoogleDatastreamStream#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#timeouts GoogleDatastreamStream#timeouts}
+        :param destination_config: destination_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#destination_config GoogleDatastreamStream#destination_config}
+        :param display_name: Display name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#display_name GoogleDatastreamStream#display_name}
+        :param location: The name of the location this stream is located in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#location GoogleDatastreamStream#location}
+        :param source_config: source_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#source_config GoogleDatastreamStream#source_config}
+        :param stream_id: The stream identifier. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#stream_id GoogleDatastreamStream#stream_id}
+        :param backfill_all: backfill_all block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#backfill_all GoogleDatastreamStream#backfill_all}
+        :param backfill_none: backfill_none block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#backfill_none GoogleDatastreamStream#backfill_none}
+        :param create_without_validation: Create the stream without validating it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#create_without_validation GoogleDatastreamStream#create_without_validation}
+        :param customer_managed_encryption_key: A reference to a KMS encryption key. If provided, it will be used to encrypt the data. If left blank, data will be encrypted using an internal Stream-specific encryption key provisioned through KMS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#customer_managed_encryption_key GoogleDatastreamStream#customer_managed_encryption_key}
+        :param desired_state: Desired state of the Stream. Set this field to 'RUNNING' to start the stream, 'NOT_STARTED' to create the stream without starting and 'PAUSED' to pause the stream from a 'RUNNING' state. Possible values: NOT_STARTED, RUNNING, PAUSED. Default: NOT_STARTED Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#desired_state GoogleDatastreamStream#desired_state}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#id GoogleDatastreamStream#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Labels. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#labels GoogleDatastreamStream#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#project GoogleDatastreamStream#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#timeouts GoogleDatastreamStream#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -142,7 +142,7 @@ class GoogleDatastreamStream(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleDatastreamStream to import.
-        :param import_from_id: The id of the existing GoogleDatastreamStream that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleDatastreamStream that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleDatastreamStream to import is found.
         '''
         if __debug__:
@@ -164,11 +164,11 @@ class GoogleDatastreamStream(
         sql_server_excluded_objects: typing.Optional[typing.Union["GoogleDatastreamStreamBackfillAllSqlServerExcludedObjects", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param mysql_excluded_objects: mysql_excluded_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#mysql_excluded_objects GoogleDatastreamStream#mysql_excluded_objects}
-        :param oracle_excluded_objects: oracle_excluded_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#oracle_excluded_objects GoogleDatastreamStream#oracle_excluded_objects}
-        :param postgresql_excluded_objects: postgresql_excluded_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#postgresql_excluded_objects GoogleDatastreamStream#postgresql_excluded_objects}
-        :param salesforce_excluded_objects: salesforce_excluded_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#salesforce_excluded_objects GoogleDatastreamStream#salesforce_excluded_objects}
-        :param sql_server_excluded_objects: sql_server_excluded_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#sql_server_excluded_objects GoogleDatastreamStream#sql_server_excluded_objects}
+        :param mysql_excluded_objects: mysql_excluded_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#mysql_excluded_objects GoogleDatastreamStream#mysql_excluded_objects}
+        :param oracle_excluded_objects: oracle_excluded_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#oracle_excluded_objects GoogleDatastreamStream#oracle_excluded_objects}
+        :param postgresql_excluded_objects: postgresql_excluded_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#postgresql_excluded_objects GoogleDatastreamStream#postgresql_excluded_objects}
+        :param salesforce_excluded_objects: salesforce_excluded_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#salesforce_excluded_objects GoogleDatastreamStream#salesforce_excluded_objects}
+        :param sql_server_excluded_objects: sql_server_excluded_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#sql_server_excluded_objects GoogleDatastreamStream#sql_server_excluded_objects}
         '''
         value = GoogleDatastreamStreamBackfillAll(
             mysql_excluded_objects=mysql_excluded_objects,
@@ -195,9 +195,9 @@ class GoogleDatastreamStream(
         gcs_destination_config: typing.Optional[typing.Union["GoogleDatastreamStreamDestinationConfigGcsDestinationConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param destination_connection_profile: Destination connection profile resource. Format: projects/{project}/locations/{location}/connectionProfiles/{name}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#destination_connection_profile GoogleDatastreamStream#destination_connection_profile}
-        :param bigquery_destination_config: bigquery_destination_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#bigquery_destination_config GoogleDatastreamStream#bigquery_destination_config}
-        :param gcs_destination_config: gcs_destination_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#gcs_destination_config GoogleDatastreamStream#gcs_destination_config}
+        :param destination_connection_profile: Destination connection profile resource. Format: projects/{project}/locations/{location}/connectionProfiles/{name}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#destination_connection_profile GoogleDatastreamStream#destination_connection_profile}
+        :param bigquery_destination_config: bigquery_destination_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#bigquery_destination_config GoogleDatastreamStream#bigquery_destination_config}
+        :param gcs_destination_config: gcs_destination_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#gcs_destination_config GoogleDatastreamStream#gcs_destination_config}
         '''
         value = GoogleDatastreamStreamDestinationConfig(
             destination_connection_profile=destination_connection_profile,
@@ -219,12 +219,12 @@ class GoogleDatastreamStream(
         sql_server_source_config: typing.Optional[typing.Union["GoogleDatastreamStreamSourceConfigSqlServerSourceConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param source_connection_profile: Source connection profile resource. Format: projects/{project}/locations/{location}/connectionProfiles/{name}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#source_connection_profile GoogleDatastreamStream#source_connection_profile}
-        :param mysql_source_config: mysql_source_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#mysql_source_config GoogleDatastreamStream#mysql_source_config}
-        :param oracle_source_config: oracle_source_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#oracle_source_config GoogleDatastreamStream#oracle_source_config}
-        :param postgresql_source_config: postgresql_source_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#postgresql_source_config GoogleDatastreamStream#postgresql_source_config}
-        :param salesforce_source_config: salesforce_source_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#salesforce_source_config GoogleDatastreamStream#salesforce_source_config}
-        :param sql_server_source_config: sql_server_source_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#sql_server_source_config GoogleDatastreamStream#sql_server_source_config}
+        :param source_connection_profile: Source connection profile resource. Format: projects/{project}/locations/{location}/connectionProfiles/{name}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#source_connection_profile GoogleDatastreamStream#source_connection_profile}
+        :param mysql_source_config: mysql_source_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#mysql_source_config GoogleDatastreamStream#mysql_source_config}
+        :param oracle_source_config: oracle_source_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#oracle_source_config GoogleDatastreamStream#oracle_source_config}
+        :param postgresql_source_config: postgresql_source_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#postgresql_source_config GoogleDatastreamStream#postgresql_source_config}
+        :param salesforce_source_config: salesforce_source_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#salesforce_source_config GoogleDatastreamStream#salesforce_source_config}
+        :param sql_server_source_config: sql_server_source_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#sql_server_source_config GoogleDatastreamStream#sql_server_source_config}
         '''
         value = GoogleDatastreamStreamSourceConfig(
             source_connection_profile=source_connection_profile,
@@ -246,9 +246,9 @@ class GoogleDatastreamStream(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#create GoogleDatastreamStream#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#delete GoogleDatastreamStream#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#update GoogleDatastreamStream#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#create GoogleDatastreamStream#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#delete GoogleDatastreamStream#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#update GoogleDatastreamStream#update}.
         '''
         value = GoogleDatastreamStreamTimeouts(
             create=create, delete=delete, update=update
@@ -572,11 +572,11 @@ class GoogleDatastreamStreamBackfillAll:
         sql_server_excluded_objects: typing.Optional[typing.Union["GoogleDatastreamStreamBackfillAllSqlServerExcludedObjects", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param mysql_excluded_objects: mysql_excluded_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#mysql_excluded_objects GoogleDatastreamStream#mysql_excluded_objects}
-        :param oracle_excluded_objects: oracle_excluded_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#oracle_excluded_objects GoogleDatastreamStream#oracle_excluded_objects}
-        :param postgresql_excluded_objects: postgresql_excluded_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#postgresql_excluded_objects GoogleDatastreamStream#postgresql_excluded_objects}
-        :param salesforce_excluded_objects: salesforce_excluded_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#salesforce_excluded_objects GoogleDatastreamStream#salesforce_excluded_objects}
-        :param sql_server_excluded_objects: sql_server_excluded_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#sql_server_excluded_objects GoogleDatastreamStream#sql_server_excluded_objects}
+        :param mysql_excluded_objects: mysql_excluded_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#mysql_excluded_objects GoogleDatastreamStream#mysql_excluded_objects}
+        :param oracle_excluded_objects: oracle_excluded_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#oracle_excluded_objects GoogleDatastreamStream#oracle_excluded_objects}
+        :param postgresql_excluded_objects: postgresql_excluded_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#postgresql_excluded_objects GoogleDatastreamStream#postgresql_excluded_objects}
+        :param salesforce_excluded_objects: salesforce_excluded_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#salesforce_excluded_objects GoogleDatastreamStream#salesforce_excluded_objects}
+        :param sql_server_excluded_objects: sql_server_excluded_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#sql_server_excluded_objects GoogleDatastreamStream#sql_server_excluded_objects}
         '''
         if isinstance(mysql_excluded_objects, dict):
             mysql_excluded_objects = GoogleDatastreamStreamBackfillAllMysqlExcludedObjects(**mysql_excluded_objects)
@@ -613,7 +613,7 @@ class GoogleDatastreamStreamBackfillAll:
     ) -> typing.Optional["GoogleDatastreamStreamBackfillAllMysqlExcludedObjects"]:
         '''mysql_excluded_objects block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#mysql_excluded_objects GoogleDatastreamStream#mysql_excluded_objects}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#mysql_excluded_objects GoogleDatastreamStream#mysql_excluded_objects}
         '''
         result = self._values.get("mysql_excluded_objects")
         return typing.cast(typing.Optional["GoogleDatastreamStreamBackfillAllMysqlExcludedObjects"], result)
@@ -624,7 +624,7 @@ class GoogleDatastreamStreamBackfillAll:
     ) -> typing.Optional["GoogleDatastreamStreamBackfillAllOracleExcludedObjects"]:
         '''oracle_excluded_objects block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#oracle_excluded_objects GoogleDatastreamStream#oracle_excluded_objects}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#oracle_excluded_objects GoogleDatastreamStream#oracle_excluded_objects}
         '''
         result = self._values.get("oracle_excluded_objects")
         return typing.cast(typing.Optional["GoogleDatastreamStreamBackfillAllOracleExcludedObjects"], result)
@@ -635,7 +635,7 @@ class GoogleDatastreamStreamBackfillAll:
     ) -> typing.Optional["GoogleDatastreamStreamBackfillAllPostgresqlExcludedObjects"]:
         '''postgresql_excluded_objects block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#postgresql_excluded_objects GoogleDatastreamStream#postgresql_excluded_objects}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#postgresql_excluded_objects GoogleDatastreamStream#postgresql_excluded_objects}
         '''
         result = self._values.get("postgresql_excluded_objects")
         return typing.cast(typing.Optional["GoogleDatastreamStreamBackfillAllPostgresqlExcludedObjects"], result)
@@ -646,7 +646,7 @@ class GoogleDatastreamStreamBackfillAll:
     ) -> typing.Optional["GoogleDatastreamStreamBackfillAllSalesforceExcludedObjects"]:
         '''salesforce_excluded_objects block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#salesforce_excluded_objects GoogleDatastreamStream#salesforce_excluded_objects}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#salesforce_excluded_objects GoogleDatastreamStream#salesforce_excluded_objects}
         '''
         result = self._values.get("salesforce_excluded_objects")
         return typing.cast(typing.Optional["GoogleDatastreamStreamBackfillAllSalesforceExcludedObjects"], result)
@@ -657,7 +657,7 @@ class GoogleDatastreamStreamBackfillAll:
     ) -> typing.Optional["GoogleDatastreamStreamBackfillAllSqlServerExcludedObjects"]:
         '''sql_server_excluded_objects block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#sql_server_excluded_objects GoogleDatastreamStream#sql_server_excluded_objects}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#sql_server_excluded_objects GoogleDatastreamStream#sql_server_excluded_objects}
         '''
         result = self._values.get("sql_server_excluded_objects")
         return typing.cast(typing.Optional["GoogleDatastreamStreamBackfillAllSqlServerExcludedObjects"], result)
@@ -686,7 +686,7 @@ class GoogleDatastreamStreamBackfillAllMysqlExcludedObjects:
         mysql_databases: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleDatastreamStreamBackfillAllMysqlExcludedObjectsMysqlDatabases", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param mysql_databases: mysql_databases block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#mysql_databases GoogleDatastreamStream#mysql_databases}
+        :param mysql_databases: mysql_databases block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#mysql_databases GoogleDatastreamStream#mysql_databases}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d07bf1e73cbfa0c9924cbdd112f8758d8c5843cb05b182d0821feebbecf1bbfe)
@@ -701,7 +701,7 @@ class GoogleDatastreamStreamBackfillAllMysqlExcludedObjects:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamBackfillAllMysqlExcludedObjectsMysqlDatabases"]]:
         '''mysql_databases block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#mysql_databases GoogleDatastreamStream#mysql_databases}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#mysql_databases GoogleDatastreamStream#mysql_databases}
         '''
         result = self._values.get("mysql_databases")
         assert result is not None, "Required property 'mysql_databases' is missing"
@@ -732,8 +732,8 @@ class GoogleDatastreamStreamBackfillAllMysqlExcludedObjectsMysqlDatabases:
         mysql_tables: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleDatastreamStreamBackfillAllMysqlExcludedObjectsMysqlDatabasesMysqlTables", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param database: Database name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#database GoogleDatastreamStream#database}
-        :param mysql_tables: mysql_tables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#mysql_tables GoogleDatastreamStream#mysql_tables}
+        :param database: Database name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#database GoogleDatastreamStream#database}
+        :param mysql_tables: mysql_tables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#mysql_tables GoogleDatastreamStream#mysql_tables}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__520481cec23840384472636822f5e61482b5d1f652a122cd771b9d999695e41c)
@@ -749,7 +749,7 @@ class GoogleDatastreamStreamBackfillAllMysqlExcludedObjectsMysqlDatabases:
     def database(self) -> builtins.str:
         '''Database name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#database GoogleDatastreamStream#database}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#database GoogleDatastreamStream#database}
         '''
         result = self._values.get("database")
         assert result is not None, "Required property 'database' is missing"
@@ -761,7 +761,7 @@ class GoogleDatastreamStreamBackfillAllMysqlExcludedObjectsMysqlDatabases:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamBackfillAllMysqlExcludedObjectsMysqlDatabasesMysqlTables"]]]:
         '''mysql_tables block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#mysql_tables GoogleDatastreamStream#mysql_tables}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#mysql_tables GoogleDatastreamStream#mysql_tables}
         '''
         result = self._values.get("mysql_tables")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamBackfillAllMysqlExcludedObjectsMysqlDatabasesMysqlTables"]]], result)
@@ -884,8 +884,8 @@ class GoogleDatastreamStreamBackfillAllMysqlExcludedObjectsMysqlDatabasesMysqlTa
         mysql_columns: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleDatastreamStreamBackfillAllMysqlExcludedObjectsMysqlDatabasesMysqlTablesMysqlColumns", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param table: Table name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#table GoogleDatastreamStream#table}
-        :param mysql_columns: mysql_columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#mysql_columns GoogleDatastreamStream#mysql_columns}
+        :param table: Table name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#table GoogleDatastreamStream#table}
+        :param mysql_columns: mysql_columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#mysql_columns GoogleDatastreamStream#mysql_columns}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3636dc049bfc21560723eff546dfc6111fc1c67103fa20091fcb54e69eb14642)
@@ -901,7 +901,7 @@ class GoogleDatastreamStreamBackfillAllMysqlExcludedObjectsMysqlDatabasesMysqlTa
     def table(self) -> builtins.str:
         '''Table name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#table GoogleDatastreamStream#table}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#table GoogleDatastreamStream#table}
         '''
         result = self._values.get("table")
         assert result is not None, "Required property 'table' is missing"
@@ -913,7 +913,7 @@ class GoogleDatastreamStreamBackfillAllMysqlExcludedObjectsMysqlDatabasesMysqlTa
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamBackfillAllMysqlExcludedObjectsMysqlDatabasesMysqlTablesMysqlColumns"]]]:
         '''mysql_columns block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#mysql_columns GoogleDatastreamStream#mysql_columns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#mysql_columns GoogleDatastreamStream#mysql_columns}
         '''
         result = self._values.get("mysql_columns")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamBackfillAllMysqlExcludedObjectsMysqlDatabasesMysqlTablesMysqlColumns"]]], result)
@@ -1047,12 +1047,12 @@ class GoogleDatastreamStreamBackfillAllMysqlExcludedObjectsMysqlDatabasesMysqlTa
         primary_key: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param collation: Column collation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#collation GoogleDatastreamStream#collation}
-        :param column: Column name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#column GoogleDatastreamStream#column}
-        :param data_type: The MySQL data type. Full data types list can be found here: https://dev.mysql.com/doc/refman/8.0/en/data-types.html. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#data_type GoogleDatastreamStream#data_type}
-        :param nullable: Whether or not the column can accept a null value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#nullable GoogleDatastreamStream#nullable}
-        :param ordinal_position: The ordinal position of the column in the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#ordinal_position GoogleDatastreamStream#ordinal_position}
-        :param primary_key: Whether or not the column represents a primary key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#primary_key GoogleDatastreamStream#primary_key}
+        :param collation: Column collation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#collation GoogleDatastreamStream#collation}
+        :param column: Column name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#column GoogleDatastreamStream#column}
+        :param data_type: The MySQL data type. Full data types list can be found here: https://dev.mysql.com/doc/refman/8.0/en/data-types.html. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#data_type GoogleDatastreamStream#data_type}
+        :param nullable: Whether or not the column can accept a null value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#nullable GoogleDatastreamStream#nullable}
+        :param ordinal_position: The ordinal position of the column in the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#ordinal_position GoogleDatastreamStream#ordinal_position}
+        :param primary_key: Whether or not the column represents a primary key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#primary_key GoogleDatastreamStream#primary_key}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__23a54185e20f6073f2e24e14685a1bb95703a2f3f4ab9e6eea9d3117b60799c9)
@@ -1080,7 +1080,7 @@ class GoogleDatastreamStreamBackfillAllMysqlExcludedObjectsMysqlDatabasesMysqlTa
     def collation(self) -> typing.Optional[builtins.str]:
         '''Column collation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#collation GoogleDatastreamStream#collation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#collation GoogleDatastreamStream#collation}
         '''
         result = self._values.get("collation")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1089,7 +1089,7 @@ class GoogleDatastreamStreamBackfillAllMysqlExcludedObjectsMysqlDatabasesMysqlTa
     def column(self) -> typing.Optional[builtins.str]:
         '''Column name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#column GoogleDatastreamStream#column}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#column GoogleDatastreamStream#column}
         '''
         result = self._values.get("column")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1098,7 +1098,7 @@ class GoogleDatastreamStreamBackfillAllMysqlExcludedObjectsMysqlDatabasesMysqlTa
     def data_type(self) -> typing.Optional[builtins.str]:
         '''The MySQL data type. Full data types list can be found here: https://dev.mysql.com/doc/refman/8.0/en/data-types.html.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#data_type GoogleDatastreamStream#data_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#data_type GoogleDatastreamStream#data_type}
         '''
         result = self._values.get("data_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1109,7 +1109,7 @@ class GoogleDatastreamStreamBackfillAllMysqlExcludedObjectsMysqlDatabasesMysqlTa
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether or not the column can accept a null value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#nullable GoogleDatastreamStream#nullable}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#nullable GoogleDatastreamStream#nullable}
         '''
         result = self._values.get("nullable")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1118,7 +1118,7 @@ class GoogleDatastreamStreamBackfillAllMysqlExcludedObjectsMysqlDatabasesMysqlTa
     def ordinal_position(self) -> typing.Optional[jsii.Number]:
         '''The ordinal position of the column in the table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#ordinal_position GoogleDatastreamStream#ordinal_position}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#ordinal_position GoogleDatastreamStream#ordinal_position}
         '''
         result = self._values.get("ordinal_position")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1129,7 +1129,7 @@ class GoogleDatastreamStreamBackfillAllMysqlExcludedObjectsMysqlDatabasesMysqlTa
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether or not the column represents a primary key.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#primary_key GoogleDatastreamStream#primary_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#primary_key GoogleDatastreamStream#primary_key}
         '''
         result = self._values.get("primary_key")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1685,7 +1685,7 @@ class GoogleDatastreamStreamBackfillAllOracleExcludedObjects:
         oracle_schemas: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleDatastreamStreamBackfillAllOracleExcludedObjectsOracleSchemas", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param oracle_schemas: oracle_schemas block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#oracle_schemas GoogleDatastreamStream#oracle_schemas}
+        :param oracle_schemas: oracle_schemas block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#oracle_schemas GoogleDatastreamStream#oracle_schemas}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__91d62ed480f3fa3b3b42fa502a9ed016297cfd3f897f0d05c49b43aae31ddb03)
@@ -1700,7 +1700,7 @@ class GoogleDatastreamStreamBackfillAllOracleExcludedObjects:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamBackfillAllOracleExcludedObjectsOracleSchemas"]]:
         '''oracle_schemas block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#oracle_schemas GoogleDatastreamStream#oracle_schemas}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#oracle_schemas GoogleDatastreamStream#oracle_schemas}
         '''
         result = self._values.get("oracle_schemas")
         assert result is not None, "Required property 'oracle_schemas' is missing"
@@ -1731,8 +1731,8 @@ class GoogleDatastreamStreamBackfillAllOracleExcludedObjectsOracleSchemas:
         oracle_tables: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleDatastreamStreamBackfillAllOracleExcludedObjectsOracleSchemasOracleTables", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param schema: Schema name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#schema GoogleDatastreamStream#schema}
-        :param oracle_tables: oracle_tables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#oracle_tables GoogleDatastreamStream#oracle_tables}
+        :param schema: Schema name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#schema GoogleDatastreamStream#schema}
+        :param oracle_tables: oracle_tables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#oracle_tables GoogleDatastreamStream#oracle_tables}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cde81619ce4f9773e3bcac1d1eac26e1b80fef0034c22df9c39c4e57b6311b4c)
@@ -1748,7 +1748,7 @@ class GoogleDatastreamStreamBackfillAllOracleExcludedObjectsOracleSchemas:
     def schema(self) -> builtins.str:
         '''Schema name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#schema GoogleDatastreamStream#schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#schema GoogleDatastreamStream#schema}
         '''
         result = self._values.get("schema")
         assert result is not None, "Required property 'schema' is missing"
@@ -1760,7 +1760,7 @@ class GoogleDatastreamStreamBackfillAllOracleExcludedObjectsOracleSchemas:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamBackfillAllOracleExcludedObjectsOracleSchemasOracleTables"]]]:
         '''oracle_tables block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#oracle_tables GoogleDatastreamStream#oracle_tables}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#oracle_tables GoogleDatastreamStream#oracle_tables}
         '''
         result = self._values.get("oracle_tables")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamBackfillAllOracleExcludedObjectsOracleSchemasOracleTables"]]], result)
@@ -1883,8 +1883,8 @@ class GoogleDatastreamStreamBackfillAllOracleExcludedObjectsOracleSchemasOracleT
         oracle_columns: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleDatastreamStreamBackfillAllOracleExcludedObjectsOracleSchemasOracleTablesOracleColumns", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param table: Table name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#table GoogleDatastreamStream#table}
-        :param oracle_columns: oracle_columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#oracle_columns GoogleDatastreamStream#oracle_columns}
+        :param table: Table name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#table GoogleDatastreamStream#table}
+        :param oracle_columns: oracle_columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#oracle_columns GoogleDatastreamStream#oracle_columns}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__51232ab056e0830dca1741ae338bc8911ef6316f203b0c9de5aabfd3cb9b2cfd)
@@ -1900,7 +1900,7 @@ class GoogleDatastreamStreamBackfillAllOracleExcludedObjectsOracleSchemasOracleT
     def table(self) -> builtins.str:
         '''Table name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#table GoogleDatastreamStream#table}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#table GoogleDatastreamStream#table}
         '''
         result = self._values.get("table")
         assert result is not None, "Required property 'table' is missing"
@@ -1912,7 +1912,7 @@ class GoogleDatastreamStreamBackfillAllOracleExcludedObjectsOracleSchemasOracleT
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamBackfillAllOracleExcludedObjectsOracleSchemasOracleTablesOracleColumns"]]]:
         '''oracle_columns block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#oracle_columns GoogleDatastreamStream#oracle_columns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#oracle_columns GoogleDatastreamStream#oracle_columns}
         '''
         result = self._values.get("oracle_columns")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamBackfillAllOracleExcludedObjectsOracleSchemasOracleTablesOracleColumns"]]], result)
@@ -2035,8 +2035,8 @@ class GoogleDatastreamStreamBackfillAllOracleExcludedObjectsOracleSchemasOracleT
         data_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param column: Column name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#column GoogleDatastreamStream#column}
-        :param data_type: The Oracle data type. Full data types list can be found here: https://docs.oracle.com/en/database/oracle/oracle-database/21/sqlrf/Data-Types.html. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#data_type GoogleDatastreamStream#data_type}
+        :param column: Column name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#column GoogleDatastreamStream#column}
+        :param data_type: The Oracle data type. Full data types list can be found here: https://docs.oracle.com/en/database/oracle/oracle-database/21/sqlrf/Data-Types.html. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#data_type GoogleDatastreamStream#data_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6355fb3a37c3f3b9017f417fa31d41e8a5e56b36ea746998b568fb7cc67e6588)
@@ -2052,7 +2052,7 @@ class GoogleDatastreamStreamBackfillAllOracleExcludedObjectsOracleSchemasOracleT
     def column(self) -> typing.Optional[builtins.str]:
         '''Column name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#column GoogleDatastreamStream#column}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#column GoogleDatastreamStream#column}
         '''
         result = self._values.get("column")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2061,7 +2061,7 @@ class GoogleDatastreamStreamBackfillAllOracleExcludedObjectsOracleSchemasOracleT
     def data_type(self) -> typing.Optional[builtins.str]:
         '''The Oracle data type. Full data types list can be found here: https://docs.oracle.com/en/database/oracle/oracle-database/21/sqlrf/Data-Types.html.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#data_type GoogleDatastreamStream#data_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#data_type GoogleDatastreamStream#data_type}
         '''
         result = self._values.get("data_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2568,7 +2568,7 @@ class GoogleDatastreamStreamBackfillAllOutputReference(
         mysql_databases: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[GoogleDatastreamStreamBackfillAllMysqlExcludedObjectsMysqlDatabases, typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param mysql_databases: mysql_databases block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#mysql_databases GoogleDatastreamStream#mysql_databases}
+        :param mysql_databases: mysql_databases block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#mysql_databases GoogleDatastreamStream#mysql_databases}
         '''
         value = GoogleDatastreamStreamBackfillAllMysqlExcludedObjects(
             mysql_databases=mysql_databases
@@ -2583,7 +2583,7 @@ class GoogleDatastreamStreamBackfillAllOutputReference(
         oracle_schemas: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[GoogleDatastreamStreamBackfillAllOracleExcludedObjectsOracleSchemas, typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param oracle_schemas: oracle_schemas block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#oracle_schemas GoogleDatastreamStream#oracle_schemas}
+        :param oracle_schemas: oracle_schemas block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#oracle_schemas GoogleDatastreamStream#oracle_schemas}
         '''
         value = GoogleDatastreamStreamBackfillAllOracleExcludedObjects(
             oracle_schemas=oracle_schemas
@@ -2598,7 +2598,7 @@ class GoogleDatastreamStreamBackfillAllOutputReference(
         postgresql_schemas: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleDatastreamStreamBackfillAllPostgresqlExcludedObjectsPostgresqlSchemas", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param postgresql_schemas: postgresql_schemas block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#postgresql_schemas GoogleDatastreamStream#postgresql_schemas}
+        :param postgresql_schemas: postgresql_schemas block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#postgresql_schemas GoogleDatastreamStream#postgresql_schemas}
         '''
         value = GoogleDatastreamStreamBackfillAllPostgresqlExcludedObjects(
             postgresql_schemas=postgresql_schemas
@@ -2613,7 +2613,7 @@ class GoogleDatastreamStreamBackfillAllOutputReference(
         objects: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleDatastreamStreamBackfillAllSalesforceExcludedObjectsObjects", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param objects: objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#objects GoogleDatastreamStream#objects}
+        :param objects: objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#objects GoogleDatastreamStream#objects}
         '''
         value = GoogleDatastreamStreamBackfillAllSalesforceExcludedObjects(
             objects=objects
@@ -2628,7 +2628,7 @@ class GoogleDatastreamStreamBackfillAllOutputReference(
         schemas: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleDatastreamStreamBackfillAllSqlServerExcludedObjectsSchemas", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param schemas: schemas block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#schemas GoogleDatastreamStream#schemas}
+        :param schemas: schemas block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#schemas GoogleDatastreamStream#schemas}
         '''
         value = GoogleDatastreamStreamBackfillAllSqlServerExcludedObjects(
             schemas=schemas
@@ -2754,7 +2754,7 @@ class GoogleDatastreamStreamBackfillAllPostgresqlExcludedObjects:
         postgresql_schemas: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleDatastreamStreamBackfillAllPostgresqlExcludedObjectsPostgresqlSchemas", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param postgresql_schemas: postgresql_schemas block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#postgresql_schemas GoogleDatastreamStream#postgresql_schemas}
+        :param postgresql_schemas: postgresql_schemas block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#postgresql_schemas GoogleDatastreamStream#postgresql_schemas}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e6934e68e3ff15aace86a557b5fcdef40790b7d1dcfeba766a0482fa1b38802a)
@@ -2769,7 +2769,7 @@ class GoogleDatastreamStreamBackfillAllPostgresqlExcludedObjects:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamBackfillAllPostgresqlExcludedObjectsPostgresqlSchemas"]]:
         '''postgresql_schemas block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#postgresql_schemas GoogleDatastreamStream#postgresql_schemas}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#postgresql_schemas GoogleDatastreamStream#postgresql_schemas}
         '''
         result = self._values.get("postgresql_schemas")
         assert result is not None, "Required property 'postgresql_schemas' is missing"
@@ -2865,8 +2865,8 @@ class GoogleDatastreamStreamBackfillAllPostgresqlExcludedObjectsPostgresqlSchema
         postgresql_tables: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleDatastreamStreamBackfillAllPostgresqlExcludedObjectsPostgresqlSchemasPostgresqlTables", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param schema: Database name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#schema GoogleDatastreamStream#schema}
-        :param postgresql_tables: postgresql_tables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#postgresql_tables GoogleDatastreamStream#postgresql_tables}
+        :param schema: Database name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#schema GoogleDatastreamStream#schema}
+        :param postgresql_tables: postgresql_tables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#postgresql_tables GoogleDatastreamStream#postgresql_tables}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__05a169c1d9312cae3424b4cf7316597bc578cadf1937be01bf6b4ef31ff318b0)
@@ -2882,7 +2882,7 @@ class GoogleDatastreamStreamBackfillAllPostgresqlExcludedObjectsPostgresqlSchema
     def schema(self) -> builtins.str:
         '''Database name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#schema GoogleDatastreamStream#schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#schema GoogleDatastreamStream#schema}
         '''
         result = self._values.get("schema")
         assert result is not None, "Required property 'schema' is missing"
@@ -2894,7 +2894,7 @@ class GoogleDatastreamStreamBackfillAllPostgresqlExcludedObjectsPostgresqlSchema
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamBackfillAllPostgresqlExcludedObjectsPostgresqlSchemasPostgresqlTables"]]]:
         '''postgresql_tables block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#postgresql_tables GoogleDatastreamStream#postgresql_tables}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#postgresql_tables GoogleDatastreamStream#postgresql_tables}
         '''
         result = self._values.get("postgresql_tables")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamBackfillAllPostgresqlExcludedObjectsPostgresqlSchemasPostgresqlTables"]]], result)
@@ -3109,8 +3109,8 @@ class GoogleDatastreamStreamBackfillAllPostgresqlExcludedObjectsPostgresqlSchema
         postgresql_columns: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleDatastreamStreamBackfillAllPostgresqlExcludedObjectsPostgresqlSchemasPostgresqlTablesPostgresqlColumns", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param table: Table name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#table GoogleDatastreamStream#table}
-        :param postgresql_columns: postgresql_columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#postgresql_columns GoogleDatastreamStream#postgresql_columns}
+        :param table: Table name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#table GoogleDatastreamStream#table}
+        :param postgresql_columns: postgresql_columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#postgresql_columns GoogleDatastreamStream#postgresql_columns}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b66fc593b40d3a7b31ee6b94969b31d2e732a6d05aa0e9b4c3c7737cfdef21dd)
@@ -3126,7 +3126,7 @@ class GoogleDatastreamStreamBackfillAllPostgresqlExcludedObjectsPostgresqlSchema
     def table(self) -> builtins.str:
         '''Table name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#table GoogleDatastreamStream#table}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#table GoogleDatastreamStream#table}
         '''
         result = self._values.get("table")
         assert result is not None, "Required property 'table' is missing"
@@ -3138,7 +3138,7 @@ class GoogleDatastreamStreamBackfillAllPostgresqlExcludedObjectsPostgresqlSchema
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamBackfillAllPostgresqlExcludedObjectsPostgresqlSchemasPostgresqlTablesPostgresqlColumns"]]]:
         '''postgresql_columns block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#postgresql_columns GoogleDatastreamStream#postgresql_columns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#postgresql_columns GoogleDatastreamStream#postgresql_columns}
         '''
         result = self._values.get("postgresql_columns")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamBackfillAllPostgresqlExcludedObjectsPostgresqlSchemasPostgresqlTablesPostgresqlColumns"]]], result)
@@ -3362,11 +3362,11 @@ class GoogleDatastreamStreamBackfillAllPostgresqlExcludedObjectsPostgresqlSchema
         primary_key: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param column: Column name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#column GoogleDatastreamStream#column}
-        :param data_type: The PostgreSQL data type. Full data types list can be found here: https://www.postgresql.org/docs/current/datatype.html. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#data_type GoogleDatastreamStream#data_type}
-        :param nullable: Whether or not the column can accept a null value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#nullable GoogleDatastreamStream#nullable}
-        :param ordinal_position: The ordinal position of the column in the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#ordinal_position GoogleDatastreamStream#ordinal_position}
-        :param primary_key: Whether or not the column represents a primary key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#primary_key GoogleDatastreamStream#primary_key}
+        :param column: Column name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#column GoogleDatastreamStream#column}
+        :param data_type: The PostgreSQL data type. Full data types list can be found here: https://www.postgresql.org/docs/current/datatype.html. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#data_type GoogleDatastreamStream#data_type}
+        :param nullable: Whether or not the column can accept a null value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#nullable GoogleDatastreamStream#nullable}
+        :param ordinal_position: The ordinal position of the column in the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#ordinal_position GoogleDatastreamStream#ordinal_position}
+        :param primary_key: Whether or not the column represents a primary key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#primary_key GoogleDatastreamStream#primary_key}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__011222891dbbe92444a6ae0e8752cd8607a8cdec716b117cfcee323e5e366464)
@@ -3391,7 +3391,7 @@ class GoogleDatastreamStreamBackfillAllPostgresqlExcludedObjectsPostgresqlSchema
     def column(self) -> typing.Optional[builtins.str]:
         '''Column name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#column GoogleDatastreamStream#column}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#column GoogleDatastreamStream#column}
         '''
         result = self._values.get("column")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3400,7 +3400,7 @@ class GoogleDatastreamStreamBackfillAllPostgresqlExcludedObjectsPostgresqlSchema
     def data_type(self) -> typing.Optional[builtins.str]:
         '''The PostgreSQL data type. Full data types list can be found here: https://www.postgresql.org/docs/current/datatype.html.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#data_type GoogleDatastreamStream#data_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#data_type GoogleDatastreamStream#data_type}
         '''
         result = self._values.get("data_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3411,7 +3411,7 @@ class GoogleDatastreamStreamBackfillAllPostgresqlExcludedObjectsPostgresqlSchema
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether or not the column can accept a null value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#nullable GoogleDatastreamStream#nullable}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#nullable GoogleDatastreamStream#nullable}
         '''
         result = self._values.get("nullable")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3420,7 +3420,7 @@ class GoogleDatastreamStreamBackfillAllPostgresqlExcludedObjectsPostgresqlSchema
     def ordinal_position(self) -> typing.Optional[jsii.Number]:
         '''The ordinal position of the column in the table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#ordinal_position GoogleDatastreamStream#ordinal_position}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#ordinal_position GoogleDatastreamStream#ordinal_position}
         '''
         result = self._values.get("ordinal_position")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3431,7 +3431,7 @@ class GoogleDatastreamStreamBackfillAllPostgresqlExcludedObjectsPostgresqlSchema
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether or not the column represents a primary key.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#primary_key GoogleDatastreamStream#primary_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#primary_key GoogleDatastreamStream#primary_key}
         '''
         result = self._values.get("primary_key")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3727,7 +3727,7 @@ class GoogleDatastreamStreamBackfillAllSalesforceExcludedObjects:
         objects: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleDatastreamStreamBackfillAllSalesforceExcludedObjectsObjects", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param objects: objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#objects GoogleDatastreamStream#objects}
+        :param objects: objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#objects GoogleDatastreamStream#objects}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2f93b0edb4025086a3a91e5b010f9b8802c9c6fb3560cdcd4dda10c8834bc6fe)
@@ -3742,7 +3742,7 @@ class GoogleDatastreamStreamBackfillAllSalesforceExcludedObjects:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamBackfillAllSalesforceExcludedObjectsObjects"]]:
         '''objects block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#objects GoogleDatastreamStream#objects}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#objects GoogleDatastreamStream#objects}
         '''
         result = self._values.get("objects")
         assert result is not None, "Required property 'objects' is missing"
@@ -3773,8 +3773,8 @@ class GoogleDatastreamStreamBackfillAllSalesforceExcludedObjectsObjects:
         object_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param fields: fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#fields GoogleDatastreamStream#fields}
-        :param object_name: Name of object in Salesforce Org. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#object_name GoogleDatastreamStream#object_name}
+        :param fields: fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#fields GoogleDatastreamStream#fields}
+        :param object_name: Name of object in Salesforce Org. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#object_name GoogleDatastreamStream#object_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1432c5dc6082b2f6e46be9be195990f6bd49916b94d8ea4d2ded9f829b9a20a1)
@@ -3792,7 +3792,7 @@ class GoogleDatastreamStreamBackfillAllSalesforceExcludedObjectsObjects:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamBackfillAllSalesforceExcludedObjectsObjectsFields"]]]:
         '''fields block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#fields GoogleDatastreamStream#fields}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#fields GoogleDatastreamStream#fields}
         '''
         result = self._values.get("fields")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamBackfillAllSalesforceExcludedObjectsObjectsFields"]]], result)
@@ -3801,7 +3801,7 @@ class GoogleDatastreamStreamBackfillAllSalesforceExcludedObjectsObjects:
     def object_name(self) -> typing.Optional[builtins.str]:
         '''Name of object in Salesforce Org.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#object_name GoogleDatastreamStream#object_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#object_name GoogleDatastreamStream#object_name}
         '''
         result = self._values.get("object_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3826,7 +3826,7 @@ class GoogleDatastreamStreamBackfillAllSalesforceExcludedObjectsObjects:
 class GoogleDatastreamStreamBackfillAllSalesforceExcludedObjectsObjectsFields:
     def __init__(self, *, name: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param name: Field name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#name GoogleDatastreamStream#name}
+        :param name: Field name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#name GoogleDatastreamStream#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9839e62461497fca1e6d1497d56be913f9ff165959ceada1c22fa19e0032075a)
@@ -3839,7 +3839,7 @@ class GoogleDatastreamStreamBackfillAllSalesforceExcludedObjectsObjectsFields:
     def name(self) -> typing.Optional[builtins.str]:
         '''Field name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#name GoogleDatastreamStream#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#name GoogleDatastreamStream#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4280,7 +4280,7 @@ class GoogleDatastreamStreamBackfillAllSqlServerExcludedObjects:
         schemas: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleDatastreamStreamBackfillAllSqlServerExcludedObjectsSchemas", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param schemas: schemas block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#schemas GoogleDatastreamStream#schemas}
+        :param schemas: schemas block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#schemas GoogleDatastreamStream#schemas}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fa7badcf603fc4762ffe0d5247b50152585c897961cf6b1d383438592ddc445f)
@@ -4295,7 +4295,7 @@ class GoogleDatastreamStreamBackfillAllSqlServerExcludedObjects:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamBackfillAllSqlServerExcludedObjectsSchemas"]]:
         '''schemas block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#schemas GoogleDatastreamStream#schemas}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#schemas GoogleDatastreamStream#schemas}
         '''
         result = self._values.get("schemas")
         assert result is not None, "Required property 'schemas' is missing"
@@ -4391,8 +4391,8 @@ class GoogleDatastreamStreamBackfillAllSqlServerExcludedObjectsSchemas:
         tables: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleDatastreamStreamBackfillAllSqlServerExcludedObjectsSchemasTables", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param schema: Schema name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#schema GoogleDatastreamStream#schema}
-        :param tables: tables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#tables GoogleDatastreamStream#tables}
+        :param schema: Schema name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#schema GoogleDatastreamStream#schema}
+        :param tables: tables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#tables GoogleDatastreamStream#tables}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2cbfabee94e8e6410b56686df1decb69ab926a740a803cd7e335ef8c82df7b8e)
@@ -4408,7 +4408,7 @@ class GoogleDatastreamStreamBackfillAllSqlServerExcludedObjectsSchemas:
     def schema(self) -> builtins.str:
         '''Schema name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#schema GoogleDatastreamStream#schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#schema GoogleDatastreamStream#schema}
         '''
         result = self._values.get("schema")
         assert result is not None, "Required property 'schema' is missing"
@@ -4420,7 +4420,7 @@ class GoogleDatastreamStreamBackfillAllSqlServerExcludedObjectsSchemas:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamBackfillAllSqlServerExcludedObjectsSchemasTables"]]]:
         '''tables block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#tables GoogleDatastreamStream#tables}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#tables GoogleDatastreamStream#tables}
         '''
         result = self._values.get("tables")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamBackfillAllSqlServerExcludedObjectsSchemasTables"]]], result)
@@ -4635,8 +4635,8 @@ class GoogleDatastreamStreamBackfillAllSqlServerExcludedObjectsSchemasTables:
         columns: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleDatastreamStreamBackfillAllSqlServerExcludedObjectsSchemasTablesColumns", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param table: Table name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#table GoogleDatastreamStream#table}
-        :param columns: columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#columns GoogleDatastreamStream#columns}
+        :param table: Table name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#table GoogleDatastreamStream#table}
+        :param columns: columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#columns GoogleDatastreamStream#columns}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0daf99ccd8a044ca41c9d79bb11c1548c37bcad49660f2934386d43230b04dba)
@@ -4652,7 +4652,7 @@ class GoogleDatastreamStreamBackfillAllSqlServerExcludedObjectsSchemasTables:
     def table(self) -> builtins.str:
         '''Table name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#table GoogleDatastreamStream#table}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#table GoogleDatastreamStream#table}
         '''
         result = self._values.get("table")
         assert result is not None, "Required property 'table' is missing"
@@ -4664,7 +4664,7 @@ class GoogleDatastreamStreamBackfillAllSqlServerExcludedObjectsSchemasTables:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamBackfillAllSqlServerExcludedObjectsSchemasTablesColumns"]]]:
         '''columns block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#columns GoogleDatastreamStream#columns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#columns GoogleDatastreamStream#columns}
         '''
         result = self._values.get("columns")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamBackfillAllSqlServerExcludedObjectsSchemasTablesColumns"]]], result)
@@ -4694,8 +4694,8 @@ class GoogleDatastreamStreamBackfillAllSqlServerExcludedObjectsSchemasTablesColu
         data_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param column: Column name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#column GoogleDatastreamStream#column}
-        :param data_type: The SQL Server data type. Full data types list can be found here: https://learn.microsoft.com/en-us/sql/t-sql/data-types/data-types-transact-sql?view=sql-server-ver16. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#data_type GoogleDatastreamStream#data_type}
+        :param column: Column name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#column GoogleDatastreamStream#column}
+        :param data_type: The SQL Server data type. Full data types list can be found here: https://learn.microsoft.com/en-us/sql/t-sql/data-types/data-types-transact-sql?view=sql-server-ver16. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#data_type GoogleDatastreamStream#data_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ba3d50b9b3d8c7f597fb583ce14e1920afda9186bddb60330e2e472b7f4be8d6)
@@ -4711,7 +4711,7 @@ class GoogleDatastreamStreamBackfillAllSqlServerExcludedObjectsSchemasTablesColu
     def column(self) -> typing.Optional[builtins.str]:
         '''Column name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#column GoogleDatastreamStream#column}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#column GoogleDatastreamStream#column}
         '''
         result = self._values.get("column")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4720,7 +4720,7 @@ class GoogleDatastreamStreamBackfillAllSqlServerExcludedObjectsSchemasTablesColu
     def data_type(self) -> typing.Optional[builtins.str]:
         '''The SQL Server data type. Full data types list can be found here: https://learn.microsoft.com/en-us/sql/t-sql/data-types/data-types-transact-sql?view=sql-server-ver16.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#data_type GoogleDatastreamStream#data_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#data_type GoogleDatastreamStream#data_type}
         '''
         result = self._values.get("data_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5249,20 +5249,20 @@ class GoogleDatastreamStreamConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param destination_config: destination_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#destination_config GoogleDatastreamStream#destination_config}
-        :param display_name: Display name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#display_name GoogleDatastreamStream#display_name}
-        :param location: The name of the location this stream is located in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#location GoogleDatastreamStream#location}
-        :param source_config: source_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#source_config GoogleDatastreamStream#source_config}
-        :param stream_id: The stream identifier. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#stream_id GoogleDatastreamStream#stream_id}
-        :param backfill_all: backfill_all block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#backfill_all GoogleDatastreamStream#backfill_all}
-        :param backfill_none: backfill_none block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#backfill_none GoogleDatastreamStream#backfill_none}
-        :param create_without_validation: Create the stream without validating it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#create_without_validation GoogleDatastreamStream#create_without_validation}
-        :param customer_managed_encryption_key: A reference to a KMS encryption key. If provided, it will be used to encrypt the data. If left blank, data will be encrypted using an internal Stream-specific encryption key provisioned through KMS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#customer_managed_encryption_key GoogleDatastreamStream#customer_managed_encryption_key}
-        :param desired_state: Desired state of the Stream. Set this field to 'RUNNING' to start the stream, 'NOT_STARTED' to create the stream without starting and 'PAUSED' to pause the stream from a 'RUNNING' state. Possible values: NOT_STARTED, RUNNING, PAUSED. Default: NOT_STARTED Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#desired_state GoogleDatastreamStream#desired_state}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#id GoogleDatastreamStream#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Labels. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#labels GoogleDatastreamStream#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#project GoogleDatastreamStream#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#timeouts GoogleDatastreamStream#timeouts}
+        :param destination_config: destination_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#destination_config GoogleDatastreamStream#destination_config}
+        :param display_name: Display name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#display_name GoogleDatastreamStream#display_name}
+        :param location: The name of the location this stream is located in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#location GoogleDatastreamStream#location}
+        :param source_config: source_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#source_config GoogleDatastreamStream#source_config}
+        :param stream_id: The stream identifier. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#stream_id GoogleDatastreamStream#stream_id}
+        :param backfill_all: backfill_all block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#backfill_all GoogleDatastreamStream#backfill_all}
+        :param backfill_none: backfill_none block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#backfill_none GoogleDatastreamStream#backfill_none}
+        :param create_without_validation: Create the stream without validating it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#create_without_validation GoogleDatastreamStream#create_without_validation}
+        :param customer_managed_encryption_key: A reference to a KMS encryption key. If provided, it will be used to encrypt the data. If left blank, data will be encrypted using an internal Stream-specific encryption key provisioned through KMS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#customer_managed_encryption_key GoogleDatastreamStream#customer_managed_encryption_key}
+        :param desired_state: Desired state of the Stream. Set this field to 'RUNNING' to start the stream, 'NOT_STARTED' to create the stream without starting and 'PAUSED' to pause the stream from a 'RUNNING' state. Possible values: NOT_STARTED, RUNNING, PAUSED. Default: NOT_STARTED Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#desired_state GoogleDatastreamStream#desired_state}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#id GoogleDatastreamStream#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Labels. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#labels GoogleDatastreamStream#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#project GoogleDatastreamStream#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#timeouts GoogleDatastreamStream#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -5407,7 +5407,7 @@ class GoogleDatastreamStreamConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def destination_config(self) -> "GoogleDatastreamStreamDestinationConfig":
         '''destination_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#destination_config GoogleDatastreamStream#destination_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#destination_config GoogleDatastreamStream#destination_config}
         '''
         result = self._values.get("destination_config")
         assert result is not None, "Required property 'destination_config' is missing"
@@ -5417,7 +5417,7 @@ class GoogleDatastreamStreamConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> builtins.str:
         '''Display name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#display_name GoogleDatastreamStream#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#display_name GoogleDatastreamStream#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -5427,7 +5427,7 @@ class GoogleDatastreamStreamConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The name of the location this stream is located in.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#location GoogleDatastreamStream#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#location GoogleDatastreamStream#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -5437,7 +5437,7 @@ class GoogleDatastreamStreamConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def source_config(self) -> "GoogleDatastreamStreamSourceConfig":
         '''source_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#source_config GoogleDatastreamStream#source_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#source_config GoogleDatastreamStream#source_config}
         '''
         result = self._values.get("source_config")
         assert result is not None, "Required property 'source_config' is missing"
@@ -5447,7 +5447,7 @@ class GoogleDatastreamStreamConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def stream_id(self) -> builtins.str:
         '''The stream identifier.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#stream_id GoogleDatastreamStream#stream_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#stream_id GoogleDatastreamStream#stream_id}
         '''
         result = self._values.get("stream_id")
         assert result is not None, "Required property 'stream_id' is missing"
@@ -5457,7 +5457,7 @@ class GoogleDatastreamStreamConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def backfill_all(self) -> typing.Optional[GoogleDatastreamStreamBackfillAll]:
         '''backfill_all block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#backfill_all GoogleDatastreamStream#backfill_all}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#backfill_all GoogleDatastreamStream#backfill_all}
         '''
         result = self._values.get("backfill_all")
         return typing.cast(typing.Optional[GoogleDatastreamStreamBackfillAll], result)
@@ -5466,7 +5466,7 @@ class GoogleDatastreamStreamConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def backfill_none(self) -> typing.Optional[GoogleDatastreamStreamBackfillNone]:
         '''backfill_none block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#backfill_none GoogleDatastreamStream#backfill_none}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#backfill_none GoogleDatastreamStream#backfill_none}
         '''
         result = self._values.get("backfill_none")
         return typing.cast(typing.Optional[GoogleDatastreamStreamBackfillNone], result)
@@ -5477,7 +5477,7 @@ class GoogleDatastreamStreamConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Create the stream without validating it.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#create_without_validation GoogleDatastreamStream#create_without_validation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#create_without_validation GoogleDatastreamStream#create_without_validation}
         '''
         result = self._values.get("create_without_validation")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -5489,7 +5489,7 @@ class GoogleDatastreamStreamConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         If provided, it will be used to encrypt the data. If left blank, data
         will be encrypted using an internal Stream-specific encryption key provisioned through KMS.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#customer_managed_encryption_key GoogleDatastreamStream#customer_managed_encryption_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#customer_managed_encryption_key GoogleDatastreamStream#customer_managed_encryption_key}
         '''
         result = self._values.get("customer_managed_encryption_key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5503,14 +5503,14 @@ class GoogleDatastreamStreamConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         the stream from a 'RUNNING' state.
         Possible values: NOT_STARTED, RUNNING, PAUSED. Default: NOT_STARTED
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#desired_state GoogleDatastreamStream#desired_state}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#desired_state GoogleDatastreamStream#desired_state}
         '''
         result = self._values.get("desired_state")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#id GoogleDatastreamStream#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#id GoogleDatastreamStream#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -5525,14 +5525,14 @@ class GoogleDatastreamStreamConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#labels GoogleDatastreamStream#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#labels GoogleDatastreamStream#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#project GoogleDatastreamStream#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#project GoogleDatastreamStream#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5540,7 +5540,7 @@ class GoogleDatastreamStreamConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleDatastreamStreamTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#timeouts GoogleDatastreamStream#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#timeouts GoogleDatastreamStream#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleDatastreamStreamTimeouts"], result)
@@ -5575,9 +5575,9 @@ class GoogleDatastreamStreamDestinationConfig:
         gcs_destination_config: typing.Optional[typing.Union["GoogleDatastreamStreamDestinationConfigGcsDestinationConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param destination_connection_profile: Destination connection profile resource. Format: projects/{project}/locations/{location}/connectionProfiles/{name}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#destination_connection_profile GoogleDatastreamStream#destination_connection_profile}
-        :param bigquery_destination_config: bigquery_destination_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#bigquery_destination_config GoogleDatastreamStream#bigquery_destination_config}
-        :param gcs_destination_config: gcs_destination_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#gcs_destination_config GoogleDatastreamStream#gcs_destination_config}
+        :param destination_connection_profile: Destination connection profile resource. Format: projects/{project}/locations/{location}/connectionProfiles/{name}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#destination_connection_profile GoogleDatastreamStream#destination_connection_profile}
+        :param bigquery_destination_config: bigquery_destination_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#bigquery_destination_config GoogleDatastreamStream#bigquery_destination_config}
+        :param gcs_destination_config: gcs_destination_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#gcs_destination_config GoogleDatastreamStream#gcs_destination_config}
         '''
         if isinstance(bigquery_destination_config, dict):
             bigquery_destination_config = GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfig(**bigquery_destination_config)
@@ -5600,7 +5600,7 @@ class GoogleDatastreamStreamDestinationConfig:
     def destination_connection_profile(self) -> builtins.str:
         '''Destination connection profile resource. Format: projects/{project}/locations/{location}/connectionProfiles/{name}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#destination_connection_profile GoogleDatastreamStream#destination_connection_profile}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#destination_connection_profile GoogleDatastreamStream#destination_connection_profile}
         '''
         result = self._values.get("destination_connection_profile")
         assert result is not None, "Required property 'destination_connection_profile' is missing"
@@ -5612,7 +5612,7 @@ class GoogleDatastreamStreamDestinationConfig:
     ) -> typing.Optional["GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfig"]:
         '''bigquery_destination_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#bigquery_destination_config GoogleDatastreamStream#bigquery_destination_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#bigquery_destination_config GoogleDatastreamStream#bigquery_destination_config}
         '''
         result = self._values.get("bigquery_destination_config")
         return typing.cast(typing.Optional["GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfig"], result)
@@ -5623,7 +5623,7 @@ class GoogleDatastreamStreamDestinationConfig:
     ) -> typing.Optional["GoogleDatastreamStreamDestinationConfigGcsDestinationConfig"]:
         '''gcs_destination_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#gcs_destination_config GoogleDatastreamStream#gcs_destination_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#gcs_destination_config GoogleDatastreamStream#gcs_destination_config}
         '''
         result = self._values.get("gcs_destination_config")
         return typing.cast(typing.Optional["GoogleDatastreamStreamDestinationConfigGcsDestinationConfig"], result)
@@ -5664,12 +5664,12 @@ class GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfig:
         source_hierarchy_datasets: typing.Optional[typing.Union["GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfigSourceHierarchyDatasets", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param append_only: append_only block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#append_only GoogleDatastreamStream#append_only}
-        :param blmt_config: blmt_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#blmt_config GoogleDatastreamStream#blmt_config}
-        :param data_freshness: The guaranteed data freshness (in seconds) when querying tables created by the stream. Editing this field will only affect new tables created in the future, but existing tables will not be impacted. Lower values mean that queries will return fresher data, but may result in higher cost. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Defaults to 900s. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#data_freshness GoogleDatastreamStream#data_freshness}
-        :param merge: merge block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#merge GoogleDatastreamStream#merge}
-        :param single_target_dataset: single_target_dataset block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#single_target_dataset GoogleDatastreamStream#single_target_dataset}
-        :param source_hierarchy_datasets: source_hierarchy_datasets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#source_hierarchy_datasets GoogleDatastreamStream#source_hierarchy_datasets}
+        :param append_only: append_only block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#append_only GoogleDatastreamStream#append_only}
+        :param blmt_config: blmt_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#blmt_config GoogleDatastreamStream#blmt_config}
+        :param data_freshness: The guaranteed data freshness (in seconds) when querying tables created by the stream. Editing this field will only affect new tables created in the future, but existing tables will not be impacted. Lower values mean that queries will return fresher data, but may result in higher cost. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Defaults to 900s. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#data_freshness GoogleDatastreamStream#data_freshness}
+        :param merge: merge block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#merge GoogleDatastreamStream#merge}
+        :param single_target_dataset: single_target_dataset block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#single_target_dataset GoogleDatastreamStream#single_target_dataset}
+        :param source_hierarchy_datasets: source_hierarchy_datasets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#source_hierarchy_datasets GoogleDatastreamStream#source_hierarchy_datasets}
         '''
         if isinstance(append_only, dict):
             append_only = GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfigAppendOnly(**append_only)
@@ -5709,7 +5709,7 @@ class GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfig:
     ) -> typing.Optional["GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfigAppendOnly"]:
         '''append_only block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#append_only GoogleDatastreamStream#append_only}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#append_only GoogleDatastreamStream#append_only}
         '''
         result = self._values.get("append_only")
         return typing.cast(typing.Optional["GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfigAppendOnly"], result)
@@ -5720,7 +5720,7 @@ class GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfig:
     ) -> typing.Optional["GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfigBlmtConfig"]:
         '''blmt_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#blmt_config GoogleDatastreamStream#blmt_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#blmt_config GoogleDatastreamStream#blmt_config}
         '''
         result = self._values.get("blmt_config")
         return typing.cast(typing.Optional["GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfigBlmtConfig"], result)
@@ -5733,7 +5733,7 @@ class GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfig:
         will not be impacted. Lower values mean that queries will return fresher data, but may result in higher cost.
         A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Defaults to 900s.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#data_freshness GoogleDatastreamStream#data_freshness}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#data_freshness GoogleDatastreamStream#data_freshness}
         '''
         result = self._values.get("data_freshness")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5744,7 +5744,7 @@ class GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfig:
     ) -> typing.Optional["GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfigMerge"]:
         '''merge block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#merge GoogleDatastreamStream#merge}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#merge GoogleDatastreamStream#merge}
         '''
         result = self._values.get("merge")
         return typing.cast(typing.Optional["GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfigMerge"], result)
@@ -5755,7 +5755,7 @@ class GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfig:
     ) -> typing.Optional["GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfigSingleTargetDataset"]:
         '''single_target_dataset block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#single_target_dataset GoogleDatastreamStream#single_target_dataset}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#single_target_dataset GoogleDatastreamStream#single_target_dataset}
         '''
         result = self._values.get("single_target_dataset")
         return typing.cast(typing.Optional["GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfigSingleTargetDataset"], result)
@@ -5766,7 +5766,7 @@ class GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfig:
     ) -> typing.Optional["GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfigSourceHierarchyDatasets"]:
         '''source_hierarchy_datasets block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#source_hierarchy_datasets GoogleDatastreamStream#source_hierarchy_datasets}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#source_hierarchy_datasets GoogleDatastreamStream#source_hierarchy_datasets}
         '''
         result = self._values.get("source_hierarchy_datasets")
         return typing.cast(typing.Optional["GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfigSourceHierarchyDatasets"], result)
@@ -5864,11 +5864,11 @@ class GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfigBlmtConfig
         root_path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: The Cloud Storage bucket name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#bucket GoogleDatastreamStream#bucket}
-        :param connection_name: The bigquery connection. Format: '{project}.{location}.{name}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#connection_name GoogleDatastreamStream#connection_name}
-        :param file_format: The file format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#file_format GoogleDatastreamStream#file_format}
-        :param table_format: The table format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#table_format GoogleDatastreamStream#table_format}
-        :param root_path: The root path inside the Cloud Storage bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#root_path GoogleDatastreamStream#root_path}
+        :param bucket: The Cloud Storage bucket name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#bucket GoogleDatastreamStream#bucket}
+        :param connection_name: The bigquery connection. Format: '{project}.{location}.{name}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#connection_name GoogleDatastreamStream#connection_name}
+        :param file_format: The file format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#file_format GoogleDatastreamStream#file_format}
+        :param table_format: The table format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#table_format GoogleDatastreamStream#table_format}
+        :param root_path: The root path inside the Cloud Storage bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#root_path GoogleDatastreamStream#root_path}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5456c89d875de3c19595deed7c20b934c40ccbcfb47f96dcb455576bd1e090e4)
@@ -5890,7 +5890,7 @@ class GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfigBlmtConfig
     def bucket(self) -> builtins.str:
         '''The Cloud Storage bucket name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#bucket GoogleDatastreamStream#bucket}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#bucket GoogleDatastreamStream#bucket}
         '''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
@@ -5900,7 +5900,7 @@ class GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfigBlmtConfig
     def connection_name(self) -> builtins.str:
         '''The bigquery connection. Format: '{project}.{location}.{name}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#connection_name GoogleDatastreamStream#connection_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#connection_name GoogleDatastreamStream#connection_name}
         '''
         result = self._values.get("connection_name")
         assert result is not None, "Required property 'connection_name' is missing"
@@ -5910,7 +5910,7 @@ class GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfigBlmtConfig
     def file_format(self) -> builtins.str:
         '''The file format.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#file_format GoogleDatastreamStream#file_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#file_format GoogleDatastreamStream#file_format}
         '''
         result = self._values.get("file_format")
         assert result is not None, "Required property 'file_format' is missing"
@@ -5920,7 +5920,7 @@ class GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfigBlmtConfig
     def table_format(self) -> builtins.str:
         '''The table format.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#table_format GoogleDatastreamStream#table_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#table_format GoogleDatastreamStream#table_format}
         '''
         result = self._values.get("table_format")
         assert result is not None, "Required property 'table_format' is missing"
@@ -5930,7 +5930,7 @@ class GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfigBlmtConfig
     def root_path(self) -> typing.Optional[builtins.str]:
         '''The root path inside the Cloud Storage bucket.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#root_path GoogleDatastreamStream#root_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#root_path GoogleDatastreamStream#root_path}
         '''
         result = self._values.get("root_path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6170,11 +6170,11 @@ class GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfigOutputRefe
         root_path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: The Cloud Storage bucket name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#bucket GoogleDatastreamStream#bucket}
-        :param connection_name: The bigquery connection. Format: '{project}.{location}.{name}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#connection_name GoogleDatastreamStream#connection_name}
-        :param file_format: The file format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#file_format GoogleDatastreamStream#file_format}
-        :param table_format: The table format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#table_format GoogleDatastreamStream#table_format}
-        :param root_path: The root path inside the Cloud Storage bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#root_path GoogleDatastreamStream#root_path}
+        :param bucket: The Cloud Storage bucket name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#bucket GoogleDatastreamStream#bucket}
+        :param connection_name: The bigquery connection. Format: '{project}.{location}.{name}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#connection_name GoogleDatastreamStream#connection_name}
+        :param file_format: The file format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#file_format GoogleDatastreamStream#file_format}
+        :param table_format: The table format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#table_format GoogleDatastreamStream#table_format}
+        :param root_path: The root path inside the Cloud Storage bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#root_path GoogleDatastreamStream#root_path}
         '''
         value = GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfigBlmtConfig(
             bucket=bucket,
@@ -6195,7 +6195,7 @@ class GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfigOutputRefe
     @jsii.member(jsii_name="putSingleTargetDataset")
     def put_single_target_dataset(self, *, dataset_id: builtins.str) -> None:
         '''
-        :param dataset_id: Dataset ID in the format projects/{project}/datasets/{dataset_id} or {project}:{dataset_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#dataset_id GoogleDatastreamStream#dataset_id}
+        :param dataset_id: Dataset ID in the format projects/{project}/datasets/{dataset_id} or {project}:{dataset_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#dataset_id GoogleDatastreamStream#dataset_id}
         '''
         value = GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfigSingleTargetDataset(
             dataset_id=dataset_id
@@ -6210,7 +6210,7 @@ class GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfigOutputRefe
         dataset_template: typing.Union["GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfigSourceHierarchyDatasetsDatasetTemplate", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param dataset_template: dataset_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#dataset_template GoogleDatastreamStream#dataset_template}
+        :param dataset_template: dataset_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#dataset_template GoogleDatastreamStream#dataset_template}
         '''
         value = GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfigSourceHierarchyDatasets(
             dataset_template=dataset_template
@@ -6355,7 +6355,7 @@ class GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfigOutputRefe
 class GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfigSingleTargetDataset:
     def __init__(self, *, dataset_id: builtins.str) -> None:
         '''
-        :param dataset_id: Dataset ID in the format projects/{project}/datasets/{dataset_id} or {project}:{dataset_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#dataset_id GoogleDatastreamStream#dataset_id}
+        :param dataset_id: Dataset ID in the format projects/{project}/datasets/{dataset_id} or {project}:{dataset_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#dataset_id GoogleDatastreamStream#dataset_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a8fb9ad9224f683a8eb1f9139234f286bd44fddeece5772c9709e709e591a645)
@@ -6368,7 +6368,7 @@ class GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfigSingleTarg
     def dataset_id(self) -> builtins.str:
         '''Dataset ID in the format projects/{project}/datasets/{dataset_id} or {project}:{dataset_id}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#dataset_id GoogleDatastreamStream#dataset_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#dataset_id GoogleDatastreamStream#dataset_id}
         '''
         result = self._values.get("dataset_id")
         assert result is not None, "Required property 'dataset_id' is missing"
@@ -6453,7 +6453,7 @@ class GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfigSourceHier
         dataset_template: typing.Union["GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfigSourceHierarchyDatasetsDatasetTemplate", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param dataset_template: dataset_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#dataset_template GoogleDatastreamStream#dataset_template}
+        :param dataset_template: dataset_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#dataset_template GoogleDatastreamStream#dataset_template}
         '''
         if isinstance(dataset_template, dict):
             dataset_template = GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfigSourceHierarchyDatasetsDatasetTemplate(**dataset_template)
@@ -6470,7 +6470,7 @@ class GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfigSourceHier
     ) -> "GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfigSourceHierarchyDatasetsDatasetTemplate":
         '''dataset_template block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#dataset_template GoogleDatastreamStream#dataset_template}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#dataset_template GoogleDatastreamStream#dataset_template}
         '''
         result = self._values.get("dataset_template")
         assert result is not None, "Required property 'dataset_template' is missing"
@@ -6506,9 +6506,9 @@ class GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfigSourceHier
         kms_key_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param location: The geographic location where the dataset should reside. See https://cloud.google.com/bigquery/docs/locations for supported locations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#location GoogleDatastreamStream#location}
-        :param dataset_id_prefix: If supplied, every created dataset will have its name prefixed by the provided value. The prefix and name will be separated by an underscore. i.e. _. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#dataset_id_prefix GoogleDatastreamStream#dataset_id_prefix}
-        :param kms_key_name: Describes the Cloud KMS encryption key that will be used to protect destination BigQuery table. The BigQuery Service Account associated with your project requires access to this encryption key. i.e. projects/{project}/locations/{location}/keyRings/{key_ring}/cryptoKeys/{cryptoKey}. See https://cloud.google.com/bigquery/docs/customer-managed-encryption for more information. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#kms_key_name GoogleDatastreamStream#kms_key_name}
+        :param location: The geographic location where the dataset should reside. See https://cloud.google.com/bigquery/docs/locations for supported locations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#location GoogleDatastreamStream#location}
+        :param dataset_id_prefix: If supplied, every created dataset will have its name prefixed by the provided value. The prefix and name will be separated by an underscore. i.e. _. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#dataset_id_prefix GoogleDatastreamStream#dataset_id_prefix}
+        :param kms_key_name: Describes the Cloud KMS encryption key that will be used to protect destination BigQuery table. The BigQuery Service Account associated with your project requires access to this encryption key. i.e. projects/{project}/locations/{location}/keyRings/{key_ring}/cryptoKeys/{cryptoKey}. See https://cloud.google.com/bigquery/docs/customer-managed-encryption for more information. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#kms_key_name GoogleDatastreamStream#kms_key_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__10bc9309ea21fa94f6d71ec05001d53825566fb8b23e70b72f26ff70b216afbf)
@@ -6527,7 +6527,7 @@ class GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfigSourceHier
     def location(self) -> builtins.str:
         '''The geographic location where the dataset should reside. See https://cloud.google.com/bigquery/docs/locations for supported locations.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#location GoogleDatastreamStream#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#location GoogleDatastreamStream#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -6539,7 +6539,7 @@ class GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfigSourceHier
 
         The prefix and name will be separated by an underscore. i.e. _.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#dataset_id_prefix GoogleDatastreamStream#dataset_id_prefix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#dataset_id_prefix GoogleDatastreamStream#dataset_id_prefix}
         '''
         result = self._values.get("dataset_id_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6552,7 +6552,7 @@ class GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfigSourceHier
         encryption key. i.e. projects/{project}/locations/{location}/keyRings/{key_ring}/cryptoKeys/{cryptoKey}.
         See https://cloud.google.com/bigquery/docs/customer-managed-encryption for more information.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#kms_key_name GoogleDatastreamStream#kms_key_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#kms_key_name GoogleDatastreamStream#kms_key_name}
         '''
         result = self._values.get("kms_key_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6695,9 +6695,9 @@ class GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfigSourceHier
         kms_key_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param location: The geographic location where the dataset should reside. See https://cloud.google.com/bigquery/docs/locations for supported locations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#location GoogleDatastreamStream#location}
-        :param dataset_id_prefix: If supplied, every created dataset will have its name prefixed by the provided value. The prefix and name will be separated by an underscore. i.e. _. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#dataset_id_prefix GoogleDatastreamStream#dataset_id_prefix}
-        :param kms_key_name: Describes the Cloud KMS encryption key that will be used to protect destination BigQuery table. The BigQuery Service Account associated with your project requires access to this encryption key. i.e. projects/{project}/locations/{location}/keyRings/{key_ring}/cryptoKeys/{cryptoKey}. See https://cloud.google.com/bigquery/docs/customer-managed-encryption for more information. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#kms_key_name GoogleDatastreamStream#kms_key_name}
+        :param location: The geographic location where the dataset should reside. See https://cloud.google.com/bigquery/docs/locations for supported locations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#location GoogleDatastreamStream#location}
+        :param dataset_id_prefix: If supplied, every created dataset will have its name prefixed by the provided value. The prefix and name will be separated by an underscore. i.e. _. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#dataset_id_prefix GoogleDatastreamStream#dataset_id_prefix}
+        :param kms_key_name: Describes the Cloud KMS encryption key that will be used to protect destination BigQuery table. The BigQuery Service Account associated with your project requires access to this encryption key. i.e. projects/{project}/locations/{location}/keyRings/{key_ring}/cryptoKeys/{cryptoKey}. See https://cloud.google.com/bigquery/docs/customer-managed-encryption for more information. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#kms_key_name GoogleDatastreamStream#kms_key_name}
         '''
         value = GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfigSourceHierarchyDatasetsDatasetTemplate(
             location=location,
@@ -6761,11 +6761,11 @@ class GoogleDatastreamStreamDestinationConfigGcsDestinationConfig:
         path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param avro_file_format: avro_file_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#avro_file_format GoogleDatastreamStream#avro_file_format}
-        :param file_rotation_interval: The maximum duration for which new events are added before a file is closed and a new file is created. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Defaults to 900s. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#file_rotation_interval GoogleDatastreamStream#file_rotation_interval}
-        :param file_rotation_mb: The maximum file size to be saved in the bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#file_rotation_mb GoogleDatastreamStream#file_rotation_mb}
-        :param json_file_format: json_file_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#json_file_format GoogleDatastreamStream#json_file_format}
-        :param path: Path inside the Cloud Storage bucket to write data to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#path GoogleDatastreamStream#path}
+        :param avro_file_format: avro_file_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#avro_file_format GoogleDatastreamStream#avro_file_format}
+        :param file_rotation_interval: The maximum duration for which new events are added before a file is closed and a new file is created. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Defaults to 900s. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#file_rotation_interval GoogleDatastreamStream#file_rotation_interval}
+        :param file_rotation_mb: The maximum file size to be saved in the bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#file_rotation_mb GoogleDatastreamStream#file_rotation_mb}
+        :param json_file_format: json_file_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#json_file_format GoogleDatastreamStream#json_file_format}
+        :param path: Path inside the Cloud Storage bucket to write data to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#path GoogleDatastreamStream#path}
         '''
         if isinstance(avro_file_format, dict):
             avro_file_format = GoogleDatastreamStreamDestinationConfigGcsDestinationConfigAvroFileFormat(**avro_file_format)
@@ -6796,7 +6796,7 @@ class GoogleDatastreamStreamDestinationConfigGcsDestinationConfig:
     ) -> typing.Optional["GoogleDatastreamStreamDestinationConfigGcsDestinationConfigAvroFileFormat"]:
         '''avro_file_format block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#avro_file_format GoogleDatastreamStream#avro_file_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#avro_file_format GoogleDatastreamStream#avro_file_format}
         '''
         result = self._values.get("avro_file_format")
         return typing.cast(typing.Optional["GoogleDatastreamStreamDestinationConfigGcsDestinationConfigAvroFileFormat"], result)
@@ -6807,7 +6807,7 @@ class GoogleDatastreamStreamDestinationConfigGcsDestinationConfig:
 
         A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Defaults to 900s.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#file_rotation_interval GoogleDatastreamStream#file_rotation_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#file_rotation_interval GoogleDatastreamStream#file_rotation_interval}
         '''
         result = self._values.get("file_rotation_interval")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6816,7 +6816,7 @@ class GoogleDatastreamStreamDestinationConfigGcsDestinationConfig:
     def file_rotation_mb(self) -> typing.Optional[jsii.Number]:
         '''The maximum file size to be saved in the bucket.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#file_rotation_mb GoogleDatastreamStream#file_rotation_mb}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#file_rotation_mb GoogleDatastreamStream#file_rotation_mb}
         '''
         result = self._values.get("file_rotation_mb")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -6827,7 +6827,7 @@ class GoogleDatastreamStreamDestinationConfigGcsDestinationConfig:
     ) -> typing.Optional["GoogleDatastreamStreamDestinationConfigGcsDestinationConfigJsonFileFormat"]:
         '''json_file_format block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#json_file_format GoogleDatastreamStream#json_file_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#json_file_format GoogleDatastreamStream#json_file_format}
         '''
         result = self._values.get("json_file_format")
         return typing.cast(typing.Optional["GoogleDatastreamStreamDestinationConfigGcsDestinationConfigJsonFileFormat"], result)
@@ -6836,7 +6836,7 @@ class GoogleDatastreamStreamDestinationConfigGcsDestinationConfig:
     def path(self) -> typing.Optional[builtins.str]:
         '''Path inside the Cloud Storage bucket to write data to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#path GoogleDatastreamStream#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#path GoogleDatastreamStream#path}
         '''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6928,8 +6928,8 @@ class GoogleDatastreamStreamDestinationConfigGcsDestinationConfigJsonFileFormat:
         schema_file_format: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param compression: Compression of the loaded JSON file. Possible values: ["NO_COMPRESSION", "GZIP"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#compression GoogleDatastreamStream#compression}
-        :param schema_file_format: The schema file format along JSON data files. Possible values: ["NO_SCHEMA_FILE", "AVRO_SCHEMA_FILE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#schema_file_format GoogleDatastreamStream#schema_file_format}
+        :param compression: Compression of the loaded JSON file. Possible values: ["NO_COMPRESSION", "GZIP"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#compression GoogleDatastreamStream#compression}
+        :param schema_file_format: The schema file format along JSON data files. Possible values: ["NO_SCHEMA_FILE", "AVRO_SCHEMA_FILE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#schema_file_format GoogleDatastreamStream#schema_file_format}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ac5bf24309609d454116747fe1a8433f1d6909fbbae89e976eff2fea5165e8d7)
@@ -6945,7 +6945,7 @@ class GoogleDatastreamStreamDestinationConfigGcsDestinationConfigJsonFileFormat:
     def compression(self) -> typing.Optional[builtins.str]:
         '''Compression of the loaded JSON file. Possible values: ["NO_COMPRESSION", "GZIP"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#compression GoogleDatastreamStream#compression}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#compression GoogleDatastreamStream#compression}
         '''
         result = self._values.get("compression")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6954,7 +6954,7 @@ class GoogleDatastreamStreamDestinationConfigGcsDestinationConfigJsonFileFormat:
     def schema_file_format(self) -> typing.Optional[builtins.str]:
         '''The schema file format along JSON data files. Possible values: ["NO_SCHEMA_FILE", "AVRO_SCHEMA_FILE"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#schema_file_format GoogleDatastreamStream#schema_file_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#schema_file_format GoogleDatastreamStream#schema_file_format}
         '''
         result = self._values.get("schema_file_format")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7085,8 +7085,8 @@ class GoogleDatastreamStreamDestinationConfigGcsDestinationConfigOutputReference
         schema_file_format: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param compression: Compression of the loaded JSON file. Possible values: ["NO_COMPRESSION", "GZIP"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#compression GoogleDatastreamStream#compression}
-        :param schema_file_format: The schema file format along JSON data files. Possible values: ["NO_SCHEMA_FILE", "AVRO_SCHEMA_FILE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#schema_file_format GoogleDatastreamStream#schema_file_format}
+        :param compression: Compression of the loaded JSON file. Possible values: ["NO_COMPRESSION", "GZIP"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#compression GoogleDatastreamStream#compression}
+        :param schema_file_format: The schema file format along JSON data files. Possible values: ["NO_SCHEMA_FILE", "AVRO_SCHEMA_FILE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#schema_file_format GoogleDatastreamStream#schema_file_format}
         '''
         value = GoogleDatastreamStreamDestinationConfigGcsDestinationConfigJsonFileFormat(
             compression=compression, schema_file_format=schema_file_format
@@ -7243,12 +7243,12 @@ class GoogleDatastreamStreamDestinationConfigOutputReference(
         source_hierarchy_datasets: typing.Optional[typing.Union[GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfigSourceHierarchyDatasets, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param append_only: append_only block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#append_only GoogleDatastreamStream#append_only}
-        :param blmt_config: blmt_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#blmt_config GoogleDatastreamStream#blmt_config}
-        :param data_freshness: The guaranteed data freshness (in seconds) when querying tables created by the stream. Editing this field will only affect new tables created in the future, but existing tables will not be impacted. Lower values mean that queries will return fresher data, but may result in higher cost. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Defaults to 900s. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#data_freshness GoogleDatastreamStream#data_freshness}
-        :param merge: merge block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#merge GoogleDatastreamStream#merge}
-        :param single_target_dataset: single_target_dataset block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#single_target_dataset GoogleDatastreamStream#single_target_dataset}
-        :param source_hierarchy_datasets: source_hierarchy_datasets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#source_hierarchy_datasets GoogleDatastreamStream#source_hierarchy_datasets}
+        :param append_only: append_only block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#append_only GoogleDatastreamStream#append_only}
+        :param blmt_config: blmt_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#blmt_config GoogleDatastreamStream#blmt_config}
+        :param data_freshness: The guaranteed data freshness (in seconds) when querying tables created by the stream. Editing this field will only affect new tables created in the future, but existing tables will not be impacted. Lower values mean that queries will return fresher data, but may result in higher cost. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Defaults to 900s. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#data_freshness GoogleDatastreamStream#data_freshness}
+        :param merge: merge block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#merge GoogleDatastreamStream#merge}
+        :param single_target_dataset: single_target_dataset block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#single_target_dataset GoogleDatastreamStream#single_target_dataset}
+        :param source_hierarchy_datasets: source_hierarchy_datasets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#source_hierarchy_datasets GoogleDatastreamStream#source_hierarchy_datasets}
         '''
         value = GoogleDatastreamStreamDestinationConfigBigqueryDestinationConfig(
             append_only=append_only,
@@ -7272,11 +7272,11 @@ class GoogleDatastreamStreamDestinationConfigOutputReference(
         path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param avro_file_format: avro_file_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#avro_file_format GoogleDatastreamStream#avro_file_format}
-        :param file_rotation_interval: The maximum duration for which new events are added before a file is closed and a new file is created. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Defaults to 900s. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#file_rotation_interval GoogleDatastreamStream#file_rotation_interval}
-        :param file_rotation_mb: The maximum file size to be saved in the bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#file_rotation_mb GoogleDatastreamStream#file_rotation_mb}
-        :param json_file_format: json_file_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#json_file_format GoogleDatastreamStream#json_file_format}
-        :param path: Path inside the Cloud Storage bucket to write data to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#path GoogleDatastreamStream#path}
+        :param avro_file_format: avro_file_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#avro_file_format GoogleDatastreamStream#avro_file_format}
+        :param file_rotation_interval: The maximum duration for which new events are added before a file is closed and a new file is created. A duration in seconds with up to nine fractional digits, terminated by 's'. Example: "3.5s". Defaults to 900s. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#file_rotation_interval GoogleDatastreamStream#file_rotation_interval}
+        :param file_rotation_mb: The maximum file size to be saved in the bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#file_rotation_mb GoogleDatastreamStream#file_rotation_mb}
+        :param json_file_format: json_file_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#json_file_format GoogleDatastreamStream#json_file_format}
+        :param path: Path inside the Cloud Storage bucket to write data to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#path GoogleDatastreamStream#path}
         '''
         value = GoogleDatastreamStreamDestinationConfigGcsDestinationConfig(
             avro_file_format=avro_file_format,
@@ -7383,12 +7383,12 @@ class GoogleDatastreamStreamSourceConfig:
         sql_server_source_config: typing.Optional[typing.Union["GoogleDatastreamStreamSourceConfigSqlServerSourceConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param source_connection_profile: Source connection profile resource. Format: projects/{project}/locations/{location}/connectionProfiles/{name}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#source_connection_profile GoogleDatastreamStream#source_connection_profile}
-        :param mysql_source_config: mysql_source_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#mysql_source_config GoogleDatastreamStream#mysql_source_config}
-        :param oracle_source_config: oracle_source_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#oracle_source_config GoogleDatastreamStream#oracle_source_config}
-        :param postgresql_source_config: postgresql_source_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#postgresql_source_config GoogleDatastreamStream#postgresql_source_config}
-        :param salesforce_source_config: salesforce_source_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#salesforce_source_config GoogleDatastreamStream#salesforce_source_config}
-        :param sql_server_source_config: sql_server_source_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#sql_server_source_config GoogleDatastreamStream#sql_server_source_config}
+        :param source_connection_profile: Source connection profile resource. Format: projects/{project}/locations/{location}/connectionProfiles/{name}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#source_connection_profile GoogleDatastreamStream#source_connection_profile}
+        :param mysql_source_config: mysql_source_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#mysql_source_config GoogleDatastreamStream#mysql_source_config}
+        :param oracle_source_config: oracle_source_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#oracle_source_config GoogleDatastreamStream#oracle_source_config}
+        :param postgresql_source_config: postgresql_source_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#postgresql_source_config GoogleDatastreamStream#postgresql_source_config}
+        :param salesforce_source_config: salesforce_source_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#salesforce_source_config GoogleDatastreamStream#salesforce_source_config}
+        :param sql_server_source_config: sql_server_source_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#sql_server_source_config GoogleDatastreamStream#sql_server_source_config}
         '''
         if isinstance(mysql_source_config, dict):
             mysql_source_config = GoogleDatastreamStreamSourceConfigMysqlSourceConfig(**mysql_source_config)
@@ -7426,7 +7426,7 @@ class GoogleDatastreamStreamSourceConfig:
     def source_connection_profile(self) -> builtins.str:
         '''Source connection profile resource. Format: projects/{project}/locations/{location}/connectionProfiles/{name}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#source_connection_profile GoogleDatastreamStream#source_connection_profile}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#source_connection_profile GoogleDatastreamStream#source_connection_profile}
         '''
         result = self._values.get("source_connection_profile")
         assert result is not None, "Required property 'source_connection_profile' is missing"
@@ -7438,7 +7438,7 @@ class GoogleDatastreamStreamSourceConfig:
     ) -> typing.Optional["GoogleDatastreamStreamSourceConfigMysqlSourceConfig"]:
         '''mysql_source_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#mysql_source_config GoogleDatastreamStream#mysql_source_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#mysql_source_config GoogleDatastreamStream#mysql_source_config}
         '''
         result = self._values.get("mysql_source_config")
         return typing.cast(typing.Optional["GoogleDatastreamStreamSourceConfigMysqlSourceConfig"], result)
@@ -7449,7 +7449,7 @@ class GoogleDatastreamStreamSourceConfig:
     ) -> typing.Optional["GoogleDatastreamStreamSourceConfigOracleSourceConfig"]:
         '''oracle_source_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#oracle_source_config GoogleDatastreamStream#oracle_source_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#oracle_source_config GoogleDatastreamStream#oracle_source_config}
         '''
         result = self._values.get("oracle_source_config")
         return typing.cast(typing.Optional["GoogleDatastreamStreamSourceConfigOracleSourceConfig"], result)
@@ -7460,7 +7460,7 @@ class GoogleDatastreamStreamSourceConfig:
     ) -> typing.Optional["GoogleDatastreamStreamSourceConfigPostgresqlSourceConfig"]:
         '''postgresql_source_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#postgresql_source_config GoogleDatastreamStream#postgresql_source_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#postgresql_source_config GoogleDatastreamStream#postgresql_source_config}
         '''
         result = self._values.get("postgresql_source_config")
         return typing.cast(typing.Optional["GoogleDatastreamStreamSourceConfigPostgresqlSourceConfig"], result)
@@ -7471,7 +7471,7 @@ class GoogleDatastreamStreamSourceConfig:
     ) -> typing.Optional["GoogleDatastreamStreamSourceConfigSalesforceSourceConfig"]:
         '''salesforce_source_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#salesforce_source_config GoogleDatastreamStream#salesforce_source_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#salesforce_source_config GoogleDatastreamStream#salesforce_source_config}
         '''
         result = self._values.get("salesforce_source_config")
         return typing.cast(typing.Optional["GoogleDatastreamStreamSourceConfigSalesforceSourceConfig"], result)
@@ -7482,7 +7482,7 @@ class GoogleDatastreamStreamSourceConfig:
     ) -> typing.Optional["GoogleDatastreamStreamSourceConfigSqlServerSourceConfig"]:
         '''sql_server_source_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#sql_server_source_config GoogleDatastreamStream#sql_server_source_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#sql_server_source_config GoogleDatastreamStream#sql_server_source_config}
         '''
         result = self._values.get("sql_server_source_config")
         return typing.cast(typing.Optional["GoogleDatastreamStreamSourceConfigSqlServerSourceConfig"], result)
@@ -7523,12 +7523,12 @@ class GoogleDatastreamStreamSourceConfigMysqlSourceConfig:
         max_concurrent_cdc_tasks: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param binary_log_position: binary_log_position block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#binary_log_position GoogleDatastreamStream#binary_log_position}
-        :param exclude_objects: exclude_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#exclude_objects GoogleDatastreamStream#exclude_objects}
-        :param gtid: gtid block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#gtid GoogleDatastreamStream#gtid}
-        :param include_objects: include_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#include_objects GoogleDatastreamStream#include_objects}
-        :param max_concurrent_backfill_tasks: Maximum number of concurrent backfill tasks. The number should be non negative. If not set (or set to 0), the system's default value will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#max_concurrent_backfill_tasks GoogleDatastreamStream#max_concurrent_backfill_tasks}
-        :param max_concurrent_cdc_tasks: Maximum number of concurrent CDC tasks. The number should be non negative. If not set (or set to 0), the system's default value will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#max_concurrent_cdc_tasks GoogleDatastreamStream#max_concurrent_cdc_tasks}
+        :param binary_log_position: binary_log_position block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#binary_log_position GoogleDatastreamStream#binary_log_position}
+        :param exclude_objects: exclude_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#exclude_objects GoogleDatastreamStream#exclude_objects}
+        :param gtid: gtid block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#gtid GoogleDatastreamStream#gtid}
+        :param include_objects: include_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#include_objects GoogleDatastreamStream#include_objects}
+        :param max_concurrent_backfill_tasks: Maximum number of concurrent backfill tasks. The number should be non negative. If not set (or set to 0), the system's default value will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#max_concurrent_backfill_tasks GoogleDatastreamStream#max_concurrent_backfill_tasks}
+        :param max_concurrent_cdc_tasks: Maximum number of concurrent CDC tasks. The number should be non negative. If not set (or set to 0), the system's default value will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#max_concurrent_cdc_tasks GoogleDatastreamStream#max_concurrent_cdc_tasks}
         '''
         if isinstance(binary_log_position, dict):
             binary_log_position = GoogleDatastreamStreamSourceConfigMysqlSourceConfigBinaryLogPosition(**binary_log_position)
@@ -7566,7 +7566,7 @@ class GoogleDatastreamStreamSourceConfigMysqlSourceConfig:
     ) -> typing.Optional["GoogleDatastreamStreamSourceConfigMysqlSourceConfigBinaryLogPosition"]:
         '''binary_log_position block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#binary_log_position GoogleDatastreamStream#binary_log_position}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#binary_log_position GoogleDatastreamStream#binary_log_position}
         '''
         result = self._values.get("binary_log_position")
         return typing.cast(typing.Optional["GoogleDatastreamStreamSourceConfigMysqlSourceConfigBinaryLogPosition"], result)
@@ -7577,7 +7577,7 @@ class GoogleDatastreamStreamSourceConfigMysqlSourceConfig:
     ) -> typing.Optional["GoogleDatastreamStreamSourceConfigMysqlSourceConfigExcludeObjects"]:
         '''exclude_objects block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#exclude_objects GoogleDatastreamStream#exclude_objects}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#exclude_objects GoogleDatastreamStream#exclude_objects}
         '''
         result = self._values.get("exclude_objects")
         return typing.cast(typing.Optional["GoogleDatastreamStreamSourceConfigMysqlSourceConfigExcludeObjects"], result)
@@ -7588,7 +7588,7 @@ class GoogleDatastreamStreamSourceConfigMysqlSourceConfig:
     ) -> typing.Optional["GoogleDatastreamStreamSourceConfigMysqlSourceConfigGtid"]:
         '''gtid block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#gtid GoogleDatastreamStream#gtid}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#gtid GoogleDatastreamStream#gtid}
         '''
         result = self._values.get("gtid")
         return typing.cast(typing.Optional["GoogleDatastreamStreamSourceConfigMysqlSourceConfigGtid"], result)
@@ -7599,7 +7599,7 @@ class GoogleDatastreamStreamSourceConfigMysqlSourceConfig:
     ) -> typing.Optional["GoogleDatastreamStreamSourceConfigMysqlSourceConfigIncludeObjects"]:
         '''include_objects block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#include_objects GoogleDatastreamStream#include_objects}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#include_objects GoogleDatastreamStream#include_objects}
         '''
         result = self._values.get("include_objects")
         return typing.cast(typing.Optional["GoogleDatastreamStreamSourceConfigMysqlSourceConfigIncludeObjects"], result)
@@ -7611,7 +7611,7 @@ class GoogleDatastreamStreamSourceConfigMysqlSourceConfig:
         The number should be non negative.
         If not set (or set to 0), the system's default value will be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#max_concurrent_backfill_tasks GoogleDatastreamStream#max_concurrent_backfill_tasks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#max_concurrent_backfill_tasks GoogleDatastreamStream#max_concurrent_backfill_tasks}
         '''
         result = self._values.get("max_concurrent_backfill_tasks")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -7623,7 +7623,7 @@ class GoogleDatastreamStreamSourceConfigMysqlSourceConfig:
         The number should be non negative.
         If not set (or set to 0), the system's default value will be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#max_concurrent_cdc_tasks GoogleDatastreamStream#max_concurrent_cdc_tasks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#max_concurrent_cdc_tasks GoogleDatastreamStream#max_concurrent_cdc_tasks}
         '''
         result = self._values.get("max_concurrent_cdc_tasks")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -7711,7 +7711,7 @@ class GoogleDatastreamStreamSourceConfigMysqlSourceConfigExcludeObjects:
         mysql_databases: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleDatastreamStreamSourceConfigMysqlSourceConfigExcludeObjectsMysqlDatabases", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param mysql_databases: mysql_databases block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#mysql_databases GoogleDatastreamStream#mysql_databases}
+        :param mysql_databases: mysql_databases block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#mysql_databases GoogleDatastreamStream#mysql_databases}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d83157a8b7dabb6f6a578ba371ae7606ca73d8b886f676352d01e59c8b975065)
@@ -7726,7 +7726,7 @@ class GoogleDatastreamStreamSourceConfigMysqlSourceConfigExcludeObjects:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamSourceConfigMysqlSourceConfigExcludeObjectsMysqlDatabases"]]:
         '''mysql_databases block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#mysql_databases GoogleDatastreamStream#mysql_databases}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#mysql_databases GoogleDatastreamStream#mysql_databases}
         '''
         result = self._values.get("mysql_databases")
         assert result is not None, "Required property 'mysql_databases' is missing"
@@ -7757,8 +7757,8 @@ class GoogleDatastreamStreamSourceConfigMysqlSourceConfigExcludeObjectsMysqlData
         mysql_tables: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleDatastreamStreamSourceConfigMysqlSourceConfigExcludeObjectsMysqlDatabasesMysqlTables", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param database: Database name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#database GoogleDatastreamStream#database}
-        :param mysql_tables: mysql_tables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#mysql_tables GoogleDatastreamStream#mysql_tables}
+        :param database: Database name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#database GoogleDatastreamStream#database}
+        :param mysql_tables: mysql_tables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#mysql_tables GoogleDatastreamStream#mysql_tables}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fb545565a9647ff9db741b384db4f82c54b58032c7b2d4e18818cd7d16eeeb69)
@@ -7774,7 +7774,7 @@ class GoogleDatastreamStreamSourceConfigMysqlSourceConfigExcludeObjectsMysqlData
     def database(self) -> builtins.str:
         '''Database name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#database GoogleDatastreamStream#database}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#database GoogleDatastreamStream#database}
         '''
         result = self._values.get("database")
         assert result is not None, "Required property 'database' is missing"
@@ -7786,7 +7786,7 @@ class GoogleDatastreamStreamSourceConfigMysqlSourceConfigExcludeObjectsMysqlData
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamSourceConfigMysqlSourceConfigExcludeObjectsMysqlDatabasesMysqlTables"]]]:
         '''mysql_tables block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#mysql_tables GoogleDatastreamStream#mysql_tables}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#mysql_tables GoogleDatastreamStream#mysql_tables}
         '''
         result = self._values.get("mysql_tables")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamSourceConfigMysqlSourceConfigExcludeObjectsMysqlDatabasesMysqlTables"]]], result)
@@ -7909,8 +7909,8 @@ class GoogleDatastreamStreamSourceConfigMysqlSourceConfigExcludeObjectsMysqlData
         mysql_columns: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleDatastreamStreamSourceConfigMysqlSourceConfigExcludeObjectsMysqlDatabasesMysqlTablesMysqlColumns", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param table: Table name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#table GoogleDatastreamStream#table}
-        :param mysql_columns: mysql_columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#mysql_columns GoogleDatastreamStream#mysql_columns}
+        :param table: Table name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#table GoogleDatastreamStream#table}
+        :param mysql_columns: mysql_columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#mysql_columns GoogleDatastreamStream#mysql_columns}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8fd22251a137acbd8b6d4011e790c862bba2bc6baff5731831f4aaeb1f09bc8e)
@@ -7926,7 +7926,7 @@ class GoogleDatastreamStreamSourceConfigMysqlSourceConfigExcludeObjectsMysqlData
     def table(self) -> builtins.str:
         '''Table name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#table GoogleDatastreamStream#table}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#table GoogleDatastreamStream#table}
         '''
         result = self._values.get("table")
         assert result is not None, "Required property 'table' is missing"
@@ -7938,7 +7938,7 @@ class GoogleDatastreamStreamSourceConfigMysqlSourceConfigExcludeObjectsMysqlData
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamSourceConfigMysqlSourceConfigExcludeObjectsMysqlDatabasesMysqlTablesMysqlColumns"]]]:
         '''mysql_columns block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#mysql_columns GoogleDatastreamStream#mysql_columns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#mysql_columns GoogleDatastreamStream#mysql_columns}
         '''
         result = self._values.get("mysql_columns")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamSourceConfigMysqlSourceConfigExcludeObjectsMysqlDatabasesMysqlTablesMysqlColumns"]]], result)
@@ -8072,12 +8072,12 @@ class GoogleDatastreamStreamSourceConfigMysqlSourceConfigExcludeObjectsMysqlData
         primary_key: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param collation: Column collation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#collation GoogleDatastreamStream#collation}
-        :param column: Column name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#column GoogleDatastreamStream#column}
-        :param data_type: The MySQL data type. Full data types list can be found here: https://dev.mysql.com/doc/refman/8.0/en/data-types.html. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#data_type GoogleDatastreamStream#data_type}
-        :param nullable: Whether or not the column can accept a null value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#nullable GoogleDatastreamStream#nullable}
-        :param ordinal_position: The ordinal position of the column in the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#ordinal_position GoogleDatastreamStream#ordinal_position}
-        :param primary_key: Whether or not the column represents a primary key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#primary_key GoogleDatastreamStream#primary_key}
+        :param collation: Column collation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#collation GoogleDatastreamStream#collation}
+        :param column: Column name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#column GoogleDatastreamStream#column}
+        :param data_type: The MySQL data type. Full data types list can be found here: https://dev.mysql.com/doc/refman/8.0/en/data-types.html. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#data_type GoogleDatastreamStream#data_type}
+        :param nullable: Whether or not the column can accept a null value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#nullable GoogleDatastreamStream#nullable}
+        :param ordinal_position: The ordinal position of the column in the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#ordinal_position GoogleDatastreamStream#ordinal_position}
+        :param primary_key: Whether or not the column represents a primary key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#primary_key GoogleDatastreamStream#primary_key}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1fe080b67925fa358036b8642a0299bcbe1d9e7f96a77e04e3df091ce8d56d79)
@@ -8105,7 +8105,7 @@ class GoogleDatastreamStreamSourceConfigMysqlSourceConfigExcludeObjectsMysqlData
     def collation(self) -> typing.Optional[builtins.str]:
         '''Column collation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#collation GoogleDatastreamStream#collation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#collation GoogleDatastreamStream#collation}
         '''
         result = self._values.get("collation")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8114,7 +8114,7 @@ class GoogleDatastreamStreamSourceConfigMysqlSourceConfigExcludeObjectsMysqlData
     def column(self) -> typing.Optional[builtins.str]:
         '''Column name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#column GoogleDatastreamStream#column}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#column GoogleDatastreamStream#column}
         '''
         result = self._values.get("column")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8123,7 +8123,7 @@ class GoogleDatastreamStreamSourceConfigMysqlSourceConfigExcludeObjectsMysqlData
     def data_type(self) -> typing.Optional[builtins.str]:
         '''The MySQL data type. Full data types list can be found here: https://dev.mysql.com/doc/refman/8.0/en/data-types.html.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#data_type GoogleDatastreamStream#data_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#data_type GoogleDatastreamStream#data_type}
         '''
         result = self._values.get("data_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8134,7 +8134,7 @@ class GoogleDatastreamStreamSourceConfigMysqlSourceConfigExcludeObjectsMysqlData
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether or not the column can accept a null value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#nullable GoogleDatastreamStream#nullable}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#nullable GoogleDatastreamStream#nullable}
         '''
         result = self._values.get("nullable")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -8143,7 +8143,7 @@ class GoogleDatastreamStreamSourceConfigMysqlSourceConfigExcludeObjectsMysqlData
     def ordinal_position(self) -> typing.Optional[jsii.Number]:
         '''The ordinal position of the column in the table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#ordinal_position GoogleDatastreamStream#ordinal_position}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#ordinal_position GoogleDatastreamStream#ordinal_position}
         '''
         result = self._values.get("ordinal_position")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -8154,7 +8154,7 @@ class GoogleDatastreamStreamSourceConfigMysqlSourceConfigExcludeObjectsMysqlData
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether or not the column represents a primary key.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#primary_key GoogleDatastreamStream#primary_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#primary_key GoogleDatastreamStream#primary_key}
         '''
         result = self._values.get("primary_key")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -8769,7 +8769,7 @@ class GoogleDatastreamStreamSourceConfigMysqlSourceConfigIncludeObjects:
         mysql_databases: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleDatastreamStreamSourceConfigMysqlSourceConfigIncludeObjectsMysqlDatabases", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param mysql_databases: mysql_databases block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#mysql_databases GoogleDatastreamStream#mysql_databases}
+        :param mysql_databases: mysql_databases block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#mysql_databases GoogleDatastreamStream#mysql_databases}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6b782ad37d159e6fc26ccecf102c72c7754e16dda5dfcd19b2bc64b597b89e07)
@@ -8784,7 +8784,7 @@ class GoogleDatastreamStreamSourceConfigMysqlSourceConfigIncludeObjects:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamSourceConfigMysqlSourceConfigIncludeObjectsMysqlDatabases"]]:
         '''mysql_databases block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#mysql_databases GoogleDatastreamStream#mysql_databases}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#mysql_databases GoogleDatastreamStream#mysql_databases}
         '''
         result = self._values.get("mysql_databases")
         assert result is not None, "Required property 'mysql_databases' is missing"
@@ -8815,8 +8815,8 @@ class GoogleDatastreamStreamSourceConfigMysqlSourceConfigIncludeObjectsMysqlData
         mysql_tables: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleDatastreamStreamSourceConfigMysqlSourceConfigIncludeObjectsMysqlDatabasesMysqlTables", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param database: Database name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#database GoogleDatastreamStream#database}
-        :param mysql_tables: mysql_tables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#mysql_tables GoogleDatastreamStream#mysql_tables}
+        :param database: Database name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#database GoogleDatastreamStream#database}
+        :param mysql_tables: mysql_tables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#mysql_tables GoogleDatastreamStream#mysql_tables}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f44f39ebafbebf8e628605efe61a5348b73f5c5884eb1c28dde453f8bf8523a5)
@@ -8832,7 +8832,7 @@ class GoogleDatastreamStreamSourceConfigMysqlSourceConfigIncludeObjectsMysqlData
     def database(self) -> builtins.str:
         '''Database name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#database GoogleDatastreamStream#database}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#database GoogleDatastreamStream#database}
         '''
         result = self._values.get("database")
         assert result is not None, "Required property 'database' is missing"
@@ -8844,7 +8844,7 @@ class GoogleDatastreamStreamSourceConfigMysqlSourceConfigIncludeObjectsMysqlData
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamSourceConfigMysqlSourceConfigIncludeObjectsMysqlDatabasesMysqlTables"]]]:
         '''mysql_tables block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#mysql_tables GoogleDatastreamStream#mysql_tables}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#mysql_tables GoogleDatastreamStream#mysql_tables}
         '''
         result = self._values.get("mysql_tables")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamSourceConfigMysqlSourceConfigIncludeObjectsMysqlDatabasesMysqlTables"]]], result)
@@ -8967,8 +8967,8 @@ class GoogleDatastreamStreamSourceConfigMysqlSourceConfigIncludeObjectsMysqlData
         mysql_columns: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleDatastreamStreamSourceConfigMysqlSourceConfigIncludeObjectsMysqlDatabasesMysqlTablesMysqlColumns", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param table: Table name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#table GoogleDatastreamStream#table}
-        :param mysql_columns: mysql_columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#mysql_columns GoogleDatastreamStream#mysql_columns}
+        :param table: Table name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#table GoogleDatastreamStream#table}
+        :param mysql_columns: mysql_columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#mysql_columns GoogleDatastreamStream#mysql_columns}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__aa194010af037f05469911f39778136fc3ed69ba254253f1224c1a9bbe628999)
@@ -8984,7 +8984,7 @@ class GoogleDatastreamStreamSourceConfigMysqlSourceConfigIncludeObjectsMysqlData
     def table(self) -> builtins.str:
         '''Table name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#table GoogleDatastreamStream#table}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#table GoogleDatastreamStream#table}
         '''
         result = self._values.get("table")
         assert result is not None, "Required property 'table' is missing"
@@ -8996,7 +8996,7 @@ class GoogleDatastreamStreamSourceConfigMysqlSourceConfigIncludeObjectsMysqlData
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamSourceConfigMysqlSourceConfigIncludeObjectsMysqlDatabasesMysqlTablesMysqlColumns"]]]:
         '''mysql_columns block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#mysql_columns GoogleDatastreamStream#mysql_columns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#mysql_columns GoogleDatastreamStream#mysql_columns}
         '''
         result = self._values.get("mysql_columns")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamSourceConfigMysqlSourceConfigIncludeObjectsMysqlDatabasesMysqlTablesMysqlColumns"]]], result)
@@ -9130,12 +9130,12 @@ class GoogleDatastreamStreamSourceConfigMysqlSourceConfigIncludeObjectsMysqlData
         primary_key: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param collation: Column collation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#collation GoogleDatastreamStream#collation}
-        :param column: Column name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#column GoogleDatastreamStream#column}
-        :param data_type: The MySQL data type. Full data types list can be found here: https://dev.mysql.com/doc/refman/8.0/en/data-types.html. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#data_type GoogleDatastreamStream#data_type}
-        :param nullable: Whether or not the column can accept a null value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#nullable GoogleDatastreamStream#nullable}
-        :param ordinal_position: The ordinal position of the column in the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#ordinal_position GoogleDatastreamStream#ordinal_position}
-        :param primary_key: Whether or not the column represents a primary key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#primary_key GoogleDatastreamStream#primary_key}
+        :param collation: Column collation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#collation GoogleDatastreamStream#collation}
+        :param column: Column name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#column GoogleDatastreamStream#column}
+        :param data_type: The MySQL data type. Full data types list can be found here: https://dev.mysql.com/doc/refman/8.0/en/data-types.html. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#data_type GoogleDatastreamStream#data_type}
+        :param nullable: Whether or not the column can accept a null value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#nullable GoogleDatastreamStream#nullable}
+        :param ordinal_position: The ordinal position of the column in the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#ordinal_position GoogleDatastreamStream#ordinal_position}
+        :param primary_key: Whether or not the column represents a primary key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#primary_key GoogleDatastreamStream#primary_key}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__41215ce0b14ba24427640cc4700269ad49a0faadf8295e7ac03b7f47f2b37132)
@@ -9163,7 +9163,7 @@ class GoogleDatastreamStreamSourceConfigMysqlSourceConfigIncludeObjectsMysqlData
     def collation(self) -> typing.Optional[builtins.str]:
         '''Column collation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#collation GoogleDatastreamStream#collation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#collation GoogleDatastreamStream#collation}
         '''
         result = self._values.get("collation")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9172,7 +9172,7 @@ class GoogleDatastreamStreamSourceConfigMysqlSourceConfigIncludeObjectsMysqlData
     def column(self) -> typing.Optional[builtins.str]:
         '''Column name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#column GoogleDatastreamStream#column}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#column GoogleDatastreamStream#column}
         '''
         result = self._values.get("column")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9181,7 +9181,7 @@ class GoogleDatastreamStreamSourceConfigMysqlSourceConfigIncludeObjectsMysqlData
     def data_type(self) -> typing.Optional[builtins.str]:
         '''The MySQL data type. Full data types list can be found here: https://dev.mysql.com/doc/refman/8.0/en/data-types.html.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#data_type GoogleDatastreamStream#data_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#data_type GoogleDatastreamStream#data_type}
         '''
         result = self._values.get("data_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9192,7 +9192,7 @@ class GoogleDatastreamStreamSourceConfigMysqlSourceConfigIncludeObjectsMysqlData
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether or not the column can accept a null value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#nullable GoogleDatastreamStream#nullable}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#nullable GoogleDatastreamStream#nullable}
         '''
         result = self._values.get("nullable")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -9201,7 +9201,7 @@ class GoogleDatastreamStreamSourceConfigMysqlSourceConfigIncludeObjectsMysqlData
     def ordinal_position(self) -> typing.Optional[jsii.Number]:
         '''The ordinal position of the column in the table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#ordinal_position GoogleDatastreamStream#ordinal_position}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#ordinal_position GoogleDatastreamStream#ordinal_position}
         '''
         result = self._values.get("ordinal_position")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -9212,7 +9212,7 @@ class GoogleDatastreamStreamSourceConfigMysqlSourceConfigIncludeObjectsMysqlData
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether or not the column represents a primary key.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#primary_key GoogleDatastreamStream#primary_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#primary_key GoogleDatastreamStream#primary_key}
         '''
         result = self._values.get("primary_key")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -9789,7 +9789,7 @@ class GoogleDatastreamStreamSourceConfigMysqlSourceConfigOutputReference(
         mysql_databases: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[GoogleDatastreamStreamSourceConfigMysqlSourceConfigExcludeObjectsMysqlDatabases, typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param mysql_databases: mysql_databases block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#mysql_databases GoogleDatastreamStream#mysql_databases}
+        :param mysql_databases: mysql_databases block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#mysql_databases GoogleDatastreamStream#mysql_databases}
         '''
         value = GoogleDatastreamStreamSourceConfigMysqlSourceConfigExcludeObjects(
             mysql_databases=mysql_databases
@@ -9810,7 +9810,7 @@ class GoogleDatastreamStreamSourceConfigMysqlSourceConfigOutputReference(
         mysql_databases: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[GoogleDatastreamStreamSourceConfigMysqlSourceConfigIncludeObjectsMysqlDatabases, typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param mysql_databases: mysql_databases block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#mysql_databases GoogleDatastreamStream#mysql_databases}
+        :param mysql_databases: mysql_databases block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#mysql_databases GoogleDatastreamStream#mysql_databases}
         '''
         value = GoogleDatastreamStreamSourceConfigMysqlSourceConfigIncludeObjects(
             mysql_databases=mysql_databases
@@ -9974,12 +9974,12 @@ class GoogleDatastreamStreamSourceConfigOracleSourceConfig:
         stream_large_objects: typing.Optional[typing.Union["GoogleDatastreamStreamSourceConfigOracleSourceConfigStreamLargeObjects", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param drop_large_objects: drop_large_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#drop_large_objects GoogleDatastreamStream#drop_large_objects}
-        :param exclude_objects: exclude_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#exclude_objects GoogleDatastreamStream#exclude_objects}
-        :param include_objects: include_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#include_objects GoogleDatastreamStream#include_objects}
-        :param max_concurrent_backfill_tasks: Maximum number of concurrent backfill tasks. The number should be non negative. If not set (or set to 0), the system's default value will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#max_concurrent_backfill_tasks GoogleDatastreamStream#max_concurrent_backfill_tasks}
-        :param max_concurrent_cdc_tasks: Maximum number of concurrent CDC tasks. The number should be non negative. If not set (or set to 0), the system's default value will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#max_concurrent_cdc_tasks GoogleDatastreamStream#max_concurrent_cdc_tasks}
-        :param stream_large_objects: stream_large_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#stream_large_objects GoogleDatastreamStream#stream_large_objects}
+        :param drop_large_objects: drop_large_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#drop_large_objects GoogleDatastreamStream#drop_large_objects}
+        :param exclude_objects: exclude_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#exclude_objects GoogleDatastreamStream#exclude_objects}
+        :param include_objects: include_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#include_objects GoogleDatastreamStream#include_objects}
+        :param max_concurrent_backfill_tasks: Maximum number of concurrent backfill tasks. The number should be non negative. If not set (or set to 0), the system's default value will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#max_concurrent_backfill_tasks GoogleDatastreamStream#max_concurrent_backfill_tasks}
+        :param max_concurrent_cdc_tasks: Maximum number of concurrent CDC tasks. The number should be non negative. If not set (or set to 0), the system's default value will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#max_concurrent_cdc_tasks GoogleDatastreamStream#max_concurrent_cdc_tasks}
+        :param stream_large_objects: stream_large_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#stream_large_objects GoogleDatastreamStream#stream_large_objects}
         '''
         if isinstance(drop_large_objects, dict):
             drop_large_objects = GoogleDatastreamStreamSourceConfigOracleSourceConfigDropLargeObjects(**drop_large_objects)
@@ -10017,7 +10017,7 @@ class GoogleDatastreamStreamSourceConfigOracleSourceConfig:
     ) -> typing.Optional["GoogleDatastreamStreamSourceConfigOracleSourceConfigDropLargeObjects"]:
         '''drop_large_objects block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#drop_large_objects GoogleDatastreamStream#drop_large_objects}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#drop_large_objects GoogleDatastreamStream#drop_large_objects}
         '''
         result = self._values.get("drop_large_objects")
         return typing.cast(typing.Optional["GoogleDatastreamStreamSourceConfigOracleSourceConfigDropLargeObjects"], result)
@@ -10028,7 +10028,7 @@ class GoogleDatastreamStreamSourceConfigOracleSourceConfig:
     ) -> typing.Optional["GoogleDatastreamStreamSourceConfigOracleSourceConfigExcludeObjects"]:
         '''exclude_objects block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#exclude_objects GoogleDatastreamStream#exclude_objects}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#exclude_objects GoogleDatastreamStream#exclude_objects}
         '''
         result = self._values.get("exclude_objects")
         return typing.cast(typing.Optional["GoogleDatastreamStreamSourceConfigOracleSourceConfigExcludeObjects"], result)
@@ -10039,7 +10039,7 @@ class GoogleDatastreamStreamSourceConfigOracleSourceConfig:
     ) -> typing.Optional["GoogleDatastreamStreamSourceConfigOracleSourceConfigIncludeObjects"]:
         '''include_objects block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#include_objects GoogleDatastreamStream#include_objects}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#include_objects GoogleDatastreamStream#include_objects}
         '''
         result = self._values.get("include_objects")
         return typing.cast(typing.Optional["GoogleDatastreamStreamSourceConfigOracleSourceConfigIncludeObjects"], result)
@@ -10051,7 +10051,7 @@ class GoogleDatastreamStreamSourceConfigOracleSourceConfig:
         The number should be non negative.
         If not set (or set to 0), the system's default value will be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#max_concurrent_backfill_tasks GoogleDatastreamStream#max_concurrent_backfill_tasks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#max_concurrent_backfill_tasks GoogleDatastreamStream#max_concurrent_backfill_tasks}
         '''
         result = self._values.get("max_concurrent_backfill_tasks")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -10063,7 +10063,7 @@ class GoogleDatastreamStreamSourceConfigOracleSourceConfig:
         The number should be non negative.
         If not set (or set to 0), the system's default value will be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#max_concurrent_cdc_tasks GoogleDatastreamStream#max_concurrent_cdc_tasks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#max_concurrent_cdc_tasks GoogleDatastreamStream#max_concurrent_cdc_tasks}
         '''
         result = self._values.get("max_concurrent_cdc_tasks")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -10074,7 +10074,7 @@ class GoogleDatastreamStreamSourceConfigOracleSourceConfig:
     ) -> typing.Optional["GoogleDatastreamStreamSourceConfigOracleSourceConfigStreamLargeObjects"]:
         '''stream_large_objects block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#stream_large_objects GoogleDatastreamStream#stream_large_objects}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#stream_large_objects GoogleDatastreamStream#stream_large_objects}
         '''
         result = self._values.get("stream_large_objects")
         return typing.cast(typing.Optional["GoogleDatastreamStreamSourceConfigOracleSourceConfigStreamLargeObjects"], result)
@@ -10162,7 +10162,7 @@ class GoogleDatastreamStreamSourceConfigOracleSourceConfigExcludeObjects:
         oracle_schemas: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleDatastreamStreamSourceConfigOracleSourceConfigExcludeObjectsOracleSchemas", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param oracle_schemas: oracle_schemas block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#oracle_schemas GoogleDatastreamStream#oracle_schemas}
+        :param oracle_schemas: oracle_schemas block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#oracle_schemas GoogleDatastreamStream#oracle_schemas}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__610d578ff5a80ce274d5ec0c1fc01b310eaa82985cbae7ecc4c0be6959f1e37e)
@@ -10177,7 +10177,7 @@ class GoogleDatastreamStreamSourceConfigOracleSourceConfigExcludeObjects:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamSourceConfigOracleSourceConfigExcludeObjectsOracleSchemas"]]:
         '''oracle_schemas block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#oracle_schemas GoogleDatastreamStream#oracle_schemas}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#oracle_schemas GoogleDatastreamStream#oracle_schemas}
         '''
         result = self._values.get("oracle_schemas")
         assert result is not None, "Required property 'oracle_schemas' is missing"
@@ -10208,8 +10208,8 @@ class GoogleDatastreamStreamSourceConfigOracleSourceConfigExcludeObjectsOracleSc
         oracle_tables: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleDatastreamStreamSourceConfigOracleSourceConfigExcludeObjectsOracleSchemasOracleTables", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param schema: Schema name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#schema GoogleDatastreamStream#schema}
-        :param oracle_tables: oracle_tables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#oracle_tables GoogleDatastreamStream#oracle_tables}
+        :param schema: Schema name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#schema GoogleDatastreamStream#schema}
+        :param oracle_tables: oracle_tables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#oracle_tables GoogleDatastreamStream#oracle_tables}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f3c73db535863aba2213698f0c778ec48e805f13de92d60ec3a324cc006d6d8a)
@@ -10225,7 +10225,7 @@ class GoogleDatastreamStreamSourceConfigOracleSourceConfigExcludeObjectsOracleSc
     def schema(self) -> builtins.str:
         '''Schema name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#schema GoogleDatastreamStream#schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#schema GoogleDatastreamStream#schema}
         '''
         result = self._values.get("schema")
         assert result is not None, "Required property 'schema' is missing"
@@ -10237,7 +10237,7 @@ class GoogleDatastreamStreamSourceConfigOracleSourceConfigExcludeObjectsOracleSc
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamSourceConfigOracleSourceConfigExcludeObjectsOracleSchemasOracleTables"]]]:
         '''oracle_tables block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#oracle_tables GoogleDatastreamStream#oracle_tables}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#oracle_tables GoogleDatastreamStream#oracle_tables}
         '''
         result = self._values.get("oracle_tables")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamSourceConfigOracleSourceConfigExcludeObjectsOracleSchemasOracleTables"]]], result)
@@ -10360,8 +10360,8 @@ class GoogleDatastreamStreamSourceConfigOracleSourceConfigExcludeObjectsOracleSc
         oracle_columns: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleDatastreamStreamSourceConfigOracleSourceConfigExcludeObjectsOracleSchemasOracleTablesOracleColumns", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param table: Table name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#table GoogleDatastreamStream#table}
-        :param oracle_columns: oracle_columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#oracle_columns GoogleDatastreamStream#oracle_columns}
+        :param table: Table name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#table GoogleDatastreamStream#table}
+        :param oracle_columns: oracle_columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#oracle_columns GoogleDatastreamStream#oracle_columns}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__72945eecb48621a4fee2bddebd411ceb1f976f5c3a43d0672213685a3b71b441)
@@ -10377,7 +10377,7 @@ class GoogleDatastreamStreamSourceConfigOracleSourceConfigExcludeObjectsOracleSc
     def table(self) -> builtins.str:
         '''Table name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#table GoogleDatastreamStream#table}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#table GoogleDatastreamStream#table}
         '''
         result = self._values.get("table")
         assert result is not None, "Required property 'table' is missing"
@@ -10389,7 +10389,7 @@ class GoogleDatastreamStreamSourceConfigOracleSourceConfigExcludeObjectsOracleSc
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamSourceConfigOracleSourceConfigExcludeObjectsOracleSchemasOracleTablesOracleColumns"]]]:
         '''oracle_columns block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#oracle_columns GoogleDatastreamStream#oracle_columns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#oracle_columns GoogleDatastreamStream#oracle_columns}
         '''
         result = self._values.get("oracle_columns")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamSourceConfigOracleSourceConfigExcludeObjectsOracleSchemasOracleTablesOracleColumns"]]], result)
@@ -10512,8 +10512,8 @@ class GoogleDatastreamStreamSourceConfigOracleSourceConfigExcludeObjectsOracleSc
         data_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param column: Column name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#column GoogleDatastreamStream#column}
-        :param data_type: The Oracle data type. Full data types list can be found here: https://docs.oracle.com/en/database/oracle/oracle-database/21/sqlrf/Data-Types.html. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#data_type GoogleDatastreamStream#data_type}
+        :param column: Column name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#column GoogleDatastreamStream#column}
+        :param data_type: The Oracle data type. Full data types list can be found here: https://docs.oracle.com/en/database/oracle/oracle-database/21/sqlrf/Data-Types.html. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#data_type GoogleDatastreamStream#data_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__927804d3f0652f6879e48552afb307aede9a0dd7cd504e58d7e1c46bdf801acd)
@@ -10529,7 +10529,7 @@ class GoogleDatastreamStreamSourceConfigOracleSourceConfigExcludeObjectsOracleSc
     def column(self) -> typing.Optional[builtins.str]:
         '''Column name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#column GoogleDatastreamStream#column}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#column GoogleDatastreamStream#column}
         '''
         result = self._values.get("column")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -10538,7 +10538,7 @@ class GoogleDatastreamStreamSourceConfigOracleSourceConfigExcludeObjectsOracleSc
     def data_type(self) -> typing.Optional[builtins.str]:
         '''The Oracle data type. Full data types list can be found here: https://docs.oracle.com/en/database/oracle/oracle-database/21/sqlrf/Data-Types.html.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#data_type GoogleDatastreamStream#data_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#data_type GoogleDatastreamStream#data_type}
         '''
         result = self._values.get("data_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -11030,7 +11030,7 @@ class GoogleDatastreamStreamSourceConfigOracleSourceConfigIncludeObjects:
         oracle_schemas: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleDatastreamStreamSourceConfigOracleSourceConfigIncludeObjectsOracleSchemas", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param oracle_schemas: oracle_schemas block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#oracle_schemas GoogleDatastreamStream#oracle_schemas}
+        :param oracle_schemas: oracle_schemas block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#oracle_schemas GoogleDatastreamStream#oracle_schemas}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4bf7adf8a1b3c9403fdb5890833e7a6863ca0b13208a0571d21d5c360b88b972)
@@ -11045,7 +11045,7 @@ class GoogleDatastreamStreamSourceConfigOracleSourceConfigIncludeObjects:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamSourceConfigOracleSourceConfigIncludeObjectsOracleSchemas"]]:
         '''oracle_schemas block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#oracle_schemas GoogleDatastreamStream#oracle_schemas}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#oracle_schemas GoogleDatastreamStream#oracle_schemas}
         '''
         result = self._values.get("oracle_schemas")
         assert result is not None, "Required property 'oracle_schemas' is missing"
@@ -11076,8 +11076,8 @@ class GoogleDatastreamStreamSourceConfigOracleSourceConfigIncludeObjectsOracleSc
         oracle_tables: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleDatastreamStreamSourceConfigOracleSourceConfigIncludeObjectsOracleSchemasOracleTables", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param schema: Schema name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#schema GoogleDatastreamStream#schema}
-        :param oracle_tables: oracle_tables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#oracle_tables GoogleDatastreamStream#oracle_tables}
+        :param schema: Schema name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#schema GoogleDatastreamStream#schema}
+        :param oracle_tables: oracle_tables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#oracle_tables GoogleDatastreamStream#oracle_tables}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1327fbf9aea1d708f05f9a5ae75009a20e135b2870b8dba66bea2d9bffd213db)
@@ -11093,7 +11093,7 @@ class GoogleDatastreamStreamSourceConfigOracleSourceConfigIncludeObjectsOracleSc
     def schema(self) -> builtins.str:
         '''Schema name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#schema GoogleDatastreamStream#schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#schema GoogleDatastreamStream#schema}
         '''
         result = self._values.get("schema")
         assert result is not None, "Required property 'schema' is missing"
@@ -11105,7 +11105,7 @@ class GoogleDatastreamStreamSourceConfigOracleSourceConfigIncludeObjectsOracleSc
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamSourceConfigOracleSourceConfigIncludeObjectsOracleSchemasOracleTables"]]]:
         '''oracle_tables block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#oracle_tables GoogleDatastreamStream#oracle_tables}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#oracle_tables GoogleDatastreamStream#oracle_tables}
         '''
         result = self._values.get("oracle_tables")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamSourceConfigOracleSourceConfigIncludeObjectsOracleSchemasOracleTables"]]], result)
@@ -11228,8 +11228,8 @@ class GoogleDatastreamStreamSourceConfigOracleSourceConfigIncludeObjectsOracleSc
         oracle_columns: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleDatastreamStreamSourceConfigOracleSourceConfigIncludeObjectsOracleSchemasOracleTablesOracleColumns", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param table: Table name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#table GoogleDatastreamStream#table}
-        :param oracle_columns: oracle_columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#oracle_columns GoogleDatastreamStream#oracle_columns}
+        :param table: Table name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#table GoogleDatastreamStream#table}
+        :param oracle_columns: oracle_columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#oracle_columns GoogleDatastreamStream#oracle_columns}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6735b041f43857ac6fcc259d83e8ec56b68237c970b2d0cba94db7ce6343dc6f)
@@ -11245,7 +11245,7 @@ class GoogleDatastreamStreamSourceConfigOracleSourceConfigIncludeObjectsOracleSc
     def table(self) -> builtins.str:
         '''Table name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#table GoogleDatastreamStream#table}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#table GoogleDatastreamStream#table}
         '''
         result = self._values.get("table")
         assert result is not None, "Required property 'table' is missing"
@@ -11257,7 +11257,7 @@ class GoogleDatastreamStreamSourceConfigOracleSourceConfigIncludeObjectsOracleSc
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamSourceConfigOracleSourceConfigIncludeObjectsOracleSchemasOracleTablesOracleColumns"]]]:
         '''oracle_columns block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#oracle_columns GoogleDatastreamStream#oracle_columns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#oracle_columns GoogleDatastreamStream#oracle_columns}
         '''
         result = self._values.get("oracle_columns")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamSourceConfigOracleSourceConfigIncludeObjectsOracleSchemasOracleTablesOracleColumns"]]], result)
@@ -11380,8 +11380,8 @@ class GoogleDatastreamStreamSourceConfigOracleSourceConfigIncludeObjectsOracleSc
         data_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param column: Column name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#column GoogleDatastreamStream#column}
-        :param data_type: The Oracle data type. Full data types list can be found here: https://docs.oracle.com/en/database/oracle/oracle-database/21/sqlrf/Data-Types.html. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#data_type GoogleDatastreamStream#data_type}
+        :param column: Column name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#column GoogleDatastreamStream#column}
+        :param data_type: The Oracle data type. Full data types list can be found here: https://docs.oracle.com/en/database/oracle/oracle-database/21/sqlrf/Data-Types.html. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#data_type GoogleDatastreamStream#data_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__92a1df38365a2804729811dab04b177001df36a2f42f89529d8a62a819106d9b)
@@ -11397,7 +11397,7 @@ class GoogleDatastreamStreamSourceConfigOracleSourceConfigIncludeObjectsOracleSc
     def column(self) -> typing.Optional[builtins.str]:
         '''Column name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#column GoogleDatastreamStream#column}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#column GoogleDatastreamStream#column}
         '''
         result = self._values.get("column")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -11406,7 +11406,7 @@ class GoogleDatastreamStreamSourceConfigOracleSourceConfigIncludeObjectsOracleSc
     def data_type(self) -> typing.Optional[builtins.str]:
         '''The Oracle data type. Full data types list can be found here: https://docs.oracle.com/en/database/oracle/oracle-database/21/sqlrf/Data-Types.html.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#data_type GoogleDatastreamStream#data_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#data_type GoogleDatastreamStream#data_type}
         '''
         result = self._values.get("data_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -11919,7 +11919,7 @@ class GoogleDatastreamStreamSourceConfigOracleSourceConfigOutputReference(
         oracle_schemas: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[GoogleDatastreamStreamSourceConfigOracleSourceConfigExcludeObjectsOracleSchemas, typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param oracle_schemas: oracle_schemas block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#oracle_schemas GoogleDatastreamStream#oracle_schemas}
+        :param oracle_schemas: oracle_schemas block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#oracle_schemas GoogleDatastreamStream#oracle_schemas}
         '''
         value = GoogleDatastreamStreamSourceConfigOracleSourceConfigExcludeObjects(
             oracle_schemas=oracle_schemas
@@ -11934,7 +11934,7 @@ class GoogleDatastreamStreamSourceConfigOracleSourceConfigOutputReference(
         oracle_schemas: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[GoogleDatastreamStreamSourceConfigOracleSourceConfigIncludeObjectsOracleSchemas, typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param oracle_schemas: oracle_schemas block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#oracle_schemas GoogleDatastreamStream#oracle_schemas}
+        :param oracle_schemas: oracle_schemas block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#oracle_schemas GoogleDatastreamStream#oracle_schemas}
         '''
         value = GoogleDatastreamStreamSourceConfigOracleSourceConfigIncludeObjects(
             oracle_schemas=oracle_schemas
@@ -12171,12 +12171,12 @@ class GoogleDatastreamStreamSourceConfigOutputReference(
         max_concurrent_cdc_tasks: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param binary_log_position: binary_log_position block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#binary_log_position GoogleDatastreamStream#binary_log_position}
-        :param exclude_objects: exclude_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#exclude_objects GoogleDatastreamStream#exclude_objects}
-        :param gtid: gtid block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#gtid GoogleDatastreamStream#gtid}
-        :param include_objects: include_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#include_objects GoogleDatastreamStream#include_objects}
-        :param max_concurrent_backfill_tasks: Maximum number of concurrent backfill tasks. The number should be non negative. If not set (or set to 0), the system's default value will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#max_concurrent_backfill_tasks GoogleDatastreamStream#max_concurrent_backfill_tasks}
-        :param max_concurrent_cdc_tasks: Maximum number of concurrent CDC tasks. The number should be non negative. If not set (or set to 0), the system's default value will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#max_concurrent_cdc_tasks GoogleDatastreamStream#max_concurrent_cdc_tasks}
+        :param binary_log_position: binary_log_position block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#binary_log_position GoogleDatastreamStream#binary_log_position}
+        :param exclude_objects: exclude_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#exclude_objects GoogleDatastreamStream#exclude_objects}
+        :param gtid: gtid block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#gtid GoogleDatastreamStream#gtid}
+        :param include_objects: include_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#include_objects GoogleDatastreamStream#include_objects}
+        :param max_concurrent_backfill_tasks: Maximum number of concurrent backfill tasks. The number should be non negative. If not set (or set to 0), the system's default value will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#max_concurrent_backfill_tasks GoogleDatastreamStream#max_concurrent_backfill_tasks}
+        :param max_concurrent_cdc_tasks: Maximum number of concurrent CDC tasks. The number should be non negative. If not set (or set to 0), the system's default value will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#max_concurrent_cdc_tasks GoogleDatastreamStream#max_concurrent_cdc_tasks}
         '''
         value = GoogleDatastreamStreamSourceConfigMysqlSourceConfig(
             binary_log_position=binary_log_position,
@@ -12201,12 +12201,12 @@ class GoogleDatastreamStreamSourceConfigOutputReference(
         stream_large_objects: typing.Optional[typing.Union[GoogleDatastreamStreamSourceConfigOracleSourceConfigStreamLargeObjects, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param drop_large_objects: drop_large_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#drop_large_objects GoogleDatastreamStream#drop_large_objects}
-        :param exclude_objects: exclude_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#exclude_objects GoogleDatastreamStream#exclude_objects}
-        :param include_objects: include_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#include_objects GoogleDatastreamStream#include_objects}
-        :param max_concurrent_backfill_tasks: Maximum number of concurrent backfill tasks. The number should be non negative. If not set (or set to 0), the system's default value will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#max_concurrent_backfill_tasks GoogleDatastreamStream#max_concurrent_backfill_tasks}
-        :param max_concurrent_cdc_tasks: Maximum number of concurrent CDC tasks. The number should be non negative. If not set (or set to 0), the system's default value will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#max_concurrent_cdc_tasks GoogleDatastreamStream#max_concurrent_cdc_tasks}
-        :param stream_large_objects: stream_large_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#stream_large_objects GoogleDatastreamStream#stream_large_objects}
+        :param drop_large_objects: drop_large_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#drop_large_objects GoogleDatastreamStream#drop_large_objects}
+        :param exclude_objects: exclude_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#exclude_objects GoogleDatastreamStream#exclude_objects}
+        :param include_objects: include_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#include_objects GoogleDatastreamStream#include_objects}
+        :param max_concurrent_backfill_tasks: Maximum number of concurrent backfill tasks. The number should be non negative. If not set (or set to 0), the system's default value will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#max_concurrent_backfill_tasks GoogleDatastreamStream#max_concurrent_backfill_tasks}
+        :param max_concurrent_cdc_tasks: Maximum number of concurrent CDC tasks. The number should be non negative. If not set (or set to 0), the system's default value will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#max_concurrent_cdc_tasks GoogleDatastreamStream#max_concurrent_cdc_tasks}
+        :param stream_large_objects: stream_large_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#stream_large_objects GoogleDatastreamStream#stream_large_objects}
         '''
         value = GoogleDatastreamStreamSourceConfigOracleSourceConfig(
             drop_large_objects=drop_large_objects,
@@ -12230,11 +12230,11 @@ class GoogleDatastreamStreamSourceConfigOutputReference(
         max_concurrent_backfill_tasks: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param publication: The name of the publication that includes the set of all tables that are defined in the stream's include_objects. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#publication GoogleDatastreamStream#publication}
-        :param replication_slot: The name of the logical replication slot that's configured with the pgoutput plugin. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#replication_slot GoogleDatastreamStream#replication_slot}
-        :param exclude_objects: exclude_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#exclude_objects GoogleDatastreamStream#exclude_objects}
-        :param include_objects: include_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#include_objects GoogleDatastreamStream#include_objects}
-        :param max_concurrent_backfill_tasks: Maximum number of concurrent backfill tasks. The number should be non negative. If not set (or set to 0), the system's default value will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#max_concurrent_backfill_tasks GoogleDatastreamStream#max_concurrent_backfill_tasks}
+        :param publication: The name of the publication that includes the set of all tables that are defined in the stream's include_objects. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#publication GoogleDatastreamStream#publication}
+        :param replication_slot: The name of the logical replication slot that's configured with the pgoutput plugin. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#replication_slot GoogleDatastreamStream#replication_slot}
+        :param exclude_objects: exclude_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#exclude_objects GoogleDatastreamStream#exclude_objects}
+        :param include_objects: include_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#include_objects GoogleDatastreamStream#include_objects}
+        :param max_concurrent_backfill_tasks: Maximum number of concurrent backfill tasks. The number should be non negative. If not set (or set to 0), the system's default value will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#max_concurrent_backfill_tasks GoogleDatastreamStream#max_concurrent_backfill_tasks}
         '''
         value = GoogleDatastreamStreamSourceConfigPostgresqlSourceConfig(
             publication=publication,
@@ -12255,9 +12255,9 @@ class GoogleDatastreamStreamSourceConfigOutputReference(
         include_objects: typing.Optional[typing.Union["GoogleDatastreamStreamSourceConfigSalesforceSourceConfigIncludeObjects", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param polling_interval: Salesforce objects polling interval. The interval at which new changes will be polled for each object. The duration must be between 5 minutes and 24 hours. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#polling_interval GoogleDatastreamStream#polling_interval}
-        :param exclude_objects: exclude_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#exclude_objects GoogleDatastreamStream#exclude_objects}
-        :param include_objects: include_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#include_objects GoogleDatastreamStream#include_objects}
+        :param polling_interval: Salesforce objects polling interval. The interval at which new changes will be polled for each object. The duration must be between 5 minutes and 24 hours. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#polling_interval GoogleDatastreamStream#polling_interval}
+        :param exclude_objects: exclude_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#exclude_objects GoogleDatastreamStream#exclude_objects}
+        :param include_objects: include_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#include_objects GoogleDatastreamStream#include_objects}
         '''
         value = GoogleDatastreamStreamSourceConfigSalesforceSourceConfig(
             polling_interval=polling_interval,
@@ -12279,12 +12279,12 @@ class GoogleDatastreamStreamSourceConfigOutputReference(
         transaction_logs: typing.Optional[typing.Union["GoogleDatastreamStreamSourceConfigSqlServerSourceConfigTransactionLogs", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param change_tables: change_tables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#change_tables GoogleDatastreamStream#change_tables}
-        :param exclude_objects: exclude_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#exclude_objects GoogleDatastreamStream#exclude_objects}
-        :param include_objects: include_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#include_objects GoogleDatastreamStream#include_objects}
-        :param max_concurrent_backfill_tasks: Max concurrent backfill tasks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#max_concurrent_backfill_tasks GoogleDatastreamStream#max_concurrent_backfill_tasks}
-        :param max_concurrent_cdc_tasks: Max concurrent CDC tasks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#max_concurrent_cdc_tasks GoogleDatastreamStream#max_concurrent_cdc_tasks}
-        :param transaction_logs: transaction_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#transaction_logs GoogleDatastreamStream#transaction_logs}
+        :param change_tables: change_tables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#change_tables GoogleDatastreamStream#change_tables}
+        :param exclude_objects: exclude_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#exclude_objects GoogleDatastreamStream#exclude_objects}
+        :param include_objects: include_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#include_objects GoogleDatastreamStream#include_objects}
+        :param max_concurrent_backfill_tasks: Max concurrent backfill tasks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#max_concurrent_backfill_tasks GoogleDatastreamStream#max_concurrent_backfill_tasks}
+        :param max_concurrent_cdc_tasks: Max concurrent CDC tasks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#max_concurrent_cdc_tasks GoogleDatastreamStream#max_concurrent_cdc_tasks}
+        :param transaction_logs: transaction_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#transaction_logs GoogleDatastreamStream#transaction_logs}
         '''
         value = GoogleDatastreamStreamSourceConfigSqlServerSourceConfig(
             change_tables=change_tables,
@@ -12442,11 +12442,11 @@ class GoogleDatastreamStreamSourceConfigPostgresqlSourceConfig:
         max_concurrent_backfill_tasks: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param publication: The name of the publication that includes the set of all tables that are defined in the stream's include_objects. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#publication GoogleDatastreamStream#publication}
-        :param replication_slot: The name of the logical replication slot that's configured with the pgoutput plugin. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#replication_slot GoogleDatastreamStream#replication_slot}
-        :param exclude_objects: exclude_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#exclude_objects GoogleDatastreamStream#exclude_objects}
-        :param include_objects: include_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#include_objects GoogleDatastreamStream#include_objects}
-        :param max_concurrent_backfill_tasks: Maximum number of concurrent backfill tasks. The number should be non negative. If not set (or set to 0), the system's default value will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#max_concurrent_backfill_tasks GoogleDatastreamStream#max_concurrent_backfill_tasks}
+        :param publication: The name of the publication that includes the set of all tables that are defined in the stream's include_objects. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#publication GoogleDatastreamStream#publication}
+        :param replication_slot: The name of the logical replication slot that's configured with the pgoutput plugin. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#replication_slot GoogleDatastreamStream#replication_slot}
+        :param exclude_objects: exclude_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#exclude_objects GoogleDatastreamStream#exclude_objects}
+        :param include_objects: include_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#include_objects GoogleDatastreamStream#include_objects}
+        :param max_concurrent_backfill_tasks: Maximum number of concurrent backfill tasks. The number should be non negative. If not set (or set to 0), the system's default value will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#max_concurrent_backfill_tasks GoogleDatastreamStream#max_concurrent_backfill_tasks}
         '''
         if isinstance(exclude_objects, dict):
             exclude_objects = GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigExcludeObjects(**exclude_objects)
@@ -12474,7 +12474,7 @@ class GoogleDatastreamStreamSourceConfigPostgresqlSourceConfig:
     def publication(self) -> builtins.str:
         '''The name of the publication that includes the set of all tables that are defined in the stream's include_objects.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#publication GoogleDatastreamStream#publication}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#publication GoogleDatastreamStream#publication}
         '''
         result = self._values.get("publication")
         assert result is not None, "Required property 'publication' is missing"
@@ -12484,7 +12484,7 @@ class GoogleDatastreamStreamSourceConfigPostgresqlSourceConfig:
     def replication_slot(self) -> builtins.str:
         '''The name of the logical replication slot that's configured with the pgoutput plugin.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#replication_slot GoogleDatastreamStream#replication_slot}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#replication_slot GoogleDatastreamStream#replication_slot}
         '''
         result = self._values.get("replication_slot")
         assert result is not None, "Required property 'replication_slot' is missing"
@@ -12496,7 +12496,7 @@ class GoogleDatastreamStreamSourceConfigPostgresqlSourceConfig:
     ) -> typing.Optional["GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigExcludeObjects"]:
         '''exclude_objects block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#exclude_objects GoogleDatastreamStream#exclude_objects}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#exclude_objects GoogleDatastreamStream#exclude_objects}
         '''
         result = self._values.get("exclude_objects")
         return typing.cast(typing.Optional["GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigExcludeObjects"], result)
@@ -12507,7 +12507,7 @@ class GoogleDatastreamStreamSourceConfigPostgresqlSourceConfig:
     ) -> typing.Optional["GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigIncludeObjects"]:
         '''include_objects block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#include_objects GoogleDatastreamStream#include_objects}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#include_objects GoogleDatastreamStream#include_objects}
         '''
         result = self._values.get("include_objects")
         return typing.cast(typing.Optional["GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigIncludeObjects"], result)
@@ -12519,7 +12519,7 @@ class GoogleDatastreamStreamSourceConfigPostgresqlSourceConfig:
         The number should be non
         negative. If not set (or set to 0), the system's default value will be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#max_concurrent_backfill_tasks GoogleDatastreamStream#max_concurrent_backfill_tasks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#max_concurrent_backfill_tasks GoogleDatastreamStream#max_concurrent_backfill_tasks}
         '''
         result = self._values.get("max_concurrent_backfill_tasks")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -12548,7 +12548,7 @@ class GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigExcludeObjects:
         postgresql_schemas: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigExcludeObjectsPostgresqlSchemas", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param postgresql_schemas: postgresql_schemas block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#postgresql_schemas GoogleDatastreamStream#postgresql_schemas}
+        :param postgresql_schemas: postgresql_schemas block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#postgresql_schemas GoogleDatastreamStream#postgresql_schemas}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e29e94db22db80391b825274aa101356ab7e352a304616a909e6af086988b3cd)
@@ -12563,7 +12563,7 @@ class GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigExcludeObjects:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigExcludeObjectsPostgresqlSchemas"]]:
         '''postgresql_schemas block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#postgresql_schemas GoogleDatastreamStream#postgresql_schemas}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#postgresql_schemas GoogleDatastreamStream#postgresql_schemas}
         '''
         result = self._values.get("postgresql_schemas")
         assert result is not None, "Required property 'postgresql_schemas' is missing"
@@ -12659,8 +12659,8 @@ class GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigExcludeObjectsPost
         postgresql_tables: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigExcludeObjectsPostgresqlSchemasPostgresqlTables", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param schema: Database name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#schema GoogleDatastreamStream#schema}
-        :param postgresql_tables: postgresql_tables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#postgresql_tables GoogleDatastreamStream#postgresql_tables}
+        :param schema: Database name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#schema GoogleDatastreamStream#schema}
+        :param postgresql_tables: postgresql_tables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#postgresql_tables GoogleDatastreamStream#postgresql_tables}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9ab9c755671dcb72ed7544f514c592145f56365e5b95a649b0d6f94c1c95cd36)
@@ -12676,7 +12676,7 @@ class GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigExcludeObjectsPost
     def schema(self) -> builtins.str:
         '''Database name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#schema GoogleDatastreamStream#schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#schema GoogleDatastreamStream#schema}
         '''
         result = self._values.get("schema")
         assert result is not None, "Required property 'schema' is missing"
@@ -12688,7 +12688,7 @@ class GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigExcludeObjectsPost
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigExcludeObjectsPostgresqlSchemasPostgresqlTables"]]]:
         '''postgresql_tables block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#postgresql_tables GoogleDatastreamStream#postgresql_tables}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#postgresql_tables GoogleDatastreamStream#postgresql_tables}
         '''
         result = self._values.get("postgresql_tables")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigExcludeObjectsPostgresqlSchemasPostgresqlTables"]]], result)
@@ -12903,8 +12903,8 @@ class GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigExcludeObjectsPost
         postgresql_columns: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigExcludeObjectsPostgresqlSchemasPostgresqlTablesPostgresqlColumns", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param table: Table name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#table GoogleDatastreamStream#table}
-        :param postgresql_columns: postgresql_columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#postgresql_columns GoogleDatastreamStream#postgresql_columns}
+        :param table: Table name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#table GoogleDatastreamStream#table}
+        :param postgresql_columns: postgresql_columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#postgresql_columns GoogleDatastreamStream#postgresql_columns}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bdf9f84e8cebb18a1de572b141bdbcb6ea00324ecc4f8c7ffb8c95c83888ef15)
@@ -12920,7 +12920,7 @@ class GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigExcludeObjectsPost
     def table(self) -> builtins.str:
         '''Table name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#table GoogleDatastreamStream#table}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#table GoogleDatastreamStream#table}
         '''
         result = self._values.get("table")
         assert result is not None, "Required property 'table' is missing"
@@ -12932,7 +12932,7 @@ class GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigExcludeObjectsPost
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigExcludeObjectsPostgresqlSchemasPostgresqlTablesPostgresqlColumns"]]]:
         '''postgresql_columns block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#postgresql_columns GoogleDatastreamStream#postgresql_columns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#postgresql_columns GoogleDatastreamStream#postgresql_columns}
         '''
         result = self._values.get("postgresql_columns")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigExcludeObjectsPostgresqlSchemasPostgresqlTablesPostgresqlColumns"]]], result)
@@ -13156,11 +13156,11 @@ class GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigExcludeObjectsPost
         primary_key: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param column: Column name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#column GoogleDatastreamStream#column}
-        :param data_type: The PostgreSQL data type. Full data types list can be found here: https://www.postgresql.org/docs/current/datatype.html. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#data_type GoogleDatastreamStream#data_type}
-        :param nullable: Whether or not the column can accept a null value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#nullable GoogleDatastreamStream#nullable}
-        :param ordinal_position: The ordinal position of the column in the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#ordinal_position GoogleDatastreamStream#ordinal_position}
-        :param primary_key: Whether or not the column represents a primary key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#primary_key GoogleDatastreamStream#primary_key}
+        :param column: Column name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#column GoogleDatastreamStream#column}
+        :param data_type: The PostgreSQL data type. Full data types list can be found here: https://www.postgresql.org/docs/current/datatype.html. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#data_type GoogleDatastreamStream#data_type}
+        :param nullable: Whether or not the column can accept a null value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#nullable GoogleDatastreamStream#nullable}
+        :param ordinal_position: The ordinal position of the column in the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#ordinal_position GoogleDatastreamStream#ordinal_position}
+        :param primary_key: Whether or not the column represents a primary key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#primary_key GoogleDatastreamStream#primary_key}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c374ba9568fefe81d56a433cddbb7dd8413494101c656d826bf8cb17e639a77e)
@@ -13185,7 +13185,7 @@ class GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigExcludeObjectsPost
     def column(self) -> typing.Optional[builtins.str]:
         '''Column name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#column GoogleDatastreamStream#column}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#column GoogleDatastreamStream#column}
         '''
         result = self._values.get("column")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -13194,7 +13194,7 @@ class GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigExcludeObjectsPost
     def data_type(self) -> typing.Optional[builtins.str]:
         '''The PostgreSQL data type. Full data types list can be found here: https://www.postgresql.org/docs/current/datatype.html.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#data_type GoogleDatastreamStream#data_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#data_type GoogleDatastreamStream#data_type}
         '''
         result = self._values.get("data_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -13205,7 +13205,7 @@ class GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigExcludeObjectsPost
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether or not the column can accept a null value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#nullable GoogleDatastreamStream#nullable}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#nullable GoogleDatastreamStream#nullable}
         '''
         result = self._values.get("nullable")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -13214,7 +13214,7 @@ class GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigExcludeObjectsPost
     def ordinal_position(self) -> typing.Optional[jsii.Number]:
         '''The ordinal position of the column in the table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#ordinal_position GoogleDatastreamStream#ordinal_position}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#ordinal_position GoogleDatastreamStream#ordinal_position}
         '''
         result = self._values.get("ordinal_position")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -13225,7 +13225,7 @@ class GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigExcludeObjectsPost
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether or not the column represents a primary key.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#primary_key GoogleDatastreamStream#primary_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#primary_key GoogleDatastreamStream#primary_key}
         '''
         result = self._values.get("primary_key")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -13521,7 +13521,7 @@ class GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigIncludeObjects:
         postgresql_schemas: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigIncludeObjectsPostgresqlSchemas", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param postgresql_schemas: postgresql_schemas block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#postgresql_schemas GoogleDatastreamStream#postgresql_schemas}
+        :param postgresql_schemas: postgresql_schemas block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#postgresql_schemas GoogleDatastreamStream#postgresql_schemas}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a140786a024a194a696f5014921560df44580d133ecd1c619c8e5e18add8aeed)
@@ -13536,7 +13536,7 @@ class GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigIncludeObjects:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigIncludeObjectsPostgresqlSchemas"]]:
         '''postgresql_schemas block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#postgresql_schemas GoogleDatastreamStream#postgresql_schemas}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#postgresql_schemas GoogleDatastreamStream#postgresql_schemas}
         '''
         result = self._values.get("postgresql_schemas")
         assert result is not None, "Required property 'postgresql_schemas' is missing"
@@ -13632,8 +13632,8 @@ class GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigIncludeObjectsPost
         postgresql_tables: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigIncludeObjectsPostgresqlSchemasPostgresqlTables", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param schema: Database name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#schema GoogleDatastreamStream#schema}
-        :param postgresql_tables: postgresql_tables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#postgresql_tables GoogleDatastreamStream#postgresql_tables}
+        :param schema: Database name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#schema GoogleDatastreamStream#schema}
+        :param postgresql_tables: postgresql_tables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#postgresql_tables GoogleDatastreamStream#postgresql_tables}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__13cb4f6f5aaa105019489a12d97f546fe100ac275358231f6fa95081e265f3b8)
@@ -13649,7 +13649,7 @@ class GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigIncludeObjectsPost
     def schema(self) -> builtins.str:
         '''Database name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#schema GoogleDatastreamStream#schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#schema GoogleDatastreamStream#schema}
         '''
         result = self._values.get("schema")
         assert result is not None, "Required property 'schema' is missing"
@@ -13661,7 +13661,7 @@ class GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigIncludeObjectsPost
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigIncludeObjectsPostgresqlSchemasPostgresqlTables"]]]:
         '''postgresql_tables block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#postgresql_tables GoogleDatastreamStream#postgresql_tables}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#postgresql_tables GoogleDatastreamStream#postgresql_tables}
         '''
         result = self._values.get("postgresql_tables")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigIncludeObjectsPostgresqlSchemasPostgresqlTables"]]], result)
@@ -13876,8 +13876,8 @@ class GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigIncludeObjectsPost
         postgresql_columns: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigIncludeObjectsPostgresqlSchemasPostgresqlTablesPostgresqlColumns", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param table: Table name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#table GoogleDatastreamStream#table}
-        :param postgresql_columns: postgresql_columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#postgresql_columns GoogleDatastreamStream#postgresql_columns}
+        :param table: Table name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#table GoogleDatastreamStream#table}
+        :param postgresql_columns: postgresql_columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#postgresql_columns GoogleDatastreamStream#postgresql_columns}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__eda4783896c6e83094c50a0c20ff8b5795507b65a1c411668c3007386dd22397)
@@ -13893,7 +13893,7 @@ class GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigIncludeObjectsPost
     def table(self) -> builtins.str:
         '''Table name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#table GoogleDatastreamStream#table}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#table GoogleDatastreamStream#table}
         '''
         result = self._values.get("table")
         assert result is not None, "Required property 'table' is missing"
@@ -13905,7 +13905,7 @@ class GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigIncludeObjectsPost
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigIncludeObjectsPostgresqlSchemasPostgresqlTablesPostgresqlColumns"]]]:
         '''postgresql_columns block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#postgresql_columns GoogleDatastreamStream#postgresql_columns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#postgresql_columns GoogleDatastreamStream#postgresql_columns}
         '''
         result = self._values.get("postgresql_columns")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigIncludeObjectsPostgresqlSchemasPostgresqlTablesPostgresqlColumns"]]], result)
@@ -14129,11 +14129,11 @@ class GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigIncludeObjectsPost
         primary_key: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param column: Column name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#column GoogleDatastreamStream#column}
-        :param data_type: The PostgreSQL data type. Full data types list can be found here: https://www.postgresql.org/docs/current/datatype.html. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#data_type GoogleDatastreamStream#data_type}
-        :param nullable: Whether or not the column can accept a null value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#nullable GoogleDatastreamStream#nullable}
-        :param ordinal_position: The ordinal position of the column in the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#ordinal_position GoogleDatastreamStream#ordinal_position}
-        :param primary_key: Whether or not the column represents a primary key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#primary_key GoogleDatastreamStream#primary_key}
+        :param column: Column name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#column GoogleDatastreamStream#column}
+        :param data_type: The PostgreSQL data type. Full data types list can be found here: https://www.postgresql.org/docs/current/datatype.html. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#data_type GoogleDatastreamStream#data_type}
+        :param nullable: Whether or not the column can accept a null value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#nullable GoogleDatastreamStream#nullable}
+        :param ordinal_position: The ordinal position of the column in the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#ordinal_position GoogleDatastreamStream#ordinal_position}
+        :param primary_key: Whether or not the column represents a primary key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#primary_key GoogleDatastreamStream#primary_key}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0f82d6f2db315d340e7b88786b3820bff3c60d4dfb15a17d5710309de0cf7115)
@@ -14158,7 +14158,7 @@ class GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigIncludeObjectsPost
     def column(self) -> typing.Optional[builtins.str]:
         '''Column name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#column GoogleDatastreamStream#column}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#column GoogleDatastreamStream#column}
         '''
         result = self._values.get("column")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -14167,7 +14167,7 @@ class GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigIncludeObjectsPost
     def data_type(self) -> typing.Optional[builtins.str]:
         '''The PostgreSQL data type. Full data types list can be found here: https://www.postgresql.org/docs/current/datatype.html.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#data_type GoogleDatastreamStream#data_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#data_type GoogleDatastreamStream#data_type}
         '''
         result = self._values.get("data_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -14178,7 +14178,7 @@ class GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigIncludeObjectsPost
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether or not the column can accept a null value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#nullable GoogleDatastreamStream#nullable}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#nullable GoogleDatastreamStream#nullable}
         '''
         result = self._values.get("nullable")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -14187,7 +14187,7 @@ class GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigIncludeObjectsPost
     def ordinal_position(self) -> typing.Optional[jsii.Number]:
         '''The ordinal position of the column in the table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#ordinal_position GoogleDatastreamStream#ordinal_position}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#ordinal_position GoogleDatastreamStream#ordinal_position}
         '''
         result = self._values.get("ordinal_position")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -14198,7 +14198,7 @@ class GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigIncludeObjectsPost
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether or not the column represents a primary key.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#primary_key GoogleDatastreamStream#primary_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#primary_key GoogleDatastreamStream#primary_key}
         '''
         result = self._values.get("primary_key")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -14509,7 +14509,7 @@ class GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigOutputReference(
         postgresql_schemas: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigExcludeObjectsPostgresqlSchemas, typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param postgresql_schemas: postgresql_schemas block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#postgresql_schemas GoogleDatastreamStream#postgresql_schemas}
+        :param postgresql_schemas: postgresql_schemas block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#postgresql_schemas GoogleDatastreamStream#postgresql_schemas}
         '''
         value = GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigExcludeObjects(
             postgresql_schemas=postgresql_schemas
@@ -14524,7 +14524,7 @@ class GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigOutputReference(
         postgresql_schemas: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigIncludeObjectsPostgresqlSchemas, typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param postgresql_schemas: postgresql_schemas block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#postgresql_schemas GoogleDatastreamStream#postgresql_schemas}
+        :param postgresql_schemas: postgresql_schemas block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#postgresql_schemas GoogleDatastreamStream#postgresql_schemas}
         '''
         value = GoogleDatastreamStreamSourceConfigPostgresqlSourceConfigIncludeObjects(
             postgresql_schemas=postgresql_schemas
@@ -14659,9 +14659,9 @@ class GoogleDatastreamStreamSourceConfigSalesforceSourceConfig:
         include_objects: typing.Optional[typing.Union["GoogleDatastreamStreamSourceConfigSalesforceSourceConfigIncludeObjects", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param polling_interval: Salesforce objects polling interval. The interval at which new changes will be polled for each object. The duration must be between 5 minutes and 24 hours. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#polling_interval GoogleDatastreamStream#polling_interval}
-        :param exclude_objects: exclude_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#exclude_objects GoogleDatastreamStream#exclude_objects}
-        :param include_objects: include_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#include_objects GoogleDatastreamStream#include_objects}
+        :param polling_interval: Salesforce objects polling interval. The interval at which new changes will be polled for each object. The duration must be between 5 minutes and 24 hours. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#polling_interval GoogleDatastreamStream#polling_interval}
+        :param exclude_objects: exclude_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#exclude_objects GoogleDatastreamStream#exclude_objects}
+        :param include_objects: include_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#include_objects GoogleDatastreamStream#include_objects}
         '''
         if isinstance(exclude_objects, dict):
             exclude_objects = GoogleDatastreamStreamSourceConfigSalesforceSourceConfigExcludeObjects(**exclude_objects)
@@ -14686,7 +14686,7 @@ class GoogleDatastreamStreamSourceConfigSalesforceSourceConfig:
 
         The interval at which new changes will be polled for each object. The duration must be between 5 minutes and 24 hours.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#polling_interval GoogleDatastreamStream#polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#polling_interval GoogleDatastreamStream#polling_interval}
         '''
         result = self._values.get("polling_interval")
         assert result is not None, "Required property 'polling_interval' is missing"
@@ -14698,7 +14698,7 @@ class GoogleDatastreamStreamSourceConfigSalesforceSourceConfig:
     ) -> typing.Optional["GoogleDatastreamStreamSourceConfigSalesforceSourceConfigExcludeObjects"]:
         '''exclude_objects block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#exclude_objects GoogleDatastreamStream#exclude_objects}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#exclude_objects GoogleDatastreamStream#exclude_objects}
         '''
         result = self._values.get("exclude_objects")
         return typing.cast(typing.Optional["GoogleDatastreamStreamSourceConfigSalesforceSourceConfigExcludeObjects"], result)
@@ -14709,7 +14709,7 @@ class GoogleDatastreamStreamSourceConfigSalesforceSourceConfig:
     ) -> typing.Optional["GoogleDatastreamStreamSourceConfigSalesforceSourceConfigIncludeObjects"]:
         '''include_objects block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#include_objects GoogleDatastreamStream#include_objects}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#include_objects GoogleDatastreamStream#include_objects}
         '''
         result = self._values.get("include_objects")
         return typing.cast(typing.Optional["GoogleDatastreamStreamSourceConfigSalesforceSourceConfigIncludeObjects"], result)
@@ -14738,7 +14738,7 @@ class GoogleDatastreamStreamSourceConfigSalesforceSourceConfigExcludeObjects:
         objects: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleDatastreamStreamSourceConfigSalesforceSourceConfigExcludeObjectsObjects", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param objects: objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#objects GoogleDatastreamStream#objects}
+        :param objects: objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#objects GoogleDatastreamStream#objects}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7bba2845f814f261eddc3593aafc3546ba5be1c36c6472fc520640aad4070bfa)
@@ -14753,7 +14753,7 @@ class GoogleDatastreamStreamSourceConfigSalesforceSourceConfigExcludeObjects:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamSourceConfigSalesforceSourceConfigExcludeObjectsObjects"]]:
         '''objects block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#objects GoogleDatastreamStream#objects}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#objects GoogleDatastreamStream#objects}
         '''
         result = self._values.get("objects")
         assert result is not None, "Required property 'objects' is missing"
@@ -14784,8 +14784,8 @@ class GoogleDatastreamStreamSourceConfigSalesforceSourceConfigExcludeObjectsObje
         object_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param fields: fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#fields GoogleDatastreamStream#fields}
-        :param object_name: Name of object in Salesforce Org. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#object_name GoogleDatastreamStream#object_name}
+        :param fields: fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#fields GoogleDatastreamStream#fields}
+        :param object_name: Name of object in Salesforce Org. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#object_name GoogleDatastreamStream#object_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3142a0606aca8a4b5b8dc7b57bd1b40341f05947208702db27293ad5f36f39a3)
@@ -14803,7 +14803,7 @@ class GoogleDatastreamStreamSourceConfigSalesforceSourceConfigExcludeObjectsObje
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamSourceConfigSalesforceSourceConfigExcludeObjectsObjectsFields"]]]:
         '''fields block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#fields GoogleDatastreamStream#fields}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#fields GoogleDatastreamStream#fields}
         '''
         result = self._values.get("fields")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamSourceConfigSalesforceSourceConfigExcludeObjectsObjectsFields"]]], result)
@@ -14812,7 +14812,7 @@ class GoogleDatastreamStreamSourceConfigSalesforceSourceConfigExcludeObjectsObje
     def object_name(self) -> typing.Optional[builtins.str]:
         '''Name of object in Salesforce Org.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#object_name GoogleDatastreamStream#object_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#object_name GoogleDatastreamStream#object_name}
         '''
         result = self._values.get("object_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -14837,7 +14837,7 @@ class GoogleDatastreamStreamSourceConfigSalesforceSourceConfigExcludeObjectsObje
 class GoogleDatastreamStreamSourceConfigSalesforceSourceConfigExcludeObjectsObjectsFields:
     def __init__(self, *, name: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param name: Field name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#name GoogleDatastreamStream#name}
+        :param name: Field name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#name GoogleDatastreamStream#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3a8a67e4aaa923acd9c2522cda00c9118998e33ca68f4cddf3eb0da87329cb80)
@@ -14850,7 +14850,7 @@ class GoogleDatastreamStreamSourceConfigSalesforceSourceConfigExcludeObjectsObje
     def name(self) -> typing.Optional[builtins.str]:
         '''Field name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#name GoogleDatastreamStream#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#name GoogleDatastreamStream#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -15291,7 +15291,7 @@ class GoogleDatastreamStreamSourceConfigSalesforceSourceConfigIncludeObjects:
         objects: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleDatastreamStreamSourceConfigSalesforceSourceConfigIncludeObjectsObjects", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param objects: objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#objects GoogleDatastreamStream#objects}
+        :param objects: objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#objects GoogleDatastreamStream#objects}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5197323f311de346c2494e821c1a0269cdf21a9ccd96a3416d73b279562083c5)
@@ -15306,7 +15306,7 @@ class GoogleDatastreamStreamSourceConfigSalesforceSourceConfigIncludeObjects:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamSourceConfigSalesforceSourceConfigIncludeObjectsObjects"]]:
         '''objects block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#objects GoogleDatastreamStream#objects}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#objects GoogleDatastreamStream#objects}
         '''
         result = self._values.get("objects")
         assert result is not None, "Required property 'objects' is missing"
@@ -15337,8 +15337,8 @@ class GoogleDatastreamStreamSourceConfigSalesforceSourceConfigIncludeObjectsObje
         object_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param fields: fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#fields GoogleDatastreamStream#fields}
-        :param object_name: Name of object in Salesforce Org. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#object_name GoogleDatastreamStream#object_name}
+        :param fields: fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#fields GoogleDatastreamStream#fields}
+        :param object_name: Name of object in Salesforce Org. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#object_name GoogleDatastreamStream#object_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__06675c61e4449178ec065e3ed1222b716ab5dcbfc5facd35d66f181621894bbc)
@@ -15356,7 +15356,7 @@ class GoogleDatastreamStreamSourceConfigSalesforceSourceConfigIncludeObjectsObje
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamSourceConfigSalesforceSourceConfigIncludeObjectsObjectsFields"]]]:
         '''fields block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#fields GoogleDatastreamStream#fields}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#fields GoogleDatastreamStream#fields}
         '''
         result = self._values.get("fields")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamSourceConfigSalesforceSourceConfigIncludeObjectsObjectsFields"]]], result)
@@ -15365,7 +15365,7 @@ class GoogleDatastreamStreamSourceConfigSalesforceSourceConfigIncludeObjectsObje
     def object_name(self) -> typing.Optional[builtins.str]:
         '''Name of object in Salesforce Org.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#object_name GoogleDatastreamStream#object_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#object_name GoogleDatastreamStream#object_name}
         '''
         result = self._values.get("object_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -15390,7 +15390,7 @@ class GoogleDatastreamStreamSourceConfigSalesforceSourceConfigIncludeObjectsObje
 class GoogleDatastreamStreamSourceConfigSalesforceSourceConfigIncludeObjectsObjectsFields:
     def __init__(self, *, name: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param name: Field name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#name GoogleDatastreamStream#name}
+        :param name: Field name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#name GoogleDatastreamStream#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3c255c56e863cf0ccc696400c5ce35386c7f4948cdf9811f4b3ab496ad13f18f)
@@ -15403,7 +15403,7 @@ class GoogleDatastreamStreamSourceConfigSalesforceSourceConfigIncludeObjectsObje
     def name(self) -> typing.Optional[builtins.str]:
         '''Field name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#name GoogleDatastreamStream#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#name GoogleDatastreamStream#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -15859,7 +15859,7 @@ class GoogleDatastreamStreamSourceConfigSalesforceSourceConfigOutputReference(
         objects: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[GoogleDatastreamStreamSourceConfigSalesforceSourceConfigExcludeObjectsObjects, typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param objects: objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#objects GoogleDatastreamStream#objects}
+        :param objects: objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#objects GoogleDatastreamStream#objects}
         '''
         value = GoogleDatastreamStreamSourceConfigSalesforceSourceConfigExcludeObjects(
             objects=objects
@@ -15874,7 +15874,7 @@ class GoogleDatastreamStreamSourceConfigSalesforceSourceConfigOutputReference(
         objects: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[GoogleDatastreamStreamSourceConfigSalesforceSourceConfigIncludeObjectsObjects, typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param objects: objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#objects GoogleDatastreamStream#objects}
+        :param objects: objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#objects GoogleDatastreamStream#objects}
         '''
         value = GoogleDatastreamStreamSourceConfigSalesforceSourceConfigIncludeObjects(
             objects=objects
@@ -15977,12 +15977,12 @@ class GoogleDatastreamStreamSourceConfigSqlServerSourceConfig:
         transaction_logs: typing.Optional[typing.Union["GoogleDatastreamStreamSourceConfigSqlServerSourceConfigTransactionLogs", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param change_tables: change_tables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#change_tables GoogleDatastreamStream#change_tables}
-        :param exclude_objects: exclude_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#exclude_objects GoogleDatastreamStream#exclude_objects}
-        :param include_objects: include_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#include_objects GoogleDatastreamStream#include_objects}
-        :param max_concurrent_backfill_tasks: Max concurrent backfill tasks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#max_concurrent_backfill_tasks GoogleDatastreamStream#max_concurrent_backfill_tasks}
-        :param max_concurrent_cdc_tasks: Max concurrent CDC tasks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#max_concurrent_cdc_tasks GoogleDatastreamStream#max_concurrent_cdc_tasks}
-        :param transaction_logs: transaction_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#transaction_logs GoogleDatastreamStream#transaction_logs}
+        :param change_tables: change_tables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#change_tables GoogleDatastreamStream#change_tables}
+        :param exclude_objects: exclude_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#exclude_objects GoogleDatastreamStream#exclude_objects}
+        :param include_objects: include_objects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#include_objects GoogleDatastreamStream#include_objects}
+        :param max_concurrent_backfill_tasks: Max concurrent backfill tasks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#max_concurrent_backfill_tasks GoogleDatastreamStream#max_concurrent_backfill_tasks}
+        :param max_concurrent_cdc_tasks: Max concurrent CDC tasks. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#max_concurrent_cdc_tasks GoogleDatastreamStream#max_concurrent_cdc_tasks}
+        :param transaction_logs: transaction_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#transaction_logs GoogleDatastreamStream#transaction_logs}
         '''
         if isinstance(change_tables, dict):
             change_tables = GoogleDatastreamStreamSourceConfigSqlServerSourceConfigChangeTables(**change_tables)
@@ -16020,7 +16020,7 @@ class GoogleDatastreamStreamSourceConfigSqlServerSourceConfig:
     ) -> typing.Optional["GoogleDatastreamStreamSourceConfigSqlServerSourceConfigChangeTables"]:
         '''change_tables block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#change_tables GoogleDatastreamStream#change_tables}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#change_tables GoogleDatastreamStream#change_tables}
         '''
         result = self._values.get("change_tables")
         return typing.cast(typing.Optional["GoogleDatastreamStreamSourceConfigSqlServerSourceConfigChangeTables"], result)
@@ -16031,7 +16031,7 @@ class GoogleDatastreamStreamSourceConfigSqlServerSourceConfig:
     ) -> typing.Optional["GoogleDatastreamStreamSourceConfigSqlServerSourceConfigExcludeObjects"]:
         '''exclude_objects block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#exclude_objects GoogleDatastreamStream#exclude_objects}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#exclude_objects GoogleDatastreamStream#exclude_objects}
         '''
         result = self._values.get("exclude_objects")
         return typing.cast(typing.Optional["GoogleDatastreamStreamSourceConfigSqlServerSourceConfigExcludeObjects"], result)
@@ -16042,7 +16042,7 @@ class GoogleDatastreamStreamSourceConfigSqlServerSourceConfig:
     ) -> typing.Optional["GoogleDatastreamStreamSourceConfigSqlServerSourceConfigIncludeObjects"]:
         '''include_objects block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#include_objects GoogleDatastreamStream#include_objects}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#include_objects GoogleDatastreamStream#include_objects}
         '''
         result = self._values.get("include_objects")
         return typing.cast(typing.Optional["GoogleDatastreamStreamSourceConfigSqlServerSourceConfigIncludeObjects"], result)
@@ -16051,7 +16051,7 @@ class GoogleDatastreamStreamSourceConfigSqlServerSourceConfig:
     def max_concurrent_backfill_tasks(self) -> typing.Optional[jsii.Number]:
         '''Max concurrent backfill tasks.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#max_concurrent_backfill_tasks GoogleDatastreamStream#max_concurrent_backfill_tasks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#max_concurrent_backfill_tasks GoogleDatastreamStream#max_concurrent_backfill_tasks}
         '''
         result = self._values.get("max_concurrent_backfill_tasks")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -16060,7 +16060,7 @@ class GoogleDatastreamStreamSourceConfigSqlServerSourceConfig:
     def max_concurrent_cdc_tasks(self) -> typing.Optional[jsii.Number]:
         '''Max concurrent CDC tasks.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#max_concurrent_cdc_tasks GoogleDatastreamStream#max_concurrent_cdc_tasks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#max_concurrent_cdc_tasks GoogleDatastreamStream#max_concurrent_cdc_tasks}
         '''
         result = self._values.get("max_concurrent_cdc_tasks")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -16071,7 +16071,7 @@ class GoogleDatastreamStreamSourceConfigSqlServerSourceConfig:
     ) -> typing.Optional["GoogleDatastreamStreamSourceConfigSqlServerSourceConfigTransactionLogs"]:
         '''transaction_logs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#transaction_logs GoogleDatastreamStream#transaction_logs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#transaction_logs GoogleDatastreamStream#transaction_logs}
         '''
         result = self._values.get("transaction_logs")
         return typing.cast(typing.Optional["GoogleDatastreamStreamSourceConfigSqlServerSourceConfigTransactionLogs"], result)
@@ -16159,7 +16159,7 @@ class GoogleDatastreamStreamSourceConfigSqlServerSourceConfigExcludeObjects:
         schemas: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleDatastreamStreamSourceConfigSqlServerSourceConfigExcludeObjectsSchemas", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param schemas: schemas block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#schemas GoogleDatastreamStream#schemas}
+        :param schemas: schemas block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#schemas GoogleDatastreamStream#schemas}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c072dbf443986c7b38c3cf442ffc315f3e40df9c12f04aaa9e692fc5d6edbfa9)
@@ -16174,7 +16174,7 @@ class GoogleDatastreamStreamSourceConfigSqlServerSourceConfigExcludeObjects:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamSourceConfigSqlServerSourceConfigExcludeObjectsSchemas"]]:
         '''schemas block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#schemas GoogleDatastreamStream#schemas}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#schemas GoogleDatastreamStream#schemas}
         '''
         result = self._values.get("schemas")
         assert result is not None, "Required property 'schemas' is missing"
@@ -16270,8 +16270,8 @@ class GoogleDatastreamStreamSourceConfigSqlServerSourceConfigExcludeObjectsSchem
         tables: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleDatastreamStreamSourceConfigSqlServerSourceConfigExcludeObjectsSchemasTables", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param schema: Schema name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#schema GoogleDatastreamStream#schema}
-        :param tables: tables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#tables GoogleDatastreamStream#tables}
+        :param schema: Schema name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#schema GoogleDatastreamStream#schema}
+        :param tables: tables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#tables GoogleDatastreamStream#tables}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f188c9f2b9732dbf070e715a0edd913d0f78aeb7af62108372952a94555af6d7)
@@ -16287,7 +16287,7 @@ class GoogleDatastreamStreamSourceConfigSqlServerSourceConfigExcludeObjectsSchem
     def schema(self) -> builtins.str:
         '''Schema name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#schema GoogleDatastreamStream#schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#schema GoogleDatastreamStream#schema}
         '''
         result = self._values.get("schema")
         assert result is not None, "Required property 'schema' is missing"
@@ -16299,7 +16299,7 @@ class GoogleDatastreamStreamSourceConfigSqlServerSourceConfigExcludeObjectsSchem
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamSourceConfigSqlServerSourceConfigExcludeObjectsSchemasTables"]]]:
         '''tables block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#tables GoogleDatastreamStream#tables}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#tables GoogleDatastreamStream#tables}
         '''
         result = self._values.get("tables")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamSourceConfigSqlServerSourceConfigExcludeObjectsSchemasTables"]]], result)
@@ -16514,8 +16514,8 @@ class GoogleDatastreamStreamSourceConfigSqlServerSourceConfigExcludeObjectsSchem
         columns: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleDatastreamStreamSourceConfigSqlServerSourceConfigExcludeObjectsSchemasTablesColumns", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param table: Table name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#table GoogleDatastreamStream#table}
-        :param columns: columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#columns GoogleDatastreamStream#columns}
+        :param table: Table name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#table GoogleDatastreamStream#table}
+        :param columns: columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#columns GoogleDatastreamStream#columns}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__357f90040e845451a76162113bc34d19d15bbcacc43bef9267401658fa43a0fa)
@@ -16531,7 +16531,7 @@ class GoogleDatastreamStreamSourceConfigSqlServerSourceConfigExcludeObjectsSchem
     def table(self) -> builtins.str:
         '''Table name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#table GoogleDatastreamStream#table}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#table GoogleDatastreamStream#table}
         '''
         result = self._values.get("table")
         assert result is not None, "Required property 'table' is missing"
@@ -16543,7 +16543,7 @@ class GoogleDatastreamStreamSourceConfigSqlServerSourceConfigExcludeObjectsSchem
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamSourceConfigSqlServerSourceConfigExcludeObjectsSchemasTablesColumns"]]]:
         '''columns block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#columns GoogleDatastreamStream#columns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#columns GoogleDatastreamStream#columns}
         '''
         result = self._values.get("columns")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamSourceConfigSqlServerSourceConfigExcludeObjectsSchemasTablesColumns"]]], result)
@@ -16573,8 +16573,8 @@ class GoogleDatastreamStreamSourceConfigSqlServerSourceConfigExcludeObjectsSchem
         data_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param column: Column name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#column GoogleDatastreamStream#column}
-        :param data_type: The SQL Server data type. Full data types list can be found here: https://learn.microsoft.com/en-us/sql/t-sql/data-types/data-types-transact-sql?view=sql-server-ver16. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#data_type GoogleDatastreamStream#data_type}
+        :param column: Column name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#column GoogleDatastreamStream#column}
+        :param data_type: The SQL Server data type. Full data types list can be found here: https://learn.microsoft.com/en-us/sql/t-sql/data-types/data-types-transact-sql?view=sql-server-ver16. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#data_type GoogleDatastreamStream#data_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3173f366e45e08f5a3da36e70faf06706fa24e34ecbe12b3c3069bda4b6ea58c)
@@ -16590,7 +16590,7 @@ class GoogleDatastreamStreamSourceConfigSqlServerSourceConfigExcludeObjectsSchem
     def column(self) -> typing.Optional[builtins.str]:
         '''Column name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#column GoogleDatastreamStream#column}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#column GoogleDatastreamStream#column}
         '''
         result = self._values.get("column")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -16599,7 +16599,7 @@ class GoogleDatastreamStreamSourceConfigSqlServerSourceConfigExcludeObjectsSchem
     def data_type(self) -> typing.Optional[builtins.str]:
         '''The SQL Server data type. Full data types list can be found here: https://learn.microsoft.com/en-us/sql/t-sql/data-types/data-types-transact-sql?view=sql-server-ver16.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#data_type GoogleDatastreamStream#data_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#data_type GoogleDatastreamStream#data_type}
         '''
         result = self._values.get("data_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -17022,7 +17022,7 @@ class GoogleDatastreamStreamSourceConfigSqlServerSourceConfigIncludeObjects:
         schemas: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleDatastreamStreamSourceConfigSqlServerSourceConfigIncludeObjectsSchemas", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param schemas: schemas block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#schemas GoogleDatastreamStream#schemas}
+        :param schemas: schemas block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#schemas GoogleDatastreamStream#schemas}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__014ce5964adbd972d1d03ba7c2c4869d894ddc4da03beed6e0da1d6e868dc36b)
@@ -17037,7 +17037,7 @@ class GoogleDatastreamStreamSourceConfigSqlServerSourceConfigIncludeObjects:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamSourceConfigSqlServerSourceConfigIncludeObjectsSchemas"]]:
         '''schemas block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#schemas GoogleDatastreamStream#schemas}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#schemas GoogleDatastreamStream#schemas}
         '''
         result = self._values.get("schemas")
         assert result is not None, "Required property 'schemas' is missing"
@@ -17133,8 +17133,8 @@ class GoogleDatastreamStreamSourceConfigSqlServerSourceConfigIncludeObjectsSchem
         tables: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleDatastreamStreamSourceConfigSqlServerSourceConfigIncludeObjectsSchemasTables", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param schema: Schema name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#schema GoogleDatastreamStream#schema}
-        :param tables: tables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#tables GoogleDatastreamStream#tables}
+        :param schema: Schema name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#schema GoogleDatastreamStream#schema}
+        :param tables: tables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#tables GoogleDatastreamStream#tables}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b40ef0a5156e81e1de0a74e7c4bf926de9b380bfc606647c04b911d3d0e8795c)
@@ -17150,7 +17150,7 @@ class GoogleDatastreamStreamSourceConfigSqlServerSourceConfigIncludeObjectsSchem
     def schema(self) -> builtins.str:
         '''Schema name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#schema GoogleDatastreamStream#schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#schema GoogleDatastreamStream#schema}
         '''
         result = self._values.get("schema")
         assert result is not None, "Required property 'schema' is missing"
@@ -17162,7 +17162,7 @@ class GoogleDatastreamStreamSourceConfigSqlServerSourceConfigIncludeObjectsSchem
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamSourceConfigSqlServerSourceConfigIncludeObjectsSchemasTables"]]]:
         '''tables block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#tables GoogleDatastreamStream#tables}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#tables GoogleDatastreamStream#tables}
         '''
         result = self._values.get("tables")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamSourceConfigSqlServerSourceConfigIncludeObjectsSchemasTables"]]], result)
@@ -17377,8 +17377,8 @@ class GoogleDatastreamStreamSourceConfigSqlServerSourceConfigIncludeObjectsSchem
         columns: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GoogleDatastreamStreamSourceConfigSqlServerSourceConfigIncludeObjectsSchemasTablesColumns", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param table: Table name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#table GoogleDatastreamStream#table}
-        :param columns: columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#columns GoogleDatastreamStream#columns}
+        :param table: Table name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#table GoogleDatastreamStream#table}
+        :param columns: columns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#columns GoogleDatastreamStream#columns}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fd1969dfea49d85e44b62421469440854a1275f20b09c8603372132d2905206b)
@@ -17394,7 +17394,7 @@ class GoogleDatastreamStreamSourceConfigSqlServerSourceConfigIncludeObjectsSchem
     def table(self) -> builtins.str:
         '''Table name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#table GoogleDatastreamStream#table}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#table GoogleDatastreamStream#table}
         '''
         result = self._values.get("table")
         assert result is not None, "Required property 'table' is missing"
@@ -17406,7 +17406,7 @@ class GoogleDatastreamStreamSourceConfigSqlServerSourceConfigIncludeObjectsSchem
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamSourceConfigSqlServerSourceConfigIncludeObjectsSchemasTablesColumns"]]]:
         '''columns block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#columns GoogleDatastreamStream#columns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#columns GoogleDatastreamStream#columns}
         '''
         result = self._values.get("columns")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GoogleDatastreamStreamSourceConfigSqlServerSourceConfigIncludeObjectsSchemasTablesColumns"]]], result)
@@ -17436,8 +17436,8 @@ class GoogleDatastreamStreamSourceConfigSqlServerSourceConfigIncludeObjectsSchem
         data_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param column: Column name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#column GoogleDatastreamStream#column}
-        :param data_type: The SQL Server data type. Full data types list can be found here: https://learn.microsoft.com/en-us/sql/t-sql/data-types/data-types-transact-sql?view=sql-server-ver16. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#data_type GoogleDatastreamStream#data_type}
+        :param column: Column name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#column GoogleDatastreamStream#column}
+        :param data_type: The SQL Server data type. Full data types list can be found here: https://learn.microsoft.com/en-us/sql/t-sql/data-types/data-types-transact-sql?view=sql-server-ver16. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#data_type GoogleDatastreamStream#data_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__917068e622b678b5bad90279d907ec377796ee27223477c4b5b77a10f062c9b0)
@@ -17453,7 +17453,7 @@ class GoogleDatastreamStreamSourceConfigSqlServerSourceConfigIncludeObjectsSchem
     def column(self) -> typing.Optional[builtins.str]:
         '''Column name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#column GoogleDatastreamStream#column}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#column GoogleDatastreamStream#column}
         '''
         result = self._values.get("column")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -17462,7 +17462,7 @@ class GoogleDatastreamStreamSourceConfigSqlServerSourceConfigIncludeObjectsSchem
     def data_type(self) -> typing.Optional[builtins.str]:
         '''The SQL Server data type. Full data types list can be found here: https://learn.microsoft.com/en-us/sql/t-sql/data-types/data-types-transact-sql?view=sql-server-ver16.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#data_type GoogleDatastreamStream#data_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#data_type GoogleDatastreamStream#data_type}
         '''
         result = self._values.get("data_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -17906,7 +17906,7 @@ class GoogleDatastreamStreamSourceConfigSqlServerSourceConfigOutputReference(
         schemas: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[GoogleDatastreamStreamSourceConfigSqlServerSourceConfigExcludeObjectsSchemas, typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param schemas: schemas block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#schemas GoogleDatastreamStream#schemas}
+        :param schemas: schemas block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#schemas GoogleDatastreamStream#schemas}
         '''
         value = GoogleDatastreamStreamSourceConfigSqlServerSourceConfigExcludeObjects(
             schemas=schemas
@@ -17921,7 +17921,7 @@ class GoogleDatastreamStreamSourceConfigSqlServerSourceConfigOutputReference(
         schemas: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[GoogleDatastreamStreamSourceConfigSqlServerSourceConfigIncludeObjectsSchemas, typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param schemas: schemas block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#schemas GoogleDatastreamStream#schemas}
+        :param schemas: schemas block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#schemas GoogleDatastreamStream#schemas}
         '''
         value = GoogleDatastreamStreamSourceConfigSqlServerSourceConfigIncludeObjects(
             schemas=schemas
@@ -18140,9 +18140,9 @@ class GoogleDatastreamStreamTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#create GoogleDatastreamStream#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#delete GoogleDatastreamStream#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#update GoogleDatastreamStream#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#create GoogleDatastreamStream#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#delete GoogleDatastreamStream#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#update GoogleDatastreamStream#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a54b49f7561784b6ddbf39b45bfd0f91cd4d531a183f057a0f51c1fb036c6ee4)
@@ -18159,19 +18159,19 @@ class GoogleDatastreamStreamTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#create GoogleDatastreamStream#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#create GoogleDatastreamStream#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#delete GoogleDatastreamStream#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#delete GoogleDatastreamStream#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_datastream_stream#update GoogleDatastreamStream#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_datastream_stream#update GoogleDatastreamStream#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

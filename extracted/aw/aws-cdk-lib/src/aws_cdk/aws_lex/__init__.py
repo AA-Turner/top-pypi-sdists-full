@@ -1600,6 +1600,7 @@ class CfnBot(
             "nlu_confidence_threshold": "nluConfidenceThreshold",
             "custom_vocabulary": "customVocabulary",
             "description": "description",
+            "generative_ai_settings": "generativeAiSettings",
             "intents": "intents",
             "slot_types": "slotTypes",
             "voice_settings": "voiceSettings",
@@ -1613,6 +1614,7 @@ class CfnBot(
             nlu_confidence_threshold: jsii.Number,
             custom_vocabulary: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.CustomVocabularyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             description: typing.Optional[builtins.str] = None,
+            generative_ai_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.GenerativeAISettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             intents: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.IntentProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             slot_types: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.SlotTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             voice_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.VoiceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -1623,6 +1625,7 @@ class CfnBot(
             :param nlu_confidence_threshold: Determines the threshold where Amazon Lex will insert the ``AMAZON.FallbackIntent`` , ``AMAZON.KendraSearchIntent`` , or both when returning alternative intents. You must configure an ``AMAZON.FallbackIntent`` . ``AMAZON.KendraSearchIntent`` is only inserted if it is configured for the bot.
             :param custom_vocabulary: Specifies a custom vocabulary to use with a specific locale.
             :param description: A description of the bot locale. Use this to help identify the bot locale in lists.
+            :param generative_ai_settings: 
             :param intents: One or more intents defined for the locale.
             :param slot_types: One or more slot types defined for the locale.
             :param voice_settings: Defines settings for using an Amazon Polly voice to communicate with a user. Valid values include: - ``standard`` - ``neural`` - ``long-form`` - ``generative``
@@ -1640,6 +1643,7 @@ class CfnBot(
                 check_type(argname="argument nlu_confidence_threshold", value=nlu_confidence_threshold, expected_type=type_hints["nlu_confidence_threshold"])
                 check_type(argname="argument custom_vocabulary", value=custom_vocabulary, expected_type=type_hints["custom_vocabulary"])
                 check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+                check_type(argname="argument generative_ai_settings", value=generative_ai_settings, expected_type=type_hints["generative_ai_settings"])
                 check_type(argname="argument intents", value=intents, expected_type=type_hints["intents"])
                 check_type(argname="argument slot_types", value=slot_types, expected_type=type_hints["slot_types"])
                 check_type(argname="argument voice_settings", value=voice_settings, expected_type=type_hints["voice_settings"])
@@ -1651,6 +1655,8 @@ class CfnBot(
                 self._values["custom_vocabulary"] = custom_vocabulary
             if description is not None:
                 self._values["description"] = description
+            if generative_ai_settings is not None:
+                self._values["generative_ai_settings"] = generative_ai_settings
             if intents is not None:
                 self._values["intents"] = intents
             if slot_types is not None:
@@ -1703,6 +1709,16 @@ class CfnBot(
             return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
+        def generative_ai_settings(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.GenerativeAISettingsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-botlocale.html#cfn-lex-bot-botlocale-generativeaisettings
+            '''
+            result = self._values.get("generative_ai_settings")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.GenerativeAISettingsProperty"]], result)
+
+        @builtins.property
         def intents(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.IntentProperty"]]]]:
@@ -1750,6 +1766,110 @@ class CfnBot(
 
         def __repr__(self) -> str:
             return "BotLocaleProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lex.CfnBot.BuildtimeSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "descriptive_bot_builder_specification": "descriptiveBotBuilderSpecification",
+            "sample_utterance_generation_specification": "sampleUtteranceGenerationSpecification",
+        },
+    )
+    class BuildtimeSettingsProperty:
+        def __init__(
+            self,
+            *,
+            descriptive_bot_builder_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.DescriptiveBotBuilderSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            sample_utterance_generation_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.SampleUtteranceGenerationSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param descriptive_bot_builder_specification: 
+            :param sample_utterance_generation_specification: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-buildtimesettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lex as lex
+                
+                buildtime_settings_property = lex.CfnBot.BuildtimeSettingsProperty(
+                    descriptive_bot_builder_specification=lex.CfnBot.DescriptiveBotBuilderSpecificationProperty(
+                        enabled=False,
+                
+                        # the properties below are optional
+                        bedrock_model_specification=lex.CfnBot.BedrockModelSpecificationProperty(
+                            model_arn="modelArn",
+                
+                            # the properties below are optional
+                            bedrock_guardrail_configuration=lex.CfnBot.BedrockGuardrailConfigurationProperty(
+                                bedrock_guardrail_identifier="bedrockGuardrailIdentifier",
+                                bedrock_guardrail_version="bedrockGuardrailVersion"
+                            ),
+                            bedrock_model_custom_prompt="bedrockModelCustomPrompt",
+                            bedrock_trace_status="bedrockTraceStatus"
+                        )
+                    ),
+                    sample_utterance_generation_specification=lex.CfnBot.SampleUtteranceGenerationSpecificationProperty(
+                        enabled=False,
+                
+                        # the properties below are optional
+                        bedrock_model_specification=lex.CfnBot.BedrockModelSpecificationProperty(
+                            model_arn="modelArn",
+                
+                            # the properties below are optional
+                            bedrock_guardrail_configuration=lex.CfnBot.BedrockGuardrailConfigurationProperty(
+                                bedrock_guardrail_identifier="bedrockGuardrailIdentifier",
+                                bedrock_guardrail_version="bedrockGuardrailVersion"
+                            ),
+                            bedrock_model_custom_prompt="bedrockModelCustomPrompt",
+                            bedrock_trace_status="bedrockTraceStatus"
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__55f55af8a135ebdc8d2d68a3f39bdd435c48864ae190d23d1774d92a289587a1)
+                check_type(argname="argument descriptive_bot_builder_specification", value=descriptive_bot_builder_specification, expected_type=type_hints["descriptive_bot_builder_specification"])
+                check_type(argname="argument sample_utterance_generation_specification", value=sample_utterance_generation_specification, expected_type=type_hints["sample_utterance_generation_specification"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if descriptive_bot_builder_specification is not None:
+                self._values["descriptive_bot_builder_specification"] = descriptive_bot_builder_specification
+            if sample_utterance_generation_specification is not None:
+                self._values["sample_utterance_generation_specification"] = sample_utterance_generation_specification
+
+        @builtins.property
+        def descriptive_bot_builder_specification(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.DescriptiveBotBuilderSpecificationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-buildtimesettings.html#cfn-lex-bot-buildtimesettings-descriptivebotbuilderspecification
+            '''
+            result = self._values.get("descriptive_bot_builder_specification")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.DescriptiveBotBuilderSpecificationProperty"]], result)
+
+        @builtins.property
+        def sample_utterance_generation_specification(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.SampleUtteranceGenerationSpecificationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-buildtimesettings.html#cfn-lex-bot-buildtimesettings-sampleutterancegenerationspecification
+            '''
+            result = self._values.get("sample_utterance_generation_specification")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.SampleUtteranceGenerationSpecificationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "BuildtimeSettingsProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -3296,6 +3416,91 @@ class CfnBot(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lex.CfnBot.DescriptiveBotBuilderSpecificationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "enabled": "enabled",
+            "bedrock_model_specification": "bedrockModelSpecification",
+        },
+    )
+    class DescriptiveBotBuilderSpecificationProperty:
+        def __init__(
+            self,
+            *,
+            enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+            bedrock_model_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.BedrockModelSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param enabled: 
+            :param bedrock_model_specification: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-descriptivebotbuilderspecification.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lex as lex
+                
+                descriptive_bot_builder_specification_property = lex.CfnBot.DescriptiveBotBuilderSpecificationProperty(
+                    enabled=False,
+                
+                    # the properties below are optional
+                    bedrock_model_specification=lex.CfnBot.BedrockModelSpecificationProperty(
+                        model_arn="modelArn",
+                
+                        # the properties below are optional
+                        bedrock_guardrail_configuration=lex.CfnBot.BedrockGuardrailConfigurationProperty(
+                            bedrock_guardrail_identifier="bedrockGuardrailIdentifier",
+                            bedrock_guardrail_version="bedrockGuardrailVersion"
+                        ),
+                        bedrock_model_custom_prompt="bedrockModelCustomPrompt",
+                        bedrock_trace_status="bedrockTraceStatus"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__ea3cb55a84af77a42088fb1190880b1ceae0ef66ce41f41f8a469a0b1dfd352d)
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+                check_type(argname="argument bedrock_model_specification", value=bedrock_model_specification, expected_type=type_hints["bedrock_model_specification"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "enabled": enabled,
+            }
+            if bedrock_model_specification is not None:
+                self._values["bedrock_model_specification"] = bedrock_model_specification
+
+        @builtins.property
+        def enabled(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-descriptivebotbuilderspecification.html#cfn-lex-bot-descriptivebotbuilderspecification-enabled
+            '''
+            result = self._values.get("enabled")
+            assert result is not None, "Required property 'enabled' is missing"
+            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+
+        @builtins.property
+        def bedrock_model_specification(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.BedrockModelSpecificationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-descriptivebotbuilderspecification.html#cfn-lex-bot-descriptivebotbuilderspecification-bedrockmodelspecification
+            '''
+            result = self._values.get("bedrock_model_specification")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.BedrockModelSpecificationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DescriptiveBotBuilderSpecificationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_lex.CfnBot.DialogActionProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -4504,6 +4709,133 @@ class CfnBot(
 
         def __repr__(self) -> str:
             return "FulfillmentUpdatesSpecificationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lex.CfnBot.GenerativeAISettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "buildtime_settings": "buildtimeSettings",
+            "runtime_settings": "runtimeSettings",
+        },
+    )
+    class GenerativeAISettingsProperty:
+        def __init__(
+            self,
+            *,
+            buildtime_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.BuildtimeSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            runtime_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.RuntimeSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param buildtime_settings: 
+            :param runtime_settings: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-generativeaisettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lex as lex
+                
+                generative_aISettings_property = lex.CfnBot.GenerativeAISettingsProperty(
+                    buildtime_settings=lex.CfnBot.BuildtimeSettingsProperty(
+                        descriptive_bot_builder_specification=lex.CfnBot.DescriptiveBotBuilderSpecificationProperty(
+                            enabled=False,
+                
+                            # the properties below are optional
+                            bedrock_model_specification=lex.CfnBot.BedrockModelSpecificationProperty(
+                                model_arn="modelArn",
+                
+                                # the properties below are optional
+                                bedrock_guardrail_configuration=lex.CfnBot.BedrockGuardrailConfigurationProperty(
+                                    bedrock_guardrail_identifier="bedrockGuardrailIdentifier",
+                                    bedrock_guardrail_version="bedrockGuardrailVersion"
+                                ),
+                                bedrock_model_custom_prompt="bedrockModelCustomPrompt",
+                                bedrock_trace_status="bedrockTraceStatus"
+                            )
+                        ),
+                        sample_utterance_generation_specification=lex.CfnBot.SampleUtteranceGenerationSpecificationProperty(
+                            enabled=False,
+                
+                            # the properties below are optional
+                            bedrock_model_specification=lex.CfnBot.BedrockModelSpecificationProperty(
+                                model_arn="modelArn",
+                
+                                # the properties below are optional
+                                bedrock_guardrail_configuration=lex.CfnBot.BedrockGuardrailConfigurationProperty(
+                                    bedrock_guardrail_identifier="bedrockGuardrailIdentifier",
+                                    bedrock_guardrail_version="bedrockGuardrailVersion"
+                                ),
+                                bedrock_model_custom_prompt="bedrockModelCustomPrompt",
+                                bedrock_trace_status="bedrockTraceStatus"
+                            )
+                        )
+                    ),
+                    runtime_settings=lex.CfnBot.RuntimeSettingsProperty(
+                        nlu_improvement_specification=lex.CfnBot.NluImprovementSpecificationProperty(
+                            enabled=False
+                        ),
+                        slot_resolution_improvement_specification=lex.CfnBot.SlotResolutionImprovementSpecificationProperty(
+                            enabled=False,
+                
+                            # the properties below are optional
+                            bedrock_model_specification=lex.CfnBot.BedrockModelSpecificationProperty(
+                                model_arn="modelArn",
+                
+                                # the properties below are optional
+                                bedrock_guardrail_configuration=lex.CfnBot.BedrockGuardrailConfigurationProperty(
+                                    bedrock_guardrail_identifier="bedrockGuardrailIdentifier",
+                                    bedrock_guardrail_version="bedrockGuardrailVersion"
+                                ),
+                                bedrock_model_custom_prompt="bedrockModelCustomPrompt",
+                                bedrock_trace_status="bedrockTraceStatus"
+                            )
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__c5af637ac1b1b7f3d07ce0df6ed177b23f0681b4005949bd8e68a29b6cd3ed88)
+                check_type(argname="argument buildtime_settings", value=buildtime_settings, expected_type=type_hints["buildtime_settings"])
+                check_type(argname="argument runtime_settings", value=runtime_settings, expected_type=type_hints["runtime_settings"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if buildtime_settings is not None:
+                self._values["buildtime_settings"] = buildtime_settings
+            if runtime_settings is not None:
+                self._values["runtime_settings"] = runtime_settings
+
+        @builtins.property
+        def buildtime_settings(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.BuildtimeSettingsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-generativeaisettings.html#cfn-lex-bot-generativeaisettings-buildtimesettings
+            '''
+            result = self._values.get("buildtime_settings")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.BuildtimeSettingsProperty"]], result)
+
+        @builtins.property
+        def runtime_settings(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.RuntimeSettingsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-generativeaisettings.html#cfn-lex-bot-generativeaisettings-runtimesettings
+            '''
+            result = self._values.get("runtime_settings")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.RuntimeSettingsProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "GenerativeAISettingsProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -6483,6 +6815,60 @@ class CfnBot(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lex.CfnBot.NluImprovementSpecificationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"enabled": "enabled"},
+    )
+    class NluImprovementSpecificationProperty:
+        def __init__(
+            self,
+            *,
+            enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+        ) -> None:
+            '''
+            :param enabled: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-nluimprovementspecification.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lex as lex
+                
+                nlu_improvement_specification_property = lex.CfnBot.NluImprovementSpecificationProperty(
+                    enabled=False
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__f80adb05041a59edc5a47ce2b664a9d75275b5e3ff27a1ebb50e164ad1b82019)
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "enabled": enabled,
+            }
+
+        @builtins.property
+        def enabled(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-nluimprovementspecification.html#cfn-lex-bot-nluimprovementspecification-enabled
+            '''
+            result = self._values.get("enabled")
+            assert result is not None, "Required property 'enabled' is missing"
+            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "NluImprovementSpecificationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_lex.CfnBot.ObfuscationSettingProperty",
         jsii_struct_bases=[],
         name_mapping={"obfuscation_setting_type": "obfuscationSettingType"},
@@ -8048,6 +8434,97 @@ class CfnBot(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lex.CfnBot.RuntimeSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "nlu_improvement_specification": "nluImprovementSpecification",
+            "slot_resolution_improvement_specification": "slotResolutionImprovementSpecification",
+        },
+    )
+    class RuntimeSettingsProperty:
+        def __init__(
+            self,
+            *,
+            nlu_improvement_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.NluImprovementSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            slot_resolution_improvement_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.SlotResolutionImprovementSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param nlu_improvement_specification: 
+            :param slot_resolution_improvement_specification: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-runtimesettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lex as lex
+                
+                runtime_settings_property = lex.CfnBot.RuntimeSettingsProperty(
+                    nlu_improvement_specification=lex.CfnBot.NluImprovementSpecificationProperty(
+                        enabled=False
+                    ),
+                    slot_resolution_improvement_specification=lex.CfnBot.SlotResolutionImprovementSpecificationProperty(
+                        enabled=False,
+                
+                        # the properties below are optional
+                        bedrock_model_specification=lex.CfnBot.BedrockModelSpecificationProperty(
+                            model_arn="modelArn",
+                
+                            # the properties below are optional
+                            bedrock_guardrail_configuration=lex.CfnBot.BedrockGuardrailConfigurationProperty(
+                                bedrock_guardrail_identifier="bedrockGuardrailIdentifier",
+                                bedrock_guardrail_version="bedrockGuardrailVersion"
+                            ),
+                            bedrock_model_custom_prompt="bedrockModelCustomPrompt",
+                            bedrock_trace_status="bedrockTraceStatus"
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__a71a2cf14755fdfc2af80bc68d24e71b9e9676019f96eb3437af9ee26c51479b)
+                check_type(argname="argument nlu_improvement_specification", value=nlu_improvement_specification, expected_type=type_hints["nlu_improvement_specification"])
+                check_type(argname="argument slot_resolution_improvement_specification", value=slot_resolution_improvement_specification, expected_type=type_hints["slot_resolution_improvement_specification"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if nlu_improvement_specification is not None:
+                self._values["nlu_improvement_specification"] = nlu_improvement_specification
+            if slot_resolution_improvement_specification is not None:
+                self._values["slot_resolution_improvement_specification"] = slot_resolution_improvement_specification
+
+        @builtins.property
+        def nlu_improvement_specification(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.NluImprovementSpecificationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-runtimesettings.html#cfn-lex-bot-runtimesettings-nluimprovementspecification
+            '''
+            result = self._values.get("nlu_improvement_specification")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.NluImprovementSpecificationProperty"]], result)
+
+        @builtins.property
+        def slot_resolution_improvement_specification(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.SlotResolutionImprovementSpecificationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-runtimesettings.html#cfn-lex-bot-runtimesettings-slotresolutionimprovementspecification
+            '''
+            result = self._values.get("slot_resolution_improvement_specification")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.SlotResolutionImprovementSpecificationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RuntimeSettingsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_lex.CfnBot.S3BucketLogDestinationProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -8280,6 +8757,91 @@ class CfnBot(
 
         def __repr__(self) -> str:
             return "SSMLMessageProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lex.CfnBot.SampleUtteranceGenerationSpecificationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "enabled": "enabled",
+            "bedrock_model_specification": "bedrockModelSpecification",
+        },
+    )
+    class SampleUtteranceGenerationSpecificationProperty:
+        def __init__(
+            self,
+            *,
+            enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+            bedrock_model_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.BedrockModelSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param enabled: 
+            :param bedrock_model_specification: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-sampleutterancegenerationspecification.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lex as lex
+                
+                sample_utterance_generation_specification_property = lex.CfnBot.SampleUtteranceGenerationSpecificationProperty(
+                    enabled=False,
+                
+                    # the properties below are optional
+                    bedrock_model_specification=lex.CfnBot.BedrockModelSpecificationProperty(
+                        model_arn="modelArn",
+                
+                        # the properties below are optional
+                        bedrock_guardrail_configuration=lex.CfnBot.BedrockGuardrailConfigurationProperty(
+                            bedrock_guardrail_identifier="bedrockGuardrailIdentifier",
+                            bedrock_guardrail_version="bedrockGuardrailVersion"
+                        ),
+                        bedrock_model_custom_prompt="bedrockModelCustomPrompt",
+                        bedrock_trace_status="bedrockTraceStatus"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__e657dbc1492761e5faf255622014eb530caa458acfdde6b55e366b251a3ae148)
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+                check_type(argname="argument bedrock_model_specification", value=bedrock_model_specification, expected_type=type_hints["bedrock_model_specification"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "enabled": enabled,
+            }
+            if bedrock_model_specification is not None:
+                self._values["bedrock_model_specification"] = bedrock_model_specification
+
+        @builtins.property
+        def enabled(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-sampleutterancegenerationspecification.html#cfn-lex-bot-sampleutterancegenerationspecification-enabled
+            '''
+            result = self._values.get("enabled")
+            assert result is not None, "Required property 'enabled' is missing"
+            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+
+        @builtins.property
+        def bedrock_model_specification(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.BedrockModelSpecificationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-sampleutterancegenerationspecification.html#cfn-lex-bot-sampleutterancegenerationspecification-bedrockmodelspecification
+            '''
+            result = self._values.get("bedrock_model_specification")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.BedrockModelSpecificationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SampleUtteranceGenerationSpecificationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -9031,6 +9593,91 @@ class CfnBot(
 
         def __repr__(self) -> str:
             return "SlotProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lex.CfnBot.SlotResolutionImprovementSpecificationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "enabled": "enabled",
+            "bedrock_model_specification": "bedrockModelSpecification",
+        },
+    )
+    class SlotResolutionImprovementSpecificationProperty:
+        def __init__(
+            self,
+            *,
+            enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+            bedrock_model_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.BedrockModelSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param enabled: 
+            :param bedrock_model_specification: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-slotresolutionimprovementspecification.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lex as lex
+                
+                slot_resolution_improvement_specification_property = lex.CfnBot.SlotResolutionImprovementSpecificationProperty(
+                    enabled=False,
+                
+                    # the properties below are optional
+                    bedrock_model_specification=lex.CfnBot.BedrockModelSpecificationProperty(
+                        model_arn="modelArn",
+                
+                        # the properties below are optional
+                        bedrock_guardrail_configuration=lex.CfnBot.BedrockGuardrailConfigurationProperty(
+                            bedrock_guardrail_identifier="bedrockGuardrailIdentifier",
+                            bedrock_guardrail_version="bedrockGuardrailVersion"
+                        ),
+                        bedrock_model_custom_prompt="bedrockModelCustomPrompt",
+                        bedrock_trace_status="bedrockTraceStatus"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__cfa728c6d1ad54e6065258e5a5281c799d2b880a392d0bf7354d8a00baffdd93)
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+                check_type(argname="argument bedrock_model_specification", value=bedrock_model_specification, expected_type=type_hints["bedrock_model_specification"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "enabled": enabled,
+            }
+            if bedrock_model_specification is not None:
+                self._values["bedrock_model_specification"] = bedrock_model_specification
+
+        @builtins.property
+        def enabled(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-slotresolutionimprovementspecification.html#cfn-lex-bot-slotresolutionimprovementspecification-enabled
+            '''
+            result = self._values.get("enabled")
+            assert result is not None, "Required property 'enabled' is missing"
+            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+
+        @builtins.property
+        def bedrock_model_specification(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.BedrockModelSpecificationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-slotresolutionimprovementspecification.html#cfn-lex-bot-slotresolutionimprovementspecification-bedrockmodelspecification
+            '''
+            result = self._values.get("bedrock_model_specification")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.BedrockModelSpecificationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SlotResolutionImprovementSpecificationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -14389,9 +15036,18 @@ def _typecheckingstub__2ad20956b5309c4b6154f09c947ce4023f20ed7a602b3cfa60f2bd3cf
     nlu_confidence_threshold: jsii.Number,
     custom_vocabulary: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.CustomVocabularyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
+    generative_ai_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.GenerativeAISettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     intents: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.IntentProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     slot_types: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.SlotTypeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     voice_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.VoiceSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__55f55af8a135ebdc8d2d68a3f39bdd435c48864ae190d23d1774d92a289587a1(
+    *,
+    descriptive_bot_builder_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.DescriptiveBotBuilderSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sample_utterance_generation_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.SampleUtteranceGenerationSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14517,6 +15173,14 @@ def _typecheckingstub__b17d7f375530a3080dd7a04795acd6231e37882d54e677880209844b3
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__ea3cb55a84af77a42088fb1190880b1ceae0ef66ce41f41f8a469a0b1dfd352d(
+    *,
+    enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    bedrock_model_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.BedrockModelSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e376869d573dbc5f07a8bacbcb08139f9ccf20789d86cfdc88afd3db242dd177(
     *,
     type: builtins.str,
@@ -14609,6 +15273,14 @@ def _typecheckingstub__500ed503fae8fece46360727878fdf9250149c5d237d5f4414d8191ff
     start_response: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.FulfillmentStartResponseSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     timeout_in_seconds: typing.Optional[jsii.Number] = None,
     update_response: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.FulfillmentUpdateResponseSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c5af637ac1b1b7f3d07ce0df6ed177b23f0681b4005949bd8e68a29b6cd3ed88(
+    *,
+    buildtime_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.BuildtimeSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    runtime_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.RuntimeSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14758,6 +15430,13 @@ def _typecheckingstub__5d243896aac9e5978582c7a17b393ee26ecc4d0b53d8eeecb47f9b8e6
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__f80adb05041a59edc5a47ce2b664a9d75275b5e3ff27a1ebb50e164ad1b82019(
+    *,
+    enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__a795f3c1800daacb8fa1b1f53ef1260088f1fa8ef905157a69c25f1fb6aaf260(
     *,
     obfuscation_setting_type: builtins.str,
@@ -14890,6 +15569,14 @@ def _typecheckingstub__41b902a3461c6b590e44c1b70d9b5197da38bf30395535518dbeee15b
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__a71a2cf14755fdfc2af80bc68d24e71b9e9676019f96eb3437af9ee26c51479b(
+    *,
+    nlu_improvement_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.NluImprovementSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    slot_resolution_improvement_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.SlotResolutionImprovementSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__ded78dd4eccaf929584502bf9d04303df195ccea074a52fa76a797748ee0e43b(
     *,
     log_prefix: builtins.str,
@@ -14911,6 +15598,14 @@ def _typecheckingstub__7d6aeb756ee3b20901b9c635f0dea5af9d930212d89c2181e88d0fdb1
 def _typecheckingstub__0c9fd5a338093c2843c71a2fd67ef382cd74c7db746e18dcc56d46f706d264fe(
     *,
     value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e657dbc1492761e5faf255622014eb530caa458acfdde6b55e366b251a3ae148(
+    *,
+    enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    bedrock_model_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.BedrockModelSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14989,6 +15684,14 @@ def _typecheckingstub__ef126475ab56636b361ebc97f72cf09bd8480c4e5dad06e8da998fba1
     multiple_values_setting: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.MultipleValuesSettingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     obfuscation_setting: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.ObfuscationSettingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     sub_slot_setting: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.SubSlotSettingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cfa728c6d1ad54e6065258e5a5281c799d2b880a392d0bf7354d8a00baffdd93(
+    *,
+    enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    bedrock_model_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.BedrockModelSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

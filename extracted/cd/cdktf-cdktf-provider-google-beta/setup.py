@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdktf-cdktf-provider-google_beta",
-    "version": "16.3.0",
+    "version": "16.4.0",
     "description": "Prebuilt google-beta Provider for Terraform CDK (cdktf)",
     "license": "MPL-2.0",
     "url": "https://github.com/cdktf/cdktf-provider-googlebeta.git",
@@ -490,6 +490,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_google_beta.google_apihub_api_hub_instance",
         "cdktf_cdktf_provider_google_beta.google_apihub_curation",
         "cdktf_cdktf_provider_google_beta.google_apihub_host_project_registration",
+        "cdktf_cdktf_provider_google_beta.google_apihub_plugin",
         "cdktf_cdktf_provider_google_beta.google_apihub_plugin_instance",
         "cdktf_cdktf_provider_google_beta.google_apikeys_key",
         "cdktf_cdktf_provider_google_beta.google_app_engine_application",
@@ -840,6 +841,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_google_beta.google_compute_url_map",
         "cdktf_cdktf_provider_google_beta.google_compute_vpn_gateway",
         "cdktf_cdktf_provider_google_beta.google_compute_vpn_tunnel",
+        "cdktf_cdktf_provider_google_beta.google_compute_wire_group",
         "cdktf_cdktf_provider_google_beta.google_contact_center_insights_view",
         "cdktf_cdktf_provider_google_beta.google_container_analysis_note",
         "cdktf_cdktf_provider_google_beta.google_container_analysis_note_iam_binding",
@@ -977,6 +979,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_google_beta.google_dialogflow_cx_entity_type",
         "cdktf_cdktf_provider_google_beta.google_dialogflow_cx_environment",
         "cdktf_cdktf_provider_google_beta.google_dialogflow_cx_flow",
+        "cdktf_cdktf_provider_google_beta.google_dialogflow_cx_generative_settings",
         "cdktf_cdktf_provider_google_beta.google_dialogflow_cx_intent",
         "cdktf_cdktf_provider_google_beta.google_dialogflow_cx_page",
         "cdktf_cdktf_provider_google_beta.google_dialogflow_cx_security_settings",
@@ -1610,7 +1613,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdktf_cdktf_provider_google_beta._jsii": [
-            "provider-google-beta@16.3.0.jsii.tgz"
+            "provider-google-beta@16.4.0.jsii.tgz"
         ],
         "cdktf_cdktf_provider_google_beta": [
             "py.typed"

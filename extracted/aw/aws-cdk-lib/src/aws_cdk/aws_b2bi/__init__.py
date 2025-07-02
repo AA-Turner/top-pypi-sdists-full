@@ -938,9 +938,22 @@ class CfnPartnership(
         
             # the properties below are optional
             capability_options=b2bi.CfnPartnership.CapabilityOptionsProperty(
+                inbound_edi=b2bi.CfnPartnership.InboundEdiOptionsProperty(
+                    x12=b2bi.CfnPartnership.X12InboundEdiOptionsProperty(
+                        acknowledgment_options=b2bi.CfnPartnership.X12AcknowledgmentOptionsProperty(
+                            functional_acknowledgment="functionalAcknowledgment",
+                            technical_acknowledgment="technicalAcknowledgment"
+                        )
+                    )
+                ),
                 outbound_edi=b2bi.CfnPartnership.OutboundEdiOptionsProperty(
                     x12=b2bi.CfnPartnership.X12EnvelopeProperty(
                         common=b2bi.CfnPartnership.X12OutboundEdiHeadersProperty(
+                            control_numbers=b2bi.CfnPartnership.X12ControlNumbersProperty(
+                                starting_functional_group_control_number=123,
+                                starting_interchange_control_number=123,
+                                starting_transaction_set_control_number=123
+                            ),
                             delimiters=b2bi.CfnPartnership.X12DelimitersProperty(
                                 component_separator="componentSeparator",
                                 data_element_separator="dataElementSeparator",
@@ -951,6 +964,7 @@ class CfnPartnership(
                                 application_sender_code="applicationSenderCode",
                                 responsible_agency_code="responsibleAgencyCode"
                             ),
+                            gs05_time_format="gs05TimeFormat",
                             interchange_control_headers=b2bi.CfnPartnership.X12InterchangeControlHeadersProperty(
                                 acknowledgment_requested_code="acknowledgmentRequestedCode",
                                 receiver_id="receiverId",
@@ -961,6 +975,11 @@ class CfnPartnership(
                                 usage_indicator_code="usageIndicatorCode"
                             ),
                             validate_edi=False
+                        ),
+                        wrap_options=b2bi.CfnPartnership.WrapOptionsProperty(
+                            line_length=123,
+                            line_terminator="lineTerminator",
+                            wrap_by="wrapBy"
                         )
                     )
                 )
@@ -1196,16 +1215,18 @@ class CfnPartnership(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_b2bi.CfnPartnership.CapabilityOptionsProperty",
         jsii_struct_bases=[],
-        name_mapping={"outbound_edi": "outboundEdi"},
+        name_mapping={"inbound_edi": "inboundEdi", "outbound_edi": "outboundEdi"},
     )
     class CapabilityOptionsProperty:
         def __init__(
             self,
             *,
+            inbound_edi: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPartnership.InboundEdiOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             outbound_edi: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPartnership.OutboundEdiOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Contains the details for an Outbound EDI capability.
 
+            :param inbound_edi: 
             :param outbound_edi: A structure that contains the outbound EDI options.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-capabilityoptions.html
@@ -1218,9 +1239,22 @@ class CfnPartnership(
                 from aws_cdk import aws_b2bi as b2bi
                 
                 capability_options_property = b2bi.CfnPartnership.CapabilityOptionsProperty(
+                    inbound_edi=b2bi.CfnPartnership.InboundEdiOptionsProperty(
+                        x12=b2bi.CfnPartnership.X12InboundEdiOptionsProperty(
+                            acknowledgment_options=b2bi.CfnPartnership.X12AcknowledgmentOptionsProperty(
+                                functional_acknowledgment="functionalAcknowledgment",
+                                technical_acknowledgment="technicalAcknowledgment"
+                            )
+                        )
+                    ),
                     outbound_edi=b2bi.CfnPartnership.OutboundEdiOptionsProperty(
                         x12=b2bi.CfnPartnership.X12EnvelopeProperty(
                             common=b2bi.CfnPartnership.X12OutboundEdiHeadersProperty(
+                                control_numbers=b2bi.CfnPartnership.X12ControlNumbersProperty(
+                                    starting_functional_group_control_number=123,
+                                    starting_interchange_control_number=123,
+                                    starting_transaction_set_control_number=123
+                                ),
                                 delimiters=b2bi.CfnPartnership.X12DelimitersProperty(
                                     component_separator="componentSeparator",
                                     data_element_separator="dataElementSeparator",
@@ -1231,6 +1265,7 @@ class CfnPartnership(
                                     application_sender_code="applicationSenderCode",
                                     responsible_agency_code="responsibleAgencyCode"
                                 ),
+                                gs05_time_format="gs05TimeFormat",
                                 interchange_control_headers=b2bi.CfnPartnership.X12InterchangeControlHeadersProperty(
                                     acknowledgment_requested_code="acknowledgmentRequestedCode",
                                     receiver_id="receiverId",
@@ -1241,6 +1276,11 @@ class CfnPartnership(
                                     usage_indicator_code="usageIndicatorCode"
                                 ),
                                 validate_edi=False
+                            ),
+                            wrap_options=b2bi.CfnPartnership.WrapOptionsProperty(
+                                line_length=123,
+                                line_terminator="lineTerminator",
+                                wrap_by="wrapBy"
                             )
                         )
                     )
@@ -1248,10 +1288,23 @@ class CfnPartnership(
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__489c8d62d1ea0d603790b535b3f02b6d30eee2c7a02cd1b1d2a497a7f9f54c2b)
+                check_type(argname="argument inbound_edi", value=inbound_edi, expected_type=type_hints["inbound_edi"])
                 check_type(argname="argument outbound_edi", value=outbound_edi, expected_type=type_hints["outbound_edi"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if inbound_edi is not None:
+                self._values["inbound_edi"] = inbound_edi
             if outbound_edi is not None:
                 self._values["outbound_edi"] = outbound_edi
+
+        @builtins.property
+        def inbound_edi(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPartnership.InboundEdiOptionsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-capabilityoptions.html#cfn-b2bi-partnership-capabilityoptions-inboundedi
+            '''
+            result = self._values.get("inbound_edi")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPartnership.InboundEdiOptionsProperty"]], result)
 
         @builtins.property
         def outbound_edi(
@@ -1272,6 +1325,66 @@ class CfnPartnership(
 
         def __repr__(self) -> str:
             return "CapabilityOptionsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_b2bi.CfnPartnership.InboundEdiOptionsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"x12": "x12"},
+    )
+    class InboundEdiOptionsProperty:
+        def __init__(
+            self,
+            *,
+            x12: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPartnership.X12InboundEdiOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param x12: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-inboundedioptions.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_b2bi as b2bi
+                
+                inbound_edi_options_property = b2bi.CfnPartnership.InboundEdiOptionsProperty(
+                    x12=b2bi.CfnPartnership.X12InboundEdiOptionsProperty(
+                        acknowledgment_options=b2bi.CfnPartnership.X12AcknowledgmentOptionsProperty(
+                            functional_acknowledgment="functionalAcknowledgment",
+                            technical_acknowledgment="technicalAcknowledgment"
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__b6c324487b61389216d4c37a2c38661a9fd27a782f0b1d30b4da2197c02472ca)
+                check_type(argname="argument x12", value=x12, expected_type=type_hints["x12"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if x12 is not None:
+                self._values["x12"] = x12
+
+        @builtins.property
+        def x12(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPartnership.X12InboundEdiOptionsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-inboundedioptions.html#cfn-b2bi-partnership-inboundedioptions-x12
+            '''
+            result = self._values.get("x12")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPartnership.X12InboundEdiOptionsProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "InboundEdiOptionsProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -1302,6 +1415,11 @@ class CfnPartnership(
                 outbound_edi_options_property = b2bi.CfnPartnership.OutboundEdiOptionsProperty(
                     x12=b2bi.CfnPartnership.X12EnvelopeProperty(
                         common=b2bi.CfnPartnership.X12OutboundEdiHeadersProperty(
+                            control_numbers=b2bi.CfnPartnership.X12ControlNumbersProperty(
+                                starting_functional_group_control_number=123,
+                                starting_interchange_control_number=123,
+                                starting_transaction_set_control_number=123
+                            ),
                             delimiters=b2bi.CfnPartnership.X12DelimitersProperty(
                                 component_separator="componentSeparator",
                                 data_element_separator="dataElementSeparator",
@@ -1312,6 +1430,7 @@ class CfnPartnership(
                                 application_sender_code="applicationSenderCode",
                                 responsible_agency_code="responsibleAgencyCode"
                             ),
+                            gs05_time_format="gs05TimeFormat",
                             interchange_control_headers=b2bi.CfnPartnership.X12InterchangeControlHeadersProperty(
                                 acknowledgment_requested_code="acknowledgmentRequestedCode",
                                 receiver_id="receiverId",
@@ -1322,6 +1441,11 @@ class CfnPartnership(
                                 usage_indicator_code="usageIndicatorCode"
                             ),
                             validate_edi=False
+                        ),
+                        wrap_options=b2bi.CfnPartnership.WrapOptionsProperty(
+                            line_length=123,
+                            line_terminator="lineTerminator",
+                            wrap_by="wrapBy"
                         )
                     )
                 )
@@ -1353,6 +1477,251 @@ class CfnPartnership(
 
         def __repr__(self) -> str:
             return "OutboundEdiOptionsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_b2bi.CfnPartnership.WrapOptionsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "line_length": "lineLength",
+            "line_terminator": "lineTerminator",
+            "wrap_by": "wrapBy",
+        },
+    )
+    class WrapOptionsProperty:
+        def __init__(
+            self,
+            *,
+            line_length: typing.Optional[jsii.Number] = None,
+            line_terminator: typing.Optional[builtins.str] = None,
+            wrap_by: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param line_length: 
+            :param line_terminator: 
+            :param wrap_by: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-wrapoptions.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_b2bi as b2bi
+                
+                wrap_options_property = b2bi.CfnPartnership.WrapOptionsProperty(
+                    line_length=123,
+                    line_terminator="lineTerminator",
+                    wrap_by="wrapBy"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__e655ba69d2815891585dad9698c9aca0d8f46825094f69219bf726ac7cc3dfb3)
+                check_type(argname="argument line_length", value=line_length, expected_type=type_hints["line_length"])
+                check_type(argname="argument line_terminator", value=line_terminator, expected_type=type_hints["line_terminator"])
+                check_type(argname="argument wrap_by", value=wrap_by, expected_type=type_hints["wrap_by"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if line_length is not None:
+                self._values["line_length"] = line_length
+            if line_terminator is not None:
+                self._values["line_terminator"] = line_terminator
+            if wrap_by is not None:
+                self._values["wrap_by"] = wrap_by
+
+        @builtins.property
+        def line_length(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-wrapoptions.html#cfn-b2bi-partnership-wrapoptions-linelength
+            '''
+            result = self._values.get("line_length")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def line_terminator(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-wrapoptions.html#cfn-b2bi-partnership-wrapoptions-lineterminator
+            '''
+            result = self._values.get("line_terminator")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def wrap_by(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-wrapoptions.html#cfn-b2bi-partnership-wrapoptions-wrapby
+            '''
+            result = self._values.get("wrap_by")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "WrapOptionsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_b2bi.CfnPartnership.X12AcknowledgmentOptionsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "functional_acknowledgment": "functionalAcknowledgment",
+            "technical_acknowledgment": "technicalAcknowledgment",
+        },
+    )
+    class X12AcknowledgmentOptionsProperty:
+        def __init__(
+            self,
+            *,
+            functional_acknowledgment: builtins.str,
+            technical_acknowledgment: builtins.str,
+        ) -> None:
+            '''
+            :param functional_acknowledgment: 
+            :param technical_acknowledgment: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12acknowledgmentoptions.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_b2bi as b2bi
+                
+                x12_acknowledgment_options_property = b2bi.CfnPartnership.X12AcknowledgmentOptionsProperty(
+                    functional_acknowledgment="functionalAcknowledgment",
+                    technical_acknowledgment="technicalAcknowledgment"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__cd25022ffe4e73fd8bbd9369b880ae7c91c4a3b0583614cce2974320e88eaa3a)
+                check_type(argname="argument functional_acknowledgment", value=functional_acknowledgment, expected_type=type_hints["functional_acknowledgment"])
+                check_type(argname="argument technical_acknowledgment", value=technical_acknowledgment, expected_type=type_hints["technical_acknowledgment"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "functional_acknowledgment": functional_acknowledgment,
+                "technical_acknowledgment": technical_acknowledgment,
+            }
+
+        @builtins.property
+        def functional_acknowledgment(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12acknowledgmentoptions.html#cfn-b2bi-partnership-x12acknowledgmentoptions-functionalacknowledgment
+            '''
+            result = self._values.get("functional_acknowledgment")
+            assert result is not None, "Required property 'functional_acknowledgment' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def technical_acknowledgment(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12acknowledgmentoptions.html#cfn-b2bi-partnership-x12acknowledgmentoptions-technicalacknowledgment
+            '''
+            result = self._values.get("technical_acknowledgment")
+            assert result is not None, "Required property 'technical_acknowledgment' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "X12AcknowledgmentOptionsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_b2bi.CfnPartnership.X12ControlNumbersProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "starting_functional_group_control_number": "startingFunctionalGroupControlNumber",
+            "starting_interchange_control_number": "startingInterchangeControlNumber",
+            "starting_transaction_set_control_number": "startingTransactionSetControlNumber",
+        },
+    )
+    class X12ControlNumbersProperty:
+        def __init__(
+            self,
+            *,
+            starting_functional_group_control_number: typing.Optional[jsii.Number] = None,
+            starting_interchange_control_number: typing.Optional[jsii.Number] = None,
+            starting_transaction_set_control_number: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param starting_functional_group_control_number: 
+            :param starting_interchange_control_number: 
+            :param starting_transaction_set_control_number: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12controlnumbers.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_b2bi as b2bi
+                
+                x12_control_numbers_property = b2bi.CfnPartnership.X12ControlNumbersProperty(
+                    starting_functional_group_control_number=123,
+                    starting_interchange_control_number=123,
+                    starting_transaction_set_control_number=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__30e0c21f8439a660cced0c707b2b1ab5d0199f9710dc5113cb9fcde22546bef9)
+                check_type(argname="argument starting_functional_group_control_number", value=starting_functional_group_control_number, expected_type=type_hints["starting_functional_group_control_number"])
+                check_type(argname="argument starting_interchange_control_number", value=starting_interchange_control_number, expected_type=type_hints["starting_interchange_control_number"])
+                check_type(argname="argument starting_transaction_set_control_number", value=starting_transaction_set_control_number, expected_type=type_hints["starting_transaction_set_control_number"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if starting_functional_group_control_number is not None:
+                self._values["starting_functional_group_control_number"] = starting_functional_group_control_number
+            if starting_interchange_control_number is not None:
+                self._values["starting_interchange_control_number"] = starting_interchange_control_number
+            if starting_transaction_set_control_number is not None:
+                self._values["starting_transaction_set_control_number"] = starting_transaction_set_control_number
+
+        @builtins.property
+        def starting_functional_group_control_number(
+            self,
+        ) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12controlnumbers.html#cfn-b2bi-partnership-x12controlnumbers-startingfunctionalgroupcontrolnumber
+            '''
+            result = self._values.get("starting_functional_group_control_number")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def starting_interchange_control_number(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12controlnumbers.html#cfn-b2bi-partnership-x12controlnumbers-startinginterchangecontrolnumber
+            '''
+            result = self._values.get("starting_interchange_control_number")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def starting_transaction_set_control_number(
+            self,
+        ) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12controlnumbers.html#cfn-b2bi-partnership-x12controlnumbers-startingtransactionsetcontrolnumber
+            '''
+            result = self._values.get("starting_transaction_set_control_number")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "X12ControlNumbersProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -1444,13 +1813,14 @@ class CfnPartnership(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_b2bi.CfnPartnership.X12EnvelopeProperty",
         jsii_struct_bases=[],
-        name_mapping={"common": "common"},
+        name_mapping={"common": "common", "wrap_options": "wrapOptions"},
     )
     class X12EnvelopeProperty:
         def __init__(
             self,
             *,
             common: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPartnership.X12OutboundEdiHeadersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            wrap_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPartnership.WrapOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A wrapper structure for an X12 definition object.
 
@@ -1461,6 +1831,7 @@ class CfnPartnership(
             - Transaction Set
 
             :param common: A container for the X12 outbound EDI headers.
+            :param wrap_options: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12envelope.html
             :exampleMetadata: fixture=_generated
@@ -1473,6 +1844,11 @@ class CfnPartnership(
                 
                 x12_envelope_property = b2bi.CfnPartnership.X12EnvelopeProperty(
                     common=b2bi.CfnPartnership.X12OutboundEdiHeadersProperty(
+                        control_numbers=b2bi.CfnPartnership.X12ControlNumbersProperty(
+                            starting_functional_group_control_number=123,
+                            starting_interchange_control_number=123,
+                            starting_transaction_set_control_number=123
+                        ),
                         delimiters=b2bi.CfnPartnership.X12DelimitersProperty(
                             component_separator="componentSeparator",
                             data_element_separator="dataElementSeparator",
@@ -1483,6 +1859,7 @@ class CfnPartnership(
                             application_sender_code="applicationSenderCode",
                             responsible_agency_code="responsibleAgencyCode"
                         ),
+                        gs05_time_format="gs05TimeFormat",
                         interchange_control_headers=b2bi.CfnPartnership.X12InterchangeControlHeadersProperty(
                             acknowledgment_requested_code="acknowledgmentRequestedCode",
                             receiver_id="receiverId",
@@ -1493,15 +1870,23 @@ class CfnPartnership(
                             usage_indicator_code="usageIndicatorCode"
                         ),
                         validate_edi=False
+                    ),
+                    wrap_options=b2bi.CfnPartnership.WrapOptionsProperty(
+                        line_length=123,
+                        line_terminator="lineTerminator",
+                        wrap_by="wrapBy"
                     )
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__30e9a528379ffdff1b0693f52a617de66a178b919d5d3ddc1c68309cc0a86afc)
                 check_type(argname="argument common", value=common, expected_type=type_hints["common"])
+                check_type(argname="argument wrap_options", value=wrap_options, expected_type=type_hints["wrap_options"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if common is not None:
                 self._values["common"] = common
+            if wrap_options is not None:
+                self._values["wrap_options"] = wrap_options
 
         @builtins.property
         def common(
@@ -1513,6 +1898,16 @@ class CfnPartnership(
             '''
             result = self._values.get("common")
             return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPartnership.X12OutboundEdiHeadersProperty"]], result)
+
+        @builtins.property
+        def wrap_options(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPartnership.WrapOptionsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12envelope.html#cfn-b2bi-partnership-x12envelope-wrapoptions
+            '''
+            result = self._values.get("wrap_options")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPartnership.WrapOptionsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1607,6 +2002,64 @@ class CfnPartnership(
 
         def __repr__(self) -> str:
             return "X12FunctionalGroupHeadersProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_b2bi.CfnPartnership.X12InboundEdiOptionsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"acknowledgment_options": "acknowledgmentOptions"},
+    )
+    class X12InboundEdiOptionsProperty:
+        def __init__(
+            self,
+            *,
+            acknowledgment_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPartnership.X12AcknowledgmentOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param acknowledgment_options: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12inboundedioptions.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_b2bi as b2bi
+                
+                x12_inbound_edi_options_property = b2bi.CfnPartnership.X12InboundEdiOptionsProperty(
+                    acknowledgment_options=b2bi.CfnPartnership.X12AcknowledgmentOptionsProperty(
+                        functional_acknowledgment="functionalAcknowledgment",
+                        technical_acknowledgment="technicalAcknowledgment"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__25951703b6b17888b8fded1f4b04ca4482b7f065fc950fd49d36619cde5b1ad6)
+                check_type(argname="argument acknowledgment_options", value=acknowledgment_options, expected_type=type_hints["acknowledgment_options"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if acknowledgment_options is not None:
+                self._values["acknowledgment_options"] = acknowledgment_options
+
+        @builtins.property
+        def acknowledgment_options(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPartnership.X12AcknowledgmentOptionsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12inboundedioptions.html#cfn-b2bi-partnership-x12inboundedioptions-acknowledgmentoptions
+            '''
+            result = self._values.get("acknowledgment_options")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPartnership.X12AcknowledgmentOptionsProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "X12InboundEdiOptionsProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -1759,8 +2212,10 @@ class CfnPartnership(
         jsii_type="aws-cdk-lib.aws_b2bi.CfnPartnership.X12OutboundEdiHeadersProperty",
         jsii_struct_bases=[],
         name_mapping={
+            "control_numbers": "controlNumbers",
             "delimiters": "delimiters",
             "functional_group_headers": "functionalGroupHeaders",
+            "gs05_time_format": "gs05TimeFormat",
             "interchange_control_headers": "interchangeControlHeaders",
             "validate_edi": "validateEdi",
         },
@@ -1769,15 +2224,19 @@ class CfnPartnership(
         def __init__(
             self,
             *,
+            control_numbers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPartnership.X12ControlNumbersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             delimiters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPartnership.X12DelimitersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             functional_group_headers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPartnership.X12FunctionalGroupHeadersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            gs05_time_format: typing.Optional[builtins.str] = None,
             interchange_control_headers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPartnership.X12InterchangeControlHeadersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             validate_edi: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         ) -> None:
             '''A structure containing the details for an outbound EDI object.
 
+            :param control_numbers: 
             :param delimiters: The delimiters, for example semicolon ( ``;`` ), that separates sections of the headers for the X12 object.
             :param functional_group_headers: The functional group headers for the X12 object.
+            :param gs05_time_format: 
             :param interchange_control_headers: In X12 EDI messages, delimiters are used to mark the end of segments or elements, and are defined in the interchange control header.
             :param validate_edi: Specifies whether or not to validate the EDI for this X12 object: ``TRUE`` or ``FALSE`` .
 
@@ -1791,6 +2250,11 @@ class CfnPartnership(
                 from aws_cdk import aws_b2bi as b2bi
                 
                 x12_outbound_edi_headers_property = b2bi.CfnPartnership.X12OutboundEdiHeadersProperty(
+                    control_numbers=b2bi.CfnPartnership.X12ControlNumbersProperty(
+                        starting_functional_group_control_number=123,
+                        starting_interchange_control_number=123,
+                        starting_transaction_set_control_number=123
+                    ),
                     delimiters=b2bi.CfnPartnership.X12DelimitersProperty(
                         component_separator="componentSeparator",
                         data_element_separator="dataElementSeparator",
@@ -1801,6 +2265,7 @@ class CfnPartnership(
                         application_sender_code="applicationSenderCode",
                         responsible_agency_code="responsibleAgencyCode"
                     ),
+                    gs05_time_format="gs05TimeFormat",
                     interchange_control_headers=b2bi.CfnPartnership.X12InterchangeControlHeadersProperty(
                         acknowledgment_requested_code="acknowledgmentRequestedCode",
                         receiver_id="receiverId",
@@ -1815,19 +2280,35 @@ class CfnPartnership(
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__8e80431a1b65f39f118b4a0b397a523502dcc49a5197848bd82eff40dc153d1c)
+                check_type(argname="argument control_numbers", value=control_numbers, expected_type=type_hints["control_numbers"])
                 check_type(argname="argument delimiters", value=delimiters, expected_type=type_hints["delimiters"])
                 check_type(argname="argument functional_group_headers", value=functional_group_headers, expected_type=type_hints["functional_group_headers"])
+                check_type(argname="argument gs05_time_format", value=gs05_time_format, expected_type=type_hints["gs05_time_format"])
                 check_type(argname="argument interchange_control_headers", value=interchange_control_headers, expected_type=type_hints["interchange_control_headers"])
                 check_type(argname="argument validate_edi", value=validate_edi, expected_type=type_hints["validate_edi"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if control_numbers is not None:
+                self._values["control_numbers"] = control_numbers
             if delimiters is not None:
                 self._values["delimiters"] = delimiters
             if functional_group_headers is not None:
                 self._values["functional_group_headers"] = functional_group_headers
+            if gs05_time_format is not None:
+                self._values["gs05_time_format"] = gs05_time_format
             if interchange_control_headers is not None:
                 self._values["interchange_control_headers"] = interchange_control_headers
             if validate_edi is not None:
                 self._values["validate_edi"] = validate_edi
+
+        @builtins.property
+        def control_numbers(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPartnership.X12ControlNumbersProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12outboundediheaders.html#cfn-b2bi-partnership-x12outboundediheaders-controlnumbers
+            '''
+            result = self._values.get("control_numbers")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPartnership.X12ControlNumbersProperty"]], result)
 
         @builtins.property
         def delimiters(
@@ -1850,6 +2331,14 @@ class CfnPartnership(
             '''
             result = self._values.get("functional_group_headers")
             return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPartnership.X12FunctionalGroupHeadersProperty"]], result)
+
+        @builtins.property
+        def gs05_time_format(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12outboundediheaders.html#cfn-b2bi-partnership-x12outboundediheaders-gs05timeformat
+            '''
+            result = self._values.get("gs05_time_format")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def interchange_control_headers(
@@ -1937,9 +2426,22 @@ class CfnPartnershipProps:
             
                 # the properties below are optional
                 capability_options=b2bi.CfnPartnership.CapabilityOptionsProperty(
+                    inbound_edi=b2bi.CfnPartnership.InboundEdiOptionsProperty(
+                        x12=b2bi.CfnPartnership.X12InboundEdiOptionsProperty(
+                            acknowledgment_options=b2bi.CfnPartnership.X12AcknowledgmentOptionsProperty(
+                                functional_acknowledgment="functionalAcknowledgment",
+                                technical_acknowledgment="technicalAcknowledgment"
+                            )
+                        )
+                    ),
                     outbound_edi=b2bi.CfnPartnership.OutboundEdiOptionsProperty(
                         x12=b2bi.CfnPartnership.X12EnvelopeProperty(
                             common=b2bi.CfnPartnership.X12OutboundEdiHeadersProperty(
+                                control_numbers=b2bi.CfnPartnership.X12ControlNumbersProperty(
+                                    starting_functional_group_control_number=123,
+                                    starting_interchange_control_number=123,
+                                    starting_transaction_set_control_number=123
+                                ),
                                 delimiters=b2bi.CfnPartnership.X12DelimitersProperty(
                                     component_separator="componentSeparator",
                                     data_element_separator="dataElementSeparator",
@@ -1950,6 +2452,7 @@ class CfnPartnershipProps:
                                     application_sender_code="applicationSenderCode",
                                     responsible_agency_code="responsibleAgencyCode"
                                 ),
+                                gs05_time_format="gs05TimeFormat",
                                 interchange_control_headers=b2bi.CfnPartnership.X12InterchangeControlHeadersProperty(
                                     acknowledgment_requested_code="acknowledgmentRequestedCode",
                                     receiver_id="receiverId",
@@ -1960,6 +2463,11 @@ class CfnPartnershipProps:
                                     usage_indicator_code="usageIndicatorCode"
                                 ),
                                 validate_edi=False
+                            ),
+                            wrap_options=b2bi.CfnPartnership.WrapOptionsProperty(
+                                line_length=123,
+                                line_terminator="lineTerminator",
+                                wrap_by="wrapBy"
                             )
                         )
                     )
@@ -2497,6 +3005,13 @@ class CfnTransformer(
                 from_format="fromFormat",
         
                 # the properties below are optional
+                advanced_options=b2bi.CfnTransformer.AdvancedOptionsProperty(
+                    x12=b2bi.CfnTransformer.X12AdvancedOptionsProperty(
+                        split_options=b2bi.CfnTransformer.X12SplitOptionsProperty(
+                            split_by="splitBy"
+                        )
+                    )
+                ),
                 format_options=b2bi.CfnTransformer.FormatOptionsProperty(
                     x12=b2bi.CfnTransformer.X12DetailsProperty(
                         transaction_set="transactionSet",
@@ -2855,6 +3370,65 @@ class CfnTransformer(
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_b2bi.CfnTransformer.AdvancedOptionsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"x12": "x12"},
+    )
+    class AdvancedOptionsProperty:
+        def __init__(
+            self,
+            *,
+            x12: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTransformer.X12AdvancedOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param x12: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-advancedoptions.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_b2bi as b2bi
+                
+                advanced_options_property = b2bi.CfnTransformer.AdvancedOptionsProperty(
+                    x12=b2bi.CfnTransformer.X12AdvancedOptionsProperty(
+                        split_options=b2bi.CfnTransformer.X12SplitOptionsProperty(
+                            split_by="splitBy"
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__bb01391868543c9042ef70dbd21634249f177cb7ac9ad6ddf2b2583c136e529b)
+                check_type(argname="argument x12", value=x12, expected_type=type_hints["x12"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if x12 is not None:
+                self._values["x12"] = x12
+
+        @builtins.property
+        def x12(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTransformer.X12AdvancedOptionsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-advancedoptions.html#cfn-b2bi-transformer-advancedoptions-x12
+            '''
+            result = self._values.get("x12")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTransformer.X12AdvancedOptionsProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AdvancedOptionsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_b2bi.CfnTransformer.EdiTypeProperty",
         jsii_struct_bases=[],
         name_mapping={"x12_details": "x12Details"},
@@ -2975,17 +3549,23 @@ class CfnTransformer(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_b2bi.CfnTransformer.InputConversionProperty",
         jsii_struct_bases=[],
-        name_mapping={"from_format": "fromFormat", "format_options": "formatOptions"},
+        name_mapping={
+            "from_format": "fromFormat",
+            "advanced_options": "advancedOptions",
+            "format_options": "formatOptions",
+        },
     )
     class InputConversionProperty:
         def __init__(
             self,
             *,
             from_format: builtins.str,
+            advanced_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTransformer.AdvancedOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             format_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTransformer.FormatOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param from_format: 
+            :param advanced_options: 
             :param format_options: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-inputconversion.html
@@ -3001,6 +3581,13 @@ class CfnTransformer(
                     from_format="fromFormat",
                 
                     # the properties below are optional
+                    advanced_options=b2bi.CfnTransformer.AdvancedOptionsProperty(
+                        x12=b2bi.CfnTransformer.X12AdvancedOptionsProperty(
+                            split_options=b2bi.CfnTransformer.X12SplitOptionsProperty(
+                                split_by="splitBy"
+                            )
+                        )
+                    ),
                     format_options=b2bi.CfnTransformer.FormatOptionsProperty(
                         x12=b2bi.CfnTransformer.X12DetailsProperty(
                             transaction_set="transactionSet",
@@ -3012,10 +3599,13 @@ class CfnTransformer(
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__26660093b7b88e1d4689618f27b43e1e286cfcdb3adbc4c515c4b29513332a12)
                 check_type(argname="argument from_format", value=from_format, expected_type=type_hints["from_format"])
+                check_type(argname="argument advanced_options", value=advanced_options, expected_type=type_hints["advanced_options"])
                 check_type(argname="argument format_options", value=format_options, expected_type=type_hints["format_options"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "from_format": from_format,
             }
+            if advanced_options is not None:
+                self._values["advanced_options"] = advanced_options
             if format_options is not None:
                 self._values["format_options"] = format_options
 
@@ -3027,6 +3617,16 @@ class CfnTransformer(
             result = self._values.get("from_format")
             assert result is not None, "Required property 'from_format' is missing"
             return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def advanced_options(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTransformer.AdvancedOptionsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-inputconversion.html#cfn-b2bi-transformer-inputconversion-advancedoptions
+            '''
+            result = self._values.get("advanced_options")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTransformer.AdvancedOptionsProperty"]], result)
 
         @builtins.property
         def format_options(
@@ -3337,6 +3937,63 @@ class CfnTransformer(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_b2bi.CfnTransformer.X12AdvancedOptionsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"split_options": "splitOptions"},
+    )
+    class X12AdvancedOptionsProperty:
+        def __init__(
+            self,
+            *,
+            split_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTransformer.X12SplitOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param split_options: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-x12advancedoptions.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_b2bi as b2bi
+                
+                x12_advanced_options_property = b2bi.CfnTransformer.X12AdvancedOptionsProperty(
+                    split_options=b2bi.CfnTransformer.X12SplitOptionsProperty(
+                        split_by="splitBy"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__0d6cdec7bccb6d811748cbb3f28ec5b4408f4496a924455516c3f90fd268b81c)
+                check_type(argname="argument split_options", value=split_options, expected_type=type_hints["split_options"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if split_options is not None:
+                self._values["split_options"] = split_options
+
+        @builtins.property
+        def split_options(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTransformer.X12SplitOptionsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-x12advancedoptions.html#cfn-b2bi-transformer-x12advancedoptions-splitoptions
+            '''
+            result = self._values.get("split_options")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTransformer.X12SplitOptionsProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "X12AdvancedOptionsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_b2bi.CfnTransformer.X12DetailsProperty",
         jsii_struct_bases=[],
         name_mapping={"transaction_set": "transactionSet", "version": "version"},
@@ -3413,6 +4070,55 @@ class CfnTransformer(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_b2bi.CfnTransformer.X12SplitOptionsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"split_by": "splitBy"},
+    )
+    class X12SplitOptionsProperty:
+        def __init__(self, *, split_by: typing.Optional[builtins.str] = None) -> None:
+            '''
+            :param split_by: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-x12splitoptions.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_b2bi as b2bi
+                
+                x12_split_options_property = b2bi.CfnTransformer.X12SplitOptionsProperty(
+                    split_by="splitBy"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__8eda5d523e00df1c59382ff9b447e68e4b9960ae993e8a6bceb3337c0646dede)
+                check_type(argname="argument split_by", value=split_by, expected_type=type_hints["split_by"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if split_by is not None:
+                self._values["split_by"] = split_by
+
+        @builtins.property
+        def split_by(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-x12splitoptions.html#cfn-b2bi-transformer-x12splitoptions-splitby
+            '''
+            result = self._values.get("split_by")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "X12SplitOptionsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_b2bi.CfnTransformerProps",
@@ -3486,6 +4192,13 @@ class CfnTransformerProps:
                     from_format="fromFormat",
             
                     # the properties below are optional
+                    advanced_options=b2bi.CfnTransformer.AdvancedOptionsProperty(
+                        x12=b2bi.CfnTransformer.X12AdvancedOptionsProperty(
+                            split_options=b2bi.CfnTransformer.X12SplitOptionsProperty(
+                                split_by="splitBy"
+                            )
+                        )
+                    ),
                     format_options=b2bi.CfnTransformer.FormatOptionsProperty(
                         x12=b2bi.CfnTransformer.X12DetailsProperty(
                             transaction_set="transactionSet",
@@ -3893,7 +4606,15 @@ def _typecheckingstub__fc0c0a6e8431d11899a318046b450bc4efc00486d9f20286940067c7f
 
 def _typecheckingstub__489c8d62d1ea0d603790b535b3f02b6d30eee2c7a02cd1b1d2a497a7f9f54c2b(
     *,
+    inbound_edi: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPartnership.InboundEdiOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     outbound_edi: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPartnership.OutboundEdiOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b6c324487b61389216d4c37a2c38661a9fd27a782f0b1d30b4da2197c02472ca(
+    *,
+    x12: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPartnership.X12InboundEdiOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3901,6 +4622,32 @@ def _typecheckingstub__489c8d62d1ea0d603790b535b3f02b6d30eee2c7a02cd1b1d2a497a7f
 def _typecheckingstub__32687b2a777cf504a9e11c6386b8aa7795645f807660aecf3f5bdddf1b953268(
     *,
     x12: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPartnership.X12EnvelopeProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e655ba69d2815891585dad9698c9aca0d8f46825094f69219bf726ac7cc3dfb3(
+    *,
+    line_length: typing.Optional[jsii.Number] = None,
+    line_terminator: typing.Optional[builtins.str] = None,
+    wrap_by: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cd25022ffe4e73fd8bbd9369b880ae7c91c4a3b0583614cce2974320e88eaa3a(
+    *,
+    functional_acknowledgment: builtins.str,
+    technical_acknowledgment: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__30e0c21f8439a660cced0c707b2b1ab5d0199f9710dc5113cb9fcde22546bef9(
+    *,
+    starting_functional_group_control_number: typing.Optional[jsii.Number] = None,
+    starting_interchange_control_number: typing.Optional[jsii.Number] = None,
+    starting_transaction_set_control_number: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3917,6 +4664,7 @@ def _typecheckingstub__1c64e6cc29ab2abf7a0ebb687d8309174a673c2096776d261df47c9bb
 def _typecheckingstub__30e9a528379ffdff1b0693f52a617de66a178b919d5d3ddc1c68309cc0a86afc(
     *,
     common: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPartnership.X12OutboundEdiHeadersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    wrap_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPartnership.WrapOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3926,6 +4674,13 @@ def _typecheckingstub__0b107041a5b51efd672a9b2f3b5bb8ce2f8376a1dc4cddc6a58a089e0
     application_receiver_code: typing.Optional[builtins.str] = None,
     application_sender_code: typing.Optional[builtins.str] = None,
     responsible_agency_code: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__25951703b6b17888b8fded1f4b04ca4482b7f065fc950fd49d36619cde5b1ad6(
+    *,
+    acknowledgment_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPartnership.X12AcknowledgmentOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3945,8 +4700,10 @@ def _typecheckingstub__2cd06c107bbc9de62cfdd484dd7527f5641c4d03e973675f4638b3441
 
 def _typecheckingstub__8e80431a1b65f39f118b4a0b397a523502dcc49a5197848bd82eff40dc153d1c(
     *,
+    control_numbers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPartnership.X12ControlNumbersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     delimiters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPartnership.X12DelimitersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     functional_group_headers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPartnership.X12FunctionalGroupHeadersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    gs05_time_format: typing.Optional[builtins.str] = None,
     interchange_control_headers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPartnership.X12InterchangeControlHeadersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     validate_edi: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
 ) -> None:
@@ -4137,6 +4894,13 @@ def _typecheckingstub__d4ec179f77fa2da856518d97a9b83e88d0c96784ca483f80c070b398e
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__bb01391868543c9042ef70dbd21634249f177cb7ac9ad6ddf2b2583c136e529b(
+    *,
+    x12: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.X12AdvancedOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__0a90856b523d4a63e08c58604f08df0cd4ca6647b6d8b2bf4c0c6238831a179a(
     *,
     x12_details: typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.X12DetailsProperty, typing.Dict[builtins.str, typing.Any]]],
@@ -4154,6 +4918,7 @@ def _typecheckingstub__4fd1bb8229a0f694482eb19adf96ad49a74295bc6d7acb9ae07377337
 def _typecheckingstub__26660093b7b88e1d4689618f27b43e1e286cfcdb3adbc4c515c4b29513332a12(
     *,
     from_format: builtins.str,
+    advanced_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.AdvancedOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     format_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.FormatOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4191,10 +4956,24 @@ def _typecheckingstub__f6b7e60975e30fa176cbce1116829b7ea73143bc6b12e63afdd39fa25
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__0d6cdec7bccb6d811748cbb3f28ec5b4408f4496a924455516c3f90fd268b81c(
+    *,
+    split_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.X12SplitOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__6c52ecd7c7c399e4bebfaf5bf8793e65928fdad0c0133ff1ce55c05683b44ac7(
     *,
     transaction_set: typing.Optional[builtins.str] = None,
     version: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8eda5d523e00df1c59382ff9b447e68e4b9960ae993e8a6bceb3337c0646dede(
+    *,
+    split_by: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

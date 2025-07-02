@@ -12,13 +12,13 @@ LONG_DESCRIPTION = (Path(__file__).parent / "README.md").read_text()
 
 setup(
     name="types-boto3",
-    version="1.39.0",
+    version="1.39.1",
     packages=["boto3-stubs"],
     url="https://github.com/youtype/mypy_boto3_builder",
     license="MIT License",
     author="Vlad Emelianov",
     author_email="vlad.emelianov.nz@gmail.com",
-    description="Type annotations for boto3 1.39.0 generated with mypy-boto3-builder 8.11.0",
+    description="Type annotations for boto3 1.39.1 generated with mypy-boto3-builder 8.11.0",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
@@ -55,7 +55,7 @@ setup(
     ],
     extras_require={
         "full": ["types-boto3-full>=1.39.0, <1.40.0"],
-        "boto3": ["boto3==1.39.0"],
+        "boto3": ["boto3==1.39.1"],
         "all": [
             "types-boto3-accessanalyzer>=1.39.0, <1.40.0",
             "types-boto3-account>=1.39.0, <1.40.0",
@@ -331,6 +331,7 @@ setup(
             "types-boto3-notificationscontacts>=1.39.0, <1.40.0",
             "types-boto3-oam>=1.39.0, <1.40.0",
             "types-boto3-observabilityadmin>=1.39.0, <1.40.0",
+            "types-boto3-odb>=1.39.0, <1.40.0",
             "types-boto3-omics>=1.39.0, <1.40.0",
             "types-boto3-opensearch>=1.39.0, <1.40.0",
             "types-boto3-opensearchserverless>=1.39.0, <1.40.0",
@@ -763,6 +764,7 @@ setup(
         "notificationscontacts": ["types-boto3-notificationscontacts>=1.39.0, <1.40.0"],
         "oam": ["types-boto3-oam>=1.39.0, <1.40.0"],
         "observabilityadmin": ["types-boto3-observabilityadmin>=1.39.0, <1.40.0"],
+        "odb": ["types-boto3-odb>=1.39.0, <1.40.0"],
         "omics": ["types-boto3-omics>=1.39.0, <1.40.0"],
         "opensearch": ["types-boto3-opensearch>=1.39.0, <1.40.0"],
         "opensearchserverless": ["types-boto3-opensearchserverless>=1.39.0, <1.40.0"],

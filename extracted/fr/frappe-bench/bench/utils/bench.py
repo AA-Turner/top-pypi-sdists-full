@@ -257,9 +257,9 @@ def migrate_env(python, backup=False):
 		logger.log(f"Setting up a New Virtual {python} Environment")
 		if os.environ.get("BENCH_USE_UV"):
 			if os.environ.get("FRAPPE_DOCKER_BUILD"):
-				exec_cmd(f"uv venv {pvenv} --seed --link-mode=copy", cwd=self.bench.name)
+				exec_cmd(f"uv venv {pvenv} --seed --link-mode=copy --python {python}")
 			else:
-				exec_cmd(f"uv venv {pvenv} --seed", cwd=self.bench.name)
+				exec_cmd(f"uv venv {pvenv} --seed --python {python}")
 		else:
 			exec_cmd(f"{python} -m venv {pvenv}")
 

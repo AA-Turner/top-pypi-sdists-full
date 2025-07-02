@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: stripe
-Version: 12.2.0
+Version: 12.3.0
 Summary: Python bindings for the Stripe API
 Home-page: https://github.com/stripe/stripe-python
 Author: Stripe

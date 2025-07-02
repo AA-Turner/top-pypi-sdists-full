@@ -50,7 +50,7 @@ dependencies = [
     "numpy>=1.24.1",
     "matplotlib>=3.7.5",
     "pandas >=1.5.3",
-    "scipy>=1.8.1",
+    "scipy>=1.8.1,<1.16.0",
     "seaborn>=0.13.2",
     "h5py>=3.7.0",
     "tqdm",
@@ -105,7 +105,7 @@ test = [
     "scanpy[dask-ml]",
 ]
 doc = [
-    "sphinx >=7, !=8.2.0",
+    "sphinx>=8.2.3",
     "sphinx-book-theme>=1.1.0",
     "scanpydoc>=0.15.3",
     "sphinx-autodoc-typehints>=1.25.2",
@@ -120,7 +120,6 @@ doc = [
     "ipython>=7.20",                    # for nbsphinx code highlighting
     "matplotlib!=3.6.1",
     "sphinxcontrib-bibtex",
-    "setuptools",                       # undeclared dependency of sphinxcontrib-bibtex→pybtex
     # TODO: remove necessity for being able to import doc-linked classes
     "scanpy[paga,dask-ml]",
     "sam-algorithm",

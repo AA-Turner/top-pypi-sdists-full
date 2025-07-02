@@ -1409,6 +1409,7 @@ class CfnCanary(
                 environment_variables={
                     "environment_variables_key": "environmentVariables"
                 },
+                ephemeral_storage=123,
                 memory_in_mb=123,
                 timeout_in_seconds=123
             ),
@@ -2223,6 +2224,7 @@ class CfnCanary(
         name_mapping={
             "active_tracing": "activeTracing",
             "environment_variables": "environmentVariables",
+            "ephemeral_storage": "ephemeralStorage",
             "memory_in_mb": "memoryInMb",
             "timeout_in_seconds": "timeoutInSeconds",
         },
@@ -2233,6 +2235,7 @@ class CfnCanary(
             *,
             active_tracing: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
             environment_variables: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+            ephemeral_storage: typing.Optional[jsii.Number] = None,
             memory_in_mb: typing.Optional[jsii.Number] = None,
             timeout_in_seconds: typing.Optional[jsii.Number] = None,
         ) -> None:
@@ -2242,6 +2245,7 @@ class CfnCanary(
 
             :param active_tracing: Specifies whether this canary is to use active AWS X-Ray tracing when it runs. Active tracing enables this canary run to be displayed in the ServiceLens and X-Ray service maps even if the canary does not hit an endpoint that has X-Ray tracing enabled. Using X-Ray tracing incurs charges. For more information, see `Canaries and X-Ray tracing <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_tracing.html>`_ . You can enable active tracing only for canaries that use version ``syn-nodejs-2.0`` or later for their canary runtime.
             :param environment_variables: Specifies the keys and values to use for any environment variables used in the canary script. Use the following format: { "key1" : "value1", "key2" : "value2", ...} Keys must start with a letter and be at least two characters. The total size of your environment variables cannot exceed 4 KB. You can't specify any Lambda reserved environment variables as the keys for your environment variables. For more information about reserved keys, see `Runtime environment variables <https://docs.aws.amazon.com/lambda/latest/dg/configuration-envvars.html#configuration-envvars-runtime>`_ .
+            :param ephemeral_storage: Specifies the amount of ephemeral storage (in MB) to allocate for the canary run during execution. This temporary storage is used for storing canary run artifacts (which are uploaded to an Amazon S3 bucket at the end of the run), and any canary browser operations. This temporary storage is cleared after the run is completed. Default storage value is 1024 MB.
             :param memory_in_mb: The maximum amount of memory that the canary can use while running. This value must be a multiple of 64. The range is 960 to 3008.
             :param timeout_in_seconds: How long the canary is allowed to run before it must stop. You can't set this time to be longer than the frequency of the runs of this canary. If you omit this field, the frequency of the canary is used as this value, up to a maximum of 900 seconds.
 
@@ -2259,6 +2263,7 @@ class CfnCanary(
                     environment_variables={
                         "environment_variables_key": "environmentVariables"
                     },
+                    ephemeral_storage=123,
                     memory_in_mb=123,
                     timeout_in_seconds=123
                 )
@@ -2267,6 +2272,7 @@ class CfnCanary(
                 type_hints = typing.get_type_hints(_typecheckingstub__fa148862e82948accbbe951e7afcee721aa7014754c81106d2648fe1c5cf28e2)
                 check_type(argname="argument active_tracing", value=active_tracing, expected_type=type_hints["active_tracing"])
                 check_type(argname="argument environment_variables", value=environment_variables, expected_type=type_hints["environment_variables"])
+                check_type(argname="argument ephemeral_storage", value=ephemeral_storage, expected_type=type_hints["ephemeral_storage"])
                 check_type(argname="argument memory_in_mb", value=memory_in_mb, expected_type=type_hints["memory_in_mb"])
                 check_type(argname="argument timeout_in_seconds", value=timeout_in_seconds, expected_type=type_hints["timeout_in_seconds"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2274,6 +2280,8 @@ class CfnCanary(
                 self._values["active_tracing"] = active_tracing
             if environment_variables is not None:
                 self._values["environment_variables"] = environment_variables
+            if ephemeral_storage is not None:
+                self._values["ephemeral_storage"] = ephemeral_storage
             if memory_in_mb is not None:
                 self._values["memory_in_mb"] = memory_in_mb
             if timeout_in_seconds is not None:
@@ -2310,6 +2318,17 @@ class CfnCanary(
             '''
             result = self._values.get("environment_variables")
             return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
+
+        @builtins.property
+        def ephemeral_storage(self) -> typing.Optional[jsii.Number]:
+            '''Specifies the amount of ephemeral storage (in MB) to allocate for the canary run during execution.
+
+            This temporary storage is used for storing canary run artifacts (which are uploaded to an Amazon S3 bucket at the end of the run), and any canary browser operations. This temporary storage is cleared after the run is completed. Default storage value is 1024 MB.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-runconfig.html#cfn-synthetics-canary-runconfig-ephemeralstorage
+            '''
+            result = self._values.get("ephemeral_storage")
+            return typing.cast(typing.Optional[jsii.Number], result)
 
         @builtins.property
         def memory_in_mb(self) -> typing.Optional[jsii.Number]:
@@ -2851,6 +2870,7 @@ class CfnCanaryProps:
                     environment_variables={
                         "environment_variables_key": "environmentVariables"
                     },
+                    ephemeral_storage=123,
                     memory_in_mb=123,
                     timeout_in_seconds=123
                 ),
@@ -5051,6 +5071,7 @@ def _typecheckingstub__fa148862e82948accbbe951e7afcee721aa7014754c81106d2648fe1c
     *,
     active_tracing: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     environment_variables: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    ephemeral_storage: typing.Optional[jsii.Number] = None,
     memory_in_mb: typing.Optional[jsii.Number] = None,
     timeout_in_seconds: typing.Optional[jsii.Number] = None,
 ) -> None:

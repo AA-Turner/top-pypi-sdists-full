@@ -1,7 +1,7 @@
 r'''
 # `google_spanner_backup_schedule`
 
-Refer to the Terraform Registry for docs: [`google_spanner_backup_schedule`](https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule).
+Refer to the Terraform Registry for docs: [`google_spanner_backup_schedule`](https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GoogleSpannerBackupSchedule(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google-beta.googleSpannerBackupSchedule.GoogleSpannerBackupSchedule",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule google_spanner_backup_schedule}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule google_spanner_backup_schedule}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class GoogleSpannerBackupSchedule(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule google_spanner_backup_schedule} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule google_spanner_backup_schedule} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param database: The database to create the backup schedule on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#database GoogleSpannerBackupSchedule#database}
-        :param instance: The instance to create the database on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#instance GoogleSpannerBackupSchedule#instance}
-        :param retention_duration: At what relative time in the future, compared to its creation time, the backup should be deleted, e.g. keep backups for 7 days. A duration in seconds with up to nine fractional digits, ending with 's'. Example: '3.5s'. You can set this to a value up to 366 days. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#retention_duration GoogleSpannerBackupSchedule#retention_duration}
-        :param encryption_config: encryption_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#encryption_config GoogleSpannerBackupSchedule#encryption_config}
-        :param full_backup_spec: full_backup_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#full_backup_spec GoogleSpannerBackupSchedule#full_backup_spec}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#id GoogleSpannerBackupSchedule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param incremental_backup_spec: incremental_backup_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#incremental_backup_spec GoogleSpannerBackupSchedule#incremental_backup_spec}
-        :param name: A unique identifier for the backup schedule, which cannot be changed after the backup schedule is created. Values are of the form [a-z][-a-z0-9]*[a-z0-9]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#name GoogleSpannerBackupSchedule#name}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#project GoogleSpannerBackupSchedule#project}.
-        :param spec: spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#spec GoogleSpannerBackupSchedule#spec}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#timeouts GoogleSpannerBackupSchedule#timeouts}
+        :param database: The database to create the backup schedule on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#database GoogleSpannerBackupSchedule#database}
+        :param instance: The instance to create the database on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#instance GoogleSpannerBackupSchedule#instance}
+        :param retention_duration: At what relative time in the future, compared to its creation time, the backup should be deleted, e.g. keep backups for 7 days. A duration in seconds with up to nine fractional digits, ending with 's'. Example: '3.5s'. You can set this to a value up to 366 days. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#retention_duration GoogleSpannerBackupSchedule#retention_duration}
+        :param encryption_config: encryption_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#encryption_config GoogleSpannerBackupSchedule#encryption_config}
+        :param full_backup_spec: full_backup_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#full_backup_spec GoogleSpannerBackupSchedule#full_backup_spec}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#id GoogleSpannerBackupSchedule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param incremental_backup_spec: incremental_backup_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#incremental_backup_spec GoogleSpannerBackupSchedule#incremental_backup_spec}
+        :param name: A unique identifier for the backup schedule, which cannot be changed after the backup schedule is created. Values are of the form [a-z][-a-z0-9]*[a-z0-9]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#name GoogleSpannerBackupSchedule#name}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#project GoogleSpannerBackupSchedule#project}.
+        :param spec: spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#spec GoogleSpannerBackupSchedule#spec}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#timeouts GoogleSpannerBackupSchedule#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class GoogleSpannerBackupSchedule(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GoogleSpannerBackupSchedule to import.
-        :param import_from_id: The id of the existing GoogleSpannerBackupSchedule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GoogleSpannerBackupSchedule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GoogleSpannerBackupSchedule to import is found.
         '''
         if __debug__:
@@ -150,13 +150,17 @@ class GoogleSpannerBackupSchedule(
         *,
         encryption_type: builtins.str,
         kms_key_name: typing.Optional[builtins.str] = None,
+        kms_key_names: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param encryption_type: The encryption type of backups created by the backup schedule. Possible values are USE_DATABASE_ENCRYPTION, GOOGLE_DEFAULT_ENCRYPTION, or CUSTOMER_MANAGED_ENCRYPTION. If you use CUSTOMER_MANAGED_ENCRYPTION, you must specify a kmsKeyName. If your backup type is incremental-backup, the encryption type must be GOOGLE_DEFAULT_ENCRYPTION. Possible values: ["USE_DATABASE_ENCRYPTION", "GOOGLE_DEFAULT_ENCRYPTION", "CUSTOMER_MANAGED_ENCRYPTION"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#encryption_type GoogleSpannerBackupSchedule#encryption_type}
-        :param kms_key_name: The resource name of the Cloud KMS key to use for encryption. Format: 'projects/{project}/locations/{location}/keyRings/{keyRing}/cryptoKeys/{cryptoKey}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#kms_key_name GoogleSpannerBackupSchedule#kms_key_name}
+        :param encryption_type: The encryption type of backups created by the backup schedule. Possible values are USE_DATABASE_ENCRYPTION, GOOGLE_DEFAULT_ENCRYPTION, or CUSTOMER_MANAGED_ENCRYPTION. If you use CUSTOMER_MANAGED_ENCRYPTION, you must specify a kmsKeyName. If your backup type is incremental-backup, the encryption type must be GOOGLE_DEFAULT_ENCRYPTION. Possible values: ["USE_DATABASE_ENCRYPTION", "GOOGLE_DEFAULT_ENCRYPTION", "CUSTOMER_MANAGED_ENCRYPTION"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#encryption_type GoogleSpannerBackupSchedule#encryption_type}
+        :param kms_key_name: The resource name of the Cloud KMS key to use for encryption. Format: 'projects/{project}/locations/{location}/keyRings/{keyRing}/cryptoKeys/{cryptoKey}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#kms_key_name GoogleSpannerBackupSchedule#kms_key_name}
+        :param kms_key_names: Fully qualified name of the KMS keys to use to encrypt this database. The keys must exist in the same locations as the Spanner Database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#kms_key_names GoogleSpannerBackupSchedule#kms_key_names}
         '''
         value = GoogleSpannerBackupScheduleEncryptionConfig(
-            encryption_type=encryption_type, kms_key_name=kms_key_name
+            encryption_type=encryption_type,
+            kms_key_name=kms_key_name,
+            kms_key_names=kms_key_names,
         )
 
         return typing.cast(None, jsii.invoke(self, "putEncryptionConfig", [value]))
@@ -180,7 +184,7 @@ class GoogleSpannerBackupSchedule(
         cron_spec: typing.Optional[typing.Union["GoogleSpannerBackupScheduleSpecCronSpec", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cron_spec: cron_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#cron_spec GoogleSpannerBackupSchedule#cron_spec}
+        :param cron_spec: cron_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#cron_spec GoogleSpannerBackupSchedule#cron_spec}
         '''
         value = GoogleSpannerBackupScheduleSpec(cron_spec=cron_spec)
 
@@ -195,9 +199,9 @@ class GoogleSpannerBackupSchedule(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#create GoogleSpannerBackupSchedule#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#delete GoogleSpannerBackupSchedule#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#update GoogleSpannerBackupSchedule#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#create GoogleSpannerBackupSchedule#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#delete GoogleSpannerBackupSchedule#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#update GoogleSpannerBackupSchedule#update}.
         '''
         value = GoogleSpannerBackupScheduleTimeouts(
             create=create, delete=delete, update=update
@@ -472,17 +476,17 @@ class GoogleSpannerBackupScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param database: The database to create the backup schedule on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#database GoogleSpannerBackupSchedule#database}
-        :param instance: The instance to create the database on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#instance GoogleSpannerBackupSchedule#instance}
-        :param retention_duration: At what relative time in the future, compared to its creation time, the backup should be deleted, e.g. keep backups for 7 days. A duration in seconds with up to nine fractional digits, ending with 's'. Example: '3.5s'. You can set this to a value up to 366 days. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#retention_duration GoogleSpannerBackupSchedule#retention_duration}
-        :param encryption_config: encryption_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#encryption_config GoogleSpannerBackupSchedule#encryption_config}
-        :param full_backup_spec: full_backup_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#full_backup_spec GoogleSpannerBackupSchedule#full_backup_spec}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#id GoogleSpannerBackupSchedule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param incremental_backup_spec: incremental_backup_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#incremental_backup_spec GoogleSpannerBackupSchedule#incremental_backup_spec}
-        :param name: A unique identifier for the backup schedule, which cannot be changed after the backup schedule is created. Values are of the form [a-z][-a-z0-9]*[a-z0-9]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#name GoogleSpannerBackupSchedule#name}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#project GoogleSpannerBackupSchedule#project}.
-        :param spec: spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#spec GoogleSpannerBackupSchedule#spec}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#timeouts GoogleSpannerBackupSchedule#timeouts}
+        :param database: The database to create the backup schedule on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#database GoogleSpannerBackupSchedule#database}
+        :param instance: The instance to create the database on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#instance GoogleSpannerBackupSchedule#instance}
+        :param retention_duration: At what relative time in the future, compared to its creation time, the backup should be deleted, e.g. keep backups for 7 days. A duration in seconds with up to nine fractional digits, ending with 's'. Example: '3.5s'. You can set this to a value up to 366 days. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#retention_duration GoogleSpannerBackupSchedule#retention_duration}
+        :param encryption_config: encryption_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#encryption_config GoogleSpannerBackupSchedule#encryption_config}
+        :param full_backup_spec: full_backup_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#full_backup_spec GoogleSpannerBackupSchedule#full_backup_spec}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#id GoogleSpannerBackupSchedule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param incremental_backup_spec: incremental_backup_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#incremental_backup_spec GoogleSpannerBackupSchedule#incremental_backup_spec}
+        :param name: A unique identifier for the backup schedule, which cannot be changed after the backup schedule is created. Values are of the form [a-z][-a-z0-9]*[a-z0-9]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#name GoogleSpannerBackupSchedule#name}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#project GoogleSpannerBackupSchedule#project}.
+        :param spec: spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#spec GoogleSpannerBackupSchedule#spec}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#timeouts GoogleSpannerBackupSchedule#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -620,7 +624,7 @@ class GoogleSpannerBackupScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def database(self) -> builtins.str:
         '''The database to create the backup schedule on.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#database GoogleSpannerBackupSchedule#database}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#database GoogleSpannerBackupSchedule#database}
         '''
         result = self._values.get("database")
         assert result is not None, "Required property 'database' is missing"
@@ -630,7 +634,7 @@ class GoogleSpannerBackupScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def instance(self) -> builtins.str:
         '''The instance to create the database on.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#instance GoogleSpannerBackupSchedule#instance}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#instance GoogleSpannerBackupSchedule#instance}
         '''
         result = self._values.get("instance")
         assert result is not None, "Required property 'instance' is missing"
@@ -640,7 +644,7 @@ class GoogleSpannerBackupScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def retention_duration(self) -> builtins.str:
         '''At what relative time in the future, compared to its creation time, the backup should be deleted, e.g. keep backups for 7 days. A duration in seconds with up to nine fractional digits, ending with 's'. Example: '3.5s'. You can set this to a value up to 366 days.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#retention_duration GoogleSpannerBackupSchedule#retention_duration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#retention_duration GoogleSpannerBackupSchedule#retention_duration}
         '''
         result = self._values.get("retention_duration")
         assert result is not None, "Required property 'retention_duration' is missing"
@@ -652,7 +656,7 @@ class GoogleSpannerBackupScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleSpannerBackupScheduleEncryptionConfig"]:
         '''encryption_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#encryption_config GoogleSpannerBackupSchedule#encryption_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#encryption_config GoogleSpannerBackupSchedule#encryption_config}
         '''
         result = self._values.get("encryption_config")
         return typing.cast(typing.Optional["GoogleSpannerBackupScheduleEncryptionConfig"], result)
@@ -663,14 +667,14 @@ class GoogleSpannerBackupScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleSpannerBackupScheduleFullBackupSpec"]:
         '''full_backup_spec block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#full_backup_spec GoogleSpannerBackupSchedule#full_backup_spec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#full_backup_spec GoogleSpannerBackupSchedule#full_backup_spec}
         '''
         result = self._values.get("full_backup_spec")
         return typing.cast(typing.Optional["GoogleSpannerBackupScheduleFullBackupSpec"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#id GoogleSpannerBackupSchedule#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#id GoogleSpannerBackupSchedule#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -684,7 +688,7 @@ class GoogleSpannerBackupScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GoogleSpannerBackupScheduleIncrementalBackupSpec"]:
         '''incremental_backup_spec block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#incremental_backup_spec GoogleSpannerBackupSchedule#incremental_backup_spec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#incremental_backup_spec GoogleSpannerBackupSchedule#incremental_backup_spec}
         '''
         result = self._values.get("incremental_backup_spec")
         return typing.cast(typing.Optional["GoogleSpannerBackupScheduleIncrementalBackupSpec"], result)
@@ -695,14 +699,14 @@ class GoogleSpannerBackupScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Values are of the form [a-z][-a-z0-9]*[a-z0-9].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#name GoogleSpannerBackupSchedule#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#name GoogleSpannerBackupSchedule#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#project GoogleSpannerBackupSchedule#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#project GoogleSpannerBackupSchedule#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -710,7 +714,7 @@ class GoogleSpannerBackupScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def spec(self) -> typing.Optional["GoogleSpannerBackupScheduleSpec"]:
         '''spec block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#spec GoogleSpannerBackupSchedule#spec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#spec GoogleSpannerBackupSchedule#spec}
         '''
         result = self._values.get("spec")
         return typing.cast(typing.Optional["GoogleSpannerBackupScheduleSpec"], result)
@@ -719,7 +723,7 @@ class GoogleSpannerBackupScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GoogleSpannerBackupScheduleTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#timeouts GoogleSpannerBackupSchedule#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#timeouts GoogleSpannerBackupSchedule#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GoogleSpannerBackupScheduleTimeouts"], result)
@@ -739,7 +743,11 @@ class GoogleSpannerBackupScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 @jsii.data_type(
     jsii_type="@cdktf/provider-google-beta.googleSpannerBackupSchedule.GoogleSpannerBackupScheduleEncryptionConfig",
     jsii_struct_bases=[],
-    name_mapping={"encryption_type": "encryptionType", "kms_key_name": "kmsKeyName"},
+    name_mapping={
+        "encryption_type": "encryptionType",
+        "kms_key_name": "kmsKeyName",
+        "kms_key_names": "kmsKeyNames",
+    },
 )
 class GoogleSpannerBackupScheduleEncryptionConfig:
     def __init__(
@@ -747,20 +755,25 @@ class GoogleSpannerBackupScheduleEncryptionConfig:
         *,
         encryption_type: builtins.str,
         kms_key_name: typing.Optional[builtins.str] = None,
+        kms_key_names: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param encryption_type: The encryption type of backups created by the backup schedule. Possible values are USE_DATABASE_ENCRYPTION, GOOGLE_DEFAULT_ENCRYPTION, or CUSTOMER_MANAGED_ENCRYPTION. If you use CUSTOMER_MANAGED_ENCRYPTION, you must specify a kmsKeyName. If your backup type is incremental-backup, the encryption type must be GOOGLE_DEFAULT_ENCRYPTION. Possible values: ["USE_DATABASE_ENCRYPTION", "GOOGLE_DEFAULT_ENCRYPTION", "CUSTOMER_MANAGED_ENCRYPTION"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#encryption_type GoogleSpannerBackupSchedule#encryption_type}
-        :param kms_key_name: The resource name of the Cloud KMS key to use for encryption. Format: 'projects/{project}/locations/{location}/keyRings/{keyRing}/cryptoKeys/{cryptoKey}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#kms_key_name GoogleSpannerBackupSchedule#kms_key_name}
+        :param encryption_type: The encryption type of backups created by the backup schedule. Possible values are USE_DATABASE_ENCRYPTION, GOOGLE_DEFAULT_ENCRYPTION, or CUSTOMER_MANAGED_ENCRYPTION. If you use CUSTOMER_MANAGED_ENCRYPTION, you must specify a kmsKeyName. If your backup type is incremental-backup, the encryption type must be GOOGLE_DEFAULT_ENCRYPTION. Possible values: ["USE_DATABASE_ENCRYPTION", "GOOGLE_DEFAULT_ENCRYPTION", "CUSTOMER_MANAGED_ENCRYPTION"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#encryption_type GoogleSpannerBackupSchedule#encryption_type}
+        :param kms_key_name: The resource name of the Cloud KMS key to use for encryption. Format: 'projects/{project}/locations/{location}/keyRings/{keyRing}/cryptoKeys/{cryptoKey}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#kms_key_name GoogleSpannerBackupSchedule#kms_key_name}
+        :param kms_key_names: Fully qualified name of the KMS keys to use to encrypt this database. The keys must exist in the same locations as the Spanner Database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#kms_key_names GoogleSpannerBackupSchedule#kms_key_names}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8fa156e205b3712f7216d6a5d2a0a06ee3d98e76dc67a91e83fd9e6c1b4a6514)
             check_type(argname="argument encryption_type", value=encryption_type, expected_type=type_hints["encryption_type"])
             check_type(argname="argument kms_key_name", value=kms_key_name, expected_type=type_hints["kms_key_name"])
+            check_type(argname="argument kms_key_names", value=kms_key_names, expected_type=type_hints["kms_key_names"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "encryption_type": encryption_type,
         }
         if kms_key_name is not None:
             self._values["kms_key_name"] = kms_key_name
+        if kms_key_names is not None:
+            self._values["kms_key_names"] = kms_key_names
 
     @builtins.property
     def encryption_type(self) -> builtins.str:
@@ -770,7 +783,7 @@ class GoogleSpannerBackupScheduleEncryptionConfig:
         If you use CUSTOMER_MANAGED_ENCRYPTION, you must specify a kmsKeyName.
         If your backup type is incremental-backup, the encryption type must be GOOGLE_DEFAULT_ENCRYPTION. Possible values: ["USE_DATABASE_ENCRYPTION", "GOOGLE_DEFAULT_ENCRYPTION", "CUSTOMER_MANAGED_ENCRYPTION"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#encryption_type GoogleSpannerBackupSchedule#encryption_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#encryption_type GoogleSpannerBackupSchedule#encryption_type}
         '''
         result = self._values.get("encryption_type")
         assert result is not None, "Required property 'encryption_type' is missing"
@@ -780,10 +793,22 @@ class GoogleSpannerBackupScheduleEncryptionConfig:
     def kms_key_name(self) -> typing.Optional[builtins.str]:
         '''The resource name of the Cloud KMS key to use for encryption. Format: 'projects/{project}/locations/{location}/keyRings/{keyRing}/cryptoKeys/{cryptoKey}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#kms_key_name GoogleSpannerBackupSchedule#kms_key_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#kms_key_name GoogleSpannerBackupSchedule#kms_key_name}
         '''
         result = self._values.get("kms_key_name")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kms_key_names(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Fully qualified name of the KMS keys to use to encrypt this database.
+
+        The keys must exist
+        in the same locations as the Spanner Database.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#kms_key_names GoogleSpannerBackupSchedule#kms_key_names}
+        '''
+        result = self._values.get("kms_key_names")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -821,6 +846,10 @@ class GoogleSpannerBackupScheduleEncryptionConfigOutputReference(
     def reset_kms_key_name(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetKmsKeyName", []))
 
+    @jsii.member(jsii_name="resetKmsKeyNames")
+    def reset_kms_key_names(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetKmsKeyNames", []))
+
     @builtins.property
     @jsii.member(jsii_name="encryptionTypeInput")
     def encryption_type_input(self) -> typing.Optional[builtins.str]:
@@ -830,6 +859,11 @@ class GoogleSpannerBackupScheduleEncryptionConfigOutputReference(
     @jsii.member(jsii_name="kmsKeyNameInput")
     def kms_key_name_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyNameInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKeyNamesInput")
+    def kms_key_names_input(self) -> typing.Optional[typing.List[builtins.str]]:
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "kmsKeyNamesInput"))
 
     @builtins.property
     @jsii.member(jsii_name="encryptionType")
@@ -854,6 +888,18 @@ class GoogleSpannerBackupScheduleEncryptionConfigOutputReference(
             type_hints = typing.get_type_hints(_typecheckingstub__39e473ddf435360c6a91350939c47b7b6797667155d65a00a0e596012119db2f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kmsKeyName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKeyNames")
+    def kms_key_names(self) -> typing.List[builtins.str]:
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "kmsKeyNames"))
+
+    @kms_key_names.setter
+    def kms_key_names(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ecde8886f5e2204d80fc00e99c83cb19c3a00fe4e2f19a2f9b0a63574e17d9ef)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "kmsKeyNames", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="internalValue")
@@ -1003,7 +1049,7 @@ class GoogleSpannerBackupScheduleSpec:
         cron_spec: typing.Optional[typing.Union["GoogleSpannerBackupScheduleSpecCronSpec", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cron_spec: cron_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#cron_spec GoogleSpannerBackupSchedule#cron_spec}
+        :param cron_spec: cron_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#cron_spec GoogleSpannerBackupSchedule#cron_spec}
         '''
         if isinstance(cron_spec, dict):
             cron_spec = GoogleSpannerBackupScheduleSpecCronSpec(**cron_spec)
@@ -1018,7 +1064,7 @@ class GoogleSpannerBackupScheduleSpec:
     def cron_spec(self) -> typing.Optional["GoogleSpannerBackupScheduleSpecCronSpec"]:
         '''cron_spec block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#cron_spec GoogleSpannerBackupSchedule#cron_spec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#cron_spec GoogleSpannerBackupSchedule#cron_spec}
         '''
         result = self._values.get("cron_spec")
         return typing.cast(typing.Optional["GoogleSpannerBackupScheduleSpecCronSpec"], result)
@@ -1043,7 +1089,7 @@ class GoogleSpannerBackupScheduleSpec:
 class GoogleSpannerBackupScheduleSpecCronSpec:
     def __init__(self, *, text: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param text: Textual representation of the crontab. User can customize the backup frequency and the backup version time using the cron expression. The version time must be in UTC timzeone. The backup will contain an externally consistent copy of the database at the version time. Allowed frequencies are 12 hour, 1 day, 1 week and 1 month. Examples of valid cron specifications: 0 2/12 * * * : every 12 hours at (2, 14) hours past midnight in UTC. 0 2,14 * * * : every 12 hours at (2,14) hours past midnight in UTC. 0 2 * * * : once a day at 2 past midnight in UTC. 0 2 * * 0 : once a week every Sunday at 2 past midnight in UTC. 0 2 8 * * : once a month on 8th day at 2 past midnight in UTC. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#text GoogleSpannerBackupSchedule#text}
+        :param text: Textual representation of the crontab. User can customize the backup frequency and the backup version time using the cron expression. The version time must be in UTC timzeone. The backup will contain an externally consistent copy of the database at the version time. Allowed frequencies are 12 hour, 1 day, 1 week and 1 month. Examples of valid cron specifications: 0 2/12 * * * : every 12 hours at (2, 14) hours past midnight in UTC. 0 2,14 * * * : every 12 hours at (2,14) hours past midnight in UTC. 0 2 * * * : once a day at 2 past midnight in UTC. 0 2 * * 0 : once a week every Sunday at 2 past midnight in UTC. 0 2 8 * * : once a month on 8th day at 2 past midnight in UTC. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#text GoogleSpannerBackupSchedule#text}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1c06b24f6ea3c1e77f642615db6d675601fa7ea8fa7704c335b1503439e97d10)
@@ -1068,7 +1114,7 @@ class GoogleSpannerBackupScheduleSpecCronSpec:
         0 2 * * 0    : once a week every Sunday at 2 past midnight in UTC.
         0 2 8 * *    : once a month on 8th day at 2 past midnight in UTC.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#text GoogleSpannerBackupSchedule#text}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#text GoogleSpannerBackupSchedule#text}
         '''
         result = self._values.get("text")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1167,7 +1213,7 @@ class GoogleSpannerBackupScheduleSpecOutputReference(
     @jsii.member(jsii_name="putCronSpec")
     def put_cron_spec(self, *, text: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param text: Textual representation of the crontab. User can customize the backup frequency and the backup version time using the cron expression. The version time must be in UTC timzeone. The backup will contain an externally consistent copy of the database at the version time. Allowed frequencies are 12 hour, 1 day, 1 week and 1 month. Examples of valid cron specifications: 0 2/12 * * * : every 12 hours at (2, 14) hours past midnight in UTC. 0 2,14 * * * : every 12 hours at (2,14) hours past midnight in UTC. 0 2 * * * : once a day at 2 past midnight in UTC. 0 2 * * 0 : once a week every Sunday at 2 past midnight in UTC. 0 2 8 * * : once a month on 8th day at 2 past midnight in UTC. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#text GoogleSpannerBackupSchedule#text}
+        :param text: Textual representation of the crontab. User can customize the backup frequency and the backup version time using the cron expression. The version time must be in UTC timzeone. The backup will contain an externally consistent copy of the database at the version time. Allowed frequencies are 12 hour, 1 day, 1 week and 1 month. Examples of valid cron specifications: 0 2/12 * * * : every 12 hours at (2, 14) hours past midnight in UTC. 0 2,14 * * * : every 12 hours at (2,14) hours past midnight in UTC. 0 2 * * * : once a day at 2 past midnight in UTC. 0 2 * * 0 : once a week every Sunday at 2 past midnight in UTC. 0 2 8 * * : once a month on 8th day at 2 past midnight in UTC. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#text GoogleSpannerBackupSchedule#text}
         '''
         value = GoogleSpannerBackupScheduleSpecCronSpec(text=text)
 
@@ -1219,9 +1265,9 @@ class GoogleSpannerBackupScheduleTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#create GoogleSpannerBackupSchedule#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#delete GoogleSpannerBackupSchedule#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#update GoogleSpannerBackupSchedule#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#create GoogleSpannerBackupSchedule#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#delete GoogleSpannerBackupSchedule#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#update GoogleSpannerBackupSchedule#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f6c8461e9aa6607ee6b59b978a6835c06b4376a9add489692c12efc00512a617)
@@ -1238,19 +1284,19 @@ class GoogleSpannerBackupScheduleTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#create GoogleSpannerBackupSchedule#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#create GoogleSpannerBackupSchedule#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#delete GoogleSpannerBackupSchedule#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#delete GoogleSpannerBackupSchedule#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.41.0/docs/resources/google_spanner_backup_schedule#update GoogleSpannerBackupSchedule#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google-beta/6.42.0/docs/resources/google_spanner_backup_schedule#update GoogleSpannerBackupSchedule#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1485,6 +1531,7 @@ def _typecheckingstub__8fa156e205b3712f7216d6a5d2a0a06ee3d98e76dc67a91e83fd9e6c1
     *,
     encryption_type: builtins.str,
     kms_key_name: typing.Optional[builtins.str] = None,
+    kms_key_names: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1504,6 +1551,12 @@ def _typecheckingstub__3e29ef058f8e31f52e99378fe0b97c52e350f29ce05cc69128e703bb1
 
 def _typecheckingstub__39e473ddf435360c6a91350939c47b7b6797667155d65a00a0e596012119db2f(
     value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ecde8886f5e2204d80fc00e99c83cb19c3a00fe4e2f19a2f9b0a63574e17d9ef(
+    value: typing.List[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass

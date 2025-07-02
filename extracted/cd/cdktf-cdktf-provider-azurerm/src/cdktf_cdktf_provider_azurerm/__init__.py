@@ -1,7 +1,7 @@
 r'''
-# CDKTF prebuilt bindings for hashicorp/azurerm provider version 4.34.0
+# CDKTF prebuilt bindings for hashicorp/azurerm provider version 4.35.0
 
-This repo builds and publishes the [Terraform azurerm provider](https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
+This repo builds and publishes the [Terraform azurerm provider](https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
 
 ## Available Packages
 
@@ -63,7 +63,7 @@ This project is explicitly not tracking the Terraform azurerm provider version 1
 These are the upstream dependencies:
 
 * [CDK for Terraform](https://cdk.tf)
-* [Terraform azurerm provider](https://registry.terraform.io/providers/hashicorp/azurerm/4.34.0)
+* [Terraform azurerm provider](https://registry.terraform.io/providers/hashicorp/azurerm/4.35.0)
 * [Terraform Engine](https://terraform.io)
 
 If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
@@ -877,6 +877,7 @@ __all__ = [
     "elastic_san_volume_group",
     "email_communication_service",
     "email_communication_service_domain",
+    "email_communication_service_domain_sender_username",
     "eventgrid_domain",
     "eventgrid_domain_topic",
     "eventgrid_event_subscription",
@@ -1078,6 +1079,7 @@ __all__ = [
     "management_group_policy_assignment",
     "management_group_policy_exemption",
     "management_group_policy_remediation",
+    "management_group_policy_set_definition",
     "management_group_subscription_association",
     "management_group_template_deployment",
     "management_lock",
@@ -2363,6 +2365,7 @@ from . import elastic_san_volume
 from . import elastic_san_volume_group
 from . import email_communication_service
 from . import email_communication_service_domain
+from . import email_communication_service_domain_sender_username
 from . import eventgrid_domain
 from . import eventgrid_domain_topic
 from . import eventgrid_event_subscription
@@ -2564,6 +2567,7 @@ from . import management_group
 from . import management_group_policy_assignment
 from . import management_group_policy_exemption
 from . import management_group_policy_remediation
+from . import management_group_policy_set_definition
 from . import management_group_subscription_association
 from . import management_group_template_deployment
 from . import management_lock

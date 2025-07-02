@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest_sentry
-Version: 0.5.0
+Version: 0.5.1
 Summary: A pytest plugin to send testrun information to Sentry.io
 Home-page: https://github.com/untitaker/pytest-sentry
 Author: Markus Unterwaditzer

@@ -17,7 +17,7 @@ from fastcore.meta import delegates
 from fastcore.net import urlread
 
 import ast,builtins,contextlib
-import pkg_resources,importlib
+import importlib
 
 from astunparse import unparse
 from io import BytesIO
@@ -26,6 +26,8 @@ from pprint import pformat
 from urllib.parse import urljoin
 from functools import lru_cache
 from types import ModuleType
+
+from importlib.metadata import entry_points
 
 # %% ../nbs/api/05_doclinks.ipynb
 def _sym_nm(klas, sym): return f'{unparse(klas).strip()}.{sym.name}'
@@ -236,9 +238,11 @@ def _build_lookup_table(strip_libs=None, incl_libs=None, skip_mods=None):
     strip_libs = L(strip_libs)
     if incl_libs is not None: incl_libs = (L(incl_libs)+strip_libs).unique()
     entries = {}
-    for o in pkg_resources.iter_entry_points(group='nbdev'):
-        if incl_libs is not None and o.dist.key not in incl_libs: continue
-        try: entries[o.name] = _qual_syms(o.resolve())
+    # TODO: use new group param once 3.10 in min python
+    eps = [o for o in entry_points() if o.group=='nbdev']
+    for o in eps:
+        if incl_libs is not None and o.dist.name not in incl_libs: continue
+        try: entries[o.name] = _qual_syms(o.load())
         except Exception: pass
     py_syms = merge(*L(o['syms'].values() for o in entries.values()).concat())
     for m in strip_libs:

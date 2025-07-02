@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Optional
 
 import aiofiles
 
@@ -51,7 +51,7 @@ async def query_document(
         raise ValueError("Either query or prompt must be provided.")
     if query and prompt:
         raise ValueError("Only one of query or prompt must be provided.")
-    file_object: Dict[str, Tuple[Optional[str], bytes]]
+    file_object: dict[str, tuple[Optional[str], bytes]]
     file = Path(file_path)
     if not file.is_file():
         raise FileNotFoundError("File not found.")

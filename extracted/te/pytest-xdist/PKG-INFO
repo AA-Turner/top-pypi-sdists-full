@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-xdist
-Version: 3.7.0
+Version: 3.8.0
 Summary: pytest xdist plugin for distributed testing, most importantly across multiple CPUs
 Author-email: holger krekel and contributors <pytest-dev@python.org>, holger@merlinux.eu
 License-Expression: MIT

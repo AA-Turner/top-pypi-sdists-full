@@ -6,11 +6,11 @@
 import dataclasses
 from collections.abc import Mapping, Sequence
 from datetime import date, datetime, time, timedelta
-from typing import Any, overload
+from typing import Any
 
 from reflex.components.component import NoSSRComponent
 from reflex.components.core.breakpoints import Breakpoints
-from reflex.event import EventType
+from reflex.event import EventType, PointerEventInfo
 from reflex.utils.imports import ImportDict
 from reflex.vars.base import Var
 
@@ -28,9 +28,8 @@ class MomentDelta:
 
 class Moment(NoSSRComponent):
     def add_imports(self) -> ImportDict: ...
-    @overload
     @classmethod
-    def create(  # type: ignore
+    def create(
         cls,
         *children,
         interval: Var[int] | int | None = None,
@@ -73,9 +72,9 @@ class Moment(NoSSRComponent):
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
         on_change: EventType[()] | EventType[str] | None = None,
-        on_click: EventType[()] | None = None,
-        on_context_menu: EventType[()] | None = None,
-        on_double_click: EventType[()] | None = None,
+        on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
+        on_context_menu: EventType[()] | EventType[PointerEventInfo] | None = None,
+        on_double_click: EventType[()] | EventType[PointerEventInfo] | None = None,
         on_focus: EventType[()] | None = None,
         on_mount: EventType[()] | None = None,
         on_mouse_down: EventType[()] | None = None,
@@ -86,6 +85,7 @@ class Moment(NoSSRComponent):
         on_mouse_over: EventType[()] | None = None,
         on_mouse_up: EventType[()] | None = None,
         on_scroll: EventType[()] | None = None,
+        on_scroll_end: EventType[()] | None = None,
         on_unmount: EventType[()] | None = None,
         **props,
     ) -> Moment:

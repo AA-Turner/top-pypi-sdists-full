@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arelle-release
-Version: 2.37.28
+Version: 2.37.29
 Summary: An open source XBRL platform.
 Author-email: "arelle.org" <support@arelle.org>
 License: Apache-2.0
@@ -41,6 +41,7 @@ Requires-Dist: pillow<12,>=10
 Requires-Dist: pyparsing==3.*
 Requires-Dist: python-dateutil==2.*
 Requires-Dist: regex
+Requires-Dist: truststore==0.*; python_version > "3.9"
 Requires-Dist: typing-extensions==4.*
 Provides-Extra: crypto
 Requires-Dist: pycryptodome==3.*; extra == "crypto"

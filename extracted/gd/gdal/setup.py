@@ -12,12 +12,13 @@ import sys
 from glob import glob
 from pathlib import Path
 
+import setuptools
 from setuptools.command.build_ext import build_ext
 from setuptools import setup
 from setuptools import find_packages
 from setuptools import Extension
 
-version = '3.11.0'
+version = '3.11.1'
 
 # If CXX is defined in the environment, it will be used to link the .so
 # but setuptools will be confused if it is made of several words like 'ccache g++'
@@ -157,7 +158,7 @@ def has_flag(compiler, flagname):
 # since they may be directly used by users. So we do a monkey patching of
 # easy_install.install_wrapper_scripts to install a modified
 # easy_install.delete_blockers method that does NOT remove .py files
-if sys.platform == 'win32':
+if sys.platform == 'win32' and int(setuptools.__version__.split('.')[0]) < 80:
     from setuptools.command.easy_install import easy_install
 
     original_install_wrapper_scripts = easy_install.install_wrapper_scripts
@@ -344,6 +345,12 @@ class gdal_ext(build_ext):
             ext.extra_compile_args.append("/DSWIG_PYTHON_SILENT_MEMLEAK")
         else:
             ext.extra_compile_args.append("-DSWIG_PYTHON_SILENT_MEMLEAK")
+
+        # Add -isysroot on osx if used in cmake
+        if '':
+            ext.extra_compile_args.extend(['-isysroot', ''])
+            ext.extra_link_args.extend(['-isysroot', ''])
+
 
         return build_ext.build_extension(self, ext)
 

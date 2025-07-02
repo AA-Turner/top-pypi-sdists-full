@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: optimum-intel
-Version: 1.23.1
+Version: 1.24.0
 Summary: Optimum Library is an extension of the Hugging Face Transformers library, providing a framework to integrate third-party libraries from Hardware Partners and interface with their specific functionality.
 Home-page: https://www.intel.com
 Author: HuggingFace Inc. Special Ops Team
@@ -18,14 +18,57 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Description-Content-Type: text/markdown
-Provides-Extra: nncf
-Provides-Extra: openvino
-Provides-Extra: neural-compressor
-Provides-Extra: ipex
-Provides-Extra: diffusers
-Provides-Extra: quality
-Provides-Extra: tests
 License-File: LICENSE
+Requires-Dist: torch>=1.11
+Requires-Dist: optimum==1.26.*
+Requires-Dist: transformers<4.53,>=4.36
+Requires-Dist: datasets>=1.4.0
+Requires-Dist: setuptools
+Requires-Dist: scipy
+Requires-Dist: onnx
+Provides-Extra: nncf
+Requires-Dist: nncf>=2.16.0; extra == "nncf"
+Provides-Extra: openvino
+Requires-Dist: nncf>=2.16.0; extra == "openvino"
+Requires-Dist: openvino>=2025.1.0; extra == "openvino"
+Requires-Dist: openvino-tokenizers>=2025.1.0; extra == "openvino"
+Provides-Extra: neural-compressor
+Requires-Dist: neural-compressor[pt]>=3.4.1; extra == "neural-compressor"
+Requires-Dist: accelerate; extra == "neural-compressor"
+Requires-Dist: transformers<4.46; extra == "neural-compressor"
+Provides-Extra: ipex
+Requires-Dist: intel-extension-for-pytorch>=2.6; extra == "ipex"
+Requires-Dist: transformers<4.53,>4.50; extra == "ipex"
+Requires-Dist: accelerate; extra == "ipex"
+Provides-Extra: diffusers
+Requires-Dist: diffusers; extra == "diffusers"
+Provides-Extra: quality
+Requires-Dist: black~=23.1; extra == "quality"
+Requires-Dist: ruff==0.4.4; extra == "quality"
+Provides-Extra: tests
+Requires-Dist: accelerate; extra == "tests"
+Requires-Dist: pytest<8.0.0,>=7.2.0; extra == "tests"
+Requires-Dist: parameterized; extra == "tests"
+Requires-Dist: Pillow; extra == "tests"
+Requires-Dist: evaluate; extra == "tests"
+Requires-Dist: py-cpuinfo; extra == "tests"
+Requires-Dist: sacremoses; extra == "tests"
+Requires-Dist: sentencepiece; extra == "tests"
+Requires-Dist: torchaudio; extra == "tests"
+Requires-Dist: rjieba; extra == "tests"
+Requires-Dist: timm; extra == "tests"
+Requires-Dist: invisible-watermark>=0.2.0; extra == "tests"
+Requires-Dist: transformers_stream_generator; extra == "tests"
+Requires-Dist: einops; extra == "tests"
+Requires-Dist: tiktoken; extra == "tests"
+Requires-Dist: sentence-transformers; extra == "tests"
+Requires-Dist: open_clip_torch>=2.26.1; extra == "tests"
+Requires-Dist: peft; extra == "tests"
+Requires-Dist: datasets[audio]>=1.4.0; extra == "tests"
+Requires-Dist: tbb; extra == "tests"
+Requires-Dist: langchain-huggingface; extra == "tests"
+Requires-Dist: hf_xet; extra == "tests"
+Requires-Dist: num2words; extra == "tests"
 
 <p align="center">
     <img src="https://huggingface.co/datasets/optimum/documentation-images/resolve/main/intel/logo/hf_intel_logo.png" />

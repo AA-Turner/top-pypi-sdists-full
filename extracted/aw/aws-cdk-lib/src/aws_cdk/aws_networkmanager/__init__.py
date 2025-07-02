@@ -7237,7 +7237,9 @@ class CfnVpcAttachment(
             # the properties below are optional
             options=networkmanager.CfnVpcAttachment.VpcOptionsProperty(
                 appliance_mode_support=False,
-                ipv6_support=False
+                dns_support=False,
+                ipv6_support=False,
+                security_group_referencing_support=False
             ),
             proposed_network_function_group_change=networkmanager.CfnVpcAttachment.ProposedNetworkFunctionGroupChangeProperty(
                 attachment_policy_rule_number=123,
@@ -7752,7 +7754,9 @@ class CfnVpcAttachment(
         jsii_struct_bases=[],
         name_mapping={
             "appliance_mode_support": "applianceModeSupport",
+            "dns_support": "dnsSupport",
             "ipv6_support": "ipv6Support",
+            "security_group_referencing_support": "securityGroupReferencingSupport",
         },
     )
     class VpcOptionsProperty:
@@ -7760,12 +7764,16 @@ class CfnVpcAttachment(
             self,
             *,
             appliance_mode_support: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            dns_support: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
             ipv6_support: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            security_group_referencing_support: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         ) -> None:
             '''Describes the VPC options.
 
             :param appliance_mode_support: Indicates whether appliance mode is supported. If enabled, traffic flow between a source and destination use the same Availability Zone for the VPC attachment for the lifetime of that flow. The default value is ``false`` . Default: - false
+            :param dns_support: Indicates whether DNS is supported. Default: - true
             :param ipv6_support: Indicates whether IPv6 is supported. Default: - false
+            :param security_group_referencing_support: Indicates whether security group referencing is enabled for this VPC attachment. The default is ``true`` . However, at the core network policy-level the default is set to ``false`` . Default: - true
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkmanager-vpcattachment-vpcoptions.html
             :exampleMetadata: fixture=_generated
@@ -7778,18 +7786,26 @@ class CfnVpcAttachment(
                 
                 vpc_options_property = networkmanager.CfnVpcAttachment.VpcOptionsProperty(
                     appliance_mode_support=False,
-                    ipv6_support=False
+                    dns_support=False,
+                    ipv6_support=False,
+                    security_group_referencing_support=False
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__e0178ed6021c1858c87186be29fec1d6351e020d4e0f48dd2207432dbeaf7b50)
                 check_type(argname="argument appliance_mode_support", value=appliance_mode_support, expected_type=type_hints["appliance_mode_support"])
+                check_type(argname="argument dns_support", value=dns_support, expected_type=type_hints["dns_support"])
                 check_type(argname="argument ipv6_support", value=ipv6_support, expected_type=type_hints["ipv6_support"])
+                check_type(argname="argument security_group_referencing_support", value=security_group_referencing_support, expected_type=type_hints["security_group_referencing_support"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if appliance_mode_support is not None:
                 self._values["appliance_mode_support"] = appliance_mode_support
+            if dns_support is not None:
+                self._values["dns_support"] = dns_support
             if ipv6_support is not None:
                 self._values["ipv6_support"] = ipv6_support
+            if security_group_referencing_support is not None:
+                self._values["security_group_referencing_support"] = security_group_referencing_support
 
         @builtins.property
         def appliance_mode_support(
@@ -7807,6 +7823,19 @@ class CfnVpcAttachment(
             return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
 
         @builtins.property
+        def dns_support(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''Indicates whether DNS is supported.
+
+            :default: - true
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkmanager-vpcattachment-vpcoptions.html#cfn-networkmanager-vpcattachment-vpcoptions-dnssupport
+            '''
+            result = self._values.get("dns_support")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        @builtins.property
         def ipv6_support(
             self,
         ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
@@ -7817,6 +7846,21 @@ class CfnVpcAttachment(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkmanager-vpcattachment-vpcoptions.html#cfn-networkmanager-vpcattachment-vpcoptions-ipv6support
             '''
             result = self._values.get("ipv6_support")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        @builtins.property
+        def security_group_referencing_support(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''Indicates whether security group referencing is enabled for this VPC attachment.
+
+            The default is ``true`` . However, at the core network policy-level the default is set to ``false`` .
+
+            :default: - true
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkmanager-vpcattachment-vpcoptions.html#cfn-networkmanager-vpcattachment-vpcoptions-securitygroupreferencingsupport
+            '''
+            result = self._values.get("security_group_referencing_support")
             return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -7883,7 +7927,9 @@ class CfnVpcAttachmentProps:
                 # the properties below are optional
                 options=networkmanager.CfnVpcAttachment.VpcOptionsProperty(
                     appliance_mode_support=False,
-                    ipv6_support=False
+                    dns_support=False,
+                    ipv6_support=False,
+                    security_group_referencing_support=False
                 ),
                 proposed_network_function_group_change=networkmanager.CfnVpcAttachment.ProposedNetworkFunctionGroupChangeProperty(
                     attachment_policy_rule_number=123,
@@ -9273,7 +9319,9 @@ def _typecheckingstub__557bf3a5ccb396638b970920d51e56a5af3a62c8b836006da453e705f
 def _typecheckingstub__e0178ed6021c1858c87186be29fec1d6351e020d4e0f48dd2207432dbeaf7b50(
     *,
     appliance_mode_support: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    dns_support: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     ipv6_support: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    security_group_referencing_support: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

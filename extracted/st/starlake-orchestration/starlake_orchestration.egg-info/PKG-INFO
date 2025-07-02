@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: starlake-orchestration
-Version: 0.3.4.1
+Version: 0.3.5
 Summary: Starlake Python Distribution For orchestration
 Author: Stéphane Manciot
 Author-email: stephane.manciot@gmail.com
@@ -8,11 +8,11 @@ License: Apache 2.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Provides-Extra: airflow
-Requires-Dist: starlake-airflow>=0.2.7.1; extra == "airflow"
+Requires-Dist: starlake-airflow>=0.3.4; extra == "airflow"
 Provides-Extra: dagster
-Requires-Dist: starlake-dagster>=0.2.6; extra == "dagster"
+Requires-Dist: starlake-dagster>=0.3.2; extra == "dagster"
 Provides-Extra: snowflake
-Requires-Dist: starlake-snowflake>=0.1.5.4; extra == "snowflake"
+Requires-Dist: starlake-snowflake>=0.1.8; extra == "snowflake"
 Provides-Extra: shell
 Provides-Extra: gcp
 Provides-Extra: aws

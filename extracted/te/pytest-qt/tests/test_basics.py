@@ -309,20 +309,13 @@ def test_event_processing_before_and_after_teardown(testdir):
     res.stdout.fnmatch_lines(["*3 passed in*"])
 
 
-def test_header(testdir):
-    testdir.makeconftest(
-        """
-        from pytestqt import qt_compat
-        from pytestqt.qt_compat import qt_api
-
-        def mock_get_versions():
-            return qt_compat.VersionTuple('PyQtAPI', '1.0', '2.5', '3.5')
-
-        assert hasattr(qt_api, 'get_versions')
-        qt_api.get_versions = mock_get_versions
-        """
+def test_header(testdir, monkeypatch):
+    monkeypatch.setattr(
+        qt_api,
+        "get_versions",
+        lambda: qt_compat.VersionTuple("PyQtAPI", "1.0", "2.5", "3.5"),
     )
-    res = testdir.runpytest()
+    res = testdir.runpytest_inprocess()
     res.stdout.fnmatch_lines(
         ["*test session starts*", "PyQtAPI 1.0 -- Qt runtime 2.5 -- Qt compiled 3.5"]
     )
@@ -438,7 +431,7 @@ def test_parse_ini_boolean_invalid():
         pytestqt.qtbot._parse_ini_boolean("foo")
 
 
-@pytest.mark.parametrize("option_api", ["pyqt5", "pyqt6", "pyside2", "pyside6"])
+@pytest.mark.parametrize("option_api", ["pyqt5", "pyqt6", "pyside6"])
 def test_qt_api_ini_config(testdir, monkeypatch, option_api):
     """
     Test qt_api ini option handling.
@@ -479,7 +472,7 @@ def test_qt_api_ini_config(testdir, monkeypatch, option_api):
             result.stderr.fnmatch_lines(["*ModuleNotFoundError:*"])
 
 
-@pytest.mark.parametrize("envvar", ["pyqt5", "pyqt6", "pyside2", "pyside6"])
+@pytest.mark.parametrize("envvar", ["pyqt5", "pyqt6", "pyside6"])
 def test_qt_api_ini_config_with_envvar(testdir, monkeypatch, envvar):
     """ensure environment variable wins over config value if both are present"""
     testdir.makeini(
@@ -586,10 +579,9 @@ def test_importerror(monkeypatch):
     monkeypatch.setattr(qt_compat, "_is_library_loaded", _fake_is_library_loaded)
 
     expected = (
-        "pytest-qt requires either PySide2, PySide6, PyQt5 or PyQt6 installed.\n"
+        "pytest-qt requires either PySide6, PyQt5 or PyQt6 installed.\n"
         "  PyQt5.QtCore: Failed to import PyQt5.QtCore\n"
         "  PyQt6.QtCore: Failed to import PyQt6.QtCore\n"
-        "  PySide2.QtCore: Failed to import PySide2.QtCore\n"
         "  PySide6.QtCore: Failed to import PySide6.QtCore"
     )
 
@@ -602,7 +594,6 @@ def test_importerror(monkeypatch):
     [
         ("pyqt5", "PyQt5"),
         ("pyqt6", "PyQt6"),
-        ("pyside2", "PySide2"),
         ("pyside6", "PySide6"),
     ],
 )

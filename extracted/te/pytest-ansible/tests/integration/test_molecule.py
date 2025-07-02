@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import logging
 import os
-import subprocess
+import subprocess  # noqa: S404
 import sys
 
 from typing import TYPE_CHECKING
@@ -17,21 +18,28 @@ if TYPE_CHECKING:
     from pytest_ansible.molecule import MoleculeScenario
 
 
-def test_molecule_collect() -> None:
-    """Test pytest collection of molecule scenarios."""
-    try:
-        proc = subprocess.run(
-            "pytest --molecule --collect-only",  # noqa: S607
-            capture_output=True,
-            shell=True,
-            check=True,
-            text=True,
-        )
-    except subprocess.CalledProcessError as exc:
-        pytest.fail(exc.stderr)
+def test_molecule_collect(caplog: pytest.LogCaptureFixture) -> None:
+    """Test pytest collection of molecule scenarios.
 
-    assert proc.returncode == 0
-    assert "test1[default]" in proc.stdout
+    Args:
+        caplog: pytest caplog
+    """
+    with caplog.at_level(logging.WARNING):
+        try:
+            proc = subprocess.run(
+                "pytest --molecule --collect-only",  # noqa: S607
+                capture_output=True,
+                shell=True,
+                check=True,
+                text=True,
+            )
+        except subprocess.CalledProcessError as exc:
+            pytest.fail(exc.stderr)
+
+        assert proc.returncode == 0
+        assert "test1[default]" in proc.stdout
+
+    assert len(caplog.records) == 0, caplog.records
 
 
 def test_molecule_disabled() -> None:
@@ -75,7 +83,7 @@ def test_molecule_fixture(molecule_scenario: MoleculeScenario) -> None:
     Args:
         molecule_scenario: One scenario
     """
-    assert molecule_scenario.test_id in ["fixtures-default", "extensions-default"]
+    assert molecule_scenario.test_id in {"fixtures-default", "extensions-default"}
     assert molecule_scenario.name == "default"
     molecule_scenario.test()
 
@@ -89,7 +97,7 @@ def test_molecule_fixture_with_molecule_opts(
         molecule_scenario: One scenario
         capfd: Text capturing of writes to file descriptors
     """
-    assert molecule_scenario.test_id in ["fixtures-default", "extensions-default"]
+    assert molecule_scenario.test_id in {"fixtures-default", "extensions-default"}
     assert molecule_scenario.name == "default"
     os.environ["MOLECULE_OPTS"] = "-- --extra-vars var_set_from_molecule_opts=a-value"
     molecule_scenario.test()

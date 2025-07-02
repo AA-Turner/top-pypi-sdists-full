@@ -14,10 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from . import beam_job_api_pb2_grpc
-from . import beam_artifact_api_pb2_grpc
-from . import beam_expansion_api_pb2
-from . import beam_expansion_api_pb2_grpc
-from . import beam_artifact_api_pb2_urns
 from . import beam_job_api_pb2
+from . import beam_artifact_api_pb2_grpc
+from . import beam_job_api_pb2_grpc
 from . import beam_artifact_api_pb2
+from . import beam_expansion_api_pb2_grpc
+from . import beam_expansion_api_pb2
+from . import beam_artifact_api_pb2_urns

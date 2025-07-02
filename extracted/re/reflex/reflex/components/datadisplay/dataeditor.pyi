@@ -5,12 +5,12 @@
 # ------------------------------------------------------
 from collections.abc import Mapping, Sequence
 from enum import Enum
-from typing import Any, Literal, TypedDict, overload
+from typing import Any, Literal, TypedDict
 
 from reflex.base import Base
 from reflex.components.component import NoSSRComponent
 from reflex.components.core.breakpoints import Breakpoints
-from reflex.event import EventType
+from reflex.event import EventType, PointerEventInfo
 from reflex.utils.imports import ImportDict
 from reflex.utils.serializers import serializer
 from reflex.vars.base import Var
@@ -128,9 +128,8 @@ class GridColumn(TypedDict):
 class DataEditor(NoSSRComponent):
     def add_imports(self) -> ImportDict: ...
     def add_hooks(self) -> list[str]: ...
-    @overload
     @classmethod
-    def create(  # type: ignore
+    def create(
         cls,
         *children,
         rows: Var[int] | int | None = None,
@@ -181,20 +180,43 @@ class DataEditor(NoSSRComponent):
         on_cell_activated: EventType[()] | EventType[tuple[int, int]] | None = None,
         on_cell_clicked: EventType[()] | EventType[tuple[int, int]] | None = None,
         on_cell_context_menu: EventType[()] | EventType[tuple[int, int]] | None = None,
-        on_cell_edited: EventType[()] | EventType[tuple[int, int]] | EventType[tuple[int, int], GridCell] | None = None,
-        on_click: EventType[()] | None = None,
-        on_column_resize: EventType[()] | EventType[GridColumn] | EventType[GridColumn, int] | None = None,
-        on_context_menu: EventType[()] | None = None,
+        on_cell_edited: EventType[()]
+        | EventType[tuple[int, int]]
+        | EventType[tuple[int, int], GridCell]
+        | None = None,
+        on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
+        on_column_resize: EventType[()]
+        | EventType[GridColumn]
+        | EventType[GridColumn, int]
+        | None = None,
+        on_context_menu: EventType[()] | EventType[PointerEventInfo] | None = None,
         on_delete: EventType[()] | EventType[GridSelection] | None = None,
-        on_double_click: EventType[()] | None = None,
-        on_finished_editing: EventType[()] | EventType[GridCell | None] | EventType[GridCell | None, tuple[int, int]] | None = None,
+        on_double_click: EventType[()] | EventType[PointerEventInfo] | None = None,
+        on_finished_editing: EventType[()]
+        | EventType[GridCell | None]
+        | EventType[GridCell | None, tuple[int, int]]
+        | None = None,
         on_focus: EventType[()] | None = None,
-        on_group_header_clicked: EventType[()] | EventType[tuple[int, int]] | EventType[tuple[int, int], GridCell] | None = None,
-        on_group_header_context_menu: EventType[()] | EventType[int] | EventType[int, GroupHeaderClickedEventArgs] | None = None,
-        on_group_header_renamed: EventType[()] | EventType[str] | EventType[str, str] | None = None,
+        on_group_header_clicked: EventType[()]
+        | EventType[tuple[int, int]]
+        | EventType[tuple[int, int], GridCell]
+        | None = None,
+        on_group_header_context_menu: EventType[()]
+        | EventType[int]
+        | EventType[int, GroupHeaderClickedEventArgs]
+        | None = None,
+        on_group_header_renamed: EventType[()]
+        | EventType[str]
+        | EventType[str, str]
+        | None = None,
         on_header_clicked: EventType[()] | EventType[tuple[int, int]] | None = None,
-        on_header_context_menu: EventType[()] | EventType[tuple[int, int]] | None = None,
-        on_header_menu_click: EventType[()] | EventType[int] | EventType[int, Rectangle] | None = None,
+        on_header_context_menu: EventType[()]
+        | EventType[tuple[int, int]]
+        | None = None,
+        on_header_menu_click: EventType[()]
+        | EventType[int]
+        | EventType[int, Rectangle]
+        | None = None,
         on_item_hovered: EventType[()] | EventType[tuple[int, int]] | None = None,
         on_mount: EventType[()] | None = None,
         on_mouse_down: EventType[()] | None = None,
@@ -206,6 +228,7 @@ class DataEditor(NoSSRComponent):
         on_mouse_up: EventType[()] | None = None,
         on_row_appended: EventType[()] | None = None,
         on_scroll: EventType[()] | None = None,
+        on_scroll_end: EventType[()] | None = None,
         on_selection_cleared: EventType[()] | None = None,
         on_unmount: EventType[()] | None = None,
         **props,

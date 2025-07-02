@@ -9,6 +9,7 @@ import pytest
 from opentelemetry.trace import SpanKind
 
 from instana.singletons import agent, tracer
+from instana.util.runtime import get_runtime_env_info
 
 
 class TestLogging:
@@ -145,6 +146,9 @@ class TestLogging:
             logging.Formatter("source: %(funcName)s, message: %(message)s")
         )
         self.logger.addHandler(handler)
+
+        if get_runtime_env_info()[0] in ["ppc64le", "s390x"]:
+            stacklevel += 1
 
         def log_custom_warning():
             self.logger.warning("foo %s", "bar", stacklevel=stacklevel)

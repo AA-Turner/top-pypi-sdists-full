@@ -3874,7 +3874,7 @@ class CfnService(
         :param auth_type: The type of IAM policy. - ``NONE`` : The resource does not use an IAM policy. This is the default. - ``AWS_IAM`` : The resource uses an IAM policy. When this type is used, auth is enabled and an auth policy is required. Default: - "NONE"
         :param certificate_arn: The Amazon Resource Name (ARN) of the certificate.
         :param custom_domain_name: The custom domain name of the service.
-        :param dns_entry: The DNS information of the service.
+        :param dns_entry: Describes the DNS information of the service. This field is read-only.
         :param name: The name of the service. The name must be unique within the account. The valid characters are a-z, 0-9, and hyphens (-). You can't use a hyphen as the first or last character, or immediately after another hyphen. If you don't specify a name, CloudFormation generates one. However, if you specify a name, and later want to replace the resource, you must specify a new name.
         :param tags: The tags for the service.
         '''
@@ -4041,7 +4041,7 @@ class CfnService(
     def dns_entry(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.DnsEntryProperty"]]:
-        '''The DNS information of the service.'''
+        '''Describes the DNS information of the service.'''
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.DnsEntryProperty"]], jsii.get(self, "dnsEntry"))
 
     @dns_entry.setter
@@ -5619,7 +5619,7 @@ class CfnServiceProps:
         :param auth_type: The type of IAM policy. - ``NONE`` : The resource does not use an IAM policy. This is the default. - ``AWS_IAM`` : The resource uses an IAM policy. When this type is used, auth is enabled and an auth policy is required. Default: - "NONE"
         :param certificate_arn: The Amazon Resource Name (ARN) of the certificate.
         :param custom_domain_name: The custom domain name of the service.
-        :param dns_entry: The DNS information of the service.
+        :param dns_entry: Describes the DNS information of the service. This field is read-only.
         :param name: The name of the service. The name must be unique within the account. The valid characters are a-z, 0-9, and hyphens (-). You can't use a hyphen as the first or last character, or immediately after another hyphen. If you don't specify a name, CloudFormation generates one. However, if you specify a name, and later want to replace the resource, you must specify a new name.
         :param tags: The tags for the service.
 
@@ -5705,7 +5705,9 @@ class CfnServiceProps:
     def dns_entry(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnService.DnsEntryProperty]]:
-        '''The DNS information of the service.
+        '''Describes the DNS information of the service.
+
+        This field is read-only.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-service.html#cfn-vpclattice-service-dnsentry
         '''

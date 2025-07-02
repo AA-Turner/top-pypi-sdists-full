@@ -17,13 +17,9 @@ class BaseAQLResponseProxy(Generic[InteractiveItemTypeT]):
         if self._response_data is None:
             raise AttributeError("Response data is None")
         if name not in self._response_data:
-            raise AttributeNotFoundError(
-                name, self._response_data, query_tree_node=self._query_tree_node
-            )
+            raise AttributeNotFoundError(name, self._response_data, query_tree_node=self._query_tree_node)
         log.debug(f"Resolving element {name}")
-        return self._resolve_item(
-            self._response_data[name], self._query_tree_node.get_child_by_name(name)
-        )  # type: ignore # returned value could be None, but to make static checker happy we ignore it
+        return self._resolve_item(self._response_data[name], self._query_tree_node.get_child_by_name(name))  # type: ignore # returned value could be None, but to make static checker happy we ignore it
 
     def __getitem__(self: Self, index: int) -> Union[InteractiveItemTypeT, Self]:
         if not isinstance(self._response_data, list):

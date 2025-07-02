@@ -1,6 +1,6 @@
 [project]
 name = "snakemake-interface-common"
-version = "1.19.4"
+version = "1.20.0"
 description = "Common functions and classes for Snakemake and its plugins"
 readme = "README.md"
 requires-python = ">=3.8"

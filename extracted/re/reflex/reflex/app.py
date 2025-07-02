@@ -13,7 +13,14 @@ import io
 import json
 import sys
 import traceback
-from collections.abc import AsyncIterator, Callable, Coroutine, Sequence
+from collections.abc import (
+    AsyncGenerator,
+    AsyncIterator,
+    Callable,
+    Coroutine,
+    Mapping,
+    Sequence,
+)
 from datetime import datetime
 from pathlib import Path
 from timeit import default_timer as timer
@@ -32,7 +39,6 @@ from starlette.middleware import cors
 from starlette.requests import ClientDisconnect, Request
 from starlette.responses import JSONResponse, Response, StreamingResponse
 from starlette.staticfiles import StaticFiles
-from typing_extensions import deprecated
 
 from reflex import constants
 from reflex.admin import AdminDash
@@ -61,7 +67,7 @@ from reflex.components.core.banner import (
 )
 from reflex.components.core.breakpoints import set_breakpoints
 from reflex.components.core.client_side_routing import (
-    Default404Page,
+    default_404_page,
     wait_for_client_redirect,
 )
 from reflex.components.core.sticky import sticky
@@ -78,6 +84,7 @@ from reflex.event import (
     EventType,
     IndividualEventType,
     get_hydrate_event,
+    noop,
 )
 from reflex.model import Model, get_db_status
 from reflex.page import DECORATED_PAGES
@@ -214,17 +221,21 @@ def default_overlay_component() -> Component:
     return Fragment.create(memo(default_overlay_components)())
 
 
-def default_error_boundary(*children: Component) -> Component:
+def default_error_boundary(*children: Component, **props) -> Component:
     """Default error_boundary attribute for App.
 
     Args:
         *children: The children to render in the error boundary.
+        **props: The props to pass to the error boundary.
 
     Returns:
         The default error_boundary, which is an ErrorBoundary.
 
     """
-    return ErrorBoundary.create(*children)
+    return ErrorBoundary.create(
+        *children,
+        **props,
+    )
 
 
 class OverlayFragment(Fragment):
@@ -246,8 +257,6 @@ class UploadFile(StarletteUploadFile):
 
     path: Path | None = dataclasses.field(default=None)
 
-    _deprecated_filename: str | None = dataclasses.field(default=None)
-
     size: int | None = dataclasses.field(default=None)
 
     headers: Headers = dataclasses.field(default_factory=Headers)
@@ -263,21 +272,6 @@ class UploadFile(StarletteUploadFile):
             return self.path.name
         return None
 
-    @property
-    def filename(self) -> str | None:
-        """Get the filename of the uploaded file.
-
-        Returns:
-            The filename of the uploaded file.
-        """
-        console.deprecate(
-            feature_name="UploadFile.filename",
-            reason="Use UploadFile.name instead.",
-            deprecation_version="0.7.1",
-            removal_version="0.8.0",
-        )
-        return self._deprecated_filename
-
 
 @dataclasses.dataclass(
     frozen=True,
@@ -291,8 +285,8 @@ class UnevaluatedPage:
     description: Var | str | None
     image: str
     on_load: EventType[()] | None
-    meta: list[dict[str, str]]
-    context: dict[str, Any] | None
+    meta: Sequence[Mapping[str, str]]
+    context: Mapping[str, Any]
 
     def merged_with(self, other: UnevaluatedPage) -> UnevaluatedPage:
         """Merge the other page into this one.
@@ -350,20 +344,22 @@ class App(MiddlewareMixin, LifespanMixin):
     # A list of URLs to [stylesheets](https://reflex.dev/docs/styling/custom-stylesheets/) to include in the app.
     stylesheets: list[str] = dataclasses.field(default_factory=list)
 
+    # Whether to include CSS reset for margin and padding (defaults to True).
+    reset_style: bool = dataclasses.field(default=True)
+
     # A component that is present on every page (defaults to the Connection Error banner).
     overlay_component: Component | ComponentCallable | None = dataclasses.field(
         default=None
     )
-
-    # Error boundary component to wrap the app with.
-    error_boundary: ComponentCallable | None = dataclasses.field(default=None)
 
     # App wraps to be applied to the whole app. Expected to be a dictionary of (order, name) to a function that takes whether the state is enabled and optionally returns a component.
     app_wraps: dict[tuple[int, str], Callable[[bool], Component | None]] = (
         dataclasses.field(
             default_factory=lambda: {
                 (55, "ErrorBoundary"): (
-                    lambda stateful: default_error_boundary() if stateful else None
+                    lambda stateful: default_error_boundary(
+                        **({"on_error": noop()} if not stateful else {})
+                    )
                 ),
                 (5, "Overlay"): (
                     lambda stateful: default_overlay_component() if stateful else None
@@ -442,24 +438,6 @@ class App(MiddlewareMixin, LifespanMixin):
 
     # FastAPI app for compatibility with FastAPI.
     _cached_fastapi_app: FastAPI | None = None
-
-    @property
-    @deprecated("Use `api_transformer=your_fastapi_app` instead.")
-    def api(self) -> FastAPI:
-        """Get the backend api.
-
-        Returns:
-            The backend api.
-        """
-        if self._cached_fastapi_app is None:
-            self._cached_fastapi_app = FastAPI()
-        console.deprecate(
-            feature_name="App.api",
-            reason="Set `api_transformer=your_fastapi_app` instead.",
-            deprecation_version="0.7.9",
-            removal_version="0.8.0",
-        )
-        return self._cached_fastapi_app
 
     @property
     def event_namespace(self) -> EventNamespace | None:
@@ -619,7 +597,7 @@ class App(MiddlewareMixin, LifespanMixin):
         self._apply_decorated_pages()
 
         compile_future = concurrent.futures.ThreadPoolExecutor(max_workers=1).submit(
-            self._compile
+            self._compile, prerender_routes=is_prod_mode()
         )
 
         def callback(f: concurrent.futures.Future):
@@ -794,13 +772,13 @@ class App(MiddlewareMixin, LifespanMixin):
                 msg = "Route must be set if component is not a callable."
                 raise exceptions.RouteValueError(msg)
             # Format the route.
-            route = format.format_route(component.__name__)
+            route = format.format_route(format.to_kebab_case(component.__name__))
         else:
-            route = format.format_route(route, format_case=False)
+            route = format.format_route(route)
 
         if route == constants.Page404.SLUG:
             if component is None:
-                component = Default404Page.create()
+                component = default_404_page
             component = wait_for_client_redirect(self._generate_component(component))
             title = title or constants.Page404.TITLE
             description = description or constants.Page404.DESCRIPTION
@@ -821,7 +799,7 @@ class App(MiddlewareMixin, LifespanMixin):
             image=image,
             on_load=on_load,
             meta=meta,
-            context=context,
+            context=context or {},
         )
 
         if route in self._unevaluated_pages:
@@ -851,10 +829,11 @@ class App(MiddlewareMixin, LifespanMixin):
         state = self._state if self._state else State
         state.setup_dynamic_args(get_route_args(route))
 
-        if on_load:
-            self._load_events[route] = (
-                on_load if isinstance(on_load, list) else [on_load]
-            )
+        self._load_events[route] = (
+            (on_load if isinstance(on_load, list) else [on_load])
+            if on_load is not None
+            else []
+        )
 
         self._unevaluated_pages[route] = unevaluated_page
 
@@ -883,24 +862,40 @@ class App(MiddlewareMixin, LifespanMixin):
         if save_page:
             self._pages[route] = component
 
-    def get_load_events(self, route: str) -> list[IndividualEventType[()]]:
+    @functools.cached_property
+    def router(self) -> Callable[[str], str | None]:
+        """Get the route computer function.
+
+        Returns:
+            The route computer function.
+        """
+        from reflex.route import get_router
+
+        return get_router(list(self._unevaluated_pages))
+
+    def get_load_events(self, path: str) -> list[IndividualEventType[()]]:
         """Get the load events for a route.
 
         Args:
-            route: The route to get the load events for.
+            path: The route to get the load events for.
 
         Returns:
             The load events for the route.
         """
-        route = route.lstrip("/")
-        if route == "":
-            route = constants.PageNames.INDEX_ROUTE
-        return self._load_events.get(route, [])
+        four_oh_four_load_events = self._load_events.get("404", [])
+        route = self.router(path)
+        if not route:
+            # If the path is not a valid route, return the 404 page load events.
+            return four_oh_four_load_events
+        return self._load_events.get(
+            route,
+            four_oh_four_load_events,
+        )
 
     def _check_routes_conflict(self, new_route: str):
         """Verify if there is any conflict between the new route and any existing route.
 
-        Based on conflicts that NextJS would throw if not intercepted.
+        Based on conflicts that React Router would throw if not intercepted.
 
         Raises:
             RouteValueError: exception showing which conflict exist with the route to be added
@@ -916,7 +911,6 @@ class App(MiddlewareMixin, LifespanMixin):
         segments = (
             constants.RouteRegex.SINGLE_SEGMENT,
             constants.RouteRegex.DOUBLE_SEGMENT,
-            constants.RouteRegex.SINGLE_CATCHALL_SEGMENT,
             constants.RouteRegex.DOUBLE_CATCHALL_SEGMENT,
         )
         for route in self._pages:
@@ -937,44 +931,6 @@ class App(MiddlewareMixin, LifespanMixin):
                     # eg. /posts/[id]/info/[slug1] and /posts/[id]/info1/[slug1] is always going to be valid since
                     # info1 will break away into its own tree.
                     break
-
-    def add_custom_404_page(
-        self,
-        component: Component | ComponentCallable | None = None,
-        title: str = constants.Page404.TITLE,
-        image: str = constants.Page404.IMAGE,
-        description: str = constants.Page404.DESCRIPTION,
-        on_load: EventType[()] | None = None,
-        meta: list[dict[str, str]] = constants.DefaultPage.META_LIST,
-    ):
-        """Define a custom 404 page for any url having no match.
-
-        If there is no page defined on 'index' route, add the 404 page to it.
-        If there is no global catchall defined, add the 404 page with a catchall.
-
-        Args:
-            component: The component to display at the page.
-            title: The title of the page.
-            image: The image to display on the page.
-            description: The description of the page.
-            on_load: The event handler(s) that will be called each time the page load.
-            meta: The metadata of the page.
-        """
-        console.deprecate(
-            feature_name="App.add_custom_404_page",
-            reason=f"Use app.add_page(component, route='/{constants.Page404.SLUG}') instead.",
-            deprecation_version="0.6.7",
-            removal_version="0.8.0",
-        )
-        self.add_page(
-            component=component,
-            route=constants.Page404.SLUG,
-            title=title or constants.Page404.TITLE,
-            image=image or constants.Page404.IMAGE,
-            description=description or constants.Page404.DESCRIPTION,
-            on_load=on_load,
-            meta=meta,
-        )
 
     def _setup_admin_dash(self):
         """Setup the admin dash."""
@@ -1024,7 +980,7 @@ class App(MiddlewareMixin, LifespanMixin):
             for i, tags in imports.items()
             if i not in dependencies
             and i not in dev_dependencies
-            and not any(i.startswith(prefix) for prefix in ["/", "$/", ".", "next/"])
+            and not any(i.startswith(prefix) for prefix in ["/", "$/", "."])
             and i != ""
             and any(tag.install for tag in tags)
         }
@@ -1148,17 +1104,17 @@ class App(MiddlewareMixin, LifespanMixin):
                 )
                 for dep in dep_set:
                     if dep not in state_cls.vars and dep not in state_cls.backend_vars:
-                        msg = f"ComputedVar {var._js_expr} on state {state.__name__} has an invalid dependency {state_name}.{dep}"
+                        msg = f"ComputedVar {var._name} on state {state.__name__} has an invalid dependency {state_name}.{dep}"
                         raise exceptions.VarDependencyError(msg)
 
         for substate in state.class_subclasses:
             self._validate_var_dependencies(substate)
 
-    def _compile(self, export: bool = False, dry_run: bool = False):
+    def _compile(self, prerender_routes: bool = False, dry_run: bool = False):
         """Compile the app and output it to the pages folder.
 
         Args:
-            export: Whether to compile the app for export.
+            prerender_routes: Whether to prerender the routes.
             dry_run: Whether to compile the app without saving it.
 
         Raises:
@@ -1329,17 +1285,6 @@ class App(MiddlewareMixin, LifespanMixin):
             # Add the app wrappers from this component.
             app_wrappers.update(component._get_all_app_wrap_components())
 
-        if self.error_boundary:
-            from reflex.compiler.compiler import into_component
-
-            console.deprecate(
-                feature_name="App.error_boundary",
-                reason="Use app_wraps instead.",
-                deprecation_version="0.7.1",
-                removal_version="0.8.0",
-            )
-            app_wrappers[(55, "ErrorBoundary")] = into_component(self.error_boundary)
-
         # Perform auto-memoization of stateful components.
         with console.timing("Auto-memoize StatefulComponents"):
             (
@@ -1417,7 +1362,9 @@ class App(MiddlewareMixin, LifespanMixin):
                 )
 
             # Compile the root stylesheet with base styles.
-            _submit_work(compiler.compile_root_stylesheet, self.stylesheets)
+            _submit_work(
+                compiler.compile_root_stylesheet, self.stylesheets, self.reset_style
+            )
 
             # Compile the theme.
             _submit_work(compile_theme, self.style)
@@ -1441,6 +1388,7 @@ class App(MiddlewareMixin, LifespanMixin):
                             )
                         )
                     ),
+                    unevaluated_pages=list(self._unevaluated_pages.values()),
                 )
 
             # Wait for all compilation tasks to complete.
@@ -1484,15 +1432,9 @@ class App(MiddlewareMixin, LifespanMixin):
         with console.timing("Install Frontend Packages"):
             self._get_frontend_packages(all_imports)
 
-        # Setup the next.config.js
-        transpile_packages = [
-            package
-            for package, import_vars in all_imports.items()
-            if any(import_var.transpile for import_var in import_vars)
-        ]
-        prerequisites.update_next_config(
-            export=export,
-            transpile_packages=transpile_packages,
+        # Setup the react-router.config.js
+        prerequisites.update_react_router_config(
+            prerender_routes=prerender_routes,
         )
 
         if is_prod_mode():
@@ -1501,9 +1443,11 @@ class App(MiddlewareMixin, LifespanMixin):
         else:
             # In dev mode, delete removed pages and update existing pages.
             keep_files = [Path(output_path) for output_path, _ in compile_results]
-            for p in Path(prerequisites.get_web_dir() / constants.Dirs.PAGES).rglob(
-                "*"
-            ):
+            for p in Path(
+                prerequisites.get_web_dir()
+                / constants.Dirs.PAGES
+                / constants.Dirs.ROUTES
+            ).rglob("*"):
                 if p.is_file() and p not in keep_files:
                     # Remove pages that are no longer in the app.
                     p.unlink()
@@ -1740,7 +1684,7 @@ class App(MiddlewareMixin, LifespanMixin):
 
 async def process(
     app: App, event: Event, sid: str, headers: dict, client_ip: str
-) -> AsyncIterator[StateUpdate]:
+) -> AsyncGenerator[StateUpdate]:
     """Process an event.
 
     Args:
@@ -1792,6 +1736,11 @@ async def process(
                 # assignment will recurse into substates and force recalculation of
                 # dependent ComputedVar (dynamic route variables)
                 state.router_data = router_data
+                router_data[constants.RouteVar.PATH] = "/" + (
+                    app.router(path) or "404"
+                    if (path := router_data.get(constants.RouteVar.PATH))
+                    else "404"
+                ).removeprefix("/")
                 state.router = RouterData(router_data)
 
             # Preprocess the event.
@@ -1970,7 +1919,6 @@ def upload(app: App):
                 UploadFile(
                     file=content_copy,
                     path=Path(file.filename.lstrip("/")) if file.filename else None,
-                    _deprecated_filename=file.filename,
                     size=file.size,
                     headers=file.headers,
                 )
@@ -2131,10 +2079,13 @@ class EventNamespace(AsyncNamespace):
         except (KeyError, IndexError):
             client_ip = environ.get("REMOTE_ADDR", "0.0.0.0")
 
-        # Process the events.
-        async for update in process(self.app, event, sid, headers, client_ip):
-            # Emit the update from processing the event.
-            await self.emit_update(update=update, sid=sid)
+        async with contextlib.aclosing(
+            process(self.app, event, sid, headers, client_ip)
+        ) as updates_gen:
+            # Process the events.
+            async for update in updates_gen:
+                # Emit the update from processing the event.
+                await self.emit_update(update=update, sid=sid)
 
     async def on_ping(self, sid: str):
         """Event for testing the API endpoint.

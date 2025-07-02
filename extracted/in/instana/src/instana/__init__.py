@@ -175,6 +175,7 @@ def boot_agent() -> None:
             flask,  # noqa: F401
             # gevent_inst,  # noqa: F401
             grpcio,  # noqa: F401
+            httpx,  # noqa: F401
             logging,  # noqa: F401
             mysqlclient,  # noqa: F401
             pep0249,  # noqa: F401
@@ -189,6 +190,7 @@ def boot_agent() -> None:
             starlette,  # noqa: F401
             urllib3,  # noqa: F401
             spyne,  # noqa: F401
+            aio_pika,  # noqa: F401
         )
         from instana.instrumentation.aiohttp import (
             client as aiohttp_client,  # noqa: F401

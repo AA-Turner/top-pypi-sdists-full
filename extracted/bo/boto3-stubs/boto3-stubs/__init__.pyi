@@ -298,6 +298,7 @@ from mypy_boto3_notifications.client import UserNotificationsClient
 from mypy_boto3_notificationscontacts.client import UserNotificationsContactsClient
 from mypy_boto3_oam.client import CloudWatchObservabilityAccessManagerClient
 from mypy_boto3_observabilityadmin.client import CloudWatchObservabilityAdminServiceClient
+from mypy_boto3_odb.client import OdbClient
 from mypy_boto3_omics.client import OmicsClient
 from mypy_boto3_opensearch.client import OpenSearchServiceClient
 from mypy_boto3_opensearchserverless.client import OpenSearchServiceServerlessClient
@@ -5394,6 +5395,24 @@ def client(
 ) -> CloudWatchObservabilityAdminServiceClient:
     """
     Create client for CloudWatchObservabilityAdminService service.
+    """
+
+@overload
+def client(
+    service_name: Literal["odb"],
+    region_name: str | None = ...,
+    api_version: str | None = ...,
+    use_ssl: bool | None = ...,
+    verify: bool | str | None = ...,
+    endpoint_url: str | None = ...,
+    aws_access_key_id: str | None = ...,
+    aws_secret_access_key: str | None = ...,
+    aws_session_token: str | None = ...,
+    config: Config | None = ...,
+    aws_account_id: str | None = ...,
+) -> OdbClient:
+    """
+    Create client for Odb service.
     """
 
 @overload
