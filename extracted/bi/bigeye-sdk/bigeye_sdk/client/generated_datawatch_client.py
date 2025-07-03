@@ -1158,10 +1158,15 @@ class GeneratedDatawatchClient(abc.ABC):
         log.info(f"Deleting lineage relationships for data node {data_node_id}")
         self._call_datawatch(Method.DELETE, url=url)
 
-    def create_lineage_node(self, node_name: str, node_type: DataNodeType, node_container_name: Optional[str] = None) -> LineageNodeV2:
+    def create_lineage_node(self,
+                            node_name: str,
+                            node_type: DataNodeType,
+                            node_container_name: Optional[str] = None,
+                            icon_url: Optional[str] = None) -> LineageNodeV2:
         url = '/api/v2/lineage/nodes'
         request = CreateLineageNodeV2Request()
         request.node_name = node_name
+        request.icon_url = icon_url
 
         if node_container_name:
             request.node_container_name = node_container_name

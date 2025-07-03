@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: wemake-python-styleguide
-Version: 1.1.0
+Version: 1.2.0
 Summary: The strictest and most opinionated python linter ever
 License: MIT
 Keywords: flake8,flake8-plugin,flake8-formatter,linter,wemake.services,styleguide,code quality,pycqa
@@ -11,19 +11,13 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Framework :: Flake8
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Quality Assurance
 Classifier: Typing :: Typed
 Requires-Dist: attrs
-Requires-Dist: flake8 (>=7.1,<8.0)
-Requires-Dist: pygments (>=2.5,<3.0)
+Requires-Dist: flake8 (>=7.3,<8.0)
+Requires-Dist: pygments (>=2.19,<3.0)
 Project-URL: Funding, https://opencollective.com/wemake-python-styleguide
 Project-URL: Homepage, https://wemake-python-styleguide.rtfd.io
 Project-URL: Repository, https://github.com/wemake-services/wemake-python-styleguide

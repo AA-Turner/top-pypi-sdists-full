@@ -1,8 +1,8 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: sqladmin
-Version: 0.20.1
+Version: 0.21.0
 Summary: SQLAlchemy admin for FastAPI and Starlette
-Project-URL: Documentation, https://aminalaee.dev/sqladmin
+Project-URL: Documentation, https://aminalaee.github.io/sqladmin/
 Project-URL: Issues, https://github.com/aminalaee/sqladmin/issues
 Project-URL: Source, https://github.com/aminalaee/sqladmin
 Author-email: Amin Alaee <me@aminalaee.dev>
@@ -72,7 +72,7 @@ Main features include:
 
 ---
 
-**Documentation**: [https://aminalaee.dev/sqladmin](https://aminalaee.dev/sqladmin)
+**Documentation**: [https://aminalaee.github.io/sqladmin](https://aminalaee.github.io/sqladmin)
 
 **Source Code**: [https://github.com/aminalaee/sqladmin](https://github.com/aminalaee/sqladmin)
 

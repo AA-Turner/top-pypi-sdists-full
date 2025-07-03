@@ -48,6 +48,7 @@ class ContentOpenpgpUseridApi:
     @validate_call
     def list(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
         ordering: Annotated[Optional[List[StrictStr]], Field(description="Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `pulp_type` - Pulp type * `-pulp_type` - Pulp type (descending) * `upstream_id` - Upstream id * `-upstream_id` - Upstream id (descending) * `pulp_labels` - Pulp labels * `-pulp_labels` - Pulp labels (descending) * `timestamp_of_interest` - Timestamp of interest * `-timestamp_of_interest` - Timestamp of interest (descending) * `raw_data` - Raw data * `-raw_data` - Raw data (descending) * `user_id` - User id * `-user_id` - User id (descending) * `pk` - Pk * `-pk` - Pk (descending)")] = None,
@@ -88,6 +89,8 @@ class ContentOpenpgpUseridApi:
 
         Content viewset that supports only GET by default.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param limit: Number of results to return per page.
         :type limit: int
         :param offset: The initial index from which to return the results.
@@ -157,6 +160,7 @@ class ContentOpenpgpUseridApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             offset=offset,
             ordering=ordering,
@@ -203,6 +207,7 @@ class ContentOpenpgpUseridApi:
     @validate_call
     def list_with_http_info(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
         ordering: Annotated[Optional[List[StrictStr]], Field(description="Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `pulp_type` - Pulp type * `-pulp_type` - Pulp type (descending) * `upstream_id` - Upstream id * `-upstream_id` - Upstream id (descending) * `pulp_labels` - Pulp labels * `-pulp_labels` - Pulp labels (descending) * `timestamp_of_interest` - Timestamp of interest * `-timestamp_of_interest` - Timestamp of interest (descending) * `raw_data` - Raw data * `-raw_data` - Raw data (descending) * `user_id` - User id * `-user_id` - User id (descending) * `pk` - Pk * `-pk` - Pk (descending)")] = None,
@@ -243,6 +248,8 @@ class ContentOpenpgpUseridApi:
 
         Content viewset that supports only GET by default.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param limit: Number of results to return per page.
         :type limit: int
         :param offset: The initial index from which to return the results.
@@ -312,6 +319,7 @@ class ContentOpenpgpUseridApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             offset=offset,
             ordering=ordering,
@@ -358,6 +366,7 @@ class ContentOpenpgpUseridApi:
     @validate_call
     def list_without_preload_content(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
         ordering: Annotated[Optional[List[StrictStr]], Field(description="Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `pulp_type` - Pulp type * `-pulp_type` - Pulp type (descending) * `upstream_id` - Upstream id * `-upstream_id` - Upstream id (descending) * `pulp_labels` - Pulp labels * `-pulp_labels` - Pulp labels (descending) * `timestamp_of_interest` - Timestamp of interest * `-timestamp_of_interest` - Timestamp of interest (descending) * `raw_data` - Raw data * `-raw_data` - Raw data (descending) * `user_id` - User id * `-user_id` - User id (descending) * `pk` - Pk * `-pk` - Pk (descending)")] = None,
@@ -398,6 +407,8 @@ class ContentOpenpgpUseridApi:
 
         Content viewset that supports only GET by default.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param limit: Number of results to return per page.
         :type limit: int
         :param offset: The initial index from which to return the results.
@@ -467,6 +478,7 @@ class ContentOpenpgpUseridApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             offset=offset,
             ordering=ordering,
@@ -508,6 +520,7 @@ class ContentOpenpgpUseridApi:
 
     def _list_serialize(
         self,
+        x_task_diagnostics,
         limit,
         offset,
         ordering,
@@ -540,6 +553,7 @@ class ContentOpenpgpUseridApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'ordering': 'csv',
             'prn__in': 'csv',
             'pulp_href__in': 'csv',
@@ -653,6 +667,8 @@ class ContentOpenpgpUseridApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -694,6 +710,7 @@ class ContentOpenpgpUseridApi:
     def read(
         self,
         open_p_g_p_user_i_d_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -715,6 +732,8 @@ class ContentOpenpgpUseridApi:
 
         :param open_p_g_p_user_i_d_href: (required)
         :type open_p_g_p_user_i_d_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -743,6 +762,7 @@ class ContentOpenpgpUseridApi:
 
         _param = self._read_serialize(
             open_p_g_p_user_i_d_href=open_p_g_p_user_i_d_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -769,6 +789,7 @@ class ContentOpenpgpUseridApi:
     def read_with_http_info(
         self,
         open_p_g_p_user_i_d_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -790,6 +811,8 @@ class ContentOpenpgpUseridApi:
 
         :param open_p_g_p_user_i_d_href: (required)
         :type open_p_g_p_user_i_d_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -818,6 +841,7 @@ class ContentOpenpgpUseridApi:
 
         _param = self._read_serialize(
             open_p_g_p_user_i_d_href=open_p_g_p_user_i_d_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -844,6 +868,7 @@ class ContentOpenpgpUseridApi:
     def read_without_preload_content(
         self,
         open_p_g_p_user_i_d_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -865,6 +890,8 @@ class ContentOpenpgpUseridApi:
 
         :param open_p_g_p_user_i_d_href: (required)
         :type open_p_g_p_user_i_d_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -893,6 +920,7 @@ class ContentOpenpgpUseridApi:
 
         _param = self._read_serialize(
             open_p_g_p_user_i_d_href=open_p_g_p_user_i_d_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -914,6 +942,7 @@ class ContentOpenpgpUseridApi:
     def _read_serialize(
         self,
         open_p_g_p_user_i_d_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -925,6 +954,7 @@ class ContentOpenpgpUseridApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -951,6 +981,8 @@ class ContentOpenpgpUseridApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -993,6 +1025,7 @@ class ContentOpenpgpUseridApi:
         self,
         open_p_g_p_user_i_d_href: StrictStr,
         set_label: SetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1014,6 +1047,8 @@ class ContentOpenpgpUseridApi:
         :type open_p_g_p_user_i_d_href: str
         :param set_label: (required)
         :type set_label: SetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1039,6 +1074,7 @@ class ContentOpenpgpUseridApi:
         _param = self._set_label_serialize(
             open_p_g_p_user_i_d_href=open_p_g_p_user_i_d_href,
             set_label=set_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1064,6 +1100,7 @@ class ContentOpenpgpUseridApi:
         self,
         open_p_g_p_user_i_d_href: StrictStr,
         set_label: SetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1085,6 +1122,8 @@ class ContentOpenpgpUseridApi:
         :type open_p_g_p_user_i_d_href: str
         :param set_label: (required)
         :type set_label: SetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1110,6 +1149,7 @@ class ContentOpenpgpUseridApi:
         _param = self._set_label_serialize(
             open_p_g_p_user_i_d_href=open_p_g_p_user_i_d_href,
             set_label=set_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1135,6 +1175,7 @@ class ContentOpenpgpUseridApi:
         self,
         open_p_g_p_user_i_d_href: StrictStr,
         set_label: SetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1156,6 +1197,8 @@ class ContentOpenpgpUseridApi:
         :type open_p_g_p_user_i_d_href: str
         :param set_label: (required)
         :type set_label: SetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1181,6 +1224,7 @@ class ContentOpenpgpUseridApi:
         _param = self._set_label_serialize(
             open_p_g_p_user_i_d_href=open_p_g_p_user_i_d_href,
             set_label=set_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1201,6 +1245,7 @@ class ContentOpenpgpUseridApi:
         self,
         open_p_g_p_user_i_d_href,
         set_label,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -1210,6 +1255,7 @@ class ContentOpenpgpUseridApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -1226,6 +1272,8 @@ class ContentOpenpgpUseridApi:
             _path_params['open_p_g_p_user_i_d_href'] = open_p_g_p_user_i_d_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if set_label is not None:
@@ -1285,6 +1333,7 @@ class ContentOpenpgpUseridApi:
         self,
         open_p_g_p_user_i_d_href: StrictStr,
         unset_label: UnsetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1306,6 +1355,8 @@ class ContentOpenpgpUseridApi:
         :type open_p_g_p_user_i_d_href: str
         :param unset_label: (required)
         :type unset_label: UnsetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1331,6 +1382,7 @@ class ContentOpenpgpUseridApi:
         _param = self._unset_label_serialize(
             open_p_g_p_user_i_d_href=open_p_g_p_user_i_d_href,
             unset_label=unset_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1356,6 +1408,7 @@ class ContentOpenpgpUseridApi:
         self,
         open_p_g_p_user_i_d_href: StrictStr,
         unset_label: UnsetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1377,6 +1430,8 @@ class ContentOpenpgpUseridApi:
         :type open_p_g_p_user_i_d_href: str
         :param unset_label: (required)
         :type unset_label: UnsetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1402,6 +1457,7 @@ class ContentOpenpgpUseridApi:
         _param = self._unset_label_serialize(
             open_p_g_p_user_i_d_href=open_p_g_p_user_i_d_href,
             unset_label=unset_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1427,6 +1483,7 @@ class ContentOpenpgpUseridApi:
         self,
         open_p_g_p_user_i_d_href: StrictStr,
         unset_label: UnsetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1448,6 +1505,8 @@ class ContentOpenpgpUseridApi:
         :type open_p_g_p_user_i_d_href: str
         :param unset_label: (required)
         :type unset_label: UnsetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1473,6 +1532,7 @@ class ContentOpenpgpUseridApi:
         _param = self._unset_label_serialize(
             open_p_g_p_user_i_d_href=open_p_g_p_user_i_d_href,
             unset_label=unset_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1493,6 +1553,7 @@ class ContentOpenpgpUseridApi:
         self,
         open_p_g_p_user_i_d_href,
         unset_label,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -1502,6 +1563,7 @@ class ContentOpenpgpUseridApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -1518,6 +1580,8 @@ class ContentOpenpgpUseridApi:
             _path_params['open_p_g_p_user_i_d_href'] = open_p_g_p_user_i_d_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if unset_label is not None:

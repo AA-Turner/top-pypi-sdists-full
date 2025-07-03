@@ -2,13 +2,20 @@ from datetime import UTC, datetime
 
 import structlog
 
-from langgraph_api.http import get_http_client, get_loopback_client
+from langgraph_api.config import HTTP_CONFIG
+from langgraph_api.http import get_http_client, get_loopback_client, http_request
 from langgraph_api.worker import WorkerResult
 
 logger = structlog.stdlib.get_logger(__name__)
 
 
 async def call_webhook(result: "WorkerResult") -> None:
+    if HTTP_CONFIG and HTTP_CONFIG.get("disable_webhooks"):
+        logger.info(
+            "Webhooks disabled, skipping webhook call", webhook=result["webhook"]
+        )
+        return
+
     checkpoint = result["checkpoint"]
     payload = {
         **result["run"],
@@ -28,7 +35,7 @@ async def call_webhook(result: "WorkerResult") -> None:
             webhook_client = get_loopback_client()
         else:
             webhook_client = get_http_client()
-        await webhook_client.post(webhook, json=payload, total_timeout=20)
+        await http_request("POST", webhook, json=payload, client=webhook_client)
         await logger.ainfo(
             "Background worker called webhook",
             webhook=result["webhook"],

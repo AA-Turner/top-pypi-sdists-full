@@ -58,7 +58,7 @@ async def retorno_cobranca(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO
         temp_folder = await create_temp_folder()
         console.print(f"Pasta criada com sucesso. \n {temp_folder}", style="bold green")
         try:
-           downloaded_files =  await download_file_from_historico(task.historico_id)
+            downloaded_files =  await download_file_from_historico(task.historico_id)
         except Exception as ex:
             log_msg = f"Erro ao baixar o arquivo: {str(ex)}"
             console.print(log_msg, style="bold red")
@@ -206,7 +206,8 @@ async def retorno_cobranca(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO
                 sucesso=False, retorno=log_msg, status=RpaHistoricoStatusEnum.Falha, tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
             )
 
-        await worker_sleep(5)
+        await worker_sleep(20)
+        
         i = 0
         while i > 10:
             try:

@@ -47,6 +47,7 @@ class RolesApi:
     def create(
         self,
         role: Role,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -66,6 +67,8 @@ class RolesApi:
 
         :param role: (required)
         :type role: Role
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -90,6 +93,7 @@ class RolesApi:
 
         _param = self._create_serialize(
             role=role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -114,6 +118,7 @@ class RolesApi:
     def create_with_http_info(
         self,
         role: Role,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -133,6 +138,8 @@ class RolesApi:
 
         :param role: (required)
         :type role: Role
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -157,6 +164,7 @@ class RolesApi:
 
         _param = self._create_serialize(
             role=role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -181,6 +189,7 @@ class RolesApi:
     def create_without_preload_content(
         self,
         role: Role,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -200,6 +209,8 @@ class RolesApi:
 
         :param role: (required)
         :type role: Role
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -224,6 +235,7 @@ class RolesApi:
 
         _param = self._create_serialize(
             role=role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -243,6 +255,7 @@ class RolesApi:
     def _create_serialize(
         self,
         role,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -252,6 +265,7 @@ class RolesApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -266,6 +280,8 @@ class RolesApi:
         # process the path parameters
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if role is not None:
@@ -324,6 +340,7 @@ class RolesApi:
     def delete(
         self,
         role_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -343,6 +360,8 @@ class RolesApi:
 
         :param role_href: (required)
         :type role_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -367,6 +386,7 @@ class RolesApi:
 
         _param = self._delete_serialize(
             role_href=role_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -391,6 +411,7 @@ class RolesApi:
     def delete_with_http_info(
         self,
         role_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -410,6 +431,8 @@ class RolesApi:
 
         :param role_href: (required)
         :type role_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -434,6 +457,7 @@ class RolesApi:
 
         _param = self._delete_serialize(
             role_href=role_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -458,6 +482,7 @@ class RolesApi:
     def delete_without_preload_content(
         self,
         role_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -477,6 +502,8 @@ class RolesApi:
 
         :param role_href: (required)
         :type role_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -501,6 +528,7 @@ class RolesApi:
 
         _param = self._delete_serialize(
             role_href=role_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -520,6 +548,7 @@ class RolesApi:
     def _delete_serialize(
         self,
         role_href,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -529,6 +558,7 @@ class RolesApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -545,6 +575,8 @@ class RolesApi:
             _path_params['role_href'] = role_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -578,6 +610,7 @@ class RolesApi:
     @validate_call
     def list(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         contains_permission: Annotated[Optional[List[StrictStr]], Field(description="Filter roles that have any of the permissions in the list.")] = None,
         description: Annotated[Optional[StrictStr], Field(description="Filter results where description matches value")] = None,
         description__contains: Annotated[Optional[StrictStr], Field(description="Filter results where description contains value")] = None,
@@ -620,6 +653,8 @@ class RolesApi:
 
         ViewSet for Role.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param contains_permission: Filter roles that have any of the permissions in the list.
         :type contains_permission: List[str]
         :param description: Filter results where description matches value
@@ -693,6 +728,7 @@ class RolesApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             contains_permission=contains_permission,
             description=description,
             description__contains=description__contains,
@@ -741,6 +777,7 @@ class RolesApi:
     @validate_call
     def list_with_http_info(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         contains_permission: Annotated[Optional[List[StrictStr]], Field(description="Filter roles that have any of the permissions in the list.")] = None,
         description: Annotated[Optional[StrictStr], Field(description="Filter results where description matches value")] = None,
         description__contains: Annotated[Optional[StrictStr], Field(description="Filter results where description contains value")] = None,
@@ -783,6 +820,8 @@ class RolesApi:
 
         ViewSet for Role.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param contains_permission: Filter roles that have any of the permissions in the list.
         :type contains_permission: List[str]
         :param description: Filter results where description matches value
@@ -856,6 +895,7 @@ class RolesApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             contains_permission=contains_permission,
             description=description,
             description__contains=description__contains,
@@ -904,6 +944,7 @@ class RolesApi:
     @validate_call
     def list_without_preload_content(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         contains_permission: Annotated[Optional[List[StrictStr]], Field(description="Filter roles that have any of the permissions in the list.")] = None,
         description: Annotated[Optional[StrictStr], Field(description="Filter results where description matches value")] = None,
         description__contains: Annotated[Optional[StrictStr], Field(description="Filter results where description contains value")] = None,
@@ -946,6 +987,8 @@ class RolesApi:
 
         ViewSet for Role.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param contains_permission: Filter roles that have any of the permissions in the list.
         :type contains_permission: List[str]
         :param description: Filter results where description matches value
@@ -1019,6 +1062,7 @@ class RolesApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             contains_permission=contains_permission,
             description=description,
             description__contains=description__contains,
@@ -1062,6 +1106,7 @@ class RolesApi:
 
     def _list_serialize(
         self,
+        x_task_diagnostics,
         contains_permission,
         description,
         description__contains,
@@ -1096,6 +1141,7 @@ class RolesApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'contains_permission': 'multi',
             'name__in': 'csv',
             'ordering': 'csv',
@@ -1218,6 +1264,8 @@ class RolesApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -1260,6 +1308,7 @@ class RolesApi:
         self,
         role_href: StrictStr,
         patched_role: PatchedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1281,6 +1330,8 @@ class RolesApi:
         :type role_href: str
         :param patched_role: (required)
         :type patched_role: PatchedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1306,6 +1357,7 @@ class RolesApi:
         _param = self._partial_update_serialize(
             role_href=role_href,
             patched_role=patched_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1331,6 +1383,7 @@ class RolesApi:
         self,
         role_href: StrictStr,
         patched_role: PatchedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1352,6 +1405,8 @@ class RolesApi:
         :type role_href: str
         :param patched_role: (required)
         :type patched_role: PatchedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1377,6 +1432,7 @@ class RolesApi:
         _param = self._partial_update_serialize(
             role_href=role_href,
             patched_role=patched_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1402,6 +1458,7 @@ class RolesApi:
         self,
         role_href: StrictStr,
         patched_role: PatchedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1423,6 +1480,8 @@ class RolesApi:
         :type role_href: str
         :param patched_role: (required)
         :type patched_role: PatchedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1448,6 +1507,7 @@ class RolesApi:
         _param = self._partial_update_serialize(
             role_href=role_href,
             patched_role=patched_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1468,6 +1528,7 @@ class RolesApi:
         self,
         role_href,
         patched_role,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -1477,6 +1538,7 @@ class RolesApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -1493,6 +1555,8 @@ class RolesApi:
             _path_params['role_href'] = role_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if patched_role is not None:
@@ -1551,6 +1615,7 @@ class RolesApi:
     def read(
         self,
         role_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1572,6 +1637,8 @@ class RolesApi:
 
         :param role_href: (required)
         :type role_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1600,6 +1667,7 @@ class RolesApi:
 
         _param = self._read_serialize(
             role_href=role_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1626,6 +1694,7 @@ class RolesApi:
     def read_with_http_info(
         self,
         role_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1647,6 +1716,8 @@ class RolesApi:
 
         :param role_href: (required)
         :type role_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1675,6 +1746,7 @@ class RolesApi:
 
         _param = self._read_serialize(
             role_href=role_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1701,6 +1773,7 @@ class RolesApi:
     def read_without_preload_content(
         self,
         role_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1722,6 +1795,8 @@ class RolesApi:
 
         :param role_href: (required)
         :type role_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1750,6 +1825,7 @@ class RolesApi:
 
         _param = self._read_serialize(
             role_href=role_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1771,6 +1847,7 @@ class RolesApi:
     def _read_serialize(
         self,
         role_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -1782,6 +1859,7 @@ class RolesApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -1808,6 +1886,8 @@ class RolesApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -1850,6 +1930,7 @@ class RolesApi:
         self,
         role_href: StrictStr,
         role: Role,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1871,6 +1952,8 @@ class RolesApi:
         :type role_href: str
         :param role: (required)
         :type role: Role
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1896,6 +1979,7 @@ class RolesApi:
         _param = self._update_serialize(
             role_href=role_href,
             role=role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1921,6 +2005,7 @@ class RolesApi:
         self,
         role_href: StrictStr,
         role: Role,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1942,6 +2027,8 @@ class RolesApi:
         :type role_href: str
         :param role: (required)
         :type role: Role
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1967,6 +2054,7 @@ class RolesApi:
         _param = self._update_serialize(
             role_href=role_href,
             role=role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1992,6 +2080,7 @@ class RolesApi:
         self,
         role_href: StrictStr,
         role: Role,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2013,6 +2102,8 @@ class RolesApi:
         :type role_href: str
         :param role: (required)
         :type role: Role
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2038,6 +2129,7 @@ class RolesApi:
         _param = self._update_serialize(
             role_href=role_href,
             role=role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2058,6 +2150,7 @@ class RolesApi:
         self,
         role_href,
         role,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -2067,6 +2160,7 @@ class RolesApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -2083,6 +2177,8 @@ class RolesApi:
             _path_params['role_href'] = role_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if role is not None:

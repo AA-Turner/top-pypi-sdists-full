@@ -94,6 +94,9 @@ Summary
    ProblematicFunctionParamsViolation
    AwaitInLoopViolation
    SneakyTypeVarWithDefaultViolation
+   NonStrictSliceOperationsViolation
+   MultilineFormattedStringViolation
+   CommentInFormattedStringViolation
 
 Best practices
 --------------
@@ -176,6 +179,9 @@ Best practices
 .. autoclass:: ProblematicFunctionParamsViolation
 .. autoclass:: AwaitInLoopViolation
 .. autoclass:: SneakyTypeVarWithDefaultViolation
+.. autoclass:: NonStrictSliceOperationsViolation
+.. autoclass:: MultilineFormattedStringViolation
+.. autoclass:: CommentInFormattedStringViolation
 
 """
 
@@ -752,7 +758,7 @@ class YieldInComprehensionViolation(ASTViolation):
 
         # Wrong:
         list((yield letter) for letter in 'ab')
-        # Will resilt in: ['a', None, 'b', None]
+        # Will result in: ['a', None, 'b', None]
 
         list([(yield letter) for letter in 'ab'])
         # Will result in: ['a', 'b']
@@ -2500,7 +2506,7 @@ class ForbiddenInlineIgnoreViolation(SimpleViolation):
 @final
 class WrongMultilineStringUseViolation(TokenizeViolation):
     '''
-    Frobids direct usage of multiline strings.
+    Forbids direct usage of multiline strings.
 
     Multiline strings are only allowed in docstrings
     or assignments to variables.
@@ -2651,12 +2657,13 @@ class NewStyledDecoratorViolation(ASTViolation):
     earlier versions do not have this concept.
 
     Reasoning:
-       New grammar allows to use decorators in a more liberal way.
-       It is probably not a good idea.
-       Because decorators should be simple and easy to read.
+        New grammar allows to use decorators in a more liberal way.
+        It is probably not a good idea.
+        Because decorators should be simple and easy to read.
 
     Solution:
-        Use names, attributes, and calls as decorators only.
+        Use names, attributes and calls with generic type specifications
+        as decorators only.
         You are free to pass any args to function calls, however.
 
     Example::
@@ -2665,8 +2672,18 @@ class NewStyledDecoratorViolation(ASTViolation):
         @some.decorator(args)
         def my_function(): ...
 
+        # Only for `python3.12+`
+        @MyClassDecorator[my_type](args)
+        def my_function(): ...
+
         # Wrong:
-        @some.decorator['method'] + other
+        @some.decorator + other.decorator
+        def my_function(): ...
+
+        @some.dict_decorators['method']
+        def my_function(): ...
+
+        @some.list_decorators[index]
         def my_function(): ...
 
     .. versionadded:: 0.15.0
@@ -3042,3 +3059,94 @@ class SneakyTypeVarWithDefaultViolation(ASTViolation):
 
     error_template = 'Found a TypeVarTuple following a TypeVar with default'
     code = 477
+
+
+@final
+class NonStrictSliceOperationsViolation(ASTViolation):
+    """
+    Forbid using non strict slice operations.
+
+    Reasoning:
+        We have two ways to do something.
+
+    Solution:
+        Prefer a more descriptive way.
+
+    Example::
+
+        # Correct:
+        items.reverse()
+        ''.join(reversed('abc'))
+        items.copy()
+
+        # Wrong:
+        items[::-1]  # `.reverse()` or `reversed()`
+        items[:]  # `.copy()` or `copy.copy()`
+
+    .. versionadded:: 1.2.0
+
+    """
+
+    error_template = 'Found non strict slice operation'
+    code = 478
+
+
+@final
+class MultilineFormattedStringViolation(TokenizeViolation):
+    """
+    Forbid using multi-line formatted string with single and double quotes.
+
+    Reasoning:
+        Multiline f-strings must use triple quotes for clarity.
+        Single f-strings may not span lines.
+
+    Solution:
+        Use triple quotes instead of single quotes.
+
+    Example::
+
+        # Correct
+        x = f''' { 1
+        ...}'''
+
+        # Wrong:
+        x = f' { 1
+        ...}'
+
+    .. versionadded:: 1.2.0
+
+    """
+
+    error_template = 'Found multi-line formatted string'
+    code = 479
+
+
+@final
+class CommentInFormattedStringViolation(TokenizeViolation):
+    """
+    Forbid using comments inside formatted strings.
+
+    Is only emitted on ``python3.12+``.
+
+    Reasoning:
+        Comments make fstring implicitly multiline.
+        And comments must not be present in strings. This is not right.
+
+    Solution:
+        Don't write comments inside fstrings.
+
+    Example::
+
+        # Correct:
+        element = f'<p>{content}</p>' # Create html element
+
+        # Wrong:
+        element = f'<p>{content # Create html element
+        }'
+
+    .. versionadded:: 1.2.0
+
+    """
+
+    error_template = 'Found comment inside formatted string'
+    code = 480

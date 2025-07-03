@@ -49,18 +49,14 @@ class ApplicationActivity(BaseTsAppMessage):
         if browsers := [c for c in inventory_components if isinstance(c, Browser)]:
             self.body["inventory"]["browsers"] = browsers
         if attacks and request:
-            # The only sensitive data in this message is the request field
-            # of samples. Since Assess messages won't have samples, we
-            # delay masking until this point.
-            if request_data_masker:
-                request_data_masker.mask_sensitive_data(request, attacks)
-
             self.body["defend"] = {"attackers": []}
 
             for attack in attacks:
                 self.body["defend"]["attackers"].append(
                     {
-                        "protectionRules": {attack.rule_id: attack.to_json(request)},
+                        "protectionRules": {
+                            attack.rule_id: attack.to_json(request, request_data_masker)
+                        },
                         "source": {
                             "ip": request.client_addr or "",
                             "xForwardedFor": request.headers.get("X-Forwarded-For")

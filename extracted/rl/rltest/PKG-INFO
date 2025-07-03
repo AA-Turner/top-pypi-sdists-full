@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: RLTest
-Version: 0.7.16
+Version: 0.7.17
 Summary: Redis Modules Test Framework, allow to run tests on redis and modules on a variety of environments
 License: BSD-3-Clause
 Author: Redis, Inc.

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: findpython
-Version: 0.6.3
+Version: 0.7.0
 Summary: A utility to find python versions on your system
 Author-Email: Frost Ming <mianghong@gmail.com>
 License: MIT
@@ -10,9 +10,11 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Project-URL: Homepage, https://github.com/frostming/findpython
 Requires-Python: >=3.8
 Requires-Dist: packaging>=20
+Requires-Dist: platformdirs>=4.3.6
 Description-Content-Type: text/markdown
 
 # FindPython
@@ -99,6 +101,7 @@ FindPython finds Python from the following places:
 -   pyenv install root
 -   asdf python install root
 -   [rye](https://rye-up.com) toolchain install root
+-   [uv](https://docs.astral.sh/uv/) toolchain install root
 -   `/Library/Frameworks/Python.framework/Versions` (MacOS)
 -   Windows registry (Windows only)
 

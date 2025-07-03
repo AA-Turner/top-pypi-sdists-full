@@ -600,7 +600,7 @@ def _push_data(session, status, data, metadata, replace, push_result_df, workboo
 
                     push_result_df.at[condition, 'Name'] = condition_metadata['Name']
 
-                    capsule_property_metadata = _determine_capsule_property_metadata(data_supplied, metadata, item_type)
+                    capsule_property_metadata = _determine_capsule_property_metadata(condition_metadata)
 
                     status.add_job(condition,
                                    (_push_condition, session, condition_metadata, replace, _data_supplier,
@@ -625,8 +625,7 @@ def _push_data(session, status, data, metadata, replace, push_result_df, workboo
                     elif 'StoredCondition' in _common.get(row, 'Type'):
                         condition_metadata = row.to_dict()
                         _put_item_defaults(condition_metadata, datasource_output, workbook_context, item_type)
-                        capsule_property_metadata = _determine_capsule_property_metadata(data_supplied, metadata,
-                                                                                         item_type)
+                        capsule_property_metadata = _determine_capsule_property_metadata(condition_metadata)
                         status.add_job(status_index,
                                        (_push_condition, session, condition_metadata, replace, None, status_index,
                                         None, status, capsule_property_metadata, True))
@@ -653,17 +652,19 @@ def _push_data(session, status, data, metadata, replace, push_result_df, workboo
         push_result_df.at[status_index, 'Push Time'] = status.df.at[status_index, 'Time']
 
 
-def _determine_capsule_property_metadata(data, metadata, item_type):
-    if metadata is None or metadata.empty:
+def _determine_capsule_property_metadata(metadata: dict):
+    if metadata is None or len(metadata) == 0:
         return None
 
-    if item_type != "Condition" or 'Capsule Property Units' not in metadata:
+    if 'Capsule Property Units' not in metadata:
         return None
 
-    if data is None:
-        return metadata.at[0, 'Capsule Property Units']
-    else:
-        return {k.lower(): v for k, v in metadata.pop('Capsule Property Units')[0].items()}
+    capsule_property_units = metadata.pop('Capsule Property Units')
+
+    if pd.isna(capsule_property_units) or not isinstance(capsule_property_units, dict):
+        return None
+
+    return {k.lower(): v for k, v in capsule_property_units.items()}
 
 
 def _determine_item_type(data, metadata):

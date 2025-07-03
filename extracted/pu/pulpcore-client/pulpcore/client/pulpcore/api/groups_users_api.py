@@ -47,6 +47,7 @@ class GroupsUsersApi:
         self,
         group_href: StrictStr,
         group_user: GroupUser,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -68,6 +69,8 @@ class GroupsUsersApi:
         :type group_href: str
         :param group_user: (required)
         :type group_user: GroupUser
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -93,6 +96,7 @@ class GroupsUsersApi:
         _param = self._create_serialize(
             group_href=group_href,
             group_user=group_user,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -118,6 +122,7 @@ class GroupsUsersApi:
         self,
         group_href: StrictStr,
         group_user: GroupUser,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -139,6 +144,8 @@ class GroupsUsersApi:
         :type group_href: str
         :param group_user: (required)
         :type group_user: GroupUser
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -164,6 +171,7 @@ class GroupsUsersApi:
         _param = self._create_serialize(
             group_href=group_href,
             group_user=group_user,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -189,6 +197,7 @@ class GroupsUsersApi:
         self,
         group_href: StrictStr,
         group_user: GroupUser,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -210,6 +219,8 @@ class GroupsUsersApi:
         :type group_href: str
         :param group_user: (required)
         :type group_user: GroupUser
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -235,6 +246,7 @@ class GroupsUsersApi:
         _param = self._create_serialize(
             group_href=group_href,
             group_user=group_user,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -255,6 +267,7 @@ class GroupsUsersApi:
         self,
         group_href,
         group_user,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -264,6 +277,7 @@ class GroupsUsersApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -280,6 +294,8 @@ class GroupsUsersApi:
             _path_params['group_href'] = group_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if group_user is not None:
@@ -338,6 +354,7 @@ class GroupsUsersApi:
     def delete(
         self,
         groups_user_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -357,6 +374,8 @@ class GroupsUsersApi:
 
         :param groups_user_href: (required)
         :type groups_user_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -381,6 +400,7 @@ class GroupsUsersApi:
 
         _param = self._delete_serialize(
             groups_user_href=groups_user_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -405,6 +425,7 @@ class GroupsUsersApi:
     def delete_with_http_info(
         self,
         groups_user_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -424,6 +445,8 @@ class GroupsUsersApi:
 
         :param groups_user_href: (required)
         :type groups_user_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -448,6 +471,7 @@ class GroupsUsersApi:
 
         _param = self._delete_serialize(
             groups_user_href=groups_user_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -472,6 +496,7 @@ class GroupsUsersApi:
     def delete_without_preload_content(
         self,
         groups_user_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -491,6 +516,8 @@ class GroupsUsersApi:
 
         :param groups_user_href: (required)
         :type groups_user_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -515,6 +542,7 @@ class GroupsUsersApi:
 
         _param = self._delete_serialize(
             groups_user_href=groups_user_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -534,6 +562,7 @@ class GroupsUsersApi:
     def _delete_serialize(
         self,
         groups_user_href,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -543,6 +572,7 @@ class GroupsUsersApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -559,6 +589,8 @@ class GroupsUsersApi:
             _path_params['groups_user_href'] = groups_user_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -593,6 +625,7 @@ class GroupsUsersApi:
     def list(
         self,
         group_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
@@ -616,6 +649,8 @@ class GroupsUsersApi:
 
         :param group_href: (required)
         :type group_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param limit: Number of results to return per page.
         :type limit: int
         :param offset: The initial index from which to return the results.
@@ -648,6 +683,7 @@ class GroupsUsersApi:
 
         _param = self._list_serialize(
             group_href=group_href,
+            x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             offset=offset,
             fields=fields,
@@ -676,6 +712,7 @@ class GroupsUsersApi:
     def list_with_http_info(
         self,
         group_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
@@ -699,6 +736,8 @@ class GroupsUsersApi:
 
         :param group_href: (required)
         :type group_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param limit: Number of results to return per page.
         :type limit: int
         :param offset: The initial index from which to return the results.
@@ -731,6 +770,7 @@ class GroupsUsersApi:
 
         _param = self._list_serialize(
             group_href=group_href,
+            x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             offset=offset,
             fields=fields,
@@ -759,6 +799,7 @@ class GroupsUsersApi:
     def list_without_preload_content(
         self,
         group_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
@@ -782,6 +823,8 @@ class GroupsUsersApi:
 
         :param group_href: (required)
         :type group_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param limit: Number of results to return per page.
         :type limit: int
         :param offset: The initial index from which to return the results.
@@ -814,6 +857,7 @@ class GroupsUsersApi:
 
         _param = self._list_serialize(
             group_href=group_href,
+            x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             offset=offset,
             fields=fields,
@@ -837,6 +881,7 @@ class GroupsUsersApi:
     def _list_serialize(
         self,
         group_href,
+        x_task_diagnostics,
         limit,
         offset,
         fields,
@@ -850,6 +895,7 @@ class GroupsUsersApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -884,6 +930,8 @@ class GroupsUsersApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 

@@ -1,15 +1,14 @@
 Metadata-Version: 2.4
 Name: flickr-photos-api
-Version: 3.11.1
+Version: 3.11.3
 Summary: Look up information about photos and collections of photos from Flickr
 Author-email: Flickr Foundation <hello@flickr.org>
 Maintainer-email: Alex Chan <alex@flickr.org>
+License-Expression: MIT AND (Apache-2.0)
 Project-URL: Homepage, https://github.com/Flickr-Foundation/flickr-photos-api
 Project-URL: Changelog, https://github.com/Flickr-Foundation/flickr-photos-api/blob/main/CHANGELOG.md
 Keywords: flickr
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: License :: OSI Approved :: Apache Software License
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >=3.12
 Description-Content-Type: text/markdown
@@ -33,7 +32,7 @@ It's *not* a general-purpose Flickr API library.
 It provides a subset of Flickr API methods with the following goals:
 
 *   Provide reusable code that can be called across all our projects.
-*   Abstract away some of the details of the Flickr API -- for example, licenses are returned as complete dictionaries, rather than as the numeric license IDs returned by Flickr API methods.
+*   Keep all the details of dealing with the Flickr API in one place.
 *   Apply types to all results, so the Flickr API can be used safely in a typed context.
 
 [Flickr Foundation]: https://www.flickr.org/

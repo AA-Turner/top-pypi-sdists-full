@@ -104,7 +104,7 @@ class MavenUsePlugin(JavaPlugin):
 
         mvn_cmd = [self._maven_executable, "deploy"]
 
-        self_contained = True
+        self_contained = self._is_self_contained()
 
         settings_path = create_maven_settings(
             part_info=self._part_info, set_mirror=self_contained
@@ -118,9 +118,10 @@ class MavenUsePlugin(JavaPlugin):
                 self_contained=self_contained,
             )
         except MavenXMLError as err:
-            raise errors.PluginEnvironmentValidationError(
-                part_name=self._part_info.part_name,
-                reason=f"Encountered error while parsing 'pom.xml': {err.message}",
+            raise errors.PartsError(
+                brief=f"Plugin configuration failed for part {self._part_info.part_name}: {err.message}",
+                details=err.details,
+                resolution="Check that the 'pom.xml' file is valid.",
             )
 
         return [

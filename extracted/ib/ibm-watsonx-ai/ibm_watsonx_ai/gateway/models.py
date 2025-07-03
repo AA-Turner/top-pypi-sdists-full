@@ -114,7 +114,6 @@ class Models(WMLResource):
             (
                 m["uuid"],
                 m["id"],
-                m.get("alias", ""),
                 datetime.datetime.fromtimestamp(m["created"]),
                 m["owned_by"],
             )
@@ -122,7 +121,7 @@ class Models(WMLResource):
         ]
 
         table = self._list(
-            models_values, ["ID", "MODEL_ID", "ALIAS", "CREATED", "TYPE"], limit=None
+            models_values, ["ID", "MODEL", "CREATED", "TYPE"], limit=None
         )
 
         return table

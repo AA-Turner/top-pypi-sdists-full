@@ -50,9 +50,9 @@ from .types import (
     CompactionPlans,
     CompactionState,
     DatabaseInfo,
-    ExtraList,
     GrantInfo,
     Group,
+    HybridExtraList,
     IndexState,
     LoadState,
     Plan,
@@ -1663,6 +1663,7 @@ class GrpcHandler:
         output_fields: Optional[List[str]] = None,
         partition_names: Optional[List[str]] = None,
         timeout: Optional[float] = None,
+        strict_float32: bool = False,
         **kwargs,
     ):
         if output_fields is not None and not isinstance(output_fields, (list,)):
@@ -1689,16 +1690,24 @@ class GrpcHandler:
 
         _, dynamic_fields = entity_helper.extract_dynamic_field_from_result(response)
 
-        results = []
-        for index in range(num_entities):
-            entity_row_data = entity_helper.extract_row_data_from_fields_data(
-                response.fields_data, index, dynamic_fields
-            )
-            results.append(entity_row_data)
+        keys = [field_data.field_name for field_data in response.fields_data]
+        filtered_keys = [k for k in keys if k != "$meta"]
+        results = [dict.fromkeys(filtered_keys) for _ in range(num_entities)]
+        lazy_field_data = []
+        for field_data in response.fields_data:
+            lazy_extracted = entity_helper.extract_row_data_from_fields_data_v2(field_data, results)
+            if lazy_extracted:
+                lazy_field_data.append(field_data)
 
         extra_dict = get_cost_extra(response.status)
         extra_dict[ITERATOR_SESSION_TS_FIELD] = response.session_ts
-        return ExtraList(results, extra=extra_dict)
+        return HybridExtraList(
+            lazy_field_data,
+            results,
+            extra=extra_dict,
+            dynamic_fields=dynamic_fields,
+            strict_float32=strict_float32,
+        )
 
     @retry_on_rpc_failure()
     def load_balance(
@@ -1725,15 +1734,18 @@ class GrpcHandler:
         **kwargs,
     ) -> int:
         meta = _api_level_md(**kwargs)
-        # should be removed, but to be compatible with old milvus server, keep it for now.
-        request = Prepare.describe_collection_request(collection_name)
-        response = self._stub.DescribeCollection(request, timeout=timeout, metadata=meta)
-        check_status(response.status)
-
-        req = Prepare.manual_compaction(response.collectionID, collection_name, is_clustering)
+        # try with only collection_name
+        req = Prepare.manual_compaction(collection_name, is_clustering)
         response = self._stub.ManualCompaction(req, timeout=timeout, metadata=meta)
-        check_status(response.status)
+        if response.status.error_code == common_pb2.CollectionNameNotFound:
+            # should be removed, but to be compatible with old milvus server, keep it for now.
+            request = Prepare.describe_collection_request(collection_name)
+            response = self._stub.DescribeCollection(request, timeout=timeout, metadata=meta)
+            check_status(response.status)
 
+            req = Prepare.manual_compaction(collection_name, is_clustering, response.collectionID)
+            response = self._stub.ManualCompaction(req, timeout=timeout, metadata=meta)
+        check_status(response.status)
         return response.compactionID
 
     @retry_on_rpc_failure()

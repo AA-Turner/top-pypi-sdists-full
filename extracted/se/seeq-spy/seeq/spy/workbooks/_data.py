@@ -8,6 +8,7 @@ import textwrap
 from typing import List, Dict, Union, Optional, Tuple
 
 import pandas as pd
+
 from seeq.base import util
 from seeq.sdk import *
 from seeq.spy import _common, _metadata
@@ -492,7 +493,9 @@ class StoredItem(StoredOrCalculatedItem):
         metadata_dict['Original ID'] = metadata_dict['ID']
         metadata_dict['Original Datasource Class'] = metadata_dict['Datasource Class']
         metadata_dict['Original Datasource ID'] = metadata_dict['Datasource ID']
-        metadata_dict['Original Data ID'] = metadata_dict['Data ID']
+
+        if 'Data ID' in metadata_dict:
+            metadata_dict['Original Data ID'] = metadata_dict['Data ID']
 
         del metadata_dict['ID']
         metadata_dict['Datasource Class'] = datasource_output.datasource_class
@@ -518,10 +521,17 @@ class StoredItem(StoredOrCalculatedItem):
                          item_inventory: dict, item_exists: bool = False):
         metadata_dict = self.definition_dict.copy()
 
-        metadata_dict['Dummy Item'] = (metadata_dict.get('Type') != 'Asset')
+        metadata_dict['Dummy Item'] = (metadata_dict.get('Type') not in ['Asset', 'Datafile'])
 
-        if 'Parent ID' in metadata_dict and metadata_dict['Parent ID'] == Item.ROOT:
-            del metadata_dict['Parent ID']
+        if 'Parent ID' in metadata_dict:
+            if metadata_dict['Parent ID'] == Item.ROOT:
+                del metadata_dict['Parent ID']
+
+        metadata_dict['Original ID'] = metadata_dict['ID']
+        metadata_dict['Original Datasource Class'] = metadata_dict['Datasource Class']
+        metadata_dict['Original Datasource ID'] = metadata_dict['Datasource ID']
+        if 'Data ID' in metadata_dict:
+            metadata_dict['Original Data ID'] = metadata_dict['Data ID']
 
         if not item_exists:
             del metadata_dict['ID']
@@ -638,6 +648,10 @@ class Asset(StoredItem):
                         self.definition['Asset'] = self.definition['Name']
 
         self.definition['Old Asset Format'] = False
+
+
+class Datafile(StoredItem):
+    pass
 
 
 class Datasource(StoredItem):

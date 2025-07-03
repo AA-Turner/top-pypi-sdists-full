@@ -1,7 +1,7 @@
 r'''
 # `aws_kinesis_stream_consumer`
 
-Refer to the Terraform Registry for docs: [`aws_kinesis_stream_consumer`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream_consumer).
+Refer to the Terraform Registry for docs: [`aws_kinesis_stream_consumer`](https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kinesis_stream_consumer).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class KinesisStreamConsumer(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.kinesisStreamConsumer.KinesisStreamConsumer",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream_consumer aws_kinesis_stream_consumer}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kinesis_stream_consumer aws_kinesis_stream_consumer}.'''
 
     def __init__(
         self,
@@ -55,6 +55,8 @@ class KinesisStreamConsumer(
         stream_arn: builtins.str,
         id: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
         depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -63,14 +65,16 @@ class KinesisStreamConsumer(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream_consumer aws_kinesis_stream_consumer} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kinesis_stream_consumer aws_kinesis_stream_consumer} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream_consumer#name KinesisStreamConsumer#name}.
-        :param stream_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream_consumer#stream_arn KinesisStreamConsumer#stream_arn}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream_consumer#id KinesisStreamConsumer#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream_consumer#region KinesisStreamConsumer#region}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kinesis_stream_consumer#name KinesisStreamConsumer#name}.
+        :param stream_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kinesis_stream_consumer#stream_arn KinesisStreamConsumer#stream_arn}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kinesis_stream_consumer#id KinesisStreamConsumer#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kinesis_stream_consumer#region KinesisStreamConsumer#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kinesis_stream_consumer#tags KinesisStreamConsumer#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kinesis_stream_consumer#tags_all KinesisStreamConsumer#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -88,6 +92,8 @@ class KinesisStreamConsumer(
             stream_arn=stream_arn,
             id=id,
             region=region,
+            tags=tags,
+            tags_all=tags_all,
             connection=connection,
             count=count,
             depends_on=depends_on,
@@ -112,7 +118,7 @@ class KinesisStreamConsumer(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the KinesisStreamConsumer to import.
-        :param import_from_id: The id of the existing KinesisStreamConsumer that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream_consumer#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing KinesisStreamConsumer that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kinesis_stream_consumer#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the KinesisStreamConsumer to import is found.
         '''
         if __debug__:
@@ -130,6 +136,14 @@ class KinesisStreamConsumer(
     @jsii.member(jsii_name="resetRegion")
     def reset_region(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetRegion", []))
+
+    @jsii.member(jsii_name="resetTags")
+    def reset_tags(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetTags", []))
+
+    @jsii.member(jsii_name="resetTagsAll")
+    def reset_tags_all(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetTagsAll", []))
 
     @jsii.member(jsii_name="synthesizeAttributes")
     def _synthesize_attributes(self) -> typing.Mapping[builtins.str, typing.Any]:
@@ -173,6 +187,18 @@ class KinesisStreamConsumer(
     @jsii.member(jsii_name="streamArnInput")
     def stream_arn_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "streamArnInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsAllInput")
+    def tags_all_input(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "tagsAllInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsInput")
+    def tags_input(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "tagsInput"))
 
     @builtins.property
     @jsii.member(jsii_name="id")
@@ -222,6 +248,30 @@ class KinesisStreamConsumer(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "streamArn", value) # pyright: ignore[reportArgumentType]
 
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Mapping[builtins.str, builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b9f755e99b7361083023809a0d8921e79e9ad28225d03663e537051ba3f29619)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsAll")
+    def tags_all(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "tagsAll"))
+
+    @tags_all.setter
+    def tags_all(self, value: typing.Mapping[builtins.str, builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b4edaacbfc7654b62213721cd34c1a79f269a402220647973d3a84b7aea22530)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsAll", value) # pyright: ignore[reportArgumentType]
+
 
 @jsii.data_type(
     jsii_type="@cdktf/provider-aws.kinesisStreamConsumer.KinesisStreamConsumerConfig",
@@ -238,6 +288,8 @@ class KinesisStreamConsumer(
         "stream_arn": "streamArn",
         "id": "id",
         "region": "region",
+        "tags": "tags",
+        "tags_all": "tagsAll",
     },
 )
 class KinesisStreamConsumerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
@@ -255,6 +307,8 @@ class KinesisStreamConsumerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         stream_arn: builtins.str,
         id: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
         :param connection: 
@@ -264,10 +318,12 @@ class KinesisStreamConsumerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream_consumer#name KinesisStreamConsumer#name}.
-        :param stream_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream_consumer#stream_arn KinesisStreamConsumer#stream_arn}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream_consumer#id KinesisStreamConsumer#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream_consumer#region KinesisStreamConsumer#region}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kinesis_stream_consumer#name KinesisStreamConsumer#name}.
+        :param stream_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kinesis_stream_consumer#stream_arn KinesisStreamConsumer#stream_arn}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kinesis_stream_consumer#id KinesisStreamConsumer#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kinesis_stream_consumer#region KinesisStreamConsumer#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kinesis_stream_consumer#tags KinesisStreamConsumer#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kinesis_stream_consumer#tags_all KinesisStreamConsumer#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -284,6 +340,8 @@ class KinesisStreamConsumerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument stream_arn", value=stream_arn, expected_type=type_hints["stream_arn"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument tags_all", value=tags_all, expected_type=type_hints["tags_all"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "name": name,
             "stream_arn": stream_arn,
@@ -306,6 +364,10 @@ class KinesisStreamConsumerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["id"] = id
         if region is not None:
             self._values["region"] = region
+        if tags is not None:
+            self._values["tags"] = tags
+        if tags_all is not None:
+            self._values["tags_all"] = tags_all
 
     @builtins.property
     def connection(
@@ -373,21 +435,21 @@ class KinesisStreamConsumerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream_consumer#name KinesisStreamConsumer#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kinesis_stream_consumer#name KinesisStreamConsumer#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def stream_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream_consumer#stream_arn KinesisStreamConsumer#stream_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kinesis_stream_consumer#stream_arn KinesisStreamConsumer#stream_arn}.'''
         result = self._values.get("stream_arn")
         assert result is not None, "Required property 'stream_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream_consumer#id KinesisStreamConsumer#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kinesis_stream_consumer#id KinesisStreamConsumer#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -399,10 +461,22 @@ class KinesisStreamConsumerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/kinesis_stream_consumer#region KinesisStreamConsumer#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kinesis_stream_consumer#region KinesisStreamConsumer#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kinesis_stream_consumer#tags KinesisStreamConsumer#tags}.'''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/kinesis_stream_consumer#tags_all KinesisStreamConsumer#tags_all}.'''
+        result = self._values.get("tags_all")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -431,6 +505,8 @@ def _typecheckingstub__e9cc8aa0867e0a2398b29993030ae97878064db8e88aa467897302605
     stream_arn: builtins.str,
     id: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
     depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -475,6 +551,18 @@ def _typecheckingstub__640ea453cb6cedbf47c4966240281fdcd5e5bcce638799e8c159367fd
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__b9f755e99b7361083023809a0d8921e79e9ad28225d03663e537051ba3f29619(
+    value: typing.Mapping[builtins.str, builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b4edaacbfc7654b62213721cd34c1a79f269a402220647973d3a84b7aea22530(
+    value: typing.Mapping[builtins.str, builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__5995d2ba570e7fce9cf6ad66a68d68b821cf5dab23a9c6033fc2084f81ac5512(
     *,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -488,6 +576,8 @@ def _typecheckingstub__5995d2ba570e7fce9cf6ad66a68d68b821cf5dab23a9c6033fc2084f8
     stream_arn: builtins.str,
     id: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

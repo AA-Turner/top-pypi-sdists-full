@@ -43,6 +43,7 @@ class ContentApi:
     @validate_call
     def list(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
         ordering: Annotated[Optional[List[StrictStr]], Field(description="Ordering  * `pk` - Pk * `-pk` - Pk (descending)")] = None,
@@ -76,6 +77,8 @@ class ContentApi:
 
         Endpoint to list all content.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param limit: Number of results to return per page.
         :type limit: int
         :param offset: The initial index from which to return the results.
@@ -131,6 +134,7 @@ class ContentApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             offset=offset,
             ordering=ordering,
@@ -170,6 +174,7 @@ class ContentApi:
     @validate_call
     def list_with_http_info(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
         ordering: Annotated[Optional[List[StrictStr]], Field(description="Ordering  * `pk` - Pk * `-pk` - Pk (descending)")] = None,
@@ -203,6 +208,8 @@ class ContentApi:
 
         Endpoint to list all content.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param limit: Number of results to return per page.
         :type limit: int
         :param offset: The initial index from which to return the results.
@@ -258,6 +265,7 @@ class ContentApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             offset=offset,
             ordering=ordering,
@@ -297,6 +305,7 @@ class ContentApi:
     @validate_call
     def list_without_preload_content(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
         ordering: Annotated[Optional[List[StrictStr]], Field(description="Ordering  * `pk` - Pk * `-pk` - Pk (descending)")] = None,
@@ -330,6 +339,8 @@ class ContentApi:
 
         Endpoint to list all content.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param limit: Number of results to return per page.
         :type limit: int
         :param offset: The initial index from which to return the results.
@@ -385,6 +396,7 @@ class ContentApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             offset=offset,
             ordering=ordering,
@@ -419,6 +431,7 @@ class ContentApi:
 
     def _list_serialize(
         self,
+        x_task_diagnostics,
         limit,
         offset,
         ordering,
@@ -444,6 +457,7 @@ class ContentApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'ordering': 'csv',
             'prn__in': 'csv',
             'pulp_href__in': 'csv',
@@ -529,6 +543,8 @@ class ContentApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 

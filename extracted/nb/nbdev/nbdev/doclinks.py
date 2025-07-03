@@ -238,8 +238,10 @@ def _build_lookup_table(strip_libs=None, incl_libs=None, skip_mods=None):
     strip_libs = L(strip_libs)
     if incl_libs is not None: incl_libs = (L(incl_libs)+strip_libs).unique()
     entries = {}
-    # TODO: use new group param once 3.10 in min python
-    eps = [o for o in entry_points() if o.group=='nbdev']
+    try: eps = entry_points(group='nbdev')
+    # Python 3.9 fallback - entry_points() doesn't accept group parameter
+    except TypeError: eps = entry_points().get('nbdev', [])
+    
     for o in eps:
         if incl_libs is not None and o.dist.name not in incl_libs: continue
         try: entries[o.name] = _qual_syms(o.load())

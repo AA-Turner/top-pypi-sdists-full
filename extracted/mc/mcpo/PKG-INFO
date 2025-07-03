@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mcpo
-Version: 0.0.15
+Version: 0.0.16
 Summary: A simple, secure MCP-to-OpenAPI proxy server
 Author-email: Timothy Jaeryang Baek <tim@openwebui.com>
 License-File: LICENSE

@@ -1418,6 +1418,8 @@ class DataConnection(BaseDataConnection):
                     "secret_key",
                     "session_token",
                     "is_s3",
+                    "bucket",
+                    "region",
                 ]
                 if hasattr(self.connection, attr)
             ]
@@ -1690,6 +1692,8 @@ class DataConnection(BaseDataConnection):
                         "secret_key",
                         "session_token",
                         "is_s3",
+                        "bucket",
+                        "region",
                     ]
                     if hasattr(self.connection, attr)
                 ]
@@ -1987,6 +1991,12 @@ class DataConnection(BaseDataConnection):
             raise WMLClientError(
                 error_msg="Can't download folder from this DataConnection.",
                 reason="Location must be one of: `S3Location`, `ContainerLocation`, `NFSLocation`, `FSLocation`.",
+            )
+
+        if self._api_client is None:
+            raise ConnectionError(
+                "API client is missing. Please initialize API client and pass it to "
+                "`DataConnection.set_client(api_client)` method to be able to use this functionality."
             )
 
         if local_dir is None:

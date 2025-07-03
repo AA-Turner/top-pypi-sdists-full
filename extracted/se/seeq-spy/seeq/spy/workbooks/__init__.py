@@ -3,8 +3,9 @@ from __future__ import annotations
 from seeq.spy.workbooks import job
 from seeq.spy.workbooks._annotation import Annotation, Report, Journal
 from seeq.spy.workbooks._content import DateRange, Content, AssetSelection
-from seeq.spy.workbooks._data import CalculatedSignal, CalculatedCondition, CalculatedScalar, Chart, Datasource, \
-    StoredSignal, StoredCondition, LiteralScalar, ThresholdMetric, Asset
+from seeq.spy.workbooks._data import (
+    CalculatedSignal, CalculatedCondition, CalculatedScalar, Chart, Datafile, Datasource, StoredSignal, StoredCondition,
+    LiteralScalar, ThresholdMetric, Asset)
 from seeq.spy.workbooks._folder import Folder, SHARED, CORPORATE, ALL, USERS, MY_FOLDER, ORIGINAL_FOLDER, \
     SYNTHETIC_FOLDERS, PUBLIC
 from seeq.spy.workbooks._item import Item, ItemList
@@ -61,6 +62,7 @@ __all__ = ['search',
            'CalculatedScalar',
            'CalculatedSignal',
            'Chart',
+           'Datafile',
            'Datasource',
            'LiteralScalar',
            'Folder',
@@ -90,6 +92,7 @@ Item.available_types = {
     'CalculatedSignal': CalculatedSignal,
     'Chart': Chart,
     'Content': Content,
+    'Datafile': Datafile,
     'Datasource': Datasource,
     'DateRange': DateRange,
     'Folder': Folder,

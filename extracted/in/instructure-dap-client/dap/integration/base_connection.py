@@ -53,7 +53,7 @@ class RawDatabaseConnectionWrapper(AbstractQueryExecutor[TRawConnection]):
             await self._raw_connection.__aenter__()
         except Exception as e:
             # in this case either host/port or database name is invalid
-            raise DatabaseConnectionError(f"database connection error: {e}") from e
+            raise DatabaseConnectionError(f"Database connection failed. Reason: {e}") from e
         return self
 
     async def __aexit__(

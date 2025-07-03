@@ -53,6 +53,7 @@ class PublicationsFileApi:
         self,
         file_file_publication_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -74,6 +75,8 @@ class PublicationsFileApi:
         :type file_file_publication_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -99,6 +102,7 @@ class PublicationsFileApi:
         _param = self._add_role_serialize(
             file_file_publication_href=file_file_publication_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -124,6 +128,7 @@ class PublicationsFileApi:
         self,
         file_file_publication_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -145,6 +150,8 @@ class PublicationsFileApi:
         :type file_file_publication_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -170,6 +177,7 @@ class PublicationsFileApi:
         _param = self._add_role_serialize(
             file_file_publication_href=file_file_publication_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -195,6 +203,7 @@ class PublicationsFileApi:
         self,
         file_file_publication_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -216,6 +225,8 @@ class PublicationsFileApi:
         :type file_file_publication_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -241,6 +252,7 @@ class PublicationsFileApi:
         _param = self._add_role_serialize(
             file_file_publication_href=file_file_publication_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -261,6 +273,7 @@ class PublicationsFileApi:
         self,
         file_file_publication_href,
         nested_role,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -270,6 +283,7 @@ class PublicationsFileApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -286,6 +300,8 @@ class PublicationsFileApi:
             _path_params['file_file_publication_href'] = file_file_publication_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if nested_role is not None:
@@ -344,6 +360,7 @@ class PublicationsFileApi:
     def create(
         self,
         file_file_publication: FileFilePublication,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -363,6 +380,8 @@ class PublicationsFileApi:
 
         :param file_file_publication: (required)
         :type file_file_publication: FileFilePublication
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -387,6 +406,7 @@ class PublicationsFileApi:
 
         _param = self._create_serialize(
             file_file_publication=file_file_publication,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -411,6 +431,7 @@ class PublicationsFileApi:
     def create_with_http_info(
         self,
         file_file_publication: FileFilePublication,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -430,6 +451,8 @@ class PublicationsFileApi:
 
         :param file_file_publication: (required)
         :type file_file_publication: FileFilePublication
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -454,6 +477,7 @@ class PublicationsFileApi:
 
         _param = self._create_serialize(
             file_file_publication=file_file_publication,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -478,6 +502,7 @@ class PublicationsFileApi:
     def create_without_preload_content(
         self,
         file_file_publication: FileFilePublication,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -497,6 +522,8 @@ class PublicationsFileApi:
 
         :param file_file_publication: (required)
         :type file_file_publication: FileFilePublication
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -521,6 +548,7 @@ class PublicationsFileApi:
 
         _param = self._create_serialize(
             file_file_publication=file_file_publication,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -540,6 +568,7 @@ class PublicationsFileApi:
     def _create_serialize(
         self,
         file_file_publication,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -549,6 +578,7 @@ class PublicationsFileApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -563,6 +593,8 @@ class PublicationsFileApi:
         # process the path parameters
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if file_file_publication is not None:
@@ -621,6 +653,7 @@ class PublicationsFileApi:
     def delete(
         self,
         file_file_publication_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -640,6 +673,8 @@ class PublicationsFileApi:
 
         :param file_file_publication_href: (required)
         :type file_file_publication_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -664,6 +699,7 @@ class PublicationsFileApi:
 
         _param = self._delete_serialize(
             file_file_publication_href=file_file_publication_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -688,6 +724,7 @@ class PublicationsFileApi:
     def delete_with_http_info(
         self,
         file_file_publication_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -707,6 +744,8 @@ class PublicationsFileApi:
 
         :param file_file_publication_href: (required)
         :type file_file_publication_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -731,6 +770,7 @@ class PublicationsFileApi:
 
         _param = self._delete_serialize(
             file_file_publication_href=file_file_publication_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -755,6 +795,7 @@ class PublicationsFileApi:
     def delete_without_preload_content(
         self,
         file_file_publication_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -774,6 +815,8 @@ class PublicationsFileApi:
 
         :param file_file_publication_href: (required)
         :type file_file_publication_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -798,6 +841,7 @@ class PublicationsFileApi:
 
         _param = self._delete_serialize(
             file_file_publication_href=file_file_publication_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -817,6 +861,7 @@ class PublicationsFileApi:
     def _delete_serialize(
         self,
         file_file_publication_href,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -826,6 +871,7 @@ class PublicationsFileApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -842,6 +888,8 @@ class PublicationsFileApi:
             _path_params['file_file_publication_href'] = file_file_publication_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -875,6 +923,7 @@ class PublicationsFileApi:
     @validate_call
     def list(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         checkpoint: Annotated[Optional[StrictBool], Field(description="Filter results where checkpoint matches value")] = None,
         content: Annotated[Optional[StrictStr], Field(description="Content Unit referenced by HREF/PRN")] = None,
         content__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
@@ -913,6 +962,8 @@ class PublicationsFileApi:
 
          A FilePublication contains metadata about all the File Content in a particular File Repository Version. Once a FilePublication has been created, it can be hosted using the File Distribution API.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param checkpoint: Filter results where checkpoint matches value
         :type checkpoint: bool
         :param content: Content Unit referenced by HREF/PRN
@@ -978,6 +1029,7 @@ class PublicationsFileApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             checkpoint=checkpoint,
             content=content,
             content__in=content__in,
@@ -1022,6 +1074,7 @@ class PublicationsFileApi:
     @validate_call
     def list_with_http_info(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         checkpoint: Annotated[Optional[StrictBool], Field(description="Filter results where checkpoint matches value")] = None,
         content: Annotated[Optional[StrictStr], Field(description="Content Unit referenced by HREF/PRN")] = None,
         content__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
@@ -1060,6 +1113,8 @@ class PublicationsFileApi:
 
          A FilePublication contains metadata about all the File Content in a particular File Repository Version. Once a FilePublication has been created, it can be hosted using the File Distribution API.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param checkpoint: Filter results where checkpoint matches value
         :type checkpoint: bool
         :param content: Content Unit referenced by HREF/PRN
@@ -1125,6 +1180,7 @@ class PublicationsFileApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             checkpoint=checkpoint,
             content=content,
             content__in=content__in,
@@ -1169,6 +1225,7 @@ class PublicationsFileApi:
     @validate_call
     def list_without_preload_content(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         checkpoint: Annotated[Optional[StrictBool], Field(description="Filter results where checkpoint matches value")] = None,
         content: Annotated[Optional[StrictStr], Field(description="Content Unit referenced by HREF/PRN")] = None,
         content__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
@@ -1207,6 +1264,8 @@ class PublicationsFileApi:
 
          A FilePublication contains metadata about all the File Content in a particular File Repository Version. Once a FilePublication has been created, it can be hosted using the File Distribution API.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param checkpoint: Filter results where checkpoint matches value
         :type checkpoint: bool
         :param content: Content Unit referenced by HREF/PRN
@@ -1272,6 +1331,7 @@ class PublicationsFileApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             checkpoint=checkpoint,
             content=content,
             content__in=content__in,
@@ -1311,6 +1371,7 @@ class PublicationsFileApi:
 
     def _list_serialize(
         self,
+        x_task_diagnostics,
         checkpoint,
         content,
         content__in,
@@ -1341,6 +1402,7 @@ class PublicationsFileApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'content__in': 'csv',
             'ordering': 'csv',
             'prn__in': 'csv',
@@ -1492,6 +1554,8 @@ class PublicationsFileApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -1533,6 +1597,7 @@ class PublicationsFileApi:
     def list_roles(
         self,
         file_file_publication_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1554,6 +1619,8 @@ class PublicationsFileApi:
 
         :param file_file_publication_href: (required)
         :type file_file_publication_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1582,6 +1649,7 @@ class PublicationsFileApi:
 
         _param = self._list_roles_serialize(
             file_file_publication_href=file_file_publication_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1608,6 +1676,7 @@ class PublicationsFileApi:
     def list_roles_with_http_info(
         self,
         file_file_publication_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1629,6 +1698,8 @@ class PublicationsFileApi:
 
         :param file_file_publication_href: (required)
         :type file_file_publication_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1657,6 +1728,7 @@ class PublicationsFileApi:
 
         _param = self._list_roles_serialize(
             file_file_publication_href=file_file_publication_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1683,6 +1755,7 @@ class PublicationsFileApi:
     def list_roles_without_preload_content(
         self,
         file_file_publication_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1704,6 +1777,8 @@ class PublicationsFileApi:
 
         :param file_file_publication_href: (required)
         :type file_file_publication_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1732,6 +1807,7 @@ class PublicationsFileApi:
 
         _param = self._list_roles_serialize(
             file_file_publication_href=file_file_publication_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1753,6 +1829,7 @@ class PublicationsFileApi:
     def _list_roles_serialize(
         self,
         file_file_publication_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -1764,6 +1841,7 @@ class PublicationsFileApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -1790,6 +1868,8 @@ class PublicationsFileApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -1831,6 +1911,7 @@ class PublicationsFileApi:
     def my_permissions(
         self,
         file_file_publication_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1852,6 +1933,8 @@ class PublicationsFileApi:
 
         :param file_file_publication_href: (required)
         :type file_file_publication_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1880,6 +1963,7 @@ class PublicationsFileApi:
 
         _param = self._my_permissions_serialize(
             file_file_publication_href=file_file_publication_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1906,6 +1990,7 @@ class PublicationsFileApi:
     def my_permissions_with_http_info(
         self,
         file_file_publication_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1927,6 +2012,8 @@ class PublicationsFileApi:
 
         :param file_file_publication_href: (required)
         :type file_file_publication_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1955,6 +2042,7 @@ class PublicationsFileApi:
 
         _param = self._my_permissions_serialize(
             file_file_publication_href=file_file_publication_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1981,6 +2069,7 @@ class PublicationsFileApi:
     def my_permissions_without_preload_content(
         self,
         file_file_publication_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -2002,6 +2091,8 @@ class PublicationsFileApi:
 
         :param file_file_publication_href: (required)
         :type file_file_publication_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2030,6 +2121,7 @@ class PublicationsFileApi:
 
         _param = self._my_permissions_serialize(
             file_file_publication_href=file_file_publication_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2051,6 +2143,7 @@ class PublicationsFileApi:
     def _my_permissions_serialize(
         self,
         file_file_publication_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -2062,6 +2155,7 @@ class PublicationsFileApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -2088,6 +2182,8 @@ class PublicationsFileApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -2129,6 +2225,7 @@ class PublicationsFileApi:
     def read(
         self,
         file_file_publication_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -2150,6 +2247,8 @@ class PublicationsFileApi:
 
         :param file_file_publication_href: (required)
         :type file_file_publication_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2178,6 +2277,7 @@ class PublicationsFileApi:
 
         _param = self._read_serialize(
             file_file_publication_href=file_file_publication_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2204,6 +2304,7 @@ class PublicationsFileApi:
     def read_with_http_info(
         self,
         file_file_publication_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -2225,6 +2326,8 @@ class PublicationsFileApi:
 
         :param file_file_publication_href: (required)
         :type file_file_publication_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2253,6 +2356,7 @@ class PublicationsFileApi:
 
         _param = self._read_serialize(
             file_file_publication_href=file_file_publication_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2279,6 +2383,7 @@ class PublicationsFileApi:
     def read_without_preload_content(
         self,
         file_file_publication_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -2300,6 +2405,8 @@ class PublicationsFileApi:
 
         :param file_file_publication_href: (required)
         :type file_file_publication_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2328,6 +2435,7 @@ class PublicationsFileApi:
 
         _param = self._read_serialize(
             file_file_publication_href=file_file_publication_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2349,6 +2457,7 @@ class PublicationsFileApi:
     def _read_serialize(
         self,
         file_file_publication_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -2360,6 +2469,7 @@ class PublicationsFileApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -2386,6 +2496,8 @@ class PublicationsFileApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -2428,6 +2540,7 @@ class PublicationsFileApi:
         self,
         file_file_publication_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2449,6 +2562,8 @@ class PublicationsFileApi:
         :type file_file_publication_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2474,6 +2589,7 @@ class PublicationsFileApi:
         _param = self._remove_role_serialize(
             file_file_publication_href=file_file_publication_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2499,6 +2615,7 @@ class PublicationsFileApi:
         self,
         file_file_publication_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2520,6 +2637,8 @@ class PublicationsFileApi:
         :type file_file_publication_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2545,6 +2664,7 @@ class PublicationsFileApi:
         _param = self._remove_role_serialize(
             file_file_publication_href=file_file_publication_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2570,6 +2690,7 @@ class PublicationsFileApi:
         self,
         file_file_publication_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2591,6 +2712,8 @@ class PublicationsFileApi:
         :type file_file_publication_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2616,6 +2739,7 @@ class PublicationsFileApi:
         _param = self._remove_role_serialize(
             file_file_publication_href=file_file_publication_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2636,6 +2760,7 @@ class PublicationsFileApi:
         self,
         file_file_publication_href,
         nested_role,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -2645,6 +2770,7 @@ class PublicationsFileApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -2661,6 +2787,8 @@ class PublicationsFileApi:
             _path_params['file_file_publication_href'] = file_file_publication_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if nested_role is not None:

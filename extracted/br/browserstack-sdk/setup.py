@@ -27,6 +27,7 @@ requirements=[
         'robotframework-retryfailed',
         'protobuf==4.21.6',
         'watchdog',
+        'filelock',
         "grpcio==1.62.3;python_version<'3.13'",
         "grpcio==1.70.0;python_version>='3.13'",
     ]

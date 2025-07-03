@@ -4,9 +4,9 @@ use std::marker::PhantomData;
 
 use super::protocol_class::ProtocolInterface;
 use super::{ClassType, KnownClass, SubclassOfType, Type, TypeVarVariance};
-use crate::place::{Boundness, Place, PlaceAndQualifiers};
+use crate::place::PlaceAndQualifiers;
 use crate::types::tuple::TupleType;
-use crate::types::{ClassLiteral, DynamicType, TypeMapping, TypeRelation, TypeVarInstance};
+use crate::types::{DynamicType, TypeMapping, TypeRelation, TypeVarInstance, TypeVisitor};
 use crate::{Db, FxOrderSet};
 
 pub(super) use synthesized_protocol::SynthesizedProtocolType;
@@ -19,7 +19,7 @@ impl<'db> Type<'db> {
                 TupleType::homogeneous(db, Type::unknown())
             }
             (ClassType::Generic(alias), Some(KnownClass::Tuple)) => {
-                Self::tuple(db, TupleType::new(db, alias.specialization(db).tuple(db)))
+                Self::tuple(TupleType::new(db, alias.specialization(db).tuple(db)))
             }
             _ if class.class_literal(db).0.is_protocol(db) => {
                 Self::ProtocolInstance(ProtocolInstanceType::from_class(class))
@@ -35,36 +35,37 @@ impl<'db> Type<'db> {
         }
     }
 
-    pub(super) fn synthesized_protocol<'a, M>(db: &'db dyn Db, members: M) -> Self
+    /// Synthesize a protocol instance type with a given set of read-only property members.
+    pub(super) fn protocol_with_readonly_members<'a, M>(db: &'db dyn Db, members: M) -> Self
     where
         M: IntoIterator<Item = (&'a str, Type<'db>)>,
     {
         Self::ProtocolInstance(ProtocolInstanceType::synthesized(
-            SynthesizedProtocolType::new(db, ProtocolInterface::with_members(db, members)),
+            SynthesizedProtocolType::new(
+                db,
+                ProtocolInterface::with_property_members(db, members),
+                &mut TypeVisitor::default(),
+            ),
         ))
     }
 
     /// Return `true` if `self` conforms to the interface described by `protocol`.
-    ///
-    /// TODO: we may need to split this into two methods in the future, once we start
-    /// differentiating between fully-static and non-fully-static protocols.
     pub(super) fn satisfies_protocol(
         self,
         db: &'db dyn Db,
         protocol: ProtocolInstanceType<'db>,
+        relation: TypeRelation,
     ) -> bool {
-        // TODO: this should consider the types of the protocol members
-        protocol.inner.interface(db).members(db).all(|member| {
-            matches!(
-                self.member(db, member.name()).place,
-                Place::Type(_, Boundness::Bound)
-            )
-        })
+        protocol
+            .inner
+            .interface(db)
+            .members(db)
+            .all(|member| member.is_satisfied_by(db, self, relation))
     }
 }
 
 /// A type representing the set of runtime objects which are instances of a certain nominal class.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, salsa::Update)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, salsa::Update, get_size2::GetSize)]
 pub struct NominalInstanceType<'db> {
     pub(super) class: ClassType<'db>,
 
@@ -83,8 +84,8 @@ impl<'db> NominalInstanceType<'db> {
         }
     }
 
-    pub(super) fn normalized(self, db: &'db dyn Db) -> Self {
-        Self::from_class(self.class.normalized(db))
+    pub(super) fn normalized_impl(self, db: &'db dyn Db, visitor: &mut TypeVisitor<'db>) -> Self {
+        Self::from_class(self.class.normalized_impl(db, visitor))
     }
 
     pub(super) fn materialize(self, db: &'db dyn Db, variance: TypeVarVariance) -> Self {
@@ -147,7 +148,9 @@ impl<'db> From<NominalInstanceType<'db>> for Type<'db> {
 
 /// A `ProtocolInstanceType` represents the set of all possible runtime objects
 /// that conform to the interface described by a certain protocol.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, salsa::Update, PartialOrd, Ord)]
+#[derive(
+    Copy, Clone, Debug, Eq, PartialEq, Hash, salsa::Update, PartialOrd, Ord, get_size2::GetSize,
+)]
 pub struct ProtocolInstanceType<'db> {
     pub(super) inner: Protocol<'db>,
 
@@ -202,28 +205,27 @@ impl<'db> ProtocolInstanceType<'db> {
     ///
     /// See [`Type::normalized`] for more details.
     pub(super) fn normalized(self, db: &'db dyn Db) -> Type<'db> {
+        let mut visitor = TypeVisitor::default();
+        self.normalized_impl(db, &mut visitor)
+    }
+
+    /// Return a "normalized" version of this `Protocol` type.
+    ///
+    /// See [`Type::normalized`] for more details.
+    pub(super) fn normalized_impl(
+        self,
+        db: &'db dyn Db,
+        visitor: &mut TypeVisitor<'db>,
+    ) -> Type<'db> {
         let object = KnownClass::Object.to_instance(db);
-        if object.satisfies_protocol(db, self) {
+        if object.satisfies_protocol(db, self, TypeRelation::Subtyping) {
             return object;
         }
         match self.inner {
             Protocol::FromClass(_) => Type::ProtocolInstance(Self::synthesized(
-                SynthesizedProtocolType::new(db, self.inner.interface(db)),
+                SynthesizedProtocolType::new(db, self.inner.interface(db), visitor),
             )),
             Protocol::Synthesized(_) => Type::ProtocolInstance(self),
-        }
-    }
-
-    /// Replace references to `class` with a self-reference marker
-    pub(super) fn replace_self_reference(self, db: &'db dyn Db, class: ClassLiteral<'db>) -> Self {
-        match self.inner {
-            Protocol::FromClass(class_type) if class_type.class_literal(db).0 == class => {
-                ProtocolInstanceType::synthesized(SynthesizedProtocolType::new(
-                    db,
-                    ProtocolInterface::SelfReference,
-                ))
-            }
-            _ => self,
         }
     }
 
@@ -270,14 +272,7 @@ impl<'db> ProtocolInstanceType<'db> {
     pub(crate) fn instance_member(self, db: &'db dyn Db, name: &str) -> PlaceAndQualifiers<'db> {
         match self.inner {
             Protocol::FromClass(class) => class.instance_member(db, name),
-            Protocol::Synthesized(synthesized) => synthesized
-                .interface()
-                .member_by_name(db, name)
-                .map(|member| PlaceAndQualifiers {
-                    place: Place::bound(member.ty()),
-                    qualifiers: member.qualifiers(),
-                })
-                .unwrap_or_else(|| KnownClass::Object.to_instance(db).instance_member(db, name)),
+            Protocol::Synthesized(synthesized) => synthesized.interface().instance_member(db, name),
         }
     }
 
@@ -320,11 +315,17 @@ impl<'db> ProtocolInstanceType<'db> {
             }
         }
     }
+
+    pub(super) fn interface(self, db: &'db dyn Db) -> ProtocolInterface<'db> {
+        self.inner.interface(db)
+    }
 }
 
 /// An enumeration of the two kinds of protocol types: those that originate from a class
 /// definition in source code, and those that are synthesized from a set of members.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, salsa::Update, PartialOrd, Ord)]
+#[derive(
+    Copy, Clone, Debug, Eq, PartialEq, Hash, salsa::Update, PartialOrd, Ord, get_size2::GetSize,
+)]
 pub(super) enum Protocol<'db> {
     FromClass(ClassType<'db>),
     Synthesized(SynthesizedProtocolType<'db>),
@@ -347,7 +348,7 @@ impl<'db> Protocol<'db> {
 
 mod synthesized_protocol {
     use crate::types::protocol_class::ProtocolInterface;
-    use crate::types::{TypeMapping, TypeVarInstance, TypeVarVariance};
+    use crate::types::{TypeMapping, TypeVarInstance, TypeVarVariance, TypeVisitor};
     use crate::{Db, FxOrderSet};
 
     /// A "synthesized" protocol type that is dissociated from a class definition in source code.
@@ -359,12 +360,18 @@ mod synthesized_protocol {
     ///
     /// The constructor method of this type maintains the invariant that a synthesized protocol type
     /// is always constructed from a *normalized* protocol interface.
-    #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, salsa::Update, PartialOrd, Ord)]
+    #[derive(
+        Copy, Clone, Debug, Eq, PartialEq, Hash, salsa::Update, PartialOrd, Ord, get_size2::GetSize,
+    )]
     pub(in crate::types) struct SynthesizedProtocolType<'db>(ProtocolInterface<'db>);
 
     impl<'db> SynthesizedProtocolType<'db> {
-        pub(super) fn new(db: &'db dyn Db, interface: ProtocolInterface<'db>) -> Self {
-            Self(interface.normalized(db))
+        pub(super) fn new(
+            db: &'db dyn Db,
+            interface: ProtocolInterface<'db>,
+            visitor: &mut TypeVisitor<'db>,
+        ) -> Self {
+            Self(interface.normalized_impl(db, visitor))
         }
 
         pub(super) fn materialize(self, db: &'db dyn Db, variance: TypeVarVariance) -> Self {

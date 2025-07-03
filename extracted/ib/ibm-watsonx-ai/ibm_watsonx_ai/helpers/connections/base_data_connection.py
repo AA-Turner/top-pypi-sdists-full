@@ -1008,12 +1008,12 @@ class BaseDataConnection(ABC):
             if self._api_client.default_space_id is not None:
                 details = self._api_client.spaces.get_details(
                     self._api_client.default_space_id,
-                    extra_query_params=dict(include="everything,credentials"),
+                    include="everything,credentials",
                 )
             else:
                 details = self._api_client.projects.get_details(
                     self._api_client.default_project_id,
-                    extra_query_params=dict(include="everything,credentials"),
+                    include="everything,credentials",
                 )
 
             match details["entity"]["storage"]["type"]:

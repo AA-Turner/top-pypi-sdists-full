@@ -1,3 +1,7 @@
+from builtins import (
+    bool as _bool,
+    str as _str,
+)
 from collections.abc import (
     Callable,
     Hashable,
@@ -19,16 +23,17 @@ import numpy as np
 from pandas import Index
 import pandas.core.indexing as indexing
 from pandas.core.resample import DatetimeIndexResampler
-from pandas.core.series import Series
+from pandas.core.series import (
+    Series,
+)
 import sqlalchemy.engine
 from typing_extensions import (
     Concatenate,
     Self,
 )
 
-from pandas._libs.lib import NoDefault
+from pandas._libs.lib import _NoDefaultDoNotUse
 from pandas._typing import (
-    S1,
     Axis,
     CompressionOptions,
     CSVQuoting,
@@ -59,17 +64,14 @@ from pandas._typing import (
 from pandas.io.pytables import HDFStore
 from pandas.io.sql import SQLTable
 
-_bool = bool
-_str = str
-
 class NDFrame(indexing.IndexingMixin):
     __hash__: ClassVar[None]  # type: ignore[assignment] # pyright: ignore[reportIncompatibleMethodOverride]
 
     def set_flags(
         self,
         *,
-        copy: bool = ...,
-        allows_duplicate_labels: bool | None = ...,
+        copy: _bool = ...,
+        allows_duplicate_labels: _bool | None = ...,
     ) -> Self: ...
     @property
     def attrs(self) -> dict[Hashable | None, Any]: ...
@@ -81,7 +83,7 @@ class NDFrame(indexing.IndexingMixin):
     def ndim(self) -> int: ...
     @property
     def size(self) -> int: ...
-    def equals(self, other: Series[S1]) -> _bool: ...
+    def equals(self, other: Series) -> _bool: ...
     def __neg__(self) -> Self: ...
     def __pos__(self) -> Self: ...
     def __nonzero__(self) -> None: ...
@@ -305,7 +307,7 @@ class NDFrame(indexing.IndexingMixin):
         labels: None = ...,
         *,
         axis: Axis = ...,
-        index: Hashable | Sequence[Hashable] | Index[Any] = ...,
+        index: Hashable | Sequence[Hashable] | Index = ...,
         columns: Hashable | Iterable[Hashable],
         level: Level | None = ...,
         inplace: Literal[True],
@@ -317,7 +319,7 @@ class NDFrame(indexing.IndexingMixin):
         labels: None = ...,
         *,
         axis: Axis = ...,
-        index: Hashable | Sequence[Hashable] | Index[Any],
+        index: Hashable | Sequence[Hashable] | Index,
         columns: Hashable | Iterable[Hashable] = ...,
         level: Level | None = ...,
         inplace: Literal[True],
@@ -326,7 +328,7 @@ class NDFrame(indexing.IndexingMixin):
     @overload
     def drop(
         self,
-        labels: Hashable | Sequence[Hashable] | Index[Any],
+        labels: Hashable | Sequence[Hashable] | Index,
         *,
         axis: Axis = ...,
         index: None = ...,
@@ -341,7 +343,7 @@ class NDFrame(indexing.IndexingMixin):
         labels: None = ...,
         *,
         axis: Axis = ...,
-        index: Hashable | Sequence[Hashable] | Index[Any] = ...,
+        index: Hashable | Sequence[Hashable] | Index = ...,
         columns: Hashable | Iterable[Hashable],
         level: Level | None = ...,
         inplace: Literal[False] = ...,
@@ -353,7 +355,7 @@ class NDFrame(indexing.IndexingMixin):
         labels: None = ...,
         *,
         axis: Axis = ...,
-        index: Hashable | Sequence[Hashable] | Index[Any],
+        index: Hashable | Sequence[Hashable] | Index,
         columns: Hashable | Iterable[Hashable] = ...,
         level: Level | None = ...,
         inplace: Literal[False] = ...,
@@ -362,7 +364,7 @@ class NDFrame(indexing.IndexingMixin):
     @overload
     def drop(
         self,
-        labels: Hashable | Sequence[Hashable] | Index[Any],
+        labels: Hashable | Sequence[Hashable] | Index,
         *,
         axis: Axis = ...,
         index: None = ...,
@@ -402,7 +404,7 @@ class NDFrame(indexing.IndexingMixin):
     def resample(
         self,
         rule: Frequency | dt.timedelta,
-        axis: Axis | NoDefault = ...,
+        axis: Axis | _NoDefaultDoNotUse = ...,
         closed: Literal["right", "left"] | None = ...,
         label: Literal["right", "left"] | None = ...,
         convention: ToTimestampHow = ...,

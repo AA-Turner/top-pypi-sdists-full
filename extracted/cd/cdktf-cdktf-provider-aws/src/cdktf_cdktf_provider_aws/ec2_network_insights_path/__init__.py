@@ -1,7 +1,7 @@
 r'''
 # `aws_ec2_network_insights_path`
 
-Refer to the Terraform Registry for docs: [`aws_ec2_network_insights_path`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path).
+Refer to the Terraform Registry for docs: [`aws_ec2_network_insights_path`](https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Ec2NetworkInsightsPath(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.ec2NetworkInsightsPath.Ec2NetworkInsightsPath",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path aws_ec2_network_insights_path}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path aws_ec2_network_insights_path}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class Ec2NetworkInsightsPath(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path aws_ec2_network_insights_path} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path aws_ec2_network_insights_path} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#protocol Ec2NetworkInsightsPath#protocol}.
-        :param source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#source Ec2NetworkInsightsPath#source}.
-        :param destination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#destination Ec2NetworkInsightsPath#destination}.
-        :param destination_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#destination_ip Ec2NetworkInsightsPath#destination_ip}.
-        :param destination_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#destination_port Ec2NetworkInsightsPath#destination_port}.
-        :param filter_at_destination: filter_at_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#filter_at_destination Ec2NetworkInsightsPath#filter_at_destination}
-        :param filter_at_source: filter_at_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#filter_at_source Ec2NetworkInsightsPath#filter_at_source}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#id Ec2NetworkInsightsPath#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#region Ec2NetworkInsightsPath#region}
-        :param source_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#source_ip Ec2NetworkInsightsPath#source_ip}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#tags Ec2NetworkInsightsPath#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#tags_all Ec2NetworkInsightsPath#tags_all}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#protocol Ec2NetworkInsightsPath#protocol}.
+        :param source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#source Ec2NetworkInsightsPath#source}.
+        :param destination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#destination Ec2NetworkInsightsPath#destination}.
+        :param destination_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#destination_ip Ec2NetworkInsightsPath#destination_ip}.
+        :param destination_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#destination_port Ec2NetworkInsightsPath#destination_port}.
+        :param filter_at_destination: filter_at_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#filter_at_destination Ec2NetworkInsightsPath#filter_at_destination}
+        :param filter_at_source: filter_at_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#filter_at_source Ec2NetworkInsightsPath#filter_at_source}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#id Ec2NetworkInsightsPath#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#region Ec2NetworkInsightsPath#region}
+        :param source_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#source_ip Ec2NetworkInsightsPath#source_ip}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#tags Ec2NetworkInsightsPath#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#tags_all Ec2NetworkInsightsPath#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class Ec2NetworkInsightsPath(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Ec2NetworkInsightsPath to import.
-        :param import_from_id: The id of the existing Ec2NetworkInsightsPath that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Ec2NetworkInsightsPath that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Ec2NetworkInsightsPath to import is found.
         '''
         if __debug__:
@@ -157,10 +157,10 @@ class Ec2NetworkInsightsPath(
         source_port_range: typing.Optional[typing.Union["Ec2NetworkInsightsPathFilterAtDestinationSourcePortRange", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param destination_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#destination_address Ec2NetworkInsightsPath#destination_address}.
-        :param destination_port_range: destination_port_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#destination_port_range Ec2NetworkInsightsPath#destination_port_range}
-        :param source_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#source_address Ec2NetworkInsightsPath#source_address}.
-        :param source_port_range: source_port_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#source_port_range Ec2NetworkInsightsPath#source_port_range}
+        :param destination_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#destination_address Ec2NetworkInsightsPath#destination_address}.
+        :param destination_port_range: destination_port_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#destination_port_range Ec2NetworkInsightsPath#destination_port_range}
+        :param source_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#source_address Ec2NetworkInsightsPath#source_address}.
+        :param source_port_range: source_port_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#source_port_range Ec2NetworkInsightsPath#source_port_range}
         '''
         value = Ec2NetworkInsightsPathFilterAtDestination(
             destination_address=destination_address,
@@ -181,10 +181,10 @@ class Ec2NetworkInsightsPath(
         source_port_range: typing.Optional[typing.Union["Ec2NetworkInsightsPathFilterAtSourceSourcePortRange", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param destination_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#destination_address Ec2NetworkInsightsPath#destination_address}.
-        :param destination_port_range: destination_port_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#destination_port_range Ec2NetworkInsightsPath#destination_port_range}
-        :param source_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#source_address Ec2NetworkInsightsPath#source_address}.
-        :param source_port_range: source_port_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#source_port_range Ec2NetworkInsightsPath#source_port_range}
+        :param destination_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#destination_address Ec2NetworkInsightsPath#destination_address}.
+        :param destination_port_range: destination_port_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#destination_port_range Ec2NetworkInsightsPath#destination_port_range}
+        :param source_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#source_address Ec2NetworkInsightsPath#source_address}.
+        :param source_port_range: source_port_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#source_port_range Ec2NetworkInsightsPath#source_port_range}
         '''
         value = Ec2NetworkInsightsPathFilterAtSource(
             destination_address=destination_address,
@@ -519,18 +519,18 @@ class Ec2NetworkInsightsPathConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#protocol Ec2NetworkInsightsPath#protocol}.
-        :param source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#source Ec2NetworkInsightsPath#source}.
-        :param destination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#destination Ec2NetworkInsightsPath#destination}.
-        :param destination_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#destination_ip Ec2NetworkInsightsPath#destination_ip}.
-        :param destination_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#destination_port Ec2NetworkInsightsPath#destination_port}.
-        :param filter_at_destination: filter_at_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#filter_at_destination Ec2NetworkInsightsPath#filter_at_destination}
-        :param filter_at_source: filter_at_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#filter_at_source Ec2NetworkInsightsPath#filter_at_source}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#id Ec2NetworkInsightsPath#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#region Ec2NetworkInsightsPath#region}
-        :param source_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#source_ip Ec2NetworkInsightsPath#source_ip}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#tags Ec2NetworkInsightsPath#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#tags_all Ec2NetworkInsightsPath#tags_all}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#protocol Ec2NetworkInsightsPath#protocol}.
+        :param source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#source Ec2NetworkInsightsPath#source}.
+        :param destination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#destination Ec2NetworkInsightsPath#destination}.
+        :param destination_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#destination_ip Ec2NetworkInsightsPath#destination_ip}.
+        :param destination_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#destination_port Ec2NetworkInsightsPath#destination_port}.
+        :param filter_at_destination: filter_at_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#filter_at_destination Ec2NetworkInsightsPath#filter_at_destination}
+        :param filter_at_source: filter_at_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#filter_at_source Ec2NetworkInsightsPath#filter_at_source}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#id Ec2NetworkInsightsPath#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#region Ec2NetworkInsightsPath#region}
+        :param source_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#source_ip Ec2NetworkInsightsPath#source_ip}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#tags Ec2NetworkInsightsPath#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#tags_all Ec2NetworkInsightsPath#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -664,33 +664,33 @@ class Ec2NetworkInsightsPathConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def protocol(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#protocol Ec2NetworkInsightsPath#protocol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#protocol Ec2NetworkInsightsPath#protocol}.'''
         result = self._values.get("protocol")
         assert result is not None, "Required property 'protocol' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def source(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#source Ec2NetworkInsightsPath#source}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#source Ec2NetworkInsightsPath#source}.'''
         result = self._values.get("source")
         assert result is not None, "Required property 'source' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def destination(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#destination Ec2NetworkInsightsPath#destination}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#destination Ec2NetworkInsightsPath#destination}.'''
         result = self._values.get("destination")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def destination_ip(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#destination_ip Ec2NetworkInsightsPath#destination_ip}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#destination_ip Ec2NetworkInsightsPath#destination_ip}.'''
         result = self._values.get("destination_ip")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def destination_port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#destination_port Ec2NetworkInsightsPath#destination_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#destination_port Ec2NetworkInsightsPath#destination_port}.'''
         result = self._values.get("destination_port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -700,7 +700,7 @@ class Ec2NetworkInsightsPathConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["Ec2NetworkInsightsPathFilterAtDestination"]:
         '''filter_at_destination block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#filter_at_destination Ec2NetworkInsightsPath#filter_at_destination}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#filter_at_destination Ec2NetworkInsightsPath#filter_at_destination}
         '''
         result = self._values.get("filter_at_destination")
         return typing.cast(typing.Optional["Ec2NetworkInsightsPathFilterAtDestination"], result)
@@ -711,14 +711,14 @@ class Ec2NetworkInsightsPathConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["Ec2NetworkInsightsPathFilterAtSource"]:
         '''filter_at_source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#filter_at_source Ec2NetworkInsightsPath#filter_at_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#filter_at_source Ec2NetworkInsightsPath#filter_at_source}
         '''
         result = self._values.get("filter_at_source")
         return typing.cast(typing.Optional["Ec2NetworkInsightsPathFilterAtSource"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#id Ec2NetworkInsightsPath#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#id Ec2NetworkInsightsPath#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -730,26 +730,26 @@ class Ec2NetworkInsightsPathConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#region Ec2NetworkInsightsPath#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#region Ec2NetworkInsightsPath#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def source_ip(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#source_ip Ec2NetworkInsightsPath#source_ip}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#source_ip Ec2NetworkInsightsPath#source_ip}.'''
         result = self._values.get("source_ip")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#tags Ec2NetworkInsightsPath#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#tags Ec2NetworkInsightsPath#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#tags_all Ec2NetworkInsightsPath#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#tags_all Ec2NetworkInsightsPath#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -785,10 +785,10 @@ class Ec2NetworkInsightsPathFilterAtDestination:
         source_port_range: typing.Optional[typing.Union["Ec2NetworkInsightsPathFilterAtDestinationSourcePortRange", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param destination_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#destination_address Ec2NetworkInsightsPath#destination_address}.
-        :param destination_port_range: destination_port_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#destination_port_range Ec2NetworkInsightsPath#destination_port_range}
-        :param source_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#source_address Ec2NetworkInsightsPath#source_address}.
-        :param source_port_range: source_port_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#source_port_range Ec2NetworkInsightsPath#source_port_range}
+        :param destination_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#destination_address Ec2NetworkInsightsPath#destination_address}.
+        :param destination_port_range: destination_port_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#destination_port_range Ec2NetworkInsightsPath#destination_port_range}
+        :param source_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#source_address Ec2NetworkInsightsPath#source_address}.
+        :param source_port_range: source_port_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#source_port_range Ec2NetworkInsightsPath#source_port_range}
         '''
         if isinstance(destination_port_range, dict):
             destination_port_range = Ec2NetworkInsightsPathFilterAtDestinationDestinationPortRange(**destination_port_range)
@@ -812,7 +812,7 @@ class Ec2NetworkInsightsPathFilterAtDestination:
 
     @builtins.property
     def destination_address(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#destination_address Ec2NetworkInsightsPath#destination_address}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#destination_address Ec2NetworkInsightsPath#destination_address}.'''
         result = self._values.get("destination_address")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -822,14 +822,14 @@ class Ec2NetworkInsightsPathFilterAtDestination:
     ) -> typing.Optional["Ec2NetworkInsightsPathFilterAtDestinationDestinationPortRange"]:
         '''destination_port_range block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#destination_port_range Ec2NetworkInsightsPath#destination_port_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#destination_port_range Ec2NetworkInsightsPath#destination_port_range}
         '''
         result = self._values.get("destination_port_range")
         return typing.cast(typing.Optional["Ec2NetworkInsightsPathFilterAtDestinationDestinationPortRange"], result)
 
     @builtins.property
     def source_address(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#source_address Ec2NetworkInsightsPath#source_address}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#source_address Ec2NetworkInsightsPath#source_address}.'''
         result = self._values.get("source_address")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -839,7 +839,7 @@ class Ec2NetworkInsightsPathFilterAtDestination:
     ) -> typing.Optional["Ec2NetworkInsightsPathFilterAtDestinationSourcePortRange"]:
         '''source_port_range block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#source_port_range Ec2NetworkInsightsPath#source_port_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#source_port_range Ec2NetworkInsightsPath#source_port_range}
         '''
         result = self._values.get("source_port_range")
         return typing.cast(typing.Optional["Ec2NetworkInsightsPathFilterAtDestinationSourcePortRange"], result)
@@ -869,8 +869,8 @@ class Ec2NetworkInsightsPathFilterAtDestinationDestinationPortRange:
         to_port: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param from_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#from_port Ec2NetworkInsightsPath#from_port}.
-        :param to_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#to_port Ec2NetworkInsightsPath#to_port}.
+        :param from_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#from_port Ec2NetworkInsightsPath#from_port}.
+        :param to_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#to_port Ec2NetworkInsightsPath#to_port}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bd1d37631b4132afe164a04aff681dfe6be0d861d87ea0e00adfd76151759f5b)
@@ -884,13 +884,13 @@ class Ec2NetworkInsightsPathFilterAtDestinationDestinationPortRange:
 
     @builtins.property
     def from_port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#from_port Ec2NetworkInsightsPath#from_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#from_port Ec2NetworkInsightsPath#from_port}.'''
         result = self._values.get("from_port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def to_port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#to_port Ec2NetworkInsightsPath#to_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#to_port Ec2NetworkInsightsPath#to_port}.'''
         result = self._values.get("to_port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1014,8 +1014,8 @@ class Ec2NetworkInsightsPathFilterAtDestinationOutputReference(
         to_port: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param from_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#from_port Ec2NetworkInsightsPath#from_port}.
-        :param to_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#to_port Ec2NetworkInsightsPath#to_port}.
+        :param from_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#from_port Ec2NetworkInsightsPath#from_port}.
+        :param to_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#to_port Ec2NetworkInsightsPath#to_port}.
         '''
         value = Ec2NetworkInsightsPathFilterAtDestinationDestinationPortRange(
             from_port=from_port, to_port=to_port
@@ -1031,8 +1031,8 @@ class Ec2NetworkInsightsPathFilterAtDestinationOutputReference(
         to_port: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param from_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#from_port Ec2NetworkInsightsPath#from_port}.
-        :param to_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#to_port Ec2NetworkInsightsPath#to_port}.
+        :param from_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#from_port Ec2NetworkInsightsPath#from_port}.
+        :param to_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#to_port Ec2NetworkInsightsPath#to_port}.
         '''
         value = Ec2NetworkInsightsPathFilterAtDestinationSourcePortRange(
             from_port=from_port, to_port=to_port
@@ -1149,8 +1149,8 @@ class Ec2NetworkInsightsPathFilterAtDestinationSourcePortRange:
         to_port: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param from_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#from_port Ec2NetworkInsightsPath#from_port}.
-        :param to_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#to_port Ec2NetworkInsightsPath#to_port}.
+        :param from_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#from_port Ec2NetworkInsightsPath#from_port}.
+        :param to_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#to_port Ec2NetworkInsightsPath#to_port}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a95f6417dc97c0aa4262af3043059b30c1aacc115c3193530a865b911c79be69)
@@ -1164,13 +1164,13 @@ class Ec2NetworkInsightsPathFilterAtDestinationSourcePortRange:
 
     @builtins.property
     def from_port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#from_port Ec2NetworkInsightsPath#from_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#from_port Ec2NetworkInsightsPath#from_port}.'''
         result = self._values.get("from_port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def to_port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#to_port Ec2NetworkInsightsPath#to_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#to_port Ec2NetworkInsightsPath#to_port}.'''
         result = self._values.get("to_port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1286,10 +1286,10 @@ class Ec2NetworkInsightsPathFilterAtSource:
         source_port_range: typing.Optional[typing.Union["Ec2NetworkInsightsPathFilterAtSourceSourcePortRange", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param destination_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#destination_address Ec2NetworkInsightsPath#destination_address}.
-        :param destination_port_range: destination_port_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#destination_port_range Ec2NetworkInsightsPath#destination_port_range}
-        :param source_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#source_address Ec2NetworkInsightsPath#source_address}.
-        :param source_port_range: source_port_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#source_port_range Ec2NetworkInsightsPath#source_port_range}
+        :param destination_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#destination_address Ec2NetworkInsightsPath#destination_address}.
+        :param destination_port_range: destination_port_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#destination_port_range Ec2NetworkInsightsPath#destination_port_range}
+        :param source_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#source_address Ec2NetworkInsightsPath#source_address}.
+        :param source_port_range: source_port_range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#source_port_range Ec2NetworkInsightsPath#source_port_range}
         '''
         if isinstance(destination_port_range, dict):
             destination_port_range = Ec2NetworkInsightsPathFilterAtSourceDestinationPortRange(**destination_port_range)
@@ -1313,7 +1313,7 @@ class Ec2NetworkInsightsPathFilterAtSource:
 
     @builtins.property
     def destination_address(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#destination_address Ec2NetworkInsightsPath#destination_address}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#destination_address Ec2NetworkInsightsPath#destination_address}.'''
         result = self._values.get("destination_address")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1323,14 +1323,14 @@ class Ec2NetworkInsightsPathFilterAtSource:
     ) -> typing.Optional["Ec2NetworkInsightsPathFilterAtSourceDestinationPortRange"]:
         '''destination_port_range block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#destination_port_range Ec2NetworkInsightsPath#destination_port_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#destination_port_range Ec2NetworkInsightsPath#destination_port_range}
         '''
         result = self._values.get("destination_port_range")
         return typing.cast(typing.Optional["Ec2NetworkInsightsPathFilterAtSourceDestinationPortRange"], result)
 
     @builtins.property
     def source_address(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#source_address Ec2NetworkInsightsPath#source_address}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#source_address Ec2NetworkInsightsPath#source_address}.'''
         result = self._values.get("source_address")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1340,7 +1340,7 @@ class Ec2NetworkInsightsPathFilterAtSource:
     ) -> typing.Optional["Ec2NetworkInsightsPathFilterAtSourceSourcePortRange"]:
         '''source_port_range block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#source_port_range Ec2NetworkInsightsPath#source_port_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#source_port_range Ec2NetworkInsightsPath#source_port_range}
         '''
         result = self._values.get("source_port_range")
         return typing.cast(typing.Optional["Ec2NetworkInsightsPathFilterAtSourceSourcePortRange"], result)
@@ -1370,8 +1370,8 @@ class Ec2NetworkInsightsPathFilterAtSourceDestinationPortRange:
         to_port: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param from_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#from_port Ec2NetworkInsightsPath#from_port}.
-        :param to_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#to_port Ec2NetworkInsightsPath#to_port}.
+        :param from_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#from_port Ec2NetworkInsightsPath#from_port}.
+        :param to_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#to_port Ec2NetworkInsightsPath#to_port}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a4a825e6b7208c614d823c190b677a43a2168272e4de2428c7639c9571ad1c20)
@@ -1385,13 +1385,13 @@ class Ec2NetworkInsightsPathFilterAtSourceDestinationPortRange:
 
     @builtins.property
     def from_port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#from_port Ec2NetworkInsightsPath#from_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#from_port Ec2NetworkInsightsPath#from_port}.'''
         result = self._values.get("from_port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def to_port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#to_port Ec2NetworkInsightsPath#to_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#to_port Ec2NetworkInsightsPath#to_port}.'''
         result = self._values.get("to_port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1515,8 +1515,8 @@ class Ec2NetworkInsightsPathFilterAtSourceOutputReference(
         to_port: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param from_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#from_port Ec2NetworkInsightsPath#from_port}.
-        :param to_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#to_port Ec2NetworkInsightsPath#to_port}.
+        :param from_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#from_port Ec2NetworkInsightsPath#from_port}.
+        :param to_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#to_port Ec2NetworkInsightsPath#to_port}.
         '''
         value = Ec2NetworkInsightsPathFilterAtSourceDestinationPortRange(
             from_port=from_port, to_port=to_port
@@ -1532,8 +1532,8 @@ class Ec2NetworkInsightsPathFilterAtSourceOutputReference(
         to_port: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param from_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#from_port Ec2NetworkInsightsPath#from_port}.
-        :param to_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#to_port Ec2NetworkInsightsPath#to_port}.
+        :param from_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#from_port Ec2NetworkInsightsPath#from_port}.
+        :param to_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#to_port Ec2NetworkInsightsPath#to_port}.
         '''
         value = Ec2NetworkInsightsPathFilterAtSourceSourcePortRange(
             from_port=from_port, to_port=to_port
@@ -1648,8 +1648,8 @@ class Ec2NetworkInsightsPathFilterAtSourceSourcePortRange:
         to_port: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param from_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#from_port Ec2NetworkInsightsPath#from_port}.
-        :param to_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#to_port Ec2NetworkInsightsPath#to_port}.
+        :param from_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#from_port Ec2NetworkInsightsPath#from_port}.
+        :param to_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#to_port Ec2NetworkInsightsPath#to_port}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f250b8b2d695a35c3ab1e237b3de1c5df5e8357969c1888a778d8060ee128c0d)
@@ -1663,13 +1663,13 @@ class Ec2NetworkInsightsPathFilterAtSourceSourcePortRange:
 
     @builtins.property
     def from_port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#from_port Ec2NetworkInsightsPath#from_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#from_port Ec2NetworkInsightsPath#from_port}.'''
         result = self._values.get("from_port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def to_port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/ec2_network_insights_path#to_port Ec2NetworkInsightsPath#to_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/ec2_network_insights_path#to_port Ec2NetworkInsightsPath#to_port}.'''
         result = self._values.get("to_port")
         return typing.cast(typing.Optional[jsii.Number], result)
 

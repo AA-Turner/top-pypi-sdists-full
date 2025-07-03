@@ -1,3 +1,6 @@
+from unittest.mock import patch
+
+from django.db import connection
 from django.db.models import (
     Case,
     F,
@@ -11,6 +14,7 @@ from django.db.models import (
 from django.db.models.functions import Cast
 from django.db.models.lookups import Exact
 from django.test import TestCase, skipUnlessDBFeature
+from django.utils.version import PY311
 
 from .models import Comment, Tenant, User
 
@@ -245,6 +249,10 @@ class CompositePKFilterTests(TestCase):
         self.assertIs(
             Comment.objects.filter(user=self.user_1).contains(self.comment_1), True
         )
+
+    def test_filter_query_does_not_mutate(self):
+        queryset = User.objects.filter(comments__in=Comment.objects.all())
+        self.assertEqual(str(queryset.query), str(queryset.query))
 
     def test_filter_users_by_comments_in(self):
         c1, c2, c3, c4, c5 = (
@@ -541,3 +549,18 @@ class CompositePKFilterTests(TestCase):
                 ).filter(filtered_tokens=(1, 1)),
                 [self.tenant_1],
             )
+
+
+@skipUnlessDBFeature("supports_tuple_lookups")
+class CompositePKFilterTupleLookupFallbackTests(CompositePKFilterTests):
+    def setUp(self):
+        feature_patch = patch.object(
+            connection.features, "supports_tuple_lookups", False
+        )
+        if PY311:
+            self.enterContext(feature_patch)
+        else:
+            # unittest.TestCase.enterContext() was added in Python 3.11.
+            from django.test.testcases import _enter_context
+
+            _enter_context(feature_patch, self.addCleanup)

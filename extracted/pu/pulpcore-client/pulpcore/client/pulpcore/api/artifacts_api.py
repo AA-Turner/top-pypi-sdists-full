@@ -45,6 +45,7 @@ class ArtifactsApi:
     def create(
         self,
         file: Annotated[Union[StrictBytes, StrictStr, Tuple[StrictStr, StrictBytes]], Field(description="The stored file.")],
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         size: Annotated[Optional[StrictInt], Field(description="The size of the file in bytes.")] = None,
         md5: Annotated[Optional[Annotated[str, Field(min_length=1, strict=True)]], Field(description="The MD5 checksum of the file if available.")] = None,
         sha1: Annotated[Optional[Annotated[str, Field(min_length=1, strict=True)]], Field(description="The SHA-1 checksum of the file if available.")] = None,
@@ -71,6 +72,8 @@ class ArtifactsApi:
 
         :param file: The stored file. (required)
         :type file: bytearray
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param size: The size of the file in bytes.
         :type size: int
         :param md5: The MD5 checksum of the file if available.
@@ -109,6 +112,7 @@ class ArtifactsApi:
 
         _param = self._create_serialize(
             file=file,
+            x_task_diagnostics=x_task_diagnostics,
             size=size,
             md5=md5,
             sha1=sha1,
@@ -140,6 +144,7 @@ class ArtifactsApi:
     def create_with_http_info(
         self,
         file: Annotated[Union[StrictBytes, StrictStr, Tuple[StrictStr, StrictBytes]], Field(description="The stored file.")],
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         size: Annotated[Optional[StrictInt], Field(description="The size of the file in bytes.")] = None,
         md5: Annotated[Optional[Annotated[str, Field(min_length=1, strict=True)]], Field(description="The MD5 checksum of the file if available.")] = None,
         sha1: Annotated[Optional[Annotated[str, Field(min_length=1, strict=True)]], Field(description="The SHA-1 checksum of the file if available.")] = None,
@@ -166,6 +171,8 @@ class ArtifactsApi:
 
         :param file: The stored file. (required)
         :type file: bytearray
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param size: The size of the file in bytes.
         :type size: int
         :param md5: The MD5 checksum of the file if available.
@@ -204,6 +211,7 @@ class ArtifactsApi:
 
         _param = self._create_serialize(
             file=file,
+            x_task_diagnostics=x_task_diagnostics,
             size=size,
             md5=md5,
             sha1=sha1,
@@ -235,6 +243,7 @@ class ArtifactsApi:
     def create_without_preload_content(
         self,
         file: Annotated[Union[StrictBytes, StrictStr, Tuple[StrictStr, StrictBytes]], Field(description="The stored file.")],
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         size: Annotated[Optional[StrictInt], Field(description="The size of the file in bytes.")] = None,
         md5: Annotated[Optional[Annotated[str, Field(min_length=1, strict=True)]], Field(description="The MD5 checksum of the file if available.")] = None,
         sha1: Annotated[Optional[Annotated[str, Field(min_length=1, strict=True)]], Field(description="The SHA-1 checksum of the file if available.")] = None,
@@ -261,6 +270,8 @@ class ArtifactsApi:
 
         :param file: The stored file. (required)
         :type file: bytearray
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param size: The size of the file in bytes.
         :type size: int
         :param md5: The MD5 checksum of the file if available.
@@ -299,6 +310,7 @@ class ArtifactsApi:
 
         _param = self._create_serialize(
             file=file,
+            x_task_diagnostics=x_task_diagnostics,
             size=size,
             md5=md5,
             sha1=sha1,
@@ -325,6 +337,7 @@ class ArtifactsApi:
     def _create_serialize(
         self,
         file,
+        x_task_diagnostics,
         size,
         md5,
         sha1,
@@ -341,6 +354,7 @@ class ArtifactsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -355,6 +369,8 @@ class ArtifactsApi:
         # process the path parameters
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         if file is not None:
             _files['file'] = file
@@ -426,6 +442,7 @@ class ArtifactsApi:
     def delete(
         self,
         artifact_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -445,6 +462,8 @@ class ArtifactsApi:
 
         :param artifact_href: (required)
         :type artifact_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -469,6 +488,7 @@ class ArtifactsApi:
 
         _param = self._delete_serialize(
             artifact_href=artifact_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -493,6 +513,7 @@ class ArtifactsApi:
     def delete_with_http_info(
         self,
         artifact_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -512,6 +533,8 @@ class ArtifactsApi:
 
         :param artifact_href: (required)
         :type artifact_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -536,6 +559,7 @@ class ArtifactsApi:
 
         _param = self._delete_serialize(
             artifact_href=artifact_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -560,6 +584,7 @@ class ArtifactsApi:
     def delete_without_preload_content(
         self,
         artifact_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -579,6 +604,8 @@ class ArtifactsApi:
 
         :param artifact_href: (required)
         :type artifact_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -603,6 +630,7 @@ class ArtifactsApi:
 
         _param = self._delete_serialize(
             artifact_href=artifact_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -622,6 +650,7 @@ class ArtifactsApi:
     def _delete_serialize(
         self,
         artifact_href,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -631,6 +660,7 @@ class ArtifactsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -647,6 +677,8 @@ class ArtifactsApi:
             _path_params['artifact_href'] = artifact_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -680,6 +712,7 @@ class ArtifactsApi:
     @validate_call
     def list(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         md5: Annotated[Optional[StrictStr], Field(description="Filter results where md5 matches value")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
@@ -714,6 +747,8 @@ class ArtifactsApi:
 
         A customized named ModelViewSet that knows how to register itself with the Pulp API router.  This viewset is discoverable by its name. \"Normal\" Django Models and Master/Detail models are supported by the ``register_with`` method.  Attributes:     lookup_field (str): The name of the field by which an object should be looked up, in         addition to any parent lookups if this ViewSet is nested. Defaults to 'pk'     endpoint_name (str): The name of the final path segment that should identify the ViewSet's         collection endpoint.     nest_prefix (str): Optional prefix under which this ViewSet should be nested. This must         correspond to the \"parent_prefix\" of a router with rest_framework_nested.NestedMixin.         None indicates this ViewSet should not be nested.     parent_lookup_kwargs (dict): Optional mapping of key names that would appear in self.kwargs         to django model filter expressions that can be used with the corresponding value from         self.kwargs, used only by a nested ViewSet to filter based on the parent object's         identity.     schema (DefaultSchema): The schema class to use by default in a viewset.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param limit: Number of results to return per page.
         :type limit: int
         :param md5: Filter results where md5 matches value
@@ -771,6 +806,7 @@ class ArtifactsApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             md5=md5,
             offset=offset,
@@ -811,6 +847,7 @@ class ArtifactsApi:
     @validate_call
     def list_with_http_info(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         md5: Annotated[Optional[StrictStr], Field(description="Filter results where md5 matches value")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
@@ -845,6 +882,8 @@ class ArtifactsApi:
 
         A customized named ModelViewSet that knows how to register itself with the Pulp API router.  This viewset is discoverable by its name. \"Normal\" Django Models and Master/Detail models are supported by the ``register_with`` method.  Attributes:     lookup_field (str): The name of the field by which an object should be looked up, in         addition to any parent lookups if this ViewSet is nested. Defaults to 'pk'     endpoint_name (str): The name of the final path segment that should identify the ViewSet's         collection endpoint.     nest_prefix (str): Optional prefix under which this ViewSet should be nested. This must         correspond to the \"parent_prefix\" of a router with rest_framework_nested.NestedMixin.         None indicates this ViewSet should not be nested.     parent_lookup_kwargs (dict): Optional mapping of key names that would appear in self.kwargs         to django model filter expressions that can be used with the corresponding value from         self.kwargs, used only by a nested ViewSet to filter based on the parent object's         identity.     schema (DefaultSchema): The schema class to use by default in a viewset.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param limit: Number of results to return per page.
         :type limit: int
         :param md5: Filter results where md5 matches value
@@ -902,6 +941,7 @@ class ArtifactsApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             md5=md5,
             offset=offset,
@@ -942,6 +982,7 @@ class ArtifactsApi:
     @validate_call
     def list_without_preload_content(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         md5: Annotated[Optional[StrictStr], Field(description="Filter results where md5 matches value")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
@@ -976,6 +1017,8 @@ class ArtifactsApi:
 
         A customized named ModelViewSet that knows how to register itself with the Pulp API router.  This viewset is discoverable by its name. \"Normal\" Django Models and Master/Detail models are supported by the ``register_with`` method.  Attributes:     lookup_field (str): The name of the field by which an object should be looked up, in         addition to any parent lookups if this ViewSet is nested. Defaults to 'pk'     endpoint_name (str): The name of the final path segment that should identify the ViewSet's         collection endpoint.     nest_prefix (str): Optional prefix under which this ViewSet should be nested. This must         correspond to the \"parent_prefix\" of a router with rest_framework_nested.NestedMixin.         None indicates this ViewSet should not be nested.     parent_lookup_kwargs (dict): Optional mapping of key names that would appear in self.kwargs         to django model filter expressions that can be used with the corresponding value from         self.kwargs, used only by a nested ViewSet to filter based on the parent object's         identity.     schema (DefaultSchema): The schema class to use by default in a viewset.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param limit: Number of results to return per page.
         :type limit: int
         :param md5: Filter results where md5 matches value
@@ -1033,6 +1076,7 @@ class ArtifactsApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             md5=md5,
             offset=offset,
@@ -1068,6 +1112,7 @@ class ArtifactsApi:
 
     def _list_serialize(
         self,
+        x_task_diagnostics,
         limit,
         md5,
         offset,
@@ -1094,6 +1139,7 @@ class ArtifactsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'ordering': 'csv',
             'prn__in': 'csv',
             'pulp_href__in': 'csv',
@@ -1182,6 +1228,8 @@ class ArtifactsApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -1223,6 +1271,7 @@ class ArtifactsApi:
     def read(
         self,
         artifact_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1244,6 +1293,8 @@ class ArtifactsApi:
 
         :param artifact_href: (required)
         :type artifact_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1272,6 +1323,7 @@ class ArtifactsApi:
 
         _param = self._read_serialize(
             artifact_href=artifact_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1298,6 +1350,7 @@ class ArtifactsApi:
     def read_with_http_info(
         self,
         artifact_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1319,6 +1372,8 @@ class ArtifactsApi:
 
         :param artifact_href: (required)
         :type artifact_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1347,6 +1402,7 @@ class ArtifactsApi:
 
         _param = self._read_serialize(
             artifact_href=artifact_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1373,6 +1429,7 @@ class ArtifactsApi:
     def read_without_preload_content(
         self,
         artifact_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1394,6 +1451,8 @@ class ArtifactsApi:
 
         :param artifact_href: (required)
         :type artifact_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1422,6 +1481,7 @@ class ArtifactsApi:
 
         _param = self._read_serialize(
             artifact_href=artifact_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1443,6 +1503,7 @@ class ArtifactsApi:
     def _read_serialize(
         self,
         artifact_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -1454,6 +1515,7 @@ class ArtifactsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -1480,6 +1542,8 @@ class ArtifactsApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 

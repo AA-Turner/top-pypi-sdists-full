@@ -9,6 +9,7 @@ import json
 from typing import TYPE_CHECKING
 from urllib.parse import unquote, quote
 from warnings import warn
+from cachetools import cached, TTLCache
 
 import ibm_watsonx_ai._wrappers.requests as requests
 from ibm_watsonx_ai.messages.messages import Messages
@@ -533,7 +534,9 @@ class Connections(WMLResource):
 
         **Example:**
 
-         >>> result = client.connections.get_uploaded_db_drivers()
+        .. code-block:: python
+
+            result = client.connections.get_uploaded_db_drivers()
 
         """
         if not self._client.ICP_PLATFORM_SPACES or self._client.CPD_version < 4.6:
@@ -569,6 +572,38 @@ class Connections(WMLResource):
         jars = [[name] for name in self.get_uploaded_db_drivers()]
         return self._list(jars, ["NAME"], None)
 
+    @cached(cache=TTLCache(maxsize=32, ttl=5 * 60))
+    def _get_datasource_type_details(
+        self, datasource_type: str, connection_properties: bool = False
+    ) -> dict:
+        """Get datasource type details for the given datasource type ID or NAME.
+
+        :param datasource_type: ID or NAME of the datasource type
+        :type datasource_type: str
+
+        :param connection_properties: if True, the connection properties are included in the returned details. defaults to False
+        :type connection_properties: bool
+
+        :return: Datasource type details
+        :rtype: dict
+        """
+        Connections._validate_type(datasource_type, "datasource_type", str, False)
+        header_param = self._client._get_headers()
+        params = {"connection_properties": connection_properties}
+
+        with self.requests_retry_session() as sess:
+            response = sess.get(
+                self._client._href_definitions.get_connection_data_type_href(
+                    datasource_type
+                ),
+                params=params,
+                headers=header_param,
+            )
+
+        return self._handle_response(
+            200, "get datasource details", response, _silent_response_logging=True
+        )
+
     def get_datasource_type_details_by_id(
         self, datasource_type_id: str, connection_properties: bool = False
     ) -> dict:
@@ -576,6 +611,7 @@ class Connections(WMLResource):
 
         :param datasource_type_id: ID of the datasource type
         :type datasource_type_id: str
+
         :param connection_properties: if True, the connection properties are included in the returned details. defaults to False
         :type connection_properties: bool
 
@@ -589,22 +625,35 @@ class Connections(WMLResource):
             client.connections.get_datasource_type_details_by_id(datasource_type_id)
 
         """
+        return self._get_datasource_type_details(
+            datasource_type=datasource_type_id,
+            connection_properties=connection_properties,
+        )
 
-        Connections._validate_type(datasource_type_id, "datasource_type", str, False)
-        header_param = self._client._get_headers()
-        params = {"connection_properties": connection_properties}
+    def get_datasource_type_details_by_name(
+        self, datasource_type_name: str, connection_properties: bool = False
+    ) -> dict:
+        """Get datasource type details for the given datasource type name.
 
-        with self.requests_retry_session() as sess:
-            response = sess.get(
-                self._client._href_definitions.get_connection_data_type_by_id_href(
-                    datasource_type_id
-                ),
-                params=params,
-                headers=header_param,
-            )
+        :param datasource_type_name: NAME of the datasource type
+        :type datasource_type_name: str
 
-        return self._handle_response(
-            200, "get datasource details", response, _silent_response_logging=True
+        :param connection_properties: if True, the connection properties are included in the returned details. defaults to False
+        :type connection_properties: bool
+
+        :return: Datasource type details
+        :rtype: dict
+
+        **Example:**
+
+        .. code-block:: python
+
+            client.connections.get_datasource_type_details_by_name(datasource_type_name)
+
+        """
+        return self._get_datasource_type_details(
+            datasource_type=datasource_type_name,
+            connection_properties=connection_properties,
         )
 
     def get_datasource_type_uid_by_name(self, name: str) -> str:
@@ -651,12 +700,11 @@ class Connections(WMLResource):
         """
         Connections._validate_type(name, "name", str, True)
 
-        datasource_details = self._get_datasource_details()
+        datasource_details = self.get_datasource_type_details_by_name(
+            datasource_type_name=name
+        )
+        datasource_id = datasource_details["metadata"]["asset_id"]
 
-        datasource_id = None
-        for i, ds_resource in enumerate(datasource_details):
-            if ds_resource["entity"]["name"] == name:
-                datasource_id = ds_resource["metadata"]["asset_id"]
         return datasource_id
 
     def get_write_mode_by_datasource_type(self, datasource_type: str) -> str:
@@ -671,7 +719,7 @@ class Connections(WMLResource):
 
         with self.requests_retry_session() as sess:
             response = sess.get(
-                self._client._href_definitions.get_connection_data_type_by_id_href(
+                self._client._href_definitions.get_connection_data_type_href(
                     datasource_type
                 ),
                 params=params,

@@ -47,6 +47,7 @@ class UsersApi:
     def create(
         self,
         user: User,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -66,6 +67,8 @@ class UsersApi:
 
         :param user: (required)
         :type user: User
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -90,6 +93,7 @@ class UsersApi:
 
         _param = self._create_serialize(
             user=user,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -114,6 +118,7 @@ class UsersApi:
     def create_with_http_info(
         self,
         user: User,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -133,6 +138,8 @@ class UsersApi:
 
         :param user: (required)
         :type user: User
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -157,6 +164,7 @@ class UsersApi:
 
         _param = self._create_serialize(
             user=user,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -181,6 +189,7 @@ class UsersApi:
     def create_without_preload_content(
         self,
         user: User,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -200,6 +209,8 @@ class UsersApi:
 
         :param user: (required)
         :type user: User
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -224,6 +235,7 @@ class UsersApi:
 
         _param = self._create_serialize(
             user=user,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -243,6 +255,7 @@ class UsersApi:
     def _create_serialize(
         self,
         user,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -252,6 +265,7 @@ class UsersApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -266,6 +280,8 @@ class UsersApi:
         # process the path parameters
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if user is not None:
@@ -324,6 +340,7 @@ class UsersApi:
     def delete(
         self,
         auth_user_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -343,6 +360,8 @@ class UsersApi:
 
         :param auth_user_href: (required)
         :type auth_user_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -367,6 +386,7 @@ class UsersApi:
 
         _param = self._delete_serialize(
             auth_user_href=auth_user_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -391,6 +411,7 @@ class UsersApi:
     def delete_with_http_info(
         self,
         auth_user_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -410,6 +431,8 @@ class UsersApi:
 
         :param auth_user_href: (required)
         :type auth_user_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -434,6 +457,7 @@ class UsersApi:
 
         _param = self._delete_serialize(
             auth_user_href=auth_user_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -458,6 +482,7 @@ class UsersApi:
     def delete_without_preload_content(
         self,
         auth_user_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -477,6 +502,8 @@ class UsersApi:
 
         :param auth_user_href: (required)
         :type auth_user_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -501,6 +528,7 @@ class UsersApi:
 
         _param = self._delete_serialize(
             auth_user_href=auth_user_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -520,6 +548,7 @@ class UsersApi:
     def _delete_serialize(
         self,
         auth_user_href,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -529,6 +558,7 @@ class UsersApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -545,6 +575,8 @@ class UsersApi:
             _path_params['auth_user_href'] = auth_user_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -578,6 +610,7 @@ class UsersApi:
     @validate_call
     def list(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         email: Annotated[Optional[StrictStr], Field(description="Filter results where email matches value")] = None,
         email__contains: Annotated[Optional[StrictStr], Field(description="Filter results where email contains value")] = None,
         email__icontains: Annotated[Optional[StrictStr], Field(description="Filter results where email contains value")] = None,
@@ -626,6 +659,8 @@ class UsersApi:
 
         ViewSet for User.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param email: Filter results where email matches value
         :type email: str
         :param email__contains: Filter results where email contains value
@@ -711,6 +746,7 @@ class UsersApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             email=email,
             email__contains=email__contains,
             email__icontains=email__icontains,
@@ -765,6 +801,7 @@ class UsersApi:
     @validate_call
     def list_with_http_info(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         email: Annotated[Optional[StrictStr], Field(description="Filter results where email matches value")] = None,
         email__contains: Annotated[Optional[StrictStr], Field(description="Filter results where email contains value")] = None,
         email__icontains: Annotated[Optional[StrictStr], Field(description="Filter results where email contains value")] = None,
@@ -813,6 +850,8 @@ class UsersApi:
 
         ViewSet for User.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param email: Filter results where email matches value
         :type email: str
         :param email__contains: Filter results where email contains value
@@ -898,6 +937,7 @@ class UsersApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             email=email,
             email__contains=email__contains,
             email__icontains=email__icontains,
@@ -952,6 +992,7 @@ class UsersApi:
     @validate_call
     def list_without_preload_content(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         email: Annotated[Optional[StrictStr], Field(description="Filter results where email matches value")] = None,
         email__contains: Annotated[Optional[StrictStr], Field(description="Filter results where email contains value")] = None,
         email__icontains: Annotated[Optional[StrictStr], Field(description="Filter results where email contains value")] = None,
@@ -1000,6 +1041,8 @@ class UsersApi:
 
         ViewSet for User.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param email: Filter results where email matches value
         :type email: str
         :param email__contains: Filter results where email contains value
@@ -1085,6 +1128,7 @@ class UsersApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             email=email,
             email__contains=email__contains,
             email__icontains=email__icontains,
@@ -1134,6 +1178,7 @@ class UsersApi:
 
     def _list_serialize(
         self,
+        x_task_diagnostics,
         email,
         email__contains,
         email__icontains,
@@ -1174,6 +1219,7 @@ class UsersApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'email__in': 'csv',
             'first_name__in': 'csv',
             'last_name__in': 'csv',
@@ -1322,6 +1368,8 @@ class UsersApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -1364,6 +1412,7 @@ class UsersApi:
         self,
         auth_user_href: StrictStr,
         patched_user: PatchedUser,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1385,6 +1434,8 @@ class UsersApi:
         :type auth_user_href: str
         :param patched_user: (required)
         :type patched_user: PatchedUser
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1410,6 +1461,7 @@ class UsersApi:
         _param = self._partial_update_serialize(
             auth_user_href=auth_user_href,
             patched_user=patched_user,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1435,6 +1487,7 @@ class UsersApi:
         self,
         auth_user_href: StrictStr,
         patched_user: PatchedUser,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1456,6 +1509,8 @@ class UsersApi:
         :type auth_user_href: str
         :param patched_user: (required)
         :type patched_user: PatchedUser
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1481,6 +1536,7 @@ class UsersApi:
         _param = self._partial_update_serialize(
             auth_user_href=auth_user_href,
             patched_user=patched_user,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1506,6 +1562,7 @@ class UsersApi:
         self,
         auth_user_href: StrictStr,
         patched_user: PatchedUser,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1527,6 +1584,8 @@ class UsersApi:
         :type auth_user_href: str
         :param patched_user: (required)
         :type patched_user: PatchedUser
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1552,6 +1611,7 @@ class UsersApi:
         _param = self._partial_update_serialize(
             auth_user_href=auth_user_href,
             patched_user=patched_user,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1572,6 +1632,7 @@ class UsersApi:
         self,
         auth_user_href,
         patched_user,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -1581,6 +1642,7 @@ class UsersApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -1597,6 +1659,8 @@ class UsersApi:
             _path_params['auth_user_href'] = auth_user_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if patched_user is not None:
@@ -1655,6 +1719,7 @@ class UsersApi:
     def read(
         self,
         auth_user_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1676,6 +1741,8 @@ class UsersApi:
 
         :param auth_user_href: (required)
         :type auth_user_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1704,6 +1771,7 @@ class UsersApi:
 
         _param = self._read_serialize(
             auth_user_href=auth_user_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1730,6 +1798,7 @@ class UsersApi:
     def read_with_http_info(
         self,
         auth_user_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1751,6 +1820,8 @@ class UsersApi:
 
         :param auth_user_href: (required)
         :type auth_user_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1779,6 +1850,7 @@ class UsersApi:
 
         _param = self._read_serialize(
             auth_user_href=auth_user_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1805,6 +1877,7 @@ class UsersApi:
     def read_without_preload_content(
         self,
         auth_user_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1826,6 +1899,8 @@ class UsersApi:
 
         :param auth_user_href: (required)
         :type auth_user_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1854,6 +1929,7 @@ class UsersApi:
 
         _param = self._read_serialize(
             auth_user_href=auth_user_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1875,6 +1951,7 @@ class UsersApi:
     def _read_serialize(
         self,
         auth_user_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -1886,6 +1963,7 @@ class UsersApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -1912,6 +1990,8 @@ class UsersApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -1954,6 +2034,7 @@ class UsersApi:
         self,
         auth_user_href: StrictStr,
         user: User,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1975,6 +2056,8 @@ class UsersApi:
         :type auth_user_href: str
         :param user: (required)
         :type user: User
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2000,6 +2083,7 @@ class UsersApi:
         _param = self._update_serialize(
             auth_user_href=auth_user_href,
             user=user,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2025,6 +2109,7 @@ class UsersApi:
         self,
         auth_user_href: StrictStr,
         user: User,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2046,6 +2131,8 @@ class UsersApi:
         :type auth_user_href: str
         :param user: (required)
         :type user: User
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2071,6 +2158,7 @@ class UsersApi:
         _param = self._update_serialize(
             auth_user_href=auth_user_href,
             user=user,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2096,6 +2184,7 @@ class UsersApi:
         self,
         auth_user_href: StrictStr,
         user: User,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2117,6 +2206,8 @@ class UsersApi:
         :type auth_user_href: str
         :param user: (required)
         :type user: User
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2142,6 +2233,7 @@ class UsersApi:
         _param = self._update_serialize(
             auth_user_href=auth_user_href,
             user=user,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2162,6 +2254,7 @@ class UsersApi:
         self,
         auth_user_href,
         user,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -2171,6 +2264,7 @@ class UsersApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -2187,6 +2281,8 @@ class UsersApi:
             _path_params['auth_user_href'] = auth_user_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if user is not None:

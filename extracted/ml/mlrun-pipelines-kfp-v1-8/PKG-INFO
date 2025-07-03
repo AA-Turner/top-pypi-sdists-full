@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mlrun-pipelines-kfp-v1-8
-Version: 0.5.4
+Version: 0.5.7
 Summary: MLRun Pipelines adapter package for providing KFP 1.8 compatibility
 Author-email: Yaron Haviv <yaronh@iguazio.com>
 License: Apache License 2.0

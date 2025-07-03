@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2024 Google LLC
+# Copyright 2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -61,6 +61,10 @@ class Process(proto.Message):
             The process ID.
         parent_pid (int):
             The parent process ID.
+        user_id (int):
+            The ID of the user that executed the process.
+            E.g. If this is the root user this will always
+            be 0.
     """
 
     name: str = proto.Field(
@@ -106,6 +110,10 @@ class Process(proto.Message):
     parent_pid: int = proto.Field(
         proto.INT64,
         number=10,
+    )
+    user_id: int = proto.Field(
+        proto.INT64,
+        number=11,
     )
 
 

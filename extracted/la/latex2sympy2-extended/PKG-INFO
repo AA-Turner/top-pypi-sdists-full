@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: latex2sympy2_extended
-Version: 1.10.1
+Version: 1.10.2
 Summary: Convert LaTeX math to SymPy expressions
 Author-email: Hynek Kydlíček <hynek.kydlicek@huggingface.co>
 License: MIT
@@ -19,6 +19,7 @@ Provides-Extra: antlr4-11-0
 Requires-Dist: antlr4-python3-runtime==4.11.0; extra == "antlr4-11-0"
 Provides-Extra: antlr4-13-2
 Requires-Dist: antlr4-python3-runtime==4.13.2; extra == "antlr4-13-2"
+Dynamic: license-file
 
 ![Logo](https://picgo-1258602555.cos.ap-nanjing.myqcloud.com/icon.png)
 

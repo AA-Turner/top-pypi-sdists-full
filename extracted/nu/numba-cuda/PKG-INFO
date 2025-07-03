@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: numba-cuda
-Version: 0.15.2
+Version: 0.16.0
 Summary: CUDA target for Numba
 Author: Anaconda Inc., NVIDIA Corporation
 License: BSD 2-clause
@@ -14,16 +14,19 @@ License-File: LICENSE
 Requires-Dist: numba>=0.59.1
 Provides-Extra: cu11
 Requires-Dist: cuda-bindings==11.8.*; extra == "cu11"
+Requires-Dist: cuda-core==0.3.*; extra == "cu11"
 Requires-Dist: cuda-python==11.8.*; extra == "cu11"
 Requires-Dist: nvidia-cuda-nvcc-cu11; extra == "cu11"
 Requires-Dist: nvidia-cuda-runtime-cu11; extra == "cu11"
 Requires-Dist: nvidia-cuda-nvrtc-cu11; extra == "cu11"
 Provides-Extra: cu12
 Requires-Dist: cuda-bindings==12.9.*; extra == "cu12"
+Requires-Dist: cuda-core==0.3.*; extra == "cu12"
 Requires-Dist: cuda-python==12.9.*; extra == "cu12"
 Requires-Dist: nvidia-cuda-nvcc-cu12; extra == "cu12"
 Requires-Dist: nvidia-cuda-runtime-cu12; extra == "cu12"
 Requires-Dist: nvidia-cuda-nvrtc-cu12; extra == "cu12"
+Requires-Dist: nvidia-nvjitlink-cu12; extra == "cu12"
 Provides-Extra: test
 Requires-Dist: psutil; extra == "test"
 Requires-Dist: cffi; extra == "test"

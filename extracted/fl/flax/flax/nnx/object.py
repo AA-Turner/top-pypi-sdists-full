@@ -22,10 +22,12 @@ import typing as tp
 from abc import ABCMeta
 from copy import deepcopy
 
+from flax.nnx import variablelib
 import jax
 import numpy as np
 import treescope  # type: ignore[import-untyped]
 from treescope import rendering_parts
+from flax import config
 
 from flax import errors, nnx
 from flax.nnx import (
@@ -34,10 +36,10 @@ from flax.nnx import (
   tracers,
   visualization,
 )
-from flax.nnx.variablelib import Variable, VariableState
+from flax.nnx.variablelib import Variable, VariableState, is_mutable_array
 from flax.typing import SizeBytes
 
-G = tp.TypeVar('G', bound='Object')
+O = tp.TypeVar('O', bound='Object')
 
 BUILDING_DOCS = 'FLAX_DOC_BUILD' in os.environ
 
@@ -57,7 +59,7 @@ def _collect_stats(
     var_type = type(node)
     if issubclass(var_type, nnx.RngState):
       var_type = nnx.RngState
-    size_bytes = SizeBytes.from_any(node.value)
+    size_bytes = SizeBytes.from_any(node.raw_value)
     if size_bytes:
       stats[var_type] = size_bytes
 
@@ -144,7 +146,7 @@ class ObjectMeta(ABCMeta):
     self.__init__(*args, **kwargs)
 
 
-def _graph_node_meta_call(cls: tp.Type[G], *args, **kwargs) -> G:
+def _graph_node_meta_call(cls: tp.Type[O], *args, **kwargs) -> O:
   node = cls.__new__(cls, *args, **kwargs)
   vars(node)['_object__state'] = ObjectState()
   cls._object_meta_construct(node, *args, **kwargs)
@@ -153,25 +155,44 @@ def _graph_node_meta_call(cls: tp.Type[G], *args, **kwargs) -> G:
 
 
 @dataclasses.dataclass(frozen=True, repr=False)
-class Array(reprlib.Representable):
+class ArrayRepr(reprlib.Representable):
   shape: tp.Tuple[int, ...]
   dtype: tp.Any
 
   @staticmethod
-  def from_array(array: jax.Array | np.ndarray) -> Array:
-    return Array(array.shape, array.dtype)
+  def from_array(array: jax.Array | np.ndarray) -> ArrayRepr:
+    return ArrayRepr(array.shape, array.dtype)
 
   def __nnx_repr__(self):
     yield reprlib.Object(type='Array', same_line=True)
     yield reprlib.Attr('shape', self.shape)
     yield reprlib.Attr('dtype', self.dtype)
 
+@dataclasses.dataclass(frozen=True, repr=False)
+class MutableArrayRepr(reprlib.Representable):
+  shape: tp.Tuple[int, ...]
+  dtype: tp.Any
+
+  @staticmethod
+  def from_array(array: jax.Array | np.ndarray) -> MutableArrayRepr:
+    return MutableArrayRepr(array.shape, array.dtype)
+
+  def __nnx_repr__(self):
+    yield reprlib.Object(type='MutableArray', same_line=True)
+    yield reprlib.Attr('shape', self.shape)
+    yield reprlib.Attr('dtype', self.dtype)
 
 class Object(reprlib.Representable, metaclass=ObjectMeta):
+
   if tp.TYPE_CHECKING:
+    _object__nodes: frozenset[str] | tp.Literal['all', 'auto'] | None
+    _object__is_pytree: bool
+    __data__: tuple[str, ...] | tp.Literal['all', 'auto']
     _object__state: ObjectState
 
-  def __init_subclass__(cls, **kwargs) -> None:
+  def __init_subclass__(
+    cls, pytree: bool = config.flax_mutable_array, **kwargs
+  ) -> None:
     super().__init_subclass__(**kwargs)
 
     graph.register_graph_node_type(
@@ -183,10 +204,75 @@ class Object(reprlib.Representable, metaclass=ObjectMeta):
       clear=cls._graph_node_clear,
       init=cls._graph_node_init,  # type: ignore
     )
+    cls._object__is_pytree = pytree
+    class_nodes: tuple[str, ...] | tp.Literal['all', 'auto'] | None = vars(
+      cls
+    ).get('__data__', None)
+    parent_nodes: frozenset[str] | tp.Literal['all', 'auto'] | None = getattr(
+      cls, '_object__nodes', None
+    )
+    if (
+      class_nodes is not None
+      and parent_nodes is not None
+      and not (
+        (isinstance(parent_nodes, frozenset) and isinstance(class_nodes, tuple))
+        or parent_nodes == class_nodes
+      )
+    ):
+      raise ValueError(
+        f"Cannot set __data__ for class '{cls.__name__}' to '{class_nodes}' "
+        f"because it is already set to '{parent_nodes}' on its parent."
+      )
+
+    if class_nodes is None and parent_nodes is not None:
+      cls._object__nodes = parent_nodes
+    elif isinstance(class_nodes, tuple):
+      if parent_nodes is None:
+        all_nodes = set()
+      else:
+        assert isinstance(parent_nodes, frozenset)
+        all_nodes = set(parent_nodes)
+      all_nodes.update(class_nodes)
+      all_nodes.add('_object__state')
+      cls._object__nodes = frozenset(all_nodes)
+    elif class_nodes in ('all', 'auto'):
+      cls._object__nodes = class_nodes
+    else:
+      assert class_nodes is None
+      cls._object__nodes = None
+
+    if pytree:
+      cls._object__register_pytree()
 
     if BUILDING_DOCS:
       # set correct signature for sphinx
       cls.__signature__ = inspect.signature(cls.__init__)
+
+  @classmethod
+  def _object__register_pytree(cls):
+    if (
+      isinstance(cls._object__nodes, frozenset)
+      or cls._object__nodes is None
+      or cls._object__nodes == 'all'
+    ):
+      jax.tree_util.register_pytree_with_keys(
+        cls,
+        flatten_with_keys=cls._object__flatten_with_paths,
+        unflatten_func=cls._object__unflatten,
+        flatten_func=cls._object__flatten,
+      )
+    elif cls._object__nodes == 'auto':
+      jax.tree_util.register_pytree_with_keys(
+        cls,
+        flatten_with_keys=cls._object__auto_flatten_with_paths,
+        unflatten_func=cls._object__auto_unflatten,
+        flatten_func=cls._object__auto_flatten,
+      )
+    else:
+      raise ValueError(
+        f"Invalid pytree type '{cls._object__nodes}' for class '{cls.__name__}'. "
+        "Expected 'strict' or 'auto'."
+      )
 
   if not tp.TYPE_CHECKING:
 
@@ -197,13 +283,25 @@ class Object(reprlib.Representable, metaclass=ObjectMeta):
     self._check_valid_context(
       lambda: f"Cannot mutate '{type(self).__name__}' from different trace level"
     )
+    if (
+      type(self)._object__is_pytree
+      and isinstance(self._object__nodes, frozenset)
+      and name not in self._object__nodes
+    ):
+      for leaf in jax.tree.leaves(value):
+        if isinstance(leaf, jax.Array) or is_mutable_array(leaf):
+          raise TypeError(
+            f"Trying to set '{name}' to a value containing one or more "
+            f"jax.Array, but '{name}' is not a registered in __data__. "
+            f'Got value: {value}'
+          )
     object.__setattr__(self, name, value)
 
   def _check_valid_context(self, error_msg: tp.Callable[[], str]) -> None:
     if not self._object__state.trace_state.is_valid():
       raise errors.TraceContextError(error_msg())
 
-  def __deepcopy__(self: G, memo=None) -> G:
+  def __deepcopy__(self: O, memo=None) -> O:
     graphdef, state = graph.split(self)
     graphdef = deepcopy(graphdef)
     state = deepcopy(state)
@@ -217,6 +315,10 @@ class Object(reprlib.Representable, metaclass=ObjectMeta):
       stats = node_stats[id(self)]
       clear_node_stats = True
     else:
+      if id(self) not in OBJECT_CONTEXT.node_stats:
+        raise RuntimeError(
+          f"Object '{type(self).__name__}' not found in node stats. This is a bug."
+        )
       stats = OBJECT_CONTEXT.node_stats[id(self)]
       clear_node_stats = False
 
@@ -254,14 +356,16 @@ class Object(reprlib.Representable, metaclass=ObjectMeta):
             return value.replace(
               raw_value=jax.tree.map(to_shape_dtype, value.raw_value)
             )
+          elif variablelib.is_mutable_array(value) and np.prod(value.shape) > 1:
+            return MutableArrayRepr(value.shape, value.dtype)
           elif (
             isinstance(value, (np.ndarray, jax.Array))
             and np.prod(value.shape) > 1
           ):
-            return Array(value.shape, value.dtype)
+            return ArrayRepr(value.shape, value.dtype)
           return value
 
-        value = jax.tree.map(to_shape_dtype, value)
+        value = jax.tree.map(to_shape_dtype, value, is_leaf=graph.is_graph_node)
         yield reprlib.Attr(name, value)
     finally:
       if clear_seen:
@@ -321,7 +425,107 @@ class Object(reprlib.Representable, metaclass=ObjectMeta):
       if clear_node_stats:
         OBJECT_CONTEXT.node_stats = None
 
+  # pickle support
+  def __getstate__(self):
+    return vars(self).copy()
+
+  def __setstate__(self, state):
+    vars(self).update(state)
+
+  # -------------------------
+  # Pytree Definition
+  # -------------------------
+  # strict
+  def _object__flatten_with_paths(self):
+    obj_vars = vars(self)
+    type_nodes = type(self)._object__nodes
+    assert type_nodes != 'auto'
+    node_names: list[str] = []
+    node_attrs: list[tuple[tp.Any, tp.Any]] = []
+    static_attrs: list[tuple[str, tp.Any]] = []
+    for name, value in sorted(obj_vars.items()):
+      if (
+        name == '_object__state'
+        or type_nodes == 'all'
+        or (isinstance(type_nodes, frozenset) and name in type_nodes)
+      ):
+        node_names.append(name)
+        node_attrs.append((jax.tree_util.GetAttrKey(name), value))
+      else:
+        static_attrs.append((name, value))
+
+    return node_attrs, (tuple(node_names), tuple(static_attrs))
+
+  def _object__flatten(self):
+    obj_vars = vars(self)
+    type_nodes = type(self)._object__nodes
+    assert type_nodes != 'auto'
+    node_names: list[str] = []
+    node_attrs: list[tp.Any] = []
+    static_attrs: list[tuple[str, tp.Any]] = []
+    for name, value in sorted(obj_vars.items()):
+      if (
+        name == '_object__state'
+        or type_nodes == 'all'
+        or (isinstance(type_nodes, frozenset) and name in type_nodes)
+      ):
+        node_names.append(name)
+        node_attrs.append(value)
+      else:
+        static_attrs.append((name, value))
+
+    return node_attrs, (tuple(node_names), tuple(static_attrs))
+
+  @classmethod
+  def _object__unflatten(
+    cls,
+    static: tuple[tuple[str, ...], tuple[tuple[str, tp.Any], ...]],
+    node_attrs: tp.Iterable[tp.Any],
+  ):
+    node_names, static_attrs = static
+    obj = object.__new__(cls)
+    vars_obj = vars(obj)
+    vars_obj.update(zip(node_names, node_attrs, strict=True))
+    vars_obj.update(static_attrs)
+    return obj
+
+  # auto
+  def _object__auto_flatten_with_paths(self):
+    graphdef, state = graph.split(self)
+    key_values = sorted(
+      state.raw_mapping.items()  # type: ignore
+    )
+    keys = tuple(key for key, _ in key_values)
+
+    children: tuple[tp.Any, ...]
+    children = tuple(
+      (jax.tree_util.DictKey(key), value) for key, value in key_values
+    )
+
+    return children, (keys, graphdef)
+
+  def _object__auto_flatten(self):
+    graphdef, state = graph.split(self)
+    key_values = sorted(
+      state.raw_mapping.items()  # type: ignore
+    )
+    keys = tuple(key for key, _ in key_values)
+    children = tuple(value for _, value in key_values)
+
+    return children, (keys, graphdef)
+
+  @classmethod
+  def _object__auto_unflatten(
+    cls,
+    paths_moduledef: tuple[tuple[tp.Any, ...], graph.GraphDef[O]],
+    children: tp.Iterable[tp.Any],
+  ):
+    paths, graphdef = paths_moduledef
+    return graph.merge(graphdef, dict(zip(paths, children, strict=True)))
+
+  # -------------------------
   # Graph Definition
+  # -------------------------
   def _graph_node_flatten(self):
     nodes = vars(self).copy()
     nodes = sorted(nodes.items())
@@ -345,7 +549,7 @@ class Object(reprlib.Representable, metaclass=ObjectMeta):
     return vars(self).pop(key)
 
   @staticmethod
-  def _graph_node_create_empty(node_type: tp.Type[G]) -> G:
+  def _graph_node_create_empty(node_type: tp.Type[O]) -> O:
     node = object.__new__(node_type)
     return node
 

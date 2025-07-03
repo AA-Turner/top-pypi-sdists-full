@@ -652,11 +652,11 @@ future becomes ready only once the data has been durably committed by the
 underlying storage layer.  The precise durability guarantees depend on the
 driver, but for example:
 
-- when using the :ref:`file-kvstore-driver`, the data is only considered
+- when using the :ref:`kvstore/file`, the data is only considered
   committed once the ``fsync`` system call completes, which should normally
   guarantee that it will survive a system crash;
 
-- when using the :ref:`gcs-kvstore-driver`, the data is only considered
+- when using the :ref:`kvstore/gcs`, the data is only considered
   committed once the write is acknowledged and durability is guaranteed by
   Google Cloud Storage.
 
@@ -2499,6 +2499,31 @@ The same TensorStore opened in the previous section can be specified more concis
    The URL syntax is very limited in the options and parameters that may be
    specified but is convenient in simple cases.
 
+Opening with format auto-detection
+----------------------------------
+
+Many formats can be :ref:`auto-detected<driver/auto>` from a
+:json:schema:`KvStore URL<KvStoreUrl>` alone:
+
+    >>> store = await ts.open(
+    ...     'gs://neuroglancer-janelia-flyem-hemibrain/v1.2/segmentation/',
+    ...     read=True)
+    >>> store.url
+    'gs://neuroglancer-janelia-flyem-hemibrain/v1.2/segmentation/|neuroglancer-precomputed:'
+
+A full :json:schema:`KvStore JSON spec<KvStore>` can also be specified instead of a URL:
+
+
+    >>> store = await ts.open(
+    ...     {
+    ...         'driver': 'gcs',
+    ...         'bucket': 'neuroglancer-janelia-flyem-hemibrain',
+    ...         'path': 'v1.2/segmentation/'
+    ...     },
+    ...     read=True)
+    >>> store.url
+    'gs://neuroglancer-janelia-flyem-hemibrain/v1.2/segmentation/|neuroglancer-precomputed:'
+
 Creating a new TensorStore
 --------------------------
 
@@ -2704,7 +2729,7 @@ Using :py:param:`.assume_metadata` for improved concurrent open efficiency
 --------------------------------------------------------------------------
 
 Normally, when opening or creating a chunked format like
-:ref:`zarr<zarr-driver>`, TensorStore first attempts to read the existing
+:ref:`zarr<driver/zarr2>`, TensorStore first attempts to read the existing
 metadata (and confirms that it matches any specified constraints), or (if
 creating is allowed) creates a new metadata file based on any specified
 constraints.

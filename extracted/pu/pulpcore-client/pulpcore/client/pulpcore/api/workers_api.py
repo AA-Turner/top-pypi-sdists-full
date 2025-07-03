@@ -45,6 +45,7 @@ class WorkersApi:
     @validate_call
     def list(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         last_heartbeat: Annotated[Optional[datetime], Field(description="Filter results where last_heartbeat matches value")] = None,
         last_heartbeat__gt: Annotated[Optional[datetime], Field(description="Filter results where last_heartbeat is greater than value")] = None,
         last_heartbeat__gte: Annotated[Optional[datetime], Field(description="Filter results where last_heartbeat is greater than or equal to value")] = None,
@@ -89,6 +90,8 @@ class WorkersApi:
 
         A customized named ModelViewSet that knows how to register itself with the Pulp API router.  This viewset is discoverable by its name. \"Normal\" Django Models and Master/Detail models are supported by the ``register_with`` method.  Attributes:     lookup_field (str): The name of the field by which an object should be looked up, in         addition to any parent lookups if this ViewSet is nested. Defaults to 'pk'     endpoint_name (str): The name of the final path segment that should identify the ViewSet's         collection endpoint.     nest_prefix (str): Optional prefix under which this ViewSet should be nested. This must         correspond to the \"parent_prefix\" of a router with rest_framework_nested.NestedMixin.         None indicates this ViewSet should not be nested.     parent_lookup_kwargs (dict): Optional mapping of key names that would appear in self.kwargs         to django model filter expressions that can be used with the corresponding value from         self.kwargs, used only by a nested ViewSet to filter based on the parent object's         identity.     schema (DefaultSchema): The schema class to use by default in a viewset.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param last_heartbeat: Filter results where last_heartbeat matches value
         :type last_heartbeat: datetime
         :param last_heartbeat__gt: Filter results where last_heartbeat is greater than value
@@ -166,6 +169,7 @@ class WorkersApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             last_heartbeat=last_heartbeat,
             last_heartbeat__gt=last_heartbeat__gt,
             last_heartbeat__gte=last_heartbeat__gte,
@@ -216,6 +220,7 @@ class WorkersApi:
     @validate_call
     def list_with_http_info(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         last_heartbeat: Annotated[Optional[datetime], Field(description="Filter results where last_heartbeat matches value")] = None,
         last_heartbeat__gt: Annotated[Optional[datetime], Field(description="Filter results where last_heartbeat is greater than value")] = None,
         last_heartbeat__gte: Annotated[Optional[datetime], Field(description="Filter results where last_heartbeat is greater than or equal to value")] = None,
@@ -260,6 +265,8 @@ class WorkersApi:
 
         A customized named ModelViewSet that knows how to register itself with the Pulp API router.  This viewset is discoverable by its name. \"Normal\" Django Models and Master/Detail models are supported by the ``register_with`` method.  Attributes:     lookup_field (str): The name of the field by which an object should be looked up, in         addition to any parent lookups if this ViewSet is nested. Defaults to 'pk'     endpoint_name (str): The name of the final path segment that should identify the ViewSet's         collection endpoint.     nest_prefix (str): Optional prefix under which this ViewSet should be nested. This must         correspond to the \"parent_prefix\" of a router with rest_framework_nested.NestedMixin.         None indicates this ViewSet should not be nested.     parent_lookup_kwargs (dict): Optional mapping of key names that would appear in self.kwargs         to django model filter expressions that can be used with the corresponding value from         self.kwargs, used only by a nested ViewSet to filter based on the parent object's         identity.     schema (DefaultSchema): The schema class to use by default in a viewset.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param last_heartbeat: Filter results where last_heartbeat matches value
         :type last_heartbeat: datetime
         :param last_heartbeat__gt: Filter results where last_heartbeat is greater than value
@@ -337,6 +344,7 @@ class WorkersApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             last_heartbeat=last_heartbeat,
             last_heartbeat__gt=last_heartbeat__gt,
             last_heartbeat__gte=last_heartbeat__gte,
@@ -387,6 +395,7 @@ class WorkersApi:
     @validate_call
     def list_without_preload_content(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         last_heartbeat: Annotated[Optional[datetime], Field(description="Filter results where last_heartbeat matches value")] = None,
         last_heartbeat__gt: Annotated[Optional[datetime], Field(description="Filter results where last_heartbeat is greater than value")] = None,
         last_heartbeat__gte: Annotated[Optional[datetime], Field(description="Filter results where last_heartbeat is greater than or equal to value")] = None,
@@ -431,6 +440,8 @@ class WorkersApi:
 
         A customized named ModelViewSet that knows how to register itself with the Pulp API router.  This viewset is discoverable by its name. \"Normal\" Django Models and Master/Detail models are supported by the ``register_with`` method.  Attributes:     lookup_field (str): The name of the field by which an object should be looked up, in         addition to any parent lookups if this ViewSet is nested. Defaults to 'pk'     endpoint_name (str): The name of the final path segment that should identify the ViewSet's         collection endpoint.     nest_prefix (str): Optional prefix under which this ViewSet should be nested. This must         correspond to the \"parent_prefix\" of a router with rest_framework_nested.NestedMixin.         None indicates this ViewSet should not be nested.     parent_lookup_kwargs (dict): Optional mapping of key names that would appear in self.kwargs         to django model filter expressions that can be used with the corresponding value from         self.kwargs, used only by a nested ViewSet to filter based on the parent object's         identity.     schema (DefaultSchema): The schema class to use by default in a viewset.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param last_heartbeat: Filter results where last_heartbeat matches value
         :type last_heartbeat: datetime
         :param last_heartbeat__gt: Filter results where last_heartbeat is greater than value
@@ -508,6 +519,7 @@ class WorkersApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             last_heartbeat=last_heartbeat,
             last_heartbeat__gt=last_heartbeat__gt,
             last_heartbeat__gte=last_heartbeat__gte,
@@ -553,6 +565,7 @@ class WorkersApi:
 
     def _list_serialize(
         self,
+        x_task_diagnostics,
         last_heartbeat,
         last_heartbeat__gt,
         last_heartbeat__gte,
@@ -589,6 +602,7 @@ class WorkersApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'last_heartbeat__range': 'csv',
             'name__in': 'csv',
             'ordering': 'csv',
@@ -764,6 +778,8 @@ class WorkersApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -805,6 +821,7 @@ class WorkersApi:
     def read(
         self,
         worker_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -826,6 +843,8 @@ class WorkersApi:
 
         :param worker_href: (required)
         :type worker_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -854,6 +873,7 @@ class WorkersApi:
 
         _param = self._read_serialize(
             worker_href=worker_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -880,6 +900,7 @@ class WorkersApi:
     def read_with_http_info(
         self,
         worker_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -901,6 +922,8 @@ class WorkersApi:
 
         :param worker_href: (required)
         :type worker_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -929,6 +952,7 @@ class WorkersApi:
 
         _param = self._read_serialize(
             worker_href=worker_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -955,6 +979,7 @@ class WorkersApi:
     def read_without_preload_content(
         self,
         worker_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -976,6 +1001,8 @@ class WorkersApi:
 
         :param worker_href: (required)
         :type worker_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1004,6 +1031,7 @@ class WorkersApi:
 
         _param = self._read_serialize(
             worker_href=worker_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1025,6 +1053,7 @@ class WorkersApi:
     def _read_serialize(
         self,
         worker_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -1036,6 +1065,7 @@ class WorkersApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -1062,6 +1092,8 @@ class WorkersApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 

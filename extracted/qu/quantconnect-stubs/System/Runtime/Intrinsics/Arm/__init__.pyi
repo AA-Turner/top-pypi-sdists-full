@@ -7119,23 +7119,7 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
-    def absolute_difference_add_widening_lower(addend: System.Numerics.Vector[int], left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
-        """
-        svint16_t svabalb[_s16](svint16_t op1, svint8_t op2, svint8_t op3)
-          SABALB Ztied1.H, Zop2.B, Zop3.B
-        """
-        ...
-
-    @staticmethod
-    def absolute_difference_add_widening_upper(addend: System.Numerics.Vector[int], left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
-        """
-        svint16_t svabalt[_s16](svint16_t op1, svint8_t op2, svint8_t op3)
-          SABALT Ztied1.H, Zop2.B, Zop3.B
-        """
-        ...
-
-    @staticmethod
-    def absolute_difference_widening_lower(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+    def absolute_difference_widening_even(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
         """
         svint16_t svabdlb[_s16](svint8_t op1, svint8_t op2)
           SABDLB Zresult.H, Zop1.B, Zop2.B
@@ -7143,7 +7127,23 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
-    def absolute_difference_widening_upper(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+    def absolute_difference_widening_lower_and_add_even(addend: System.Numerics.Vector[int], left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svint16_t svabalb[_s16](svint16_t op1, svint8_t op2, svint8_t op3)
+          SABALB Ztied1.H, Zop2.B, Zop3.B
+        """
+        ...
+
+    @staticmethod
+    def absolute_difference_widening_lower_and_add_odd(addend: System.Numerics.Vector[int], left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svint16_t svabalt[_s16](svint16_t op1, svint8_t op2, svint8_t op3)
+          SABALT Ztied1.H, Zop2.B, Zop3.B
+        """
+        ...
+
+    @staticmethod
+    def absolute_difference_widening_odd(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
         """
         svint16_t svabdlt[_s16](svint8_t op1, svint8_t op2)
           SABDLT Zresult.H, Zop1.B, Zop2.B
@@ -7151,7 +7151,7 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
-    def add_carry_widening_lower(op_1: System.Numerics.Vector[int], op_2: System.Numerics.Vector[int], op_3: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+    def add_carry_widening_even(op_1: System.Numerics.Vector[int], op_2: System.Numerics.Vector[int], op_3: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
         """
         svuint32_t svadclb[_u32](svuint32_t op_1, svuint32_t op_2, svuint32_t op_3)
           ADCLB Ztied1.S, Zop_2.S, Zop_3.S
@@ -7159,7 +7159,7 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
-    def add_carry_widening_upper(op_1: System.Numerics.Vector[int], op_2: System.Numerics.Vector[int], op_3: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+    def add_carry_widening_odd(op_1: System.Numerics.Vector[int], op_2: System.Numerics.Vector[int], op_3: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
         """
         svuint32_t svadclt[_u32](svuint32_t op_1, svuint32_t op_2, svuint32_t op_3)
           ADCLT Ztied1.S, Zop_2.S, Zop_3.S

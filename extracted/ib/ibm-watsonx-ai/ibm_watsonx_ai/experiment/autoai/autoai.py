@@ -723,16 +723,18 @@ class AutoAI(BaseExperiment):
             else None
         )
         include_batched_ensemble_estimators = (
-            translate_str_include_batched_ensemble_estimators_param(
-                include_batched_ensemble_estimators
+            include_batched_ensemble_estimators
+            if include_batched_ensemble_estimators is None
+            else (
+                translate_str_include_batched_ensemble_estimators_param(
+                    include_batched_ensemble_estimators
+                )
             )
-            if include_batched_ensemble_estimators
-            else None
         )
         pipeline_types = (
-            translate_str_pipeline_types_param(pipeline_types)
-            if pipeline_types != None
-            else None
+            pipeline_types
+            if pipeline_types is None
+            else (translate_str_pipeline_types_param(pipeline_types))
         )
 
         if include_batched_ensemble_estimators:

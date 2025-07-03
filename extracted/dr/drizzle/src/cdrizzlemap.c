@@ -165,92 +165,6 @@ interpolate_point(struct driz_param_t *par, double xin, double yin,
 }
 
 /** ---------------------------------------------------------------------------
- * Map a clockwise grid of four points on the input image to the
- * output image using a mapping of the pixel centers between the two
- * by interpolating between the centers in the mapping.  This assumes
- * that we want a square grid in the original coordinates centered on
- * an integer pixel value, as is used by do_square_kernel.
- *
- * pixmap: The mapping of the pixel centers from input to output image
- * xyin:   An (x,y) point on the input image, in integer pixels
- * h:      The x,y distance (<1) from the pixel center to the edges
- * xyout:  Four (x, y) points on the output image (output), given as
- *         four x points, then four y points.
- */
-int
-interpolate_four_points(struct driz_param_t *par,
-			int ixcen, int iycen, double h,
-			double *x1, double *x2, double *x3, double *x4,
-			double *y1, double *y2, double *y3, double *y4) {
-    int i, j, nx2, ny2;
-    double fac;
-    npy_intp *ndim;
-    double f[3][3], g[3][3];
-    double *p;
-    PyArrayObject *pixmap;
-
-    pixmap = par->pixmap;
-
-    /* Bilinear interpolation from
-       https://en.wikipedia.org/wiki/Bilinear_interpolation#On_the_unit_square
-    */
-
-    ndim = PyArray_DIMS(pixmap);
-    nx2 = (int)ndim[1] - 2;
-    ny2 = (int)ndim[0] - 2;
-
-    /* This is written specifically for the case where I am enclosed
-     * by nine pixels.  Since the increments are the same in x and y,
-     * I can take a shortcut by pre-multiplying by the distances from
-     * center point, given by i=j=1 below. Loop ordered for speed
-     * based on numpy array order.
-     */
-    assert(h <= 1);
-    assert(ixcen >= 1 && iycen >= 1 && ixcen <= nx2 && iycen <= ny2);
-
-    for (j = 0; j <= 2; j++) {
-      for (i = 0; i <= 2; i++) {
-	p = get_pixmap(pixmap, i + ixcen - 1, j + iycen - 1);
-	if (i == 1 && j == 1) {
-	  fac = (1 - h) * (1 - h);
-	} else {
-	  if (i == 1 || j == 1) {
-	    fac = (1 - h) * h;
-	  } else {
-	    fac = h * h;
-	  }
-	}
-	f[i][j] = p[0] * fac;
-	g[i][j] = p[1] * fac;
-      }
-    }
-
-    /* We return the vertices of a square going clockwise in the
-     * original pixel grid.
-     * Order in y: +h, +h, -h, -h; order in x: -h, +h, +h, -h
-    */
-
-    *x1 = f[0][1] + f[1][1] + f[0][2] + f[1][2];
-    *y1 = g[0][1] + g[1][1] + g[0][2] + g[1][2];
-
-    *x2 = f[1][1] + f[2][1] + f[1][2] + f[2][2];
-    *y2 = g[1][1] + g[2][1] + g[1][2] + g[2][2];
-
-    *x3 = f[1][0] + f[2][0] + f[1][1] + f[2][1];
-    *y3 = g[1][0] + g[2][0] + g[1][1] + g[2][1];
-
-    *x4 = f[0][0] + f[1][0] + f[0][1] + f[1][1];
-    *y4 = g[0][0] + g[1][0] + g[0][1] + g[1][1];
-
-    if (npy_isnan(*x1) || npy_isnan(*y1) ||
-	npy_isnan(*x2) || npy_isnan(*y2) ||
-	npy_isnan(*x3) || npy_isnan(*y3) ||
-	npy_isnan(*x4) || npy_isnan(*y4)) return 1;
-
-    return 0;
-}
-
-/** ---------------------------------------------------------------------------
  * Map an integer pixel position from the input to the output image.
  * Fall back on interpolation if the value at the point is undefined
  *
@@ -678,7 +592,7 @@ init_edge(struct edge *e, struct vertex v1, struct vertex v2, int position) {
     e->m = (v2.x - v1.x) / (v2.y - v1.y);
     e->b = (v1.x * v2.y - v1.y * v2.x) / (v2.y - v1.y);
     e->c = e->b - copysign(0.5 + 0.5 * fabs(e->m), (double)position);
-}
+};
 
 /**
  * Set-up scanner structure for a polygon.
@@ -849,7 +763,7 @@ get_scanline_limits(struct scanner *s, int y, int *x1, int *x2) {
             return 1;
         }
         ++s->left;
-    }
+    };
 
     while (pyb > s->right->v2.y) {
         if (s->right == er_max) {
@@ -858,7 +772,7 @@ get_scanline_limits(struct scanner *s, int y, int *x1, int *x2) {
             return 1;
         }
         ++s->right;
-    }
+    };
 
     xlb = s->left->m * y + s->left->c - MAX_INV_ERR;
     xrb = s->right->m * y + s->right->c + MAX_INV_ERR;
@@ -872,7 +786,7 @@ get_scanline_limits(struct scanner *s, int y, int *x1, int *x2) {
         }
         ++s->left;
         edge_ymax = s->left->v2.y + 0.5 + MAX_INV_ERR;
-    }
+    };
 
     edge_ymax = s->right->v2.y + 0.5 + MAX_INV_ERR;
     while (pyt > edge_ymax) {
@@ -883,7 +797,7 @@ get_scanline_limits(struct scanner *s, int y, int *x1, int *x2) {
         }
         ++s->right;
         edge_ymax = s->right->v2.y + 0.5 + MAX_INV_ERR;
-    }
+    };
 
     xlt = s->left->m * y + s->left->c - MAX_INV_ERR;
     xrt = s->right->m * y + s->right->c + MAX_INV_ERR;

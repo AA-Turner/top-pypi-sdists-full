@@ -3,7 +3,9 @@ import os
 
 from pysqlsync.base import BaseContext, Explorer
 
-from dap.replicator import meta_schema
+from ..replicator import meta_schema
+
+from .. import ui
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +37,7 @@ class VersionUpgrader:
     async def upgrade(self) -> None:
         if self.dialect not in SUPPORTED_DIALECTS:
             raise ValueError(
-                f"Error during upgrade: Dialect {self.dialect} not supported"
+                f"Upgrade failed. Database dialect {self.dialect} is not supported."
             )
         await self.explorer.synchronize(modules=[meta_schema])
         db_version = await self._get_version_from_db()
@@ -59,11 +61,11 @@ class VersionUpgrader:
             logger.debug(f"Found version records: {records}")
             if len(records) > 1:
                 raise ValueError(
-                    f"Error during upgrade: found more than one version record in {table.name}"
+                    f"Upgrade failed. Multiple version records found in table {table.name}, expected only one."
                 )
             if not isinstance(records[0].version, int):
                 raise ValueError(
-                    f"Error during upgrade: version {records[0].version} is not an integer"
+                    f"Upgrade failed. Invalid version format: expected an integer but found {records[0].version}."
                 )
             return records[0].version
         else:
@@ -108,7 +110,9 @@ class VersionUpgrader:
                     logger.debug(f"Executing SQL: {sql}")
                     await self.base_context.execute(sql)
             except FileNotFoundError:
-                logger.error(f"Error during upgrade: file {file_name} not found")
+                err_str = f"Upgrade failed. Migration file {file_name} is missing. Please verify your installation."
+                ui.error(err_str)
+                logger.error(err_str)
                 raise
 
     def _ensure_upgrade_scripts_exist(self, from_version: int, to_version: int) -> None:

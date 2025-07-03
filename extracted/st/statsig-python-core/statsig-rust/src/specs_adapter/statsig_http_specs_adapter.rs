@@ -19,7 +19,7 @@ use std::time::Duration;
 use tokio::sync::Notify;
 use tokio::time::sleep;
 
-use super::{ConfigCompressionMode, SpecsInfo};
+use super::SpecsInfo;
 
 pub struct NetworkResponse {
     pub data: Vec<u8>,
@@ -28,6 +28,7 @@ pub struct NetworkResponse {
 
 pub const DEFAULT_SPECS_URL: &str = "https://api.statsigcdn.com/v2/download_config_specs";
 pub const DEFAULT_SYNC_INTERVAL_MS: u32 = 10_000;
+#[allow(unused)]
 pub const INIT_DICT_ID: &str = "null";
 
 const TAG: &str = stringify!(StatsigHttpSpecsAdapter);
@@ -38,7 +39,6 @@ pub struct StatsigHttpSpecsAdapter {
     specs_url: String,
     fallback_url: Option<String>,
     sync_interval_duration: Duration,
-    config_compression_mode: ConfigCompressionMode,
     ops_stats: Arc<OpsStatsForInstance>,
     shutdown_notify: Arc<Notify>,
 }
@@ -86,11 +86,11 @@ impl StatsigHttpSpecsAdapter {
             )),
             ops_stats: OPS_STATS.get_for_instance(sdk_key),
             shutdown_notify: Arc::new(Notify::new()),
-            config_compression_mode: options_ref
-                .config_compression_mode
-                .clone()
-                .unwrap_or(ConfigCompressionMode::Gzip),
         }
+    }
+
+    pub fn force_shutdown(&self) {
+        self.shutdown_notify.notify_one();
     }
 
     pub async fn fetch_specs_from_network(
@@ -122,7 +122,6 @@ impl StatsigHttpSpecsAdapter {
 
         RequestArgs {
             url: construct_specs_url(
-                &self.config_compression_mode,
                 self.specs_url.as_str(),
                 self.sdk_key.as_str(),
                 current_specs_info.zstd_dict_id.as_deref(),
@@ -141,7 +140,6 @@ impl StatsigHttpSpecsAdapter {
     ) -> Result<NetworkResponse, NetworkError> {
         let fallback_url = match &self.fallback_url {
             Some(url) => construct_specs_url(
-                &self.config_compression_mode,
                 url.as_str(),
                 &self.sdk_key,
                 current_specs_info.zstd_dict_id.as_deref(),
@@ -183,15 +181,8 @@ impl StatsigHttpSpecsAdapter {
         }
     }
 
-    pub async fn run_background_sync(weak_self: &Weak<Self>) {
-        let strong_self = if let Some(s) = weak_self.upgrade() {
-            s
-        } else {
-            log_e!(TAG, "No strong reference found");
-            return;
-        };
-
-        let specs_info = match strong_self.listener.read() {
+    pub async fn run_background_sync(self: Arc<Self>) {
+        let specs_info = match self.listener.read() {
             Ok(lock) => match lock.as_ref() {
                 Some(listener) => listener.get_current_specs_info(),
                 None => SpecsInfo::empty(),
@@ -199,16 +190,15 @@ impl StatsigHttpSpecsAdapter {
             Err(_) => SpecsInfo::error(),
         };
 
-        strong_self
-            .ops_stats
+        self.ops_stats
             .set_diagnostics_context(ContextType::ConfigSync);
-        if let Err(e) = strong_self.manually_sync_specs(specs_info).await {
+        if let Err(e) = self.manually_sync_specs(specs_info).await {
             if let StatsigErr::NetworkError(NetworkError::DisableNetworkOn(_)) = e {
                 return;
             }
             log_e!(TAG, "Background specs sync failed: {}", e);
         }
-        strong_self.ops_stats.enqueue_diagnostics_event(
+        self.ops_stats.enqueue_diagnostics_event(
             Some(KeyType::DownloadConfigSpecs),
             Some(ContextType::ConfigSync),
         );
@@ -269,8 +259,7 @@ impl StatsigHttpSpecsAdapter {
             },
             Err(e) => {
                 let err = StatsigErr::LockFailure(format!(
-                    "Failed to acquire read lock on listener: {}",
-                    e
+                    "Failed to acquire read lock on listener: {e}"
                 ));
                 log_error_to_statsig_and_console!(&self.ops_stats, TAG, err.clone());
                 Err(err)
@@ -328,7 +317,12 @@ impl SpecsAdapter for StatsigHttpSpecsAdapter {
             loop {
                 tokio::select! {
                     () = sleep(interval_duration) => {
-                        Self::run_background_sync(&weak_self).await;
+                        if let Some(strong_self) = weak_self.upgrade() {
+                            Self::run_background_sync(strong_self).await;
+                        } else {
+                            log_e!(TAG, "Strong reference to StatsigHttpSpecsAdapter lost. Stopping background sync");
+                            break;
+                        }
                     }
                     () = rt_shutdown_notify.notified() => {
                         log_d!(TAG, "Runtime shutdown. Shutting down specs background sync");
@@ -359,17 +353,13 @@ impl SpecsAdapter for StatsigHttpSpecsAdapter {
     }
 }
 
-fn construct_specs_url(
-    compression_mode: &ConfigCompressionMode,
-    spec_url: &str,
-    sdk_key: &str,
-    dict_id: Option<&str>,
-) -> String {
-    match compression_mode {
-        ConfigCompressionMode::Gzip => format!("{spec_url}/{sdk_key}.json"),
-        ConfigCompressionMode::Dictionary => {
-            let dict_id = dict_id.unwrap_or(INIT_DICT_ID);
-            format!("{spec_url}/d/{dict_id}/{sdk_key}.json")
-        }
+#[allow(unused)]
+fn construct_specs_url(spec_url: &str, sdk_key: &str, dict_id: Option<&str>) -> String {
+    #[cfg(feature = "with_shared_dict_compression")]
+    {
+        let dict_id = dict_id.unwrap_or(INIT_DICT_ID);
+        format!("{spec_url}/d/{dict_id}/{sdk_key}.json")
     }
+    #[cfg(not(feature = "with_shared_dict_compression"))]
+    format!("{spec_url}/{sdk_key}.json")
 }

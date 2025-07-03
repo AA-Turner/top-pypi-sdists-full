@@ -5,8 +5,9 @@ from typing import Optional, Dict, Any
 import typer
 
 from mcp_cli.config import get_servers_config, get_server_config
-from mcp_cli.connection import inspect_server_capabilities, call_tool_on_server, call_resource_on_server
+from mcp_cli.connection import inspect_server_capabilities, call_tool_on_server, call_resource_on_server, extract_exception_details
 from mcp_cli.console import print_tools
+from mcp_cli.exceptions import ToolExecutionError
 from mcp_cli.utils import async_command
 
 logger = logging.getLogger(__name__)
@@ -68,7 +69,9 @@ async def list_tools(
                 print_tools(server_name, server_capabilities)
                 
             except Exception as e:
-                typer.secho(f"Failed to list tools for server '{server_name}': {type(e).__name__} - {e}", fg=typer.colors.RED, err=True)
+                logger.exception(f"Failed to list tools for server '{server_name}'")
+                error_details = extract_exception_details(e)
+                typer.secho(f"Failed to list tools for server '{server_name}': {error_details}", fg=typer.colors.RED, err=True)
                 # Continue with next server instead of exiting
                 continue
 
@@ -114,8 +117,15 @@ async def execute_tool(
 
     try:
         tool_result_text = await call_tool_on_server(server_name, server_config, tool_name, tool_input_args)
+        logger.info(f"Tool '{tool_name}' on {server_name} returned result: {tool_result_text}")
         typer.echo(f"Tool result: \n{tool_result_text}\n")
-    except Exception:
+    except ToolExecutionError as e:
+        error_details = extract_exception_details(e)
+        typer.secho(f"Called tool '{tool_name}' on {server_name} but it returned an error response: {error_details}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1)
+    except Exception as e:
+        error_details = extract_exception_details(e)
+        typer.secho(f"Error calling tool '{tool_name}' on {server_name}: {error_details}", fg=typer.colors.RED, err=True)
         raise typer.Exit(code=1)
 
 
@@ -163,4 +173,5 @@ async def read_resource(
         
         typer.echo(f"Resource result: \n{resource_result_text}\n")
     except Exception as e:
+        logger.exception("Resource reading failed")
         raise typer.Exit(code=1)

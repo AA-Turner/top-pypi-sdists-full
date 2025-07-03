@@ -14,7 +14,7 @@ dependencies = [
     "numpy>=1.23.2; python_version>='3.11'",
     "numpy>=1.26.0; python_version>='3.12'",
     # keep in sync with jax-version in .github/workflows/build.yml
-    "jax>=0.5.1",
+    "jax>=0.6.0",
     "msgpack",
     "optax",
     "orbax-checkpoint",
@@ -67,7 +67,7 @@ testing = [
     "ale-py>=0.10.2",
 ]
 docs = [
-    "sphinx>=3.3.1",
+    "sphinx>=4.3.0",
     "sphinx-book-theme",
     "Pygments>=2.6.1",
     "ipykernel",
@@ -78,9 +78,7 @@ docs = [
     "sphinx-design",
     "jupytext==1.13.8",
     "dm-haiku",
-    # Need to pin docutils to 0.16 to make bulleted lists appear correctly on
-    # ReadTheDocs: https://stackoverflow.com/a/68008428
-    "docutils==0.16",
+    "docutils",
     # The next packages are for notebooks.
     "matplotlib",
     "scikit-learn",
@@ -188,6 +186,8 @@ filterwarnings = [
     "ignore:.*numpy.core is deprecated.*:DeprecationWarning",
     # DeprecationWarning: shape requires ndarray or scalar arguments
     "ignore:.*shape requires ndarray or scalar arguments.*:DeprecationWarning",
+    # UserWarning: Sharding info not provided when restoring
+    "ignore:.*Sharding info not provided when restoring.*:UserWarning",
 ]
 
 [tool.coverage.report]

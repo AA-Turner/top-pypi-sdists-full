@@ -37,6 +37,8 @@ class HttpConfig(TypedDict, total=False):
     """Disable /store routes"""
     disable_meta: bool
     """Disable /ok, /info, /metrics, and /docs routes"""
+    disable_webhooks: bool
+    """Disable webhooks calls on run completion in all routes"""
     cors: CorsConfig | None
     """CORS configuration"""
     disable_ui: bool

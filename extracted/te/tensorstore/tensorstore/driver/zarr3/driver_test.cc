@@ -29,6 +29,7 @@
 #include "absl/time/clock.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
+#include "tensorstore/batch.h"
 #include "tensorstore/box.h"
 #include "tensorstore/cast.h"
 #include "tensorstore/chunk_layout.h"
@@ -72,6 +73,7 @@ using ::tensorstore::Context;
 using ::tensorstore::DataType;
 using ::tensorstore::dtype_v;
 using ::tensorstore::Index;
+using ::tensorstore::JsonSubValuesMatch;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::Result;
 using ::tensorstore::Schema;
@@ -115,6 +117,30 @@ TEST(ZarrDriverTest, OpenNonExisting) {
       MatchesStatus(absl::StatusCode::kNotFound,
                     "Error opening \"zarr3\" driver: "
                     "Metadata at \"prefix/zarr\\.json\" does not exist"));
+}
+
+TEST(ZarrDriverTest, OpenTransactional) {
+  auto context = Context::Default();
+  auto transaction = tensorstore::Transaction(tensorstore::isolated);
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
+        tensorstore::Open({{"driver", "zarr3"}, {"kvstore", "memory://"}},
+                          dtype_v<uint8_t>, tensorstore::Schema::Shape({1}),
+                          transaction, context, tensorstore::OpenMode::create)
+            .result());
+    // Reading `zarr.json` directly revokes the metadata cache entry.
+    EXPECT_THAT(
+        tensorstore::kvstore::Read(store.kvstore(), "zarr.json").result(),
+        MatchesKvsReadResult(::testing::Matcher<absl::Cord>(::testing::_)));
+  }
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
+        tensorstore::Open({{"driver", "zarr3"}, {"kvstore", "memory://"}},
+                          transaction, context)
+            .result());
+  }
 }
 
 TEST(ZarrDriverTest, OpenWithOpenKvStore) {
@@ -1203,6 +1229,7 @@ TENSORSTORE_GLOBAL_INITIALIZER {
   };
   options.check_serialization = true;
   options.url = "file://${TEMPDIR}/prefix/|zarr3:";
+  options.check_auto_detect = true;
   tensorstore::internal::RegisterTensorStoreDriverSpecRoundtripTest(
       std::move(options));
 }
@@ -1731,6 +1758,56 @@ TEST(DriverTest, TransactionalZeroByteReadAfterWritingChunk) {
   }
 
   EXPECT_THAT(mock_kvstore->request_log.pop_all(), ::testing::ElementsAre());
+}
+
+TEST(DriverTest, WriteCoalescingWhenCopyingFromChunkedTensorStore) {
+  auto context = Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto mock_key_value_store_resource,
+      context.GetResource<tensorstore::internal::MockKeyValueStoreResource>());
+  auto mock_kvstore = *mock_key_value_store_resource;
+  mock_kvstore->forward_to = tensorstore::GetMemoryKeyValueStore();
+  mock_kvstore->log_requests = true;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto source,
+      tensorstore::Open(
+          {
+              {"driver", "zarr3"},
+              {"kvstore",
+               {{"driver", "mock_key_value_store"}, {"path", "source/"}}},
+          },
+          tensorstore::dtype_v<uint8_t>, tensorstore::Schema::Shape({6}),
+          tensorstore::ChunkLayout::ReadChunkShape({1}),
+          tensorstore::ChunkLayout::WriteChunkShape({3}),
+          tensorstore::OpenMode::create, context)
+          .result());
+  TENSORSTORE_ASSERT_OK(
+      tensorstore::Write(tensorstore::MakeScalarArray<uint8_t>(42), source));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto dest,
+      tensorstore::Open(
+          {
+              {"driver", "zarr3"},
+              {"kvstore",
+               {{"driver", "mock_key_value_store"}, {"path", "dest/"}}},
+          },
+          tensorstore::dtype_v<uint8_t>, tensorstore::Schema::Shape({6}),
+          tensorstore::ChunkLayout::ReadChunkShape({1}),
+          tensorstore::ChunkLayout::WriteChunkShape({3}),
+          tensorstore::OpenMode::create, context)
+          .result());
+
+  mock_kvstore->request_log.pop_all();
+  auto copy_future = tensorstore::Copy(source, dest, tensorstore::Batch::New());
+  TENSORSTORE_ASSERT_OK(copy_future.result());
+  EXPECT_THAT(
+      mock_kvstore->request_log.pop_all(),
+      ::testing::UnorderedElementsAreArray({
+          JsonSubValuesMatch({{"/type", "read"}, {"/key", "source/c/0"}}),
+          JsonSubValuesMatch({{"/type", "read"}, {"/key", "source/c/1"}}),
+          JsonSubValuesMatch({{"/type", "write"}, {"/key", "dest/c/0"}}),
+          JsonSubValuesMatch({{"/type", "write"}, {"/key", "dest/c/1"}}),
+      }));
 }
 
 TEST(DriverTest, UrlSchemeRoundtrip) {

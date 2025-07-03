@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: langchain-community
-Version: 0.3.26
+Version: 0.3.27
 Summary: Community contributed LangChain integrations.
 License: MIT
 Project-URL: Source Code, https://github.com/langchain-ai/langchain-community/tree/main/libs/community

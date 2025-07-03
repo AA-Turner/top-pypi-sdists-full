@@ -114,6 +114,11 @@ def get_loopback_client() -> JsonHttpClient:
 
 
 def is_retriable_error(exception: Exception) -> bool:
+    # httpx error hierarchy: https://www.python-httpx.org/exceptions/
+    # Retry all timeout related errors
+    if isinstance(exception, httpx.TimeoutException | httpx.NetworkError):
+        return True
+    # Seems to just apply to HttpStatusError but doesn't hurt to check all
     if isinstance(exception, httpx.HTTPError):
         return (
             getattr(exception, "response", None) is not None
@@ -143,6 +148,7 @@ async def http_request(
     connect_timeout: float | None = 5,
     request_timeout: float | None = 30,
     raise_error: bool = True,
+    client: JsonHttpClient | None = None,
 ) -> httpx.Response:
     """Make an HTTP request with retries.
 
@@ -163,7 +169,7 @@ async def http_request(
     if not path.startswith(("http://", "https://", "/")):
         raise ValueError("path must start with / or http")
 
-    client = get_http_client()
+    client = client or get_http_client()
 
     content = None
     if body is not None:

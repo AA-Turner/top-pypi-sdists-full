@@ -1,5 +1,6 @@
-from latex2sympy2_extended import NormalizationConfig
 import sympy
+from latex2sympy2_extended import NormalizationConfig
+
 from math_verify.parser import LatexExtractionConfig, parse
 
 

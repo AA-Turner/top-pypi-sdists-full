@@ -53,6 +53,7 @@ class UploadsApi:
         self,
         upload_href: StrictStr,
         upload: Upload,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -74,6 +75,8 @@ class UploadsApi:
         :type upload_href: str
         :param upload: (required)
         :type upload: Upload
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -99,6 +102,7 @@ class UploadsApi:
         _param = self._add_role_serialize(
             upload_href=upload_href,
             upload=upload,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -124,6 +128,7 @@ class UploadsApi:
         self,
         upload_href: StrictStr,
         upload: Upload,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -145,6 +150,8 @@ class UploadsApi:
         :type upload_href: str
         :param upload: (required)
         :type upload: Upload
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -170,6 +177,7 @@ class UploadsApi:
         _param = self._add_role_serialize(
             upload_href=upload_href,
             upload=upload,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -195,6 +203,7 @@ class UploadsApi:
         self,
         upload_href: StrictStr,
         upload: Upload,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -216,6 +225,8 @@ class UploadsApi:
         :type upload_href: str
         :param upload: (required)
         :type upload: Upload
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -241,6 +252,7 @@ class UploadsApi:
         _param = self._add_role_serialize(
             upload_href=upload_href,
             upload=upload,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -261,6 +273,7 @@ class UploadsApi:
         self,
         upload_href,
         upload,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -270,6 +283,7 @@ class UploadsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -286,6 +300,8 @@ class UploadsApi:
             _path_params['upload_href'] = upload_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if upload is not None:
@@ -345,6 +361,7 @@ class UploadsApi:
         self,
         upload_href: StrictStr,
         upload_commit: UploadCommit,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -366,6 +383,8 @@ class UploadsApi:
         :type upload_href: str
         :param upload_commit: (required)
         :type upload_commit: UploadCommit
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -391,6 +410,7 @@ class UploadsApi:
         _param = self._commit_serialize(
             upload_href=upload_href,
             upload_commit=upload_commit,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -416,6 +436,7 @@ class UploadsApi:
         self,
         upload_href: StrictStr,
         upload_commit: UploadCommit,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -437,6 +458,8 @@ class UploadsApi:
         :type upload_href: str
         :param upload_commit: (required)
         :type upload_commit: UploadCommit
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -462,6 +485,7 @@ class UploadsApi:
         _param = self._commit_serialize(
             upload_href=upload_href,
             upload_commit=upload_commit,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -487,6 +511,7 @@ class UploadsApi:
         self,
         upload_href: StrictStr,
         upload_commit: UploadCommit,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -508,6 +533,8 @@ class UploadsApi:
         :type upload_href: str
         :param upload_commit: (required)
         :type upload_commit: UploadCommit
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -533,6 +560,7 @@ class UploadsApi:
         _param = self._commit_serialize(
             upload_href=upload_href,
             upload_commit=upload_commit,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -553,6 +581,7 @@ class UploadsApi:
         self,
         upload_href,
         upload_commit,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -562,6 +591,7 @@ class UploadsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -578,6 +608,8 @@ class UploadsApi:
             _path_params['upload_href'] = upload_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if upload_commit is not None:
@@ -636,6 +668,7 @@ class UploadsApi:
     def create(
         self,
         upload: Upload,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -655,6 +688,8 @@ class UploadsApi:
 
         :param upload: (required)
         :type upload: Upload
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -679,6 +714,7 @@ class UploadsApi:
 
         _param = self._create_serialize(
             upload=upload,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -703,6 +739,7 @@ class UploadsApi:
     def create_with_http_info(
         self,
         upload: Upload,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -722,6 +759,8 @@ class UploadsApi:
 
         :param upload: (required)
         :type upload: Upload
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -746,6 +785,7 @@ class UploadsApi:
 
         _param = self._create_serialize(
             upload=upload,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -770,6 +810,7 @@ class UploadsApi:
     def create_without_preload_content(
         self,
         upload: Upload,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -789,6 +830,8 @@ class UploadsApi:
 
         :param upload: (required)
         :type upload: Upload
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -813,6 +856,7 @@ class UploadsApi:
 
         _param = self._create_serialize(
             upload=upload,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -832,6 +876,7 @@ class UploadsApi:
     def _create_serialize(
         self,
         upload,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -841,6 +886,7 @@ class UploadsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -855,6 +901,8 @@ class UploadsApi:
         # process the path parameters
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if upload is not None:
@@ -913,6 +961,7 @@ class UploadsApi:
     def delete(
         self,
         upload_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -932,6 +981,8 @@ class UploadsApi:
 
         :param upload_href: (required)
         :type upload_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -956,6 +1007,7 @@ class UploadsApi:
 
         _param = self._delete_serialize(
             upload_href=upload_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -980,6 +1032,7 @@ class UploadsApi:
     def delete_with_http_info(
         self,
         upload_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -999,6 +1052,8 @@ class UploadsApi:
 
         :param upload_href: (required)
         :type upload_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1023,6 +1078,7 @@ class UploadsApi:
 
         _param = self._delete_serialize(
             upload_href=upload_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1047,6 +1103,7 @@ class UploadsApi:
     def delete_without_preload_content(
         self,
         upload_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1066,6 +1123,8 @@ class UploadsApi:
 
         :param upload_href: (required)
         :type upload_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1090,6 +1149,7 @@ class UploadsApi:
 
         _param = self._delete_serialize(
             upload_href=upload_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1109,6 +1169,7 @@ class UploadsApi:
     def _delete_serialize(
         self,
         upload_href,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -1118,6 +1179,7 @@ class UploadsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -1134,6 +1196,8 @@ class UploadsApi:
             _path_params['upload_href'] = upload_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -1167,6 +1231,7 @@ class UploadsApi:
     @validate_call
     def list(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
         ordering: Annotated[Optional[List[StrictStr]], Field(description="Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `size` - Size * `-size` - Size (descending) * `pk` - Pk * `-pk` - Pk (descending)")] = None,
@@ -1197,6 +1262,8 @@ class UploadsApi:
 
         View for chunked uploads.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param limit: Number of results to return per page.
         :type limit: int
         :param offset: The initial index from which to return the results.
@@ -1246,6 +1313,7 @@ class UploadsApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             offset=offset,
             ordering=ordering,
@@ -1282,6 +1350,7 @@ class UploadsApi:
     @validate_call
     def list_with_http_info(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
         ordering: Annotated[Optional[List[StrictStr]], Field(description="Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `size` - Size * `-size` - Size (descending) * `pk` - Pk * `-pk` - Pk (descending)")] = None,
@@ -1312,6 +1381,8 @@ class UploadsApi:
 
         View for chunked uploads.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param limit: Number of results to return per page.
         :type limit: int
         :param offset: The initial index from which to return the results.
@@ -1361,6 +1432,7 @@ class UploadsApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             offset=offset,
             ordering=ordering,
@@ -1397,6 +1469,7 @@ class UploadsApi:
     @validate_call
     def list_without_preload_content(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
         ordering: Annotated[Optional[List[StrictStr]], Field(description="Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `size` - Size * `-size` - Size (descending) * `pk` - Pk * `-pk` - Pk (descending)")] = None,
@@ -1427,6 +1500,8 @@ class UploadsApi:
 
         View for chunked uploads.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param limit: Number of results to return per page.
         :type limit: int
         :param offset: The initial index from which to return the results.
@@ -1476,6 +1551,7 @@ class UploadsApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             offset=offset,
             ordering=ordering,
@@ -1507,6 +1583,7 @@ class UploadsApi:
 
     def _list_serialize(
         self,
+        x_task_diagnostics,
         limit,
         offset,
         ordering,
@@ -1529,6 +1606,7 @@ class UploadsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'ordering': 'csv',
             'prn__in': 'csv',
             'pulp_href__in': 'csv',
@@ -1602,6 +1680,8 @@ class UploadsApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -1643,6 +1723,7 @@ class UploadsApi:
     def list_roles(
         self,
         upload_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1664,6 +1745,8 @@ class UploadsApi:
 
         :param upload_href: (required)
         :type upload_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1692,6 +1775,7 @@ class UploadsApi:
 
         _param = self._list_roles_serialize(
             upload_href=upload_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1718,6 +1802,7 @@ class UploadsApi:
     def list_roles_with_http_info(
         self,
         upload_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1739,6 +1824,8 @@ class UploadsApi:
 
         :param upload_href: (required)
         :type upload_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1767,6 +1854,7 @@ class UploadsApi:
 
         _param = self._list_roles_serialize(
             upload_href=upload_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1793,6 +1881,7 @@ class UploadsApi:
     def list_roles_without_preload_content(
         self,
         upload_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1814,6 +1903,8 @@ class UploadsApi:
 
         :param upload_href: (required)
         :type upload_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1842,6 +1933,7 @@ class UploadsApi:
 
         _param = self._list_roles_serialize(
             upload_href=upload_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1863,6 +1955,7 @@ class UploadsApi:
     def _list_roles_serialize(
         self,
         upload_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -1874,6 +1967,7 @@ class UploadsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -1900,6 +1994,8 @@ class UploadsApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -1941,6 +2037,7 @@ class UploadsApi:
     def my_permissions(
         self,
         upload_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1962,6 +2059,8 @@ class UploadsApi:
 
         :param upload_href: (required)
         :type upload_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1990,6 +2089,7 @@ class UploadsApi:
 
         _param = self._my_permissions_serialize(
             upload_href=upload_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2016,6 +2116,7 @@ class UploadsApi:
     def my_permissions_with_http_info(
         self,
         upload_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -2037,6 +2138,8 @@ class UploadsApi:
 
         :param upload_href: (required)
         :type upload_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2065,6 +2168,7 @@ class UploadsApi:
 
         _param = self._my_permissions_serialize(
             upload_href=upload_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2091,6 +2195,7 @@ class UploadsApi:
     def my_permissions_without_preload_content(
         self,
         upload_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -2112,6 +2217,8 @@ class UploadsApi:
 
         :param upload_href: (required)
         :type upload_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2140,6 +2247,7 @@ class UploadsApi:
 
         _param = self._my_permissions_serialize(
             upload_href=upload_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2161,6 +2269,7 @@ class UploadsApi:
     def _my_permissions_serialize(
         self,
         upload_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -2172,6 +2281,7 @@ class UploadsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -2198,6 +2308,8 @@ class UploadsApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -2239,6 +2351,7 @@ class UploadsApi:
     def read(
         self,
         upload_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -2260,6 +2373,8 @@ class UploadsApi:
 
         :param upload_href: (required)
         :type upload_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2288,6 +2403,7 @@ class UploadsApi:
 
         _param = self._read_serialize(
             upload_href=upload_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2314,6 +2430,7 @@ class UploadsApi:
     def read_with_http_info(
         self,
         upload_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -2335,6 +2452,8 @@ class UploadsApi:
 
         :param upload_href: (required)
         :type upload_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2363,6 +2482,7 @@ class UploadsApi:
 
         _param = self._read_serialize(
             upload_href=upload_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2389,6 +2509,7 @@ class UploadsApi:
     def read_without_preload_content(
         self,
         upload_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -2410,6 +2531,8 @@ class UploadsApi:
 
         :param upload_href: (required)
         :type upload_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2438,6 +2561,7 @@ class UploadsApi:
 
         _param = self._read_serialize(
             upload_href=upload_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2459,6 +2583,7 @@ class UploadsApi:
     def _read_serialize(
         self,
         upload_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -2470,6 +2595,7 @@ class UploadsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -2496,6 +2622,8 @@ class UploadsApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -2538,6 +2666,7 @@ class UploadsApi:
         self,
         upload_href: StrictStr,
         upload: Upload,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2559,6 +2688,8 @@ class UploadsApi:
         :type upload_href: str
         :param upload: (required)
         :type upload: Upload
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2584,6 +2715,7 @@ class UploadsApi:
         _param = self._remove_role_serialize(
             upload_href=upload_href,
             upload=upload,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2609,6 +2741,7 @@ class UploadsApi:
         self,
         upload_href: StrictStr,
         upload: Upload,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2630,6 +2763,8 @@ class UploadsApi:
         :type upload_href: str
         :param upload: (required)
         :type upload: Upload
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2655,6 +2790,7 @@ class UploadsApi:
         _param = self._remove_role_serialize(
             upload_href=upload_href,
             upload=upload,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2680,6 +2816,7 @@ class UploadsApi:
         self,
         upload_href: StrictStr,
         upload: Upload,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2701,6 +2838,8 @@ class UploadsApi:
         :type upload_href: str
         :param upload: (required)
         :type upload: Upload
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2726,6 +2865,7 @@ class UploadsApi:
         _param = self._remove_role_serialize(
             upload_href=upload_href,
             upload=upload,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2746,6 +2886,7 @@ class UploadsApi:
         self,
         upload_href,
         upload,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -2755,6 +2896,7 @@ class UploadsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -2771,6 +2913,8 @@ class UploadsApi:
             _path_params['upload_href'] = upload_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if upload is not None:
@@ -2831,6 +2975,7 @@ class UploadsApi:
         content_range: Annotated[StrictStr, Field(description="The Content-Range header specifies the location of the file chunk within the file.")],
         upload_href: StrictStr,
         file: Annotated[Union[StrictBytes, StrictStr, Tuple[StrictStr, StrictBytes]], Field(description="A chunk of the uploaded file.")],
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         sha256: Annotated[Optional[Annotated[str, Field(min_length=1, strict=True)]], Field(description="The SHA-256 checksum of the chunk if available.")] = None,
         _request_timeout: Union[
             None,
@@ -2855,6 +3000,8 @@ class UploadsApi:
         :type upload_href: str
         :param file: A chunk of the uploaded file. (required)
         :type file: bytearray
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param sha256: The SHA-256 checksum of the chunk if available.
         :type sha256: str
         :param _request_timeout: timeout setting for this request. If one
@@ -2883,6 +3030,7 @@ class UploadsApi:
             content_range=content_range,
             upload_href=upload_href,
             file=file,
+            x_task_diagnostics=x_task_diagnostics,
             sha256=sha256,
             _request_auth=_request_auth,
             _content_type=_content_type,
@@ -2910,6 +3058,7 @@ class UploadsApi:
         content_range: Annotated[StrictStr, Field(description="The Content-Range header specifies the location of the file chunk within the file.")],
         upload_href: StrictStr,
         file: Annotated[Union[StrictBytes, StrictStr, Tuple[StrictStr, StrictBytes]], Field(description="A chunk of the uploaded file.")],
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         sha256: Annotated[Optional[Annotated[str, Field(min_length=1, strict=True)]], Field(description="The SHA-256 checksum of the chunk if available.")] = None,
         _request_timeout: Union[
             None,
@@ -2934,6 +3083,8 @@ class UploadsApi:
         :type upload_href: str
         :param file: A chunk of the uploaded file. (required)
         :type file: bytearray
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param sha256: The SHA-256 checksum of the chunk if available.
         :type sha256: str
         :param _request_timeout: timeout setting for this request. If one
@@ -2962,6 +3113,7 @@ class UploadsApi:
             content_range=content_range,
             upload_href=upload_href,
             file=file,
+            x_task_diagnostics=x_task_diagnostics,
             sha256=sha256,
             _request_auth=_request_auth,
             _content_type=_content_type,
@@ -2989,6 +3141,7 @@ class UploadsApi:
         content_range: Annotated[StrictStr, Field(description="The Content-Range header specifies the location of the file chunk within the file.")],
         upload_href: StrictStr,
         file: Annotated[Union[StrictBytes, StrictStr, Tuple[StrictStr, StrictBytes]], Field(description="A chunk of the uploaded file.")],
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         sha256: Annotated[Optional[Annotated[str, Field(min_length=1, strict=True)]], Field(description="The SHA-256 checksum of the chunk if available.")] = None,
         _request_timeout: Union[
             None,
@@ -3013,6 +3166,8 @@ class UploadsApi:
         :type upload_href: str
         :param file: A chunk of the uploaded file. (required)
         :type file: bytearray
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param sha256: The SHA-256 checksum of the chunk if available.
         :type sha256: str
         :param _request_timeout: timeout setting for this request. If one
@@ -3041,6 +3196,7 @@ class UploadsApi:
             content_range=content_range,
             upload_href=upload_href,
             file=file,
+            x_task_diagnostics=x_task_diagnostics,
             sha256=sha256,
             _request_auth=_request_auth,
             _content_type=_content_type,
@@ -3063,6 +3219,7 @@ class UploadsApi:
         content_range,
         upload_href,
         file,
+        x_task_diagnostics,
         sha256,
         _request_auth,
         _content_type,
@@ -3073,6 +3230,7 @@ class UploadsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -3091,6 +3249,8 @@ class UploadsApi:
         # process the header parameters
         if content_range is not None:
             _header_params['Content-Range'] = content_range
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         if file is not None:
             _files['file'] = file

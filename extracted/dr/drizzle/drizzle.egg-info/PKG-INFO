@@ -1,8 +1,40 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.2
 Name: drizzle
-Version: 2.1.0
+Version: 2.0.1
 Summary: A package for combining dithered images into a single image
 Author-email: STScI <help@stsci.edu>
+License: Copyright (C) 2011,2014 Association of Universities for Research in
+        Astronomy (AURA)
+        
+        Redistribution and use in source and binary forms, with or without
+        modification, are permitted provided that the following conditions
+        are met:
+        
+            1. Redistributions of source code must retain the above
+              copyright notice, this list of conditions and the following
+              disclaimer.
+        
+            2. Redistributions in binary form must reproduce the above
+              copyright notice, this list of conditions and the following
+              disclaimer in the documentation and/or other materials
+              provided with the distribution.
+        
+            3. The name of AURA and its representatives may not be used to
+              endorse or promote products derived from this software without
+              specific prior written permission.
+        
+        THIS SOFTWARE IS PROVIDED BY AURA ``AS IS'' AND ANY EXPRESS OR
+        IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+        WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+        ARE DISCLAIMED. IN NO EVENT SHALL AURA BE LIABLE FOR ANY DIRECT,
+        INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+        (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+        SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+        HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+        STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+        ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+        OF THE POSSIBILITY OF SUCH DAMAGE.
+        
 Project-URL: Homepage, https://github.com/spacetelescope/drizzle
 Project-URL: Bug Tracker, https://github.com/spacetelescope/drizzle/issues
 Project-URL: Documentation, http://spacetelescope.github.io/drizzle/
@@ -24,7 +56,6 @@ Requires-Dist: sphinx-automodapi; extra == "docs"
 Requires-Dist: sphinx-rtd-theme; extra == "docs"
 Requires-Dist: matplotlib; extra == "docs"
 Requires-Dist: pytest-doctestplus; extra == "docs"
-Dynamic: license-file
 
 drizzle Documentation
 =====================
@@ -77,8 +108,8 @@ Requirements
 The Drizzle Algorithm
 ---------------------
 
-This section has been extracted from Chapter 3 of
-`The DrizzlePac Handbook <https://hst-docs.stsci.edu/drizzpac>`_ [Driz2025]_
+This section has been extracted from Chapter 2 of
+`The DrizzlePac Handbook <http://www.stsci.edu/hst/HST_overview/drizzlepac/documents/handbooks/drizzlepac.pdf>`_ [Driz2012]_
 
 There are a family of linear reconstruction techniques that, at two opposite
 extremes, are represented by the interlacing and shift-and-add techniques, with
@@ -169,4 +200,4 @@ for identifying cosmic rays in the original image. Blot requires the user
 to provide the world coordinate system (WCS)-based transformations in the
 form of a pixel map array as input.
 
-.. [Driz2025] Anand, G. S., Mack, J., et al., 2025, “The DrizzlePac Handbook”, Version 3.0, (Baltimore: STScI)
+.. [Driz2012] Gonzaga, S., Hack, W., Fruchter, A., Mack, J., eds. 2012, The DrizzlePac Handbook. (Baltimore, STScI)

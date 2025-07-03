@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pandas-stubs"
-version = "2.2.3.250527"
+version = "2.3.0.250703"
 description = "Type annotations for pandas"
 authors = ["The Pandas Development Team <pandas-dev@python.org>"]
 license = "BSD-3-Clause"
@@ -35,11 +35,13 @@ types-pytz = ">= 2022.1.1"
 numpy = ">= 1.23.5"
 
 [tool.poetry.group.dev.dependencies]
-mypy = "1.15.0"
-pandas = "2.2.3"
+mypy = "1.16.0"
+pandas = "2.3.0"
 pyarrow = ">=10.0.1"
 pytest = ">=7.1.2"
 pyright = ">=1.1.400"
+ty = "^0.0.1a8"
+pyrefly = "^0.21.0"
 poethepoet = ">=0.16.5"
 loguru = ">=0.6.0"
 typing-extensions = ">=4.4.0"
@@ -102,6 +104,14 @@ script = "scripts.test:mypy_src(mypy_nightly)"
 [tool.poe.tasks.mypy_dist]
 help = "Run mypy on 'tests' using the installed stubs"
 script = "scripts.test:test(dist=True, type_checker='mypy')"
+
+[tool.poe.tasks.ty]
+help = "Run ty on pandas-stubs"
+script = "scripts.test.run:ty"
+
+[tool.poe.tasks.pyrefly]
+help = "Run pyrefly on pandas-stubs"
+script = "scripts.test.run:pyrefly"
 
 [tool.poe.tasks.pyright]
 help = "Run pyright on 'tests' (using the local stubs) and on the local stubs"
@@ -234,3 +244,6 @@ filterwarnings = [
 
 # Next line needed to avoid poetry complaint
 [tool.setuptools_scm]
+
+[tool.ty.rules]
+unresolved-import = "ignore"

@@ -44,6 +44,7 @@ class PublicationsApi:
     @validate_call
     def list(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         checkpoint: Annotated[Optional[StrictBool], Field(description="Filter results where checkpoint matches value")] = None,
         content: Annotated[Optional[StrictStr], Field(description="Content Unit referenced by HREF/PRN")] = None,
         content__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
@@ -84,6 +85,8 @@ class PublicationsApi:
 
         A base class for any publication viewset.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param checkpoint: Filter results where checkpoint matches value
         :type checkpoint: bool
         :param content: Content Unit referenced by HREF/PRN
@@ -153,6 +156,7 @@ class PublicationsApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             checkpoint=checkpoint,
             content=content,
             content__in=content__in,
@@ -199,6 +203,7 @@ class PublicationsApi:
     @validate_call
     def list_with_http_info(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         checkpoint: Annotated[Optional[StrictBool], Field(description="Filter results where checkpoint matches value")] = None,
         content: Annotated[Optional[StrictStr], Field(description="Content Unit referenced by HREF/PRN")] = None,
         content__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
@@ -239,6 +244,8 @@ class PublicationsApi:
 
         A base class for any publication viewset.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param checkpoint: Filter results where checkpoint matches value
         :type checkpoint: bool
         :param content: Content Unit referenced by HREF/PRN
@@ -308,6 +315,7 @@ class PublicationsApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             checkpoint=checkpoint,
             content=content,
             content__in=content__in,
@@ -354,6 +362,7 @@ class PublicationsApi:
     @validate_call
     def list_without_preload_content(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         checkpoint: Annotated[Optional[StrictBool], Field(description="Filter results where checkpoint matches value")] = None,
         content: Annotated[Optional[StrictStr], Field(description="Content Unit referenced by HREF/PRN")] = None,
         content__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
@@ -394,6 +403,8 @@ class PublicationsApi:
 
         A base class for any publication viewset.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param checkpoint: Filter results where checkpoint matches value
         :type checkpoint: bool
         :param content: Content Unit referenced by HREF/PRN
@@ -463,6 +474,7 @@ class PublicationsApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             checkpoint=checkpoint,
             content=content,
             content__in=content__in,
@@ -504,6 +516,7 @@ class PublicationsApi:
 
     def _list_serialize(
         self,
+        x_task_diagnostics,
         checkpoint,
         content,
         content__in,
@@ -536,6 +549,7 @@ class PublicationsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'content__in': 'csv',
             'ordering': 'csv',
             'prn__in': 'csv',
@@ -696,6 +710,8 @@ class PublicationsApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 

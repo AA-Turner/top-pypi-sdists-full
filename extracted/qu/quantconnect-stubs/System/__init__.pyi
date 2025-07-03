@@ -614,6 +614,11 @@ class Array(System.Object, System.ICloneable, System.Collections.IList, System.C
     @staticmethod
     @overload
     def clear(array: System.Array) -> None:
+        """
+        Clears the contents of an array.
+        
+        :param array: The array to clear.
+        """
         ...
 
     @staticmethod

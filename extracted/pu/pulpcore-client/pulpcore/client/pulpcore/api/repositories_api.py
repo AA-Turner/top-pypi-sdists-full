@@ -43,6 +43,7 @@ class RepositoriesApi:
     @validate_call
     def list(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         latest_with_content: Annotated[Optional[StrictStr], Field(description="Content Unit referenced by HREF/PRN")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter results where name matches value")] = None,
@@ -92,6 +93,8 @@ class RepositoriesApi:
 
         Endpoint to list all repositories.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param latest_with_content: Content Unit referenced by HREF/PRN
         :type latest_with_content: str
         :param limit: Number of results to return per page.
@@ -179,6 +182,7 @@ class RepositoriesApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             latest_with_content=latest_with_content,
             limit=limit,
             name=name,
@@ -234,6 +238,7 @@ class RepositoriesApi:
     @validate_call
     def list_with_http_info(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         latest_with_content: Annotated[Optional[StrictStr], Field(description="Content Unit referenced by HREF/PRN")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter results where name matches value")] = None,
@@ -283,6 +288,8 @@ class RepositoriesApi:
 
         Endpoint to list all repositories.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param latest_with_content: Content Unit referenced by HREF/PRN
         :type latest_with_content: str
         :param limit: Number of results to return per page.
@@ -370,6 +377,7 @@ class RepositoriesApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             latest_with_content=latest_with_content,
             limit=limit,
             name=name,
@@ -425,6 +433,7 @@ class RepositoriesApi:
     @validate_call
     def list_without_preload_content(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         latest_with_content: Annotated[Optional[StrictStr], Field(description="Content Unit referenced by HREF/PRN")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter results where name matches value")] = None,
@@ -474,6 +483,8 @@ class RepositoriesApi:
 
         Endpoint to list all repositories.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param latest_with_content: Content Unit referenced by HREF/PRN
         :type latest_with_content: str
         :param limit: Number of results to return per page.
@@ -561,6 +572,7 @@ class RepositoriesApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             latest_with_content=latest_with_content,
             limit=limit,
             name=name,
@@ -611,6 +623,7 @@ class RepositoriesApi:
 
     def _list_serialize(
         self,
+        x_task_diagnostics,
         latest_with_content,
         limit,
         name,
@@ -652,6 +665,7 @@ class RepositoriesApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'name__in': 'csv',
             'ordering': 'csv',
             'prn__in': 'csv',
@@ -803,6 +817,8 @@ class RepositoriesApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 

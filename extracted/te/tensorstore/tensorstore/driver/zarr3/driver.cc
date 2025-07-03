@@ -61,6 +61,7 @@
 #include "tensorstore/internal/lexicographical_grid_index_key.h"
 #include "tensorstore/internal/storage_statistics.h"
 #include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/kvstore/auto_detect.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/open_options.h"
 #include "tensorstore/rank.h"
@@ -81,6 +82,7 @@ namespace internal_zarr3 {
 // Avoid anonymous namespace to workaround MSVC bug.
 //
 // https://developercommunity.visualstudio.com/t/Bug-involving-virtual-functions-templat/10424129
+// NOTE: Fixed after Oct 28, 2024; Likely 17.6.20 or later.
 #ifndef _MSC_VER
 namespace {
 #endif
@@ -617,8 +619,9 @@ Future<internal::Driver::Handle> ZarrDriverSpec::Open(
 
 Result<internal::TransformedDriverSpec> ParseZarr3Url(std::string_view url,
                                                       kvstore::Spec&& base) {
-  auto parsed = internal::ParseGenericUriWithoutSlashSlash(url);
-  assert(parsed.scheme == ZarrDriverSpec::id);
+  auto parsed = internal::ParseGenericUri(url);
+  TENSORSTORE_RETURN_IF_ERROR(
+      internal::EnsureSchema(parsed, ZarrDriverSpec::id));
   TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoQueryOrFragment(parsed));
   auto driver_spec = internal::MakeIntrusivePtr<ZarrDriverSpec>();
   driver_spec->InitializeFromUrl(std::move(base), parsed.authority_and_path);
@@ -648,4 +651,10 @@ const tensorstore::internal::DriverRegistration<
 const tensorstore::internal::UrlSchemeRegistration url_scheme_registration(
     tensorstore::internal_zarr3::ZarrDriverSpec::id,
     tensorstore::internal_zarr3::ParseZarr3Url);
+
+const tensorstore::internal_kvstore::AutoDetectRegistration
+    auto_detect_registration{
+        tensorstore::internal_kvstore::AutoDetectDirectorySpec::SingleFile(
+            tensorstore::internal_zarr3::ZarrDriverSpec::id,
+            tensorstore::internal_zarr3::kMetadataKey)};
 }  // namespace

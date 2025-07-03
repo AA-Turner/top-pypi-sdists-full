@@ -7443,7 +7443,7 @@ def _get_trials_message(nr_of_jobs_to_get: int, full_nr_of_jobs_to_get: int, tri
 
         eta = avg_time * remaining
 
-        if eta > 0:
+        if int(eta) > 0:
             hours = int(eta // 3600)
             minutes = int((eta % 3600) // 60)
             seconds = int(eta % 60)
@@ -7533,6 +7533,8 @@ def get_batched_arms(nr_of_jobs_to_get: int) -> list:
 
     print_debug(f"_fetch_next_trials: Finished with {len(batched_arms)} arm(s) after {attempts} attempt(s).")
 
+    save_results_csv()
+
     return batched_arms
 
 @beartype
@@ -7581,6 +7583,8 @@ def _generate_trials(n: int, recursion: bool) -> Tuple[Dict[int, Any], bool]:
                 if trial_successful:
                     cnt += 1
                     trials_dict[trial_index] = arm.parameters
+
+                save_results_csv()
 
         return _finalize_generation(trials_dict, cnt, n, start_time)
 

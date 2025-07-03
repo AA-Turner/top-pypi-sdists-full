@@ -1364,7 +1364,8 @@ class Workbook(ItemWithOwnerAndAcl):
             'LiteralScalar',
             'CalculatedScalar',
             'Chart',
-            'ThresholdMetric'
+            'ThresholdMetric',
+            'Datafile'
         ]
 
         def _in_dep_references(_id):

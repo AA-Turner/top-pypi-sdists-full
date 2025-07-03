@@ -43,6 +43,7 @@ class ContentguardsApi:
     @validate_call
     def list(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter results where name matches value")] = None,
         name__contains: Annotated[Optional[StrictStr], Field(description="Filter results where name contains value")] = None,
@@ -80,6 +81,8 @@ class ContentguardsApi:
 
         Endpoint to list all contentguards.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param limit: Number of results to return per page.
         :type limit: int
         :param name: Filter results where name matches value
@@ -143,6 +146,7 @@ class ContentguardsApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             name=name,
             name__contains=name__contains,
@@ -186,6 +190,7 @@ class ContentguardsApi:
     @validate_call
     def list_with_http_info(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter results where name matches value")] = None,
         name__contains: Annotated[Optional[StrictStr], Field(description="Filter results where name contains value")] = None,
@@ -223,6 +228,8 @@ class ContentguardsApi:
 
         Endpoint to list all contentguards.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param limit: Number of results to return per page.
         :type limit: int
         :param name: Filter results where name matches value
@@ -286,6 +293,7 @@ class ContentguardsApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             name=name,
             name__contains=name__contains,
@@ -329,6 +337,7 @@ class ContentguardsApi:
     @validate_call
     def list_without_preload_content(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter results where name matches value")] = None,
         name__contains: Annotated[Optional[StrictStr], Field(description="Filter results where name contains value")] = None,
@@ -366,6 +375,8 @@ class ContentguardsApi:
 
         Endpoint to list all contentguards.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param limit: Number of results to return per page.
         :type limit: int
         :param name: Filter results where name matches value
@@ -429,6 +440,7 @@ class ContentguardsApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             name=name,
             name__contains=name__contains,
@@ -467,6 +479,7 @@ class ContentguardsApi:
 
     def _list_serialize(
         self,
+        x_task_diagnostics,
         limit,
         name,
         name__contains,
@@ -496,6 +509,7 @@ class ContentguardsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'name__in': 'csv',
             'ordering': 'csv',
             'prn__in': 'csv',
@@ -598,6 +612,8 @@ class ContentguardsApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 

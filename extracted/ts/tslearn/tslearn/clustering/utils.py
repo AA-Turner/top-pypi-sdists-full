@@ -52,7 +52,7 @@ def _compute_inertia(distances, assignments, squared=True):
     --------
     >>> dists = numpy.array([[1., 2., 0.5], [0., 3., 1.]])
     >>> assign = numpy.array([2, 0])
-    >>> _compute_inertia(dists, assign)
+    >>> float(_compute_inertia(dists, assign))
     0.125
     """
     n_ts = distances.shape[0]
@@ -141,24 +141,27 @@ def silhouette_score(X, labels, metric=None, sample_size=None,
     --------
     >>> from tslearn.generators import random_walks
     >>> from tslearn.metrics import cdist_dtw
+    >>> from tslearn.metrics import dtw
     >>> numpy.random.seed(0)
     >>> X = random_walks(n_ts=20, sz=16, d=1)
     >>> labels = numpy.random.randint(2, size=20)
-    >>> silhouette_score(X, labels, metric="dtw")  # doctest: +ELLIPSIS
+    >>> float(silhouette_score(X, labels, metric="dtw")) # doctest: +ELLIPSIS
     0.13383800...
-    >>> silhouette_score(X, labels, metric="euclidean")  # doctest: +ELLIPSIS
+    >>> float(silhouette_score(X, labels, metric="euclidean"))  # doctest: +ELLIPSIS
     0.09126917...
-    >>> silhouette_score(X, labels, metric="softdtw")  # doctest: +ELLIPSIS
+    >>> float(silhouette_score(X, labels, metric="softdtw"))  # doctest: +ELLIPSIS
     0.17953934...
-    >>> silhouette_score(X, labels, metric="softdtw",
-    ...                  metric_params={"gamma": 2.}) \
+    >>> float(silhouette_score(X, labels, metric="softdtw",
+    ...                        metric_params={"gamma": 2.})) \
     # doctest: +ELLIPSIS
     0.17591060...
-    >>> silhouette_score(cdist_dtw(X), labels,
-    ...                  metric="precomputed")  # doctest: +ELLIPSIS
+    >>> float(silhouette_score(cdist_dtw(X), labels,
+    ...                        metric="precomputed"))  # doctest: +ELLIPSIS
+    0.13383800...
+    >>> float(silhouette_score(X, labels, metric=dtw))  # doctest: +ELLIPSIS
     0.13383800...
     """
-    sklearn_metric = None
+    sklearn_metric = "precomputed"
     if metric_params is None:
         metric_params_ = {}
     else:
@@ -188,10 +191,9 @@ def silhouette_score(X, labels, metric=None, sample_size=None,
                                          remove_nans=True),
                           to_time_series(y.reshape((sz, d)),
                                          remove_nans=True))
-    metric = "precomputed" if sklearn_metric is None else sklearn_metric
     return sklearn_silhouette(X=sklearn_X,
                               labels=labels,
-                              metric=metric,
+                              metric=sklearn_metric,
                               sample_size=sample_size,
                               random_state=random_state,
                               **kwds)

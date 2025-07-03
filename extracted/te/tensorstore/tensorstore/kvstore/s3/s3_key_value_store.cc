@@ -1325,7 +1325,14 @@ Future<const void> S3KeyValueStore::DeleteRange(KeyRange range) {
 // Resolves the region endpoint for the bucket.
 Future<const S3EndpointRegion> S3KeyValueStore::MaybeResolveRegion() {
   absl::MutexLock l(&mutex_);
-  if (!resolve_ehr_.null()) return resolve_ehr_;
+  if (!resolve_ehr_.null() && resolve_ehr_.ready() &&
+      !resolve_ehr_.status().ok()) {
+    // Retry the resolve_ehr step indefinitely on failure.
+    resolve_ehr_.reset();
+  }
+  if (!resolve_ehr_.null()) {
+    return resolve_ehr_;
+  }
 
   resolve_ehr_ = internal_kvstore_s3::ResolveEndpointRegion(
       spec_.bucket,
@@ -1379,7 +1386,8 @@ Future<kvstore::DriverPtr> S3KeyValueStoreSpec::DoOpen() const {
 
 Result<kvstore::Spec> ParseS3Url(std::string_view url) {
   auto parsed = internal::ParseGenericUri(url);
-  assert(parsed.scheme == kUriScheme);
+  TENSORSTORE_RETURN_IF_ERROR(
+      internal::EnsureSchemaWithAuthorityDelimiter(parsed, kUriScheme));
   TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoQueryOrFragment(parsed));
   if (!IsValidBucketName(parsed.authority)) {
     return absl::InvalidArgumentError(tensorstore::StrCat(

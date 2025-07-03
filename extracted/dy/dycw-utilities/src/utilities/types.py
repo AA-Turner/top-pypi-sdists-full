@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import datetime as dt
 from asyncio import Event
-from collections.abc import Callable, Coroutine, Hashable, Iterable, Mapping
+from collections.abc import Callable, Coroutine, Hashable, Iterable, Mapping, Sequence
 from enum import Enum
 from ipaddress import IPv4Address, IPv6Address
 from logging import Logger
@@ -102,13 +102,12 @@ IPv6AddressLike = MaybeStr[IPv6Address]
 
 
 # iterables
-type MaybeIterable[_T] = _T | Iterable[_T]
-type IterableHashable[_THashable: Hashable] = (
-    tuple[_THashable, ...] | frozenset[_THashable]
-)
-type MaybeIterableHashable[_THashable: Hashable] = (
-    _THashable | IterableHashable[_THashable]
-)
+type MaybeIterable[T] = T | Iterable[T]
+type IterableHashable[T: Hashable] = tuple[T, ...] | frozenset[T]
+type MaybeList[T] = T | list[T]
+type MaybeListStr = MaybeList[str]
+type MaybeSequence[T] = T | Sequence[T]
+type MaybeIterableHashable[T: Hashable] = T | IterableHashable[T]
 
 
 # logging
@@ -276,6 +275,9 @@ __all__ = [
     "MaybeCoro",
     "MaybeIterable",
     "MaybeIterableHashable",
+    "MaybeList",
+    "MaybeListStr",
+    "MaybeSequence",
     "MaybeStr",
     "MaybeType",
     "MonthDayLike",

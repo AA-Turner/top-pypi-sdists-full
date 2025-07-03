@@ -33,7 +33,6 @@ except:
         return _k_init(*args, **kwargs), None
 
 
-from sklearn.utils import check_array
 from sklearn.utils.validation import check_is_fitted
 
 from tslearn.barycenters import (
@@ -43,7 +42,7 @@ from tslearn.barycenters import (
 )
 from tslearn.bases import BaseModelPackage, TimeSeriesBaseEstimator
 from tslearn.metrics import cdist_dtw, cdist_gak, cdist_soft_dtw, sigma_gak
-from tslearn.utils import check_dims, to_sklearn_dataset, to_time_series_dataset
+from tslearn.utils import check_array, check_dims, to_sklearn_dataset, to_time_series_dataset
 
 from .utils import (
     EmptyClusterError,
@@ -458,7 +457,13 @@ class KernelKMeans(ClusterMixin, BaseModelPackage, TimeSeriesBaseEstimator):
         return dist.argmin(axis=1)
 
     def _more_tags(self):
-        return {"allow_nan": True, "allow_variable_length": True}
+        sample_weight_failure_msg = "Currently not supported due to clusters initialization"
+        return {"allow_nan": True,
+                "allow_variable_length": True,
+                "_xfail_checks": {
+                    "check_sample_weight_equivalence_on_dense_data": sample_weight_failure_msg,
+                    "check_sample_weight_equivalence_on_sparse_data": sample_weight_failure_msg
+                }}
 
 
 class TimeSeriesKMeans(

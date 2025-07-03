@@ -47,6 +47,7 @@ class GroupsRolesApi:
         self,
         group_href: StrictStr,
         group_role: GroupRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -68,6 +69,8 @@ class GroupsRolesApi:
         :type group_href: str
         :param group_role: (required)
         :type group_role: GroupRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -93,6 +96,7 @@ class GroupsRolesApi:
         _param = self._create_serialize(
             group_href=group_href,
             group_role=group_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -118,6 +122,7 @@ class GroupsRolesApi:
         self,
         group_href: StrictStr,
         group_role: GroupRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -139,6 +144,8 @@ class GroupsRolesApi:
         :type group_href: str
         :param group_role: (required)
         :type group_role: GroupRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -164,6 +171,7 @@ class GroupsRolesApi:
         _param = self._create_serialize(
             group_href=group_href,
             group_role=group_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -189,6 +197,7 @@ class GroupsRolesApi:
         self,
         group_href: StrictStr,
         group_role: GroupRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -210,6 +219,8 @@ class GroupsRolesApi:
         :type group_href: str
         :param group_role: (required)
         :type group_role: GroupRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -235,6 +246,7 @@ class GroupsRolesApi:
         _param = self._create_serialize(
             group_href=group_href,
             group_role=group_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -255,6 +267,7 @@ class GroupsRolesApi:
         self,
         group_href,
         group_role,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -264,6 +277,7 @@ class GroupsRolesApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -280,6 +294,8 @@ class GroupsRolesApi:
             _path_params['group_href'] = group_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if group_role is not None:
@@ -338,6 +354,7 @@ class GroupsRolesApi:
     def delete(
         self,
         groups_group_role_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -357,6 +374,8 @@ class GroupsRolesApi:
 
         :param groups_group_role_href: (required)
         :type groups_group_role_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -381,6 +400,7 @@ class GroupsRolesApi:
 
         _param = self._delete_serialize(
             groups_group_role_href=groups_group_role_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -405,6 +425,7 @@ class GroupsRolesApi:
     def delete_with_http_info(
         self,
         groups_group_role_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -424,6 +445,8 @@ class GroupsRolesApi:
 
         :param groups_group_role_href: (required)
         :type groups_group_role_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -448,6 +471,7 @@ class GroupsRolesApi:
 
         _param = self._delete_serialize(
             groups_group_role_href=groups_group_role_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -472,6 +496,7 @@ class GroupsRolesApi:
     def delete_without_preload_content(
         self,
         groups_group_role_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -491,6 +516,8 @@ class GroupsRolesApi:
 
         :param groups_group_role_href: (required)
         :type groups_group_role_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -515,6 +542,7 @@ class GroupsRolesApi:
 
         _param = self._delete_serialize(
             groups_group_role_href=groups_group_role_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -534,6 +562,7 @@ class GroupsRolesApi:
     def _delete_serialize(
         self,
         groups_group_role_href,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -543,6 +572,7 @@ class GroupsRolesApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -559,6 +589,8 @@ class GroupsRolesApi:
             _path_params['groups_group_role_href'] = groups_group_role_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -593,6 +625,7 @@ class GroupsRolesApi:
     def list(
         self,
         group_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         content_object: Annotated[Optional[StrictStr], Field(description="content_object")] = None,
         domain: Annotated[Optional[StrictStr], Field(description="Foreign Key referenced by HREF")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
@@ -628,6 +661,8 @@ class GroupsRolesApi:
 
         :param group_href: (required)
         :type group_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param content_object: content_object
         :type content_object: str
         :param domain: Foreign Key referenced by HREF
@@ -684,6 +719,7 @@ class GroupsRolesApi:
 
         _param = self._list_serialize(
             group_href=group_href,
+            x_task_diagnostics=x_task_diagnostics,
             content_object=content_object,
             domain=domain,
             limit=limit,
@@ -724,6 +760,7 @@ class GroupsRolesApi:
     def list_with_http_info(
         self,
         group_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         content_object: Annotated[Optional[StrictStr], Field(description="content_object")] = None,
         domain: Annotated[Optional[StrictStr], Field(description="Foreign Key referenced by HREF")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
@@ -759,6 +796,8 @@ class GroupsRolesApi:
 
         :param group_href: (required)
         :type group_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param content_object: content_object
         :type content_object: str
         :param domain: Foreign Key referenced by HREF
@@ -815,6 +854,7 @@ class GroupsRolesApi:
 
         _param = self._list_serialize(
             group_href=group_href,
+            x_task_diagnostics=x_task_diagnostics,
             content_object=content_object,
             domain=domain,
             limit=limit,
@@ -855,6 +895,7 @@ class GroupsRolesApi:
     def list_without_preload_content(
         self,
         group_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         content_object: Annotated[Optional[StrictStr], Field(description="content_object")] = None,
         domain: Annotated[Optional[StrictStr], Field(description="Foreign Key referenced by HREF")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
@@ -890,6 +931,8 @@ class GroupsRolesApi:
 
         :param group_href: (required)
         :type group_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param content_object: content_object
         :type content_object: str
         :param domain: Foreign Key referenced by HREF
@@ -946,6 +989,7 @@ class GroupsRolesApi:
 
         _param = self._list_serialize(
             group_href=group_href,
+            x_task_diagnostics=x_task_diagnostics,
             content_object=content_object,
             domain=domain,
             limit=limit,
@@ -981,6 +1025,7 @@ class GroupsRolesApi:
     def _list_serialize(
         self,
         group_href,
+        x_task_diagnostics,
         content_object,
         domain,
         limit,
@@ -1006,6 +1051,7 @@ class GroupsRolesApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'ordering': 'csv',
             'prn__in': 'csv',
             'pulp_href__in': 'csv',
@@ -1093,6 +1139,8 @@ class GroupsRolesApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -1134,6 +1182,7 @@ class GroupsRolesApi:
     def read(
         self,
         groups_group_role_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1155,6 +1204,8 @@ class GroupsRolesApi:
 
         :param groups_group_role_href: (required)
         :type groups_group_role_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1183,6 +1234,7 @@ class GroupsRolesApi:
 
         _param = self._read_serialize(
             groups_group_role_href=groups_group_role_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1209,6 +1261,7 @@ class GroupsRolesApi:
     def read_with_http_info(
         self,
         groups_group_role_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1230,6 +1283,8 @@ class GroupsRolesApi:
 
         :param groups_group_role_href: (required)
         :type groups_group_role_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1258,6 +1313,7 @@ class GroupsRolesApi:
 
         _param = self._read_serialize(
             groups_group_role_href=groups_group_role_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1284,6 +1340,7 @@ class GroupsRolesApi:
     def read_without_preload_content(
         self,
         groups_group_role_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1305,6 +1362,8 @@ class GroupsRolesApi:
 
         :param groups_group_role_href: (required)
         :type groups_group_role_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1333,6 +1392,7 @@ class GroupsRolesApi:
 
         _param = self._read_serialize(
             groups_group_role_href=groups_group_role_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1354,6 +1414,7 @@ class GroupsRolesApi:
     def _read_serialize(
         self,
         groups_group_role_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -1365,6 +1426,7 @@ class GroupsRolesApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -1391,6 +1453,8 @@ class GroupsRolesApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 

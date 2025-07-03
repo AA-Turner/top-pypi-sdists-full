@@ -54,6 +54,7 @@ class UpstreamPulpsApi:
         self,
         upstream_pulp_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -75,6 +76,8 @@ class UpstreamPulpsApi:
         :type upstream_pulp_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -100,6 +103,7 @@ class UpstreamPulpsApi:
         _param = self._add_role_serialize(
             upstream_pulp_href=upstream_pulp_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -125,6 +129,7 @@ class UpstreamPulpsApi:
         self,
         upstream_pulp_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -146,6 +151,8 @@ class UpstreamPulpsApi:
         :type upstream_pulp_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -171,6 +178,7 @@ class UpstreamPulpsApi:
         _param = self._add_role_serialize(
             upstream_pulp_href=upstream_pulp_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -196,6 +204,7 @@ class UpstreamPulpsApi:
         self,
         upstream_pulp_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -217,6 +226,8 @@ class UpstreamPulpsApi:
         :type upstream_pulp_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -242,6 +253,7 @@ class UpstreamPulpsApi:
         _param = self._add_role_serialize(
             upstream_pulp_href=upstream_pulp_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -262,6 +274,7 @@ class UpstreamPulpsApi:
         self,
         upstream_pulp_href,
         nested_role,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -271,6 +284,7 @@ class UpstreamPulpsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -287,6 +301,8 @@ class UpstreamPulpsApi:
             _path_params['upstream_pulp_href'] = upstream_pulp_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if nested_role is not None:
@@ -345,6 +361,7 @@ class UpstreamPulpsApi:
     def create(
         self,
         upstream_pulp: UpstreamPulp,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -364,6 +381,8 @@ class UpstreamPulpsApi:
 
         :param upstream_pulp: (required)
         :type upstream_pulp: UpstreamPulp
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -388,6 +407,7 @@ class UpstreamPulpsApi:
 
         _param = self._create_serialize(
             upstream_pulp=upstream_pulp,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -412,6 +432,7 @@ class UpstreamPulpsApi:
     def create_with_http_info(
         self,
         upstream_pulp: UpstreamPulp,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -431,6 +452,8 @@ class UpstreamPulpsApi:
 
         :param upstream_pulp: (required)
         :type upstream_pulp: UpstreamPulp
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -455,6 +478,7 @@ class UpstreamPulpsApi:
 
         _param = self._create_serialize(
             upstream_pulp=upstream_pulp,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -479,6 +503,7 @@ class UpstreamPulpsApi:
     def create_without_preload_content(
         self,
         upstream_pulp: UpstreamPulp,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -498,6 +523,8 @@ class UpstreamPulpsApi:
 
         :param upstream_pulp: (required)
         :type upstream_pulp: UpstreamPulp
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -522,6 +549,7 @@ class UpstreamPulpsApi:
 
         _param = self._create_serialize(
             upstream_pulp=upstream_pulp,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -541,6 +569,7 @@ class UpstreamPulpsApi:
     def _create_serialize(
         self,
         upstream_pulp,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -550,6 +579,7 @@ class UpstreamPulpsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -564,6 +594,8 @@ class UpstreamPulpsApi:
         # process the path parameters
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if upstream_pulp is not None:
@@ -622,6 +654,7 @@ class UpstreamPulpsApi:
     def delete(
         self,
         upstream_pulp_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -641,6 +674,8 @@ class UpstreamPulpsApi:
 
         :param upstream_pulp_href: (required)
         :type upstream_pulp_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -665,6 +700,7 @@ class UpstreamPulpsApi:
 
         _param = self._delete_serialize(
             upstream_pulp_href=upstream_pulp_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -689,6 +725,7 @@ class UpstreamPulpsApi:
     def delete_with_http_info(
         self,
         upstream_pulp_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -708,6 +745,8 @@ class UpstreamPulpsApi:
 
         :param upstream_pulp_href: (required)
         :type upstream_pulp_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -732,6 +771,7 @@ class UpstreamPulpsApi:
 
         _param = self._delete_serialize(
             upstream_pulp_href=upstream_pulp_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -756,6 +796,7 @@ class UpstreamPulpsApi:
     def delete_without_preload_content(
         self,
         upstream_pulp_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -775,6 +816,8 @@ class UpstreamPulpsApi:
 
         :param upstream_pulp_href: (required)
         :type upstream_pulp_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -799,6 +842,7 @@ class UpstreamPulpsApi:
 
         _param = self._delete_serialize(
             upstream_pulp_href=upstream_pulp_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -818,6 +862,7 @@ class UpstreamPulpsApi:
     def _delete_serialize(
         self,
         upstream_pulp_href,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -827,6 +872,7 @@ class UpstreamPulpsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -843,6 +889,8 @@ class UpstreamPulpsApi:
             _path_params['upstream_pulp_href'] = upstream_pulp_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -876,6 +924,7 @@ class UpstreamPulpsApi:
     @validate_call
     def list(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         base_url: Annotated[Optional[StrictStr], Field(description="Filter results where base_url matches value")] = None,
         base_url__contains: Annotated[Optional[StrictStr], Field(description="Filter results where base_url contains value")] = None,
         base_url__icontains: Annotated[Optional[StrictStr], Field(description="Filter results where base_url contains value")] = None,
@@ -927,6 +976,8 @@ class UpstreamPulpsApi:
 
         API for configuring an upstream Pulp to replicate. This API is provided as a tech preview.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param base_url: Filter results where base_url matches value
         :type base_url: str
         :param base_url__contains: Filter results where base_url contains value
@@ -1018,6 +1069,7 @@ class UpstreamPulpsApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             base_url=base_url,
             base_url__contains=base_url__contains,
             base_url__icontains=base_url__icontains,
@@ -1075,6 +1127,7 @@ class UpstreamPulpsApi:
     @validate_call
     def list_with_http_info(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         base_url: Annotated[Optional[StrictStr], Field(description="Filter results where base_url matches value")] = None,
         base_url__contains: Annotated[Optional[StrictStr], Field(description="Filter results where base_url contains value")] = None,
         base_url__icontains: Annotated[Optional[StrictStr], Field(description="Filter results where base_url contains value")] = None,
@@ -1126,6 +1179,8 @@ class UpstreamPulpsApi:
 
         API for configuring an upstream Pulp to replicate. This API is provided as a tech preview.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param base_url: Filter results where base_url matches value
         :type base_url: str
         :param base_url__contains: Filter results where base_url contains value
@@ -1217,6 +1272,7 @@ class UpstreamPulpsApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             base_url=base_url,
             base_url__contains=base_url__contains,
             base_url__icontains=base_url__icontains,
@@ -1274,6 +1330,7 @@ class UpstreamPulpsApi:
     @validate_call
     def list_without_preload_content(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         base_url: Annotated[Optional[StrictStr], Field(description="Filter results where base_url matches value")] = None,
         base_url__contains: Annotated[Optional[StrictStr], Field(description="Filter results where base_url contains value")] = None,
         base_url__icontains: Annotated[Optional[StrictStr], Field(description="Filter results where base_url contains value")] = None,
@@ -1325,6 +1382,8 @@ class UpstreamPulpsApi:
 
         API for configuring an upstream Pulp to replicate. This API is provided as a tech preview.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param base_url: Filter results where base_url matches value
         :type base_url: str
         :param base_url__contains: Filter results where base_url contains value
@@ -1416,6 +1475,7 @@ class UpstreamPulpsApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             base_url=base_url,
             base_url__contains=base_url__contains,
             base_url__icontains=base_url__icontains,
@@ -1468,6 +1528,7 @@ class UpstreamPulpsApi:
 
     def _list_serialize(
         self,
+        x_task_diagnostics,
         base_url,
         base_url__contains,
         base_url__icontains,
@@ -1511,6 +1572,7 @@ class UpstreamPulpsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'base_url__in': 'csv',
             'last_replication__range': 'csv',
             'name__in': 'csv',
@@ -1715,6 +1777,8 @@ class UpstreamPulpsApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -1756,6 +1820,7 @@ class UpstreamPulpsApi:
     def list_roles(
         self,
         upstream_pulp_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1777,6 +1842,8 @@ class UpstreamPulpsApi:
 
         :param upstream_pulp_href: (required)
         :type upstream_pulp_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1805,6 +1872,7 @@ class UpstreamPulpsApi:
 
         _param = self._list_roles_serialize(
             upstream_pulp_href=upstream_pulp_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1831,6 +1899,7 @@ class UpstreamPulpsApi:
     def list_roles_with_http_info(
         self,
         upstream_pulp_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1852,6 +1921,8 @@ class UpstreamPulpsApi:
 
         :param upstream_pulp_href: (required)
         :type upstream_pulp_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1880,6 +1951,7 @@ class UpstreamPulpsApi:
 
         _param = self._list_roles_serialize(
             upstream_pulp_href=upstream_pulp_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1906,6 +1978,7 @@ class UpstreamPulpsApi:
     def list_roles_without_preload_content(
         self,
         upstream_pulp_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1927,6 +2000,8 @@ class UpstreamPulpsApi:
 
         :param upstream_pulp_href: (required)
         :type upstream_pulp_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1955,6 +2030,7 @@ class UpstreamPulpsApi:
 
         _param = self._list_roles_serialize(
             upstream_pulp_href=upstream_pulp_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1976,6 +2052,7 @@ class UpstreamPulpsApi:
     def _list_roles_serialize(
         self,
         upstream_pulp_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -1987,6 +2064,7 @@ class UpstreamPulpsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -2013,6 +2091,8 @@ class UpstreamPulpsApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -2054,6 +2134,7 @@ class UpstreamPulpsApi:
     def my_permissions(
         self,
         upstream_pulp_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -2075,6 +2156,8 @@ class UpstreamPulpsApi:
 
         :param upstream_pulp_href: (required)
         :type upstream_pulp_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2103,6 +2186,7 @@ class UpstreamPulpsApi:
 
         _param = self._my_permissions_serialize(
             upstream_pulp_href=upstream_pulp_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2129,6 +2213,7 @@ class UpstreamPulpsApi:
     def my_permissions_with_http_info(
         self,
         upstream_pulp_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -2150,6 +2235,8 @@ class UpstreamPulpsApi:
 
         :param upstream_pulp_href: (required)
         :type upstream_pulp_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2178,6 +2265,7 @@ class UpstreamPulpsApi:
 
         _param = self._my_permissions_serialize(
             upstream_pulp_href=upstream_pulp_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2204,6 +2292,7 @@ class UpstreamPulpsApi:
     def my_permissions_without_preload_content(
         self,
         upstream_pulp_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -2225,6 +2314,8 @@ class UpstreamPulpsApi:
 
         :param upstream_pulp_href: (required)
         :type upstream_pulp_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2253,6 +2344,7 @@ class UpstreamPulpsApi:
 
         _param = self._my_permissions_serialize(
             upstream_pulp_href=upstream_pulp_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2274,6 +2366,7 @@ class UpstreamPulpsApi:
     def _my_permissions_serialize(
         self,
         upstream_pulp_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -2285,6 +2378,7 @@ class UpstreamPulpsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -2311,6 +2405,8 @@ class UpstreamPulpsApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -2353,6 +2449,7 @@ class UpstreamPulpsApi:
         self,
         upstream_pulp_href: StrictStr,
         patched_upstream_pulp: PatchedUpstreamPulp,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2374,6 +2471,8 @@ class UpstreamPulpsApi:
         :type upstream_pulp_href: str
         :param patched_upstream_pulp: (required)
         :type patched_upstream_pulp: PatchedUpstreamPulp
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2399,6 +2498,7 @@ class UpstreamPulpsApi:
         _param = self._partial_update_serialize(
             upstream_pulp_href=upstream_pulp_href,
             patched_upstream_pulp=patched_upstream_pulp,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2424,6 +2524,7 @@ class UpstreamPulpsApi:
         self,
         upstream_pulp_href: StrictStr,
         patched_upstream_pulp: PatchedUpstreamPulp,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2445,6 +2546,8 @@ class UpstreamPulpsApi:
         :type upstream_pulp_href: str
         :param patched_upstream_pulp: (required)
         :type patched_upstream_pulp: PatchedUpstreamPulp
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2470,6 +2573,7 @@ class UpstreamPulpsApi:
         _param = self._partial_update_serialize(
             upstream_pulp_href=upstream_pulp_href,
             patched_upstream_pulp=patched_upstream_pulp,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2495,6 +2599,7 @@ class UpstreamPulpsApi:
         self,
         upstream_pulp_href: StrictStr,
         patched_upstream_pulp: PatchedUpstreamPulp,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2516,6 +2621,8 @@ class UpstreamPulpsApi:
         :type upstream_pulp_href: str
         :param patched_upstream_pulp: (required)
         :type patched_upstream_pulp: PatchedUpstreamPulp
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2541,6 +2648,7 @@ class UpstreamPulpsApi:
         _param = self._partial_update_serialize(
             upstream_pulp_href=upstream_pulp_href,
             patched_upstream_pulp=patched_upstream_pulp,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2561,6 +2669,7 @@ class UpstreamPulpsApi:
         self,
         upstream_pulp_href,
         patched_upstream_pulp,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -2570,6 +2679,7 @@ class UpstreamPulpsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -2586,6 +2696,8 @@ class UpstreamPulpsApi:
             _path_params['upstream_pulp_href'] = upstream_pulp_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if patched_upstream_pulp is not None:
@@ -2644,6 +2756,7 @@ class UpstreamPulpsApi:
     def read(
         self,
         upstream_pulp_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -2665,6 +2778,8 @@ class UpstreamPulpsApi:
 
         :param upstream_pulp_href: (required)
         :type upstream_pulp_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2693,6 +2808,7 @@ class UpstreamPulpsApi:
 
         _param = self._read_serialize(
             upstream_pulp_href=upstream_pulp_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2719,6 +2835,7 @@ class UpstreamPulpsApi:
     def read_with_http_info(
         self,
         upstream_pulp_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -2740,6 +2857,8 @@ class UpstreamPulpsApi:
 
         :param upstream_pulp_href: (required)
         :type upstream_pulp_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2768,6 +2887,7 @@ class UpstreamPulpsApi:
 
         _param = self._read_serialize(
             upstream_pulp_href=upstream_pulp_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2794,6 +2914,7 @@ class UpstreamPulpsApi:
     def read_without_preload_content(
         self,
         upstream_pulp_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -2815,6 +2936,8 @@ class UpstreamPulpsApi:
 
         :param upstream_pulp_href: (required)
         :type upstream_pulp_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2843,6 +2966,7 @@ class UpstreamPulpsApi:
 
         _param = self._read_serialize(
             upstream_pulp_href=upstream_pulp_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2864,6 +2988,7 @@ class UpstreamPulpsApi:
     def _read_serialize(
         self,
         upstream_pulp_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -2875,6 +3000,7 @@ class UpstreamPulpsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -2901,6 +3027,8 @@ class UpstreamPulpsApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -2943,6 +3071,7 @@ class UpstreamPulpsApi:
         self,
         upstream_pulp_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2964,6 +3093,8 @@ class UpstreamPulpsApi:
         :type upstream_pulp_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2989,6 +3120,7 @@ class UpstreamPulpsApi:
         _param = self._remove_role_serialize(
             upstream_pulp_href=upstream_pulp_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3014,6 +3146,7 @@ class UpstreamPulpsApi:
         self,
         upstream_pulp_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3035,6 +3168,8 @@ class UpstreamPulpsApi:
         :type upstream_pulp_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3060,6 +3195,7 @@ class UpstreamPulpsApi:
         _param = self._remove_role_serialize(
             upstream_pulp_href=upstream_pulp_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3085,6 +3221,7 @@ class UpstreamPulpsApi:
         self,
         upstream_pulp_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3106,6 +3243,8 @@ class UpstreamPulpsApi:
         :type upstream_pulp_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3131,6 +3270,7 @@ class UpstreamPulpsApi:
         _param = self._remove_role_serialize(
             upstream_pulp_href=upstream_pulp_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3151,6 +3291,7 @@ class UpstreamPulpsApi:
         self,
         upstream_pulp_href,
         nested_role,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -3160,6 +3301,7 @@ class UpstreamPulpsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -3176,6 +3318,8 @@ class UpstreamPulpsApi:
             _path_params['upstream_pulp_href'] = upstream_pulp_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if nested_role is not None:
@@ -3234,6 +3378,7 @@ class UpstreamPulpsApi:
     def replicate(
         self,
         upstream_pulp_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3253,6 +3398,8 @@ class UpstreamPulpsApi:
 
         :param upstream_pulp_href: (required)
         :type upstream_pulp_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3277,6 +3424,7 @@ class UpstreamPulpsApi:
 
         _param = self._replicate_serialize(
             upstream_pulp_href=upstream_pulp_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3301,6 +3449,7 @@ class UpstreamPulpsApi:
     def replicate_with_http_info(
         self,
         upstream_pulp_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3320,6 +3469,8 @@ class UpstreamPulpsApi:
 
         :param upstream_pulp_href: (required)
         :type upstream_pulp_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3344,6 +3495,7 @@ class UpstreamPulpsApi:
 
         _param = self._replicate_serialize(
             upstream_pulp_href=upstream_pulp_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3368,6 +3520,7 @@ class UpstreamPulpsApi:
     def replicate_without_preload_content(
         self,
         upstream_pulp_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3387,6 +3540,8 @@ class UpstreamPulpsApi:
 
         :param upstream_pulp_href: (required)
         :type upstream_pulp_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3411,6 +3566,7 @@ class UpstreamPulpsApi:
 
         _param = self._replicate_serialize(
             upstream_pulp_href=upstream_pulp_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3430,6 +3586,7 @@ class UpstreamPulpsApi:
     def _replicate_serialize(
         self,
         upstream_pulp_href,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -3439,6 +3596,7 @@ class UpstreamPulpsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -3455,6 +3613,8 @@ class UpstreamPulpsApi:
             _path_params['upstream_pulp_href'] = upstream_pulp_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -3497,6 +3657,7 @@ class UpstreamPulpsApi:
         self,
         upstream_pulp_href: StrictStr,
         upstream_pulp: UpstreamPulp,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3518,6 +3679,8 @@ class UpstreamPulpsApi:
         :type upstream_pulp_href: str
         :param upstream_pulp: (required)
         :type upstream_pulp: UpstreamPulp
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3543,6 +3706,7 @@ class UpstreamPulpsApi:
         _param = self._update_serialize(
             upstream_pulp_href=upstream_pulp_href,
             upstream_pulp=upstream_pulp,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3568,6 +3732,7 @@ class UpstreamPulpsApi:
         self,
         upstream_pulp_href: StrictStr,
         upstream_pulp: UpstreamPulp,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3589,6 +3754,8 @@ class UpstreamPulpsApi:
         :type upstream_pulp_href: str
         :param upstream_pulp: (required)
         :type upstream_pulp: UpstreamPulp
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3614,6 +3781,7 @@ class UpstreamPulpsApi:
         _param = self._update_serialize(
             upstream_pulp_href=upstream_pulp_href,
             upstream_pulp=upstream_pulp,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3639,6 +3807,7 @@ class UpstreamPulpsApi:
         self,
         upstream_pulp_href: StrictStr,
         upstream_pulp: UpstreamPulp,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3660,6 +3829,8 @@ class UpstreamPulpsApi:
         :type upstream_pulp_href: str
         :param upstream_pulp: (required)
         :type upstream_pulp: UpstreamPulp
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3685,6 +3856,7 @@ class UpstreamPulpsApi:
         _param = self._update_serialize(
             upstream_pulp_href=upstream_pulp_href,
             upstream_pulp=upstream_pulp,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3705,6 +3877,7 @@ class UpstreamPulpsApi:
         self,
         upstream_pulp_href,
         upstream_pulp,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -3714,6 +3887,7 @@ class UpstreamPulpsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -3730,6 +3904,8 @@ class UpstreamPulpsApi:
             _path_params['upstream_pulp_href'] = upstream_pulp_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if upstream_pulp is not None:

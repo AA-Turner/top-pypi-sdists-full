@@ -44,6 +44,7 @@ class DistributionsArtifactsApi:
     @validate_call
     def list(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         base_path: Annotated[Optional[StrictStr], Field(description="Filter results where base_path matches value")] = None,
         base_path__contains: Annotated[Optional[StrictStr], Field(description="Filter results where base_path contains value")] = None,
         base_path__icontains: Annotated[Optional[StrictStr], Field(description="Filter results where base_path contains value")] = None,
@@ -88,6 +89,8 @@ class DistributionsArtifactsApi:
 
         ViewSet for ArtifactDistribution.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param base_path: Filter results where base_path matches value
         :type base_path: str
         :param base_path__contains: Filter results where base_path contains value
@@ -165,6 +168,7 @@ class DistributionsArtifactsApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             base_path=base_path,
             base_path__contains=base_path__contains,
             base_path__icontains=base_path__icontains,
@@ -215,6 +219,7 @@ class DistributionsArtifactsApi:
     @validate_call
     def list_with_http_info(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         base_path: Annotated[Optional[StrictStr], Field(description="Filter results where base_path matches value")] = None,
         base_path__contains: Annotated[Optional[StrictStr], Field(description="Filter results where base_path contains value")] = None,
         base_path__icontains: Annotated[Optional[StrictStr], Field(description="Filter results where base_path contains value")] = None,
@@ -259,6 +264,8 @@ class DistributionsArtifactsApi:
 
         ViewSet for ArtifactDistribution.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param base_path: Filter results where base_path matches value
         :type base_path: str
         :param base_path__contains: Filter results where base_path contains value
@@ -336,6 +343,7 @@ class DistributionsArtifactsApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             base_path=base_path,
             base_path__contains=base_path__contains,
             base_path__icontains=base_path__icontains,
@@ -386,6 +394,7 @@ class DistributionsArtifactsApi:
     @validate_call
     def list_without_preload_content(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         base_path: Annotated[Optional[StrictStr], Field(description="Filter results where base_path matches value")] = None,
         base_path__contains: Annotated[Optional[StrictStr], Field(description="Filter results where base_path contains value")] = None,
         base_path__icontains: Annotated[Optional[StrictStr], Field(description="Filter results where base_path contains value")] = None,
@@ -430,6 +439,8 @@ class DistributionsArtifactsApi:
 
         ViewSet for ArtifactDistribution.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param base_path: Filter results where base_path matches value
         :type base_path: str
         :param base_path__contains: Filter results where base_path contains value
@@ -507,6 +518,7 @@ class DistributionsArtifactsApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             base_path=base_path,
             base_path__contains=base_path__contains,
             base_path__icontains=base_path__icontains,
@@ -552,6 +564,7 @@ class DistributionsArtifactsApi:
 
     def _list_serialize(
         self,
+        x_task_diagnostics,
         base_path,
         base_path__contains,
         base_path__icontains,
@@ -588,6 +601,7 @@ class DistributionsArtifactsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'base_path__in': 'csv',
             'name__in': 'csv',
             'ordering': 'csv',
@@ -719,6 +733,8 @@ class DistributionsArtifactsApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -760,6 +776,7 @@ class DistributionsArtifactsApi:
     def read(
         self,
         artifact_distribution_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -781,6 +798,8 @@ class DistributionsArtifactsApi:
 
         :param artifact_distribution_href: (required)
         :type artifact_distribution_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -809,6 +828,7 @@ class DistributionsArtifactsApi:
 
         _param = self._read_serialize(
             artifact_distribution_href=artifact_distribution_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -835,6 +855,7 @@ class DistributionsArtifactsApi:
     def read_with_http_info(
         self,
         artifact_distribution_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -856,6 +877,8 @@ class DistributionsArtifactsApi:
 
         :param artifact_distribution_href: (required)
         :type artifact_distribution_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -884,6 +907,7 @@ class DistributionsArtifactsApi:
 
         _param = self._read_serialize(
             artifact_distribution_href=artifact_distribution_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -910,6 +934,7 @@ class DistributionsArtifactsApi:
     def read_without_preload_content(
         self,
         artifact_distribution_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -931,6 +956,8 @@ class DistributionsArtifactsApi:
 
         :param artifact_distribution_href: (required)
         :type artifact_distribution_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -959,6 +986,7 @@ class DistributionsArtifactsApi:
 
         _param = self._read_serialize(
             artifact_distribution_href=artifact_distribution_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -980,6 +1008,7 @@ class DistributionsArtifactsApi:
     def _read_serialize(
         self,
         artifact_distribution_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -991,6 +1020,7 @@ class DistributionsArtifactsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -1017,6 +1047,8 @@ class DistributionsArtifactsApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 

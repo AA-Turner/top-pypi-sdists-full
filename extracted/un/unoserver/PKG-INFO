@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: unoserver
-Version: 3.2
+Version: 3.3
 Summary: A server for file conversions with Libre Office
 Author-email: Lennart Regebro <regebro@gmail.com>
 License: MIT
@@ -302,6 +302,17 @@ Contributors
 * ReeceJones, https://github.com/ReeceJones
 * Grunthos, https://github.com/Grunthos
 * Witiko, https://github.com/Witiko
+* Prpl, https://github.com/prpladmin
+
+3.3 (2025-07-02)
+----------------
+
+- Added support to use https between client and server.
+  Defaults to http. [Prpl, Regebro]
+
+- The server now uses a temporary file to write the outfile to, as some
+  filters raise an error when using `private:stream`. (Issue #117)
+
 
 3.2 (2025-03-31)
 ----------------

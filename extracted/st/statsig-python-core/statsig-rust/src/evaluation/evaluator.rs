@@ -12,7 +12,7 @@ use crate::evaluation::evaluation_types::SecondaryExposure;
 use crate::evaluation::evaluator_context::EvaluatorContext;
 use crate::evaluation::evaluator_value::{EvaluatorValue, EvaluatorValueType};
 use crate::evaluation::get_unit_id::get_unit_id;
-use crate::evaluation::ua_parser::UserAgentParser;
+use crate::evaluation::user_agent_parsing::UserAgentParser;
 use crate::event_logging::exposable_string;
 use crate::specs_response::spec_types::{Condition, Rule, Spec};
 use crate::{dyn_value, log_e, unwrap_or_return, StatsigErr};
@@ -145,10 +145,10 @@ impl Evaluator {
 
             if did_pass {
                 ctx.result.bool_value = rule.return_value.get_bool() != Some(false);
-                ctx.result.json_value = rule.return_value.get_json();
+                ctx.result.json_value = Some(rule.return_value.clone());
             } else {
                 ctx.result.bool_value = spec.default_value.get_bool() == Some(true);
-                ctx.result.json_value = spec.default_value.get_json();
+                ctx.result.json_value = Some(spec.default_value.clone());
             }
 
             ctx.result.rule_id = Some(&rule.id);
@@ -160,7 +160,7 @@ impl Evaluator {
         }
 
         ctx.result.bool_value = spec.default_value.get_bool() == Some(true);
-        ctx.result.json_value = spec.default_value.get_json();
+        ctx.result.json_value = Some(spec.default_value.clone());
         ctx.result.rule_id = match spec.enabled {
             true => Some(&exposable_string::DEFAULT_RULE),
             false => Some(&exposable_string::DISABLED_RULE),
@@ -318,8 +318,11 @@ fn evaluate_condition<'a>(
         "ua_based" => match ctx.user.get_user_value(&condition.field) {
             Some(value) => Some(value),
             None => {
-                temp_value =
-                    UserAgentParser::get_value_from_user_agent(ctx.user, &condition.field, ctx);
+                temp_value = UserAgentParser::get_value_from_user_agent(
+                    ctx.user,
+                    &condition.field,
+                    &mut ctx.result.override_reason,
+                );
                 temp_value.as_ref()
             }
         },

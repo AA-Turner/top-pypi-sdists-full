@@ -19,6 +19,7 @@ bi_tool_partners = [
 class LineageNode(BaseModel):
     id: int
     name: str
+    node_entity_id: int
 
     def __hash__(self):
         return hash(self.id)
@@ -74,12 +75,17 @@ class ContainmentNode(LineageNode, abc.ABC):
     def __containment_node(node: LineageNodeV2) -> Union["TableNode", "IntegrationNode"]:
         if node.node_type == DataNodeType.DATA_NODE_TYPE_TABLE:
             containment_node = TableNode(
-                id=node.id, name=node.node_name, source_id=node.source.id, schema_name=node.catalog_path.schema_name
+                id=node.id,
+                name=node.node_name,
+                node_entity_id=node.node_entity_id,
+                source_id=node.source.id,
+                schema_name=node.catalog_path.schema_name
             )
         else:
             containment_node = IntegrationNode(
                 id=node.id,
                 name=node.node_name,
+                node_entity_id=node.node_entity_id,
                 partner_type=node.source.integration_partner,
                 partner_name=SimpleIntegrationPartner.from_datawatch_object(node.source.integration_partner).lower()
             )
@@ -139,6 +145,7 @@ class ContainmentNode(LineageNode, abc.ABC):
                     ColumnNode(
                         id=column_nav_node.lineage_node.id,
                         name=column_nav_node.lineage_node.node_name,
+                        node_entity_id=column_nav_node.lineage_node.node_entity_id,
                         parent_id=self.id
                     )
                 )
@@ -166,6 +173,7 @@ class ContainmentNode(LineageNode, abc.ABC):
                     ColumnNode(
                         id=column_nav_node.lineage_node.id,
                         name=column_nav_node.lineage_node.node_name,
+                        node_entity_id=column_nav_node.lineage_node.node_entity_id,
                         parent_id=self.id
                     )
                 )

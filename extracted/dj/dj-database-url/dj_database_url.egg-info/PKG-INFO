@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dj-database-url
-Version: 3.0.0
+Version: 3.0.1
 Summary: Use Database URLs in your Django Application.
 Home-page: https://github.com/jazzband/dj-database-url
 Author: Original Author: Kenneth Reitz, Maintained by: JazzBand Community
@@ -26,10 +26,10 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: Django>=4.2
-Requires-Dist: typing_extensions>=4.0.0
 Dynamic: author
 Dynamic: classifier
 Dynamic: description

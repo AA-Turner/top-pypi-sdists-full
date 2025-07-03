@@ -3,7 +3,6 @@ from collections.abc import (
     Hashable,
     Iterable,
     Iterator,
-    Mapping,
     Sequence,
 )
 import datetime as dt
@@ -21,7 +20,6 @@ from pandas.core.base import SelectionMixin
 from pandas.core.frame import DataFrame
 from pandas.core.groupby import (
     generic,
-    ops,
 )
 from pandas.core.groupby.indexing import (
     GroupByIndexingMixin,
@@ -46,7 +44,7 @@ from typing_extensions import (
     TypeAlias,
 )
 
-from pandas._libs.lib import NoDefault
+from pandas._libs.lib import _NoDefaultDoNotUse
 from pandas._libs.tslibs import BaseOffset
 from pandas._typing import (
     S1,
@@ -75,87 +73,13 @@ from pandas._typing import (
 
 from pandas.plotting import PlotAccessor
 
-_GroupByT = TypeVar("_GroupByT", bound=GroupBy)
-
-_KeysArgType: TypeAlias = (
-    Hashable
-    | list[Hashable]
-    | Callable[[Hashable], Hashable]
-    | list[Callable[[Hashable], Hashable]]
-    | Mapping[Hashable, Hashable]
-)
-
 _ResamplerGroupBy: TypeAlias = (
     DatetimeIndexResamplerGroupby[NDFrameT]
     | PeriodIndexResamplerGroupby[NDFrameT]
     | TimedeltaIndexResamplerGroupby[NDFrameT]
 )
 
-# GroupByPlot does not really inherit from PlotAccessor but it delegates
-# to it using __call__ and __getattr__. We lie here to avoid repeating the
-# whole stub of PlotAccessor
-@final
-class GroupByPlot(PlotAccessor, Generic[_GroupByT]):
-    def __init__(self, groupby: _GroupByT) -> None: ...
-    # The following methods are inherited from the fake parent class PlotAccessor
-    # def __call__(self, *args, **kwargs): ...
-    # def __getattr__(self, name: str): ...
-
-class BaseGroupBy(SelectionMixin[NDFrameT], GroupByIndexingMixin):
-    axis: AxisInt
-    grouper: ops.BaseGrouper
-    keys: _KeysArgType | None
-    level: IndexLabel | None
-    group_keys: bool
-    @final
-    def __len__(self) -> int: ...
-    @final
-    def __repr__(self) -> str: ...  # noqa: PYI029 __repr__ here is final
-    @final
-    @property
-    def groups(self) -> dict[Hashable, Index]: ...
-    @final
-    @property
-    def ngroups(self) -> int: ...
-    @final
-    @property
-    def indices(self) -> dict[Hashable, Index | npt.NDArray[np.int_] | list[int]]: ...
-    @overload
-    def pipe(
-        self,
-        func: Callable[Concatenate[Self, P], T],
-        *args: P.args,
-        **kwargs: P.kwargs,
-    ) -> T: ...
-    @overload
-    def pipe(
-        self,
-        func: tuple[Callable[..., T], str],
-        *args: Any,
-        **kwargs: Any,
-    ) -> T: ...
-    @final
-    def get_group(self, name, obj: NDFrameT | None = ...) -> NDFrameT: ...
-    @final
-    def __iter__(self) -> Iterator[tuple[Hashable, NDFrameT]]: ...
-    @overload
-    def __getitem__(self: BaseGroupBy[DataFrame], key: Scalar) -> generic.SeriesGroupBy: ...  # type: ignore[overload-overlap] # pyright: ignore[reportOverlappingOverload]
-    @overload
-    def __getitem__(
-        self: BaseGroupBy[DataFrame], key: Iterable[Hashable]
-    ) -> generic.DataFrameGroupBy: ...
-    @overload
-    def __getitem__(
-        self: BaseGroupBy[Series[S1]],
-        idx: list[str] | Index | Series[S1] | MaskType | tuple[Hashable | slice, ...],
-    ) -> generic.SeriesGroupBy: ...
-    @overload
-    def __getitem__(self: BaseGroupBy[Series[S1]], idx: Scalar) -> S1: ...
-
 class GroupBy(BaseGroupBy[NDFrameT]):
-    as_index: bool
-    sort: bool
-    observed: bool
     def __getattr__(self, attr: str) -> Any: ...
     def apply(self, func: Callable | str, *args, **kwargs) -> NDFrameT: ...
     @final
@@ -346,39 +270,51 @@ class GroupBy(BaseGroupBy[NDFrameT]):
         ascending: bool = ...,
         na_option: str = ...,
         pct: bool = ...,
-        axis: AxisInt | NoDefault = ...,
+        axis: AxisInt | _NoDefaultDoNotUse = ...,
     ) -> NDFrameT: ...
     @final
-    def cumprod(self, axis: Axis | NoDefault = ..., *args, **kwargs) -> NDFrameT: ...
+    def cumprod(
+        self, axis: Axis | _NoDefaultDoNotUse = ..., *args, **kwargs
+    ) -> NDFrameT: ...
     @final
-    def cumsum(self, axis: Axis | NoDefault = ..., *args, **kwargs) -> NDFrameT: ...
+    def cumsum(
+        self, axis: Axis | _NoDefaultDoNotUse = ..., *args, **kwargs
+    ) -> NDFrameT: ...
     @final
     def cummin(
-        self, axis: AxisInt | NoDefault = ..., numeric_only: bool = ..., **kwargs
+        self,
+        axis: AxisInt | _NoDefaultDoNotUse = ...,
+        numeric_only: bool = ...,
+        **kwargs,
     ) -> NDFrameT: ...
     @final
     def cummax(
-        self, axis: AxisInt | NoDefault = ..., numeric_only: bool = ..., **kwargs
+        self,
+        axis: AxisInt | _NoDefaultDoNotUse = ...,
+        numeric_only: bool = ...,
+        **kwargs,
     ) -> NDFrameT: ...
     @final
     def shift(
         self,
         periods: int | Sequence[int] = ...,
         freq: Frequency | None = ...,
-        axis: Axis | NoDefault = ...,
+        axis: Axis | _NoDefaultDoNotUse = ...,
         fill_value=...,
         suffix: str | None = ...,
     ) -> NDFrameT: ...
     @final
-    def diff(self, periods: int = ..., axis: AxisInt | NoDefault = ...) -> NDFrameT: ...
+    def diff(
+        self, periods: int = ..., axis: AxisInt | _NoDefaultDoNotUse = ...
+    ) -> NDFrameT: ...
     @final
     def pct_change(
         self,
         periods: int = ...,
-        fill_method: Literal["bfill", "ffill"] | None | NoDefault = ...,
-        limit: int | None | NoDefault = ...,
+        fill_method: Literal["bfill", "ffill"] | None | _NoDefaultDoNotUse = ...,
+        limit: int | None | _NoDefaultDoNotUse = ...,
         freq=...,
-        axis: Axis | NoDefault = ...,
+        axis: Axis | _NoDefaultDoNotUse = ...,
     ) -> NDFrameT: ...
     @final
     def head(self, n: int = ...) -> NDFrameT: ...
@@ -393,3 +329,61 @@ class GroupBy(BaseGroupBy[NDFrameT]):
         weights: Sequence | Series | None = ...,
         random_state: RandomState | None = ...,
     ) -> NDFrameT: ...
+
+_GroupByT = TypeVar("_GroupByT", bound=GroupBy)
+
+# GroupByPlot does not really inherit from PlotAccessor but it delegates
+# to it using __call__ and __getattr__. We lie here to avoid repeating the
+# whole stub of PlotAccessor
+@final
+class GroupByPlot(PlotAccessor, Generic[_GroupByT]):
+    def __init__(self, groupby: _GroupByT) -> None: ...
+    # The following methods are inherited from the fake parent class PlotAccessor
+    # def __call__(self, *args, **kwargs): ...
+    # def __getattr__(self, name: str): ...
+
+class BaseGroupBy(SelectionMixin[NDFrameT], GroupByIndexingMixin):
+    @final
+    def __len__(self) -> int: ...
+    @final
+    def __repr__(self) -> str: ...  # noqa: PYI029 __repr__ here is final
+    @final
+    @property
+    def groups(self) -> dict[Hashable, Index]: ...
+    @final
+    @property
+    def ngroups(self) -> int: ...
+    @final
+    @property
+    def indices(self) -> dict[Hashable, Index | npt.NDArray[np.int_] | list[int]]: ...
+    @overload
+    def pipe(
+        self,
+        func: Callable[Concatenate[Self, P], T],
+        *args: P.args,
+        **kwargs: P.kwargs,
+    ) -> T: ...
+    @overload
+    def pipe(
+        self,
+        func: tuple[Callable[..., T], str],
+        *args: Any,
+        **kwargs: Any,
+    ) -> T: ...
+    @final
+    def get_group(self, name, obj: NDFrameT | None = ...) -> NDFrameT: ...
+    @final
+    def __iter__(self) -> Iterator[tuple[Hashable, NDFrameT]]: ...
+    @overload
+    def __getitem__(self: BaseGroupBy[DataFrame], key: Scalar) -> generic.SeriesGroupBy: ...  # type: ignore[overload-overlap] # pyright: ignore[reportOverlappingOverload]
+    @overload
+    def __getitem__(
+        self: BaseGroupBy[DataFrame], key: Iterable[Hashable]
+    ) -> generic.DataFrameGroupBy: ...
+    @overload
+    def __getitem__(
+        self: BaseGroupBy[Series[S1]],
+        idx: list[str] | Index | Series[S1] | MaskType | tuple[Hashable | slice, ...],
+    ) -> generic.SeriesGroupBy: ...
+    @overload
+    def __getitem__(self: BaseGroupBy[Series[S1]], idx: Scalar) -> S1: ...

@@ -11,13 +11,13 @@ use chroma_storage::{
 
 use crate::manifest::unprefixed_snapshot_path;
 use crate::{
-    deserialize_setsum, serialize_setsum, unprefixed_fragment_path, Error, Fragment, FragmentSeqNo,
+    deserialize_setsum, prefixed_fragment_path, serialize_setsum, Error, Fragment, FragmentSeqNo,
     LogPosition, Manifest, ScrubError, Snapshot, SnapshotCache, SnapshotPointer, ThrottleOptions,
 };
 
 ////////////////////////////////////////////// Garbage /////////////////////////////////////////////
 
-#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Eq, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct Garbage {
     pub snapshots_to_drop: Vec<SnapshotPointer>,
     pub snapshots_to_make: Vec<Snapshot>,
@@ -33,6 +33,22 @@ pub struct Garbage {
 }
 
 impl Garbage {
+    pub fn empty() -> Self {
+        Garbage {
+            snapshots_to_drop: Vec::new(),
+            snapshots_to_make: Vec::new(),
+            snapshot_for_root: None,
+            fragments_to_drop_start: FragmentSeqNo(0),
+            fragments_to_drop_limit: FragmentSeqNo(0),
+            setsum_to_discard: Setsum::default(),
+            first_to_keep: LogPosition::from_offset(1),
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        *self == Self::empty()
+    }
+
     pub fn path(prefix: &str) -> String {
         format!("{}/gc/GARBAGE", prefix)
     }
@@ -45,7 +61,7 @@ impl Garbage {
         throttle: &ThrottleOptions,
         snapshots: &dyn SnapshotCache,
         first_to_keep: LogPosition,
-    ) -> Result<Self, Error> {
+    ) -> Result<Option<Self>, Error> {
         let dropped_snapshots = manifest
             .snapshots
             .iter()
@@ -103,10 +119,14 @@ impl Garbage {
                 "setsums don't balance".to_string(),
             ))));
         }
-        Ok(ret)
+        if !first {
+            Ok(Some(ret))
+        } else {
+            Ok(None)
+        }
     }
 
-    #[tracing::instrument(skip(storage), err(Display))]
+    #[tracing::instrument(skip(storage))]
     pub async fn load(
         options: &ThrottleOptions,
         storage: &Storage,
@@ -145,61 +165,89 @@ impl Garbage {
         }
     }
 
-    #[tracing::instrument(skip(self, storage), err(Display))]
+    #[tracing::instrument(skip(self, storage))]
     pub async fn install(
         &self,
         options: &ThrottleOptions,
         storage: &Storage,
         prefix: &str,
+        existing: Option<&ETag>,
     ) -> Result<Option<ETag>, Error> {
         self.install_new_snapshots(storage, prefix, options).await?;
+        Self::transition(options, storage, prefix, existing, self).await
+    }
+
+    #[tracing::instrument(skip(self, storage))]
+    pub async fn reset(
+        &self,
+        options: &ThrottleOptions,
+        storage: &Storage,
+        prefix: &str,
+        existing: &ETag,
+    ) -> Result<Option<ETag>, Error> {
+        match Self::transition(options, storage, prefix, Some(existing), &Self::empty()).await {
+            Ok(e_tag) => Ok(e_tag),
+            Err(Error::LogContentionFailure) => Ok(None),
+            Err(err) => Err(err),
+        }
+    }
+
+    async fn transition(
+        options: &ThrottleOptions,
+        storage: &Storage,
+        prefix: &str,
+        existing: Option<&ETag>,
+        replacement: &Self,
+    ) -> Result<Option<ETag>, Error> {
         let exp_backoff = crate::backoff::ExponentialBackoff::new(
             options.throughput as f64,
             options.headroom as f64,
         );
+        let mut retry_count = 0;
         loop {
             let path = Self::path(prefix);
-            let payload = serde_json::to_string(&self)
+            let payload = serde_json::to_string(replacement)
                 .map_err(|e| {
                     Error::CorruptManifest(format!("could not encode JSON garbage: {e:?}"))
                 })?
                 .into_bytes();
-            let options = PutOptions::if_not_exists(StorageRequestPriority::P0);
+            let options = if let Some(e_tag) = existing {
+                PutOptions::if_matches(e_tag, StorageRequestPriority::P0)
+            } else {
+                PutOptions::if_not_exists(StorageRequestPriority::P0)
+            };
             match storage.put_bytes(&path, payload, options).await {
                 Ok(e_tag) => return Ok(e_tag),
                 Err(StorageError::Precondition { path: _, source: _ }) => {
-                    // NOTE(rescrv):  We know that someone put the file before us, and therefore we
-                    // know this write failed.  Because the garbage file is created and deleted
-                    // we cannot just overwrite, so fail with log contention and let higher level
-                    // protocol decide.
-                    return Err(Error::LogContentionRetry);
+                    // NOTE(rescrv):  We know that we put the file.  The e_tag no longer matches.
+                    // Therefore, we know someone else transitioned the file and our reset should
+                    // be a NOP.
+                    return Err(Error::LogContentionFailure);
                 }
                 Err(e) => {
-                    tracing::error!("error uploading manifest: {e:?}");
-                    let mut backoff = exp_backoff.next();
-                    if backoff > Duration::from_secs(3_600) {
-                        backoff = Duration::from_secs(3_600);
+                    tracing::error!("error uploading garbage: {e:?}");
+                    let backoff = exp_backoff.next();
+                    if backoff > Duration::from_secs(60) || retry_count >= 3 {
+                        return Err(Arc::new(e).into());
                     }
                     tokio::time::sleep(backoff).await;
                 }
             }
+            retry_count += 1;
         }
     }
 
     pub fn prefixed_paths_to_delete(&self, prefix: &str) -> impl Iterator<Item = String> {
+        let prefix = Arc::new(prefix.to_string());
         let mut paths = vec![];
         for snap in self.snapshots_to_drop.iter() {
             paths.push(format!("{}/{}", prefix, snap.path_to_snapshot));
         }
-        // TODO(rescrv):  When Step stabilizes, revisit this ugliness.
-        for seq_no in self.fragments_to_drop_start.0..self.fragments_to_drop_limit.0 {
-            paths.push(format!(
-                "{}/{}",
-                prefix,
-                unprefixed_fragment_path(FragmentSeqNo(seq_no))
-            ));
-        }
-        paths.into_iter()
+        paths.into_iter().chain(
+            (self.fragments_to_drop_start.0..self.fragments_to_drop_limit.0)
+                .map(move |seq_no| (seq_no, Arc::clone(&prefix)))
+                .map(|(seq_no, prefix)| prefixed_fragment_path(&prefix, FragmentSeqNo(seq_no))),
+        )
     }
 
     pub async fn install_new_snapshots(

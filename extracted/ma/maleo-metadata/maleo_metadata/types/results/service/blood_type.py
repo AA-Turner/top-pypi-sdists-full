@@ -3,13 +3,13 @@ from maleo_metadata.models.transfers.results.service.blood_type import MaleoMeta
 
 class MaleoMetadataBloodTypeServiceResultsTypes:
     GetMultiple = Union[
-        MaleoMetadataBloodTypeServiceResultsTransfers.Fail,
+        MaleoMetadataBloodTypeServiceResultsTransfers.MultipleData,
         MaleoMetadataBloodTypeServiceResultsTransfers.NoData,
-        MaleoMetadataBloodTypeServiceResultsTransfers.MultipleData
+        MaleoMetadataBloodTypeServiceResultsTransfers.Fail
     ]
 
     GetSingle = Union[
-        MaleoMetadataBloodTypeServiceResultsTransfers.Fail,
+        MaleoMetadataBloodTypeServiceResultsTransfers.SingleData,
         MaleoMetadataBloodTypeServiceResultsTransfers.NoData,
-        MaleoMetadataBloodTypeServiceResultsTransfers.SingleData
+        MaleoMetadataBloodTypeServiceResultsTransfers.Fail
     ]

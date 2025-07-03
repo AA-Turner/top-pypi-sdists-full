@@ -21,6 +21,8 @@ class SeeqNames:
     
     class ImpactReport:
         impact_table_name = 'VCC_ImpactTable_v1'
+        k_p_i_prefix = 'VC_KPI_'
+        category_prefix = 'VCC_'
         impact = 'impact'
         impact_name = 'Name'
         impact_description = 'Description'
@@ -178,6 +180,7 @@ class SeeqNames:
         created_at_column = 'created at'
         unique_row_id = 'Existing Row Identifier'
         csv_item_id_column = 'csv item id'
+        last_capsule_state_column = 'Last Capsule State'
         class Parameters:
             property_name = 'propertyName'
             property_names = 'propertyNames'
@@ -222,6 +225,7 @@ class SeeqNames:
             concat_columns = 'concatColumns'
             descendant = 'descendant'
             event_property = 'eventProperty'
+            preserve_existing = 'preserveExisting'
             formula_creator = 'formulaCreator'
             get_item_property = 'getItemProperty'
             item_search = 'itemSearch'
@@ -537,6 +541,7 @@ class SeeqNames:
         label = 'Label'
         context = 'Context'
         table_definitions = 'TableDefinitions'
+        hierarchies = 'Hierarchies'
         models = 'Models'
         table_overrides = 'TableOverrides'
         graph_q_l = 'GraphQL'
@@ -629,6 +634,7 @@ class SeeqNames:
         context_opaque = '/opaque'
         context_numeric = '/numeric'
         table_definitions = '/table-definitions'
+        hierarchies = '/hierarchies'
         models = '/models'
         graph_q_l = '/graphql'
         cache = '/cache'
@@ -777,6 +783,7 @@ class SeeqNames:
         has_template = 'has template'
         subscribed_to = 'subscribed to'
         contains_context_for = 'contains context for'
+        hierarchy_of = 'Hierarchy Of'
     
     class Types:
         asset = 'Asset'
@@ -844,6 +851,7 @@ class SeeqNames:
         table_definition = 'TableDefinition'
         version_history = 'VersionHistory'
         model = 'Model'
+        hierarchy = 'Hierarchy'
     
     class TopicDocumentAttributes:
         data_seeq_content = 'data-seeq-content'
@@ -1195,6 +1203,9 @@ class SeeqNames:
         versions = 'Versions'
         inputs = 'Inputs'
         result_type = 'Result Type'
+        view_columns = 'View Columns'
+        filter_grouping = 'Filter Grouping'
+        friendly_name_column_id = 'Friendly Name Column ID'
         features = 'Features'
     
 

@@ -11,7 +11,8 @@ import typer
 from dotenv import load_dotenv
 
 from mcp_cli.console import restore_terminal
-from mcp_cli.commands import server_app, tool_app
+from mcp_cli.commands import server_app, tool_app, auth_app
+from mcp_cli.logging_utils import setup_logging
 
 
 DOTENV_PATH = os.getenv("MCP_CLI_DOTENV_PATH", None)
@@ -29,15 +30,12 @@ LOG_LEVEL_MAP = {
     'DEBUG': logging.DEBUG,
 }
 
-# Get log level from environment variable, default to WARNING
-log_level_name = os.getenv('LOG_LEVEL', 'WARNING').upper()
-log_level = LOG_LEVEL_MAP.get(log_level_name, logging.WARNING)
+# Get log level from environment variable, default to ERROR
+log_level_name = os.getenv('LOG_LEVEL', 'ERROR').upper()
+log_level = LOG_LEVEL_MAP.get(log_level_name, logging.ERROR)
 
-logging.basicConfig(
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    stream=sys.stderr,
-    level=log_level
-)
+# Set up logging
+setup_logging(level=log_level)
 
 # Ensure terminal restoration on exit
 atexit.register(restore_terminal)
@@ -93,6 +91,11 @@ app.add_typer(server_app, name="server")
 # Tool commands
 # ---------------------------------------------------------------------------
 app.add_typer(tool_app, name="tool")
+
+# ---------------------------------------------------------------------------
+# Auth commands
+# ---------------------------------------------------------------------------
+app.add_typer(auth_app, name="auth")
 
 # ---------------------------------------------------------------------------
 # Signal‐handler for clean shutdown

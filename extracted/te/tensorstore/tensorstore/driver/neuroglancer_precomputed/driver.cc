@@ -73,6 +73,7 @@
 #include "tensorstore/internal/lexicographical_grid_index_key.h"
 #include "tensorstore/internal/regular_grid.h"
 #include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/kvstore/auto_detect.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/neuroglancer_uint64_sharded/neuroglancer_uint64_sharded.h"
 #include "tensorstore/kvstore/spec.h"
@@ -986,8 +987,8 @@ Future<internal::Driver::Handle> NeuroglancerPrecomputedDriverSpec::Open(
 
 Result<internal::TransformedDriverSpec> ParseNeuroglancerPrecomputedUrl(
     std::string_view url, kvstore::Spec&& base) {
-  auto parsed = internal::ParseGenericUriWithoutSlashSlash(url);
-  assert(parsed.scheme == kUrlScheme);
+  auto parsed = internal::ParseGenericUri(url);
+  TENSORSTORE_RETURN_IF_ERROR(internal::EnsureSchema(parsed, kUrlScheme));
   TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoPathOrQueryOrFragment(parsed));
   auto driver_spec =
       internal::MakeIntrusivePtr<NeuroglancerPrecomputedDriverSpec>();
@@ -1025,4 +1026,11 @@ const tensorstore::internal::UrlSchemeRegistration url_scheme_registration(
     tensorstore::internal_neuroglancer_precomputed::kUrlScheme,
     tensorstore::internal_neuroglancer_precomputed::
         ParseNeuroglancerPrecomputedUrl);
+
+const tensorstore::internal_kvstore::AutoDetectRegistration
+    auto_detect_registration{
+        tensorstore::internal_kvstore::AutoDetectDirectorySpec::SingleFile(
+            tensorstore::internal_neuroglancer_precomputed::kUrlScheme,
+            tensorstore::internal_neuroglancer_precomputed::kMetadataKey)};
+
 }  // namespace

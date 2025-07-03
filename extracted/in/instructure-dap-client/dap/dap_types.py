@@ -6,7 +6,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Dict, List, Optional, Union
 
-from strong_typing.core import JsonObject, JsonType
+from strong_typing.core import JsonType
 from strong_typing.schema import json_schema_type, register_schema
 from strong_typing.serialization import object_to_json
 
@@ -30,7 +30,7 @@ class URL:
     @staticmethod
     def from_json(value: JsonType) -> "URL":
         if not isinstance(value, str):
-            raise TypeError("URL must be represented as a string")
+            raise TypeError("Invalid input. The URL must be provided as a string.")
 
         return URL(value)
 
@@ -180,9 +180,9 @@ class CompleteSnapshotJob(CompleteJob):
 
     def __post_init__(self) -> None:
         if not isinstance(self.at, datetime):
-            raise TypeError("timestamp `at` expects datetime type")
+            raise TypeError("Invalid timestamp for `at`. Expected a datetime object. (e.g., 2025-05-23T13:22:47)")
         if self.at.tzinfo is None:
-            raise ValueError("time zone designator required for timestamp `at`")
+            raise ValueError("Timestamp `at` must include a time zone offset (e.g., +00:00).")
 
 
 @json_schema_type
@@ -201,14 +201,14 @@ class CompleteIncrementalJob(CompleteJob):
 
     def __post_init__(self) -> None:
         if not isinstance(self.since, datetime):
-            raise TypeError("timestamp `since` expects datetime type")
+            raise TypeError("Invalid timestamp for `since`. Expected a datetime object. (e.g., 2025-05-23T13:22:47)")
         if self.since.tzinfo is None:
-            raise ValueError("time zone designator required for timestamp `since`")
+            raise ValueError("Timestamp `since` must include a time zone offset (e.g., +00:00).")
 
         if not isinstance(self.until, datetime):
-            raise TypeError("timestamp `until` expects datetime type")
+            raise TypeError("Invalid timestamp for `until`. Expected a datetime object. (e.g., 2025-05-23T13:22:47)")
         if self.until.tzinfo is None:
-            raise ValueError("time zone designator required for timestamp `until`")
+            raise ValueError("Timestamp `until` must include a time zone offset (e.g., +00:00).")
 
 
 @json_schema_type
@@ -377,15 +377,15 @@ class IncrementalQuery(TableQuery):
 
     def __post_init__(self) -> None:
         if not isinstance(self.since, datetime):
-            raise TypeError("timestamp `since` expects datetime type")
+            raise TypeError("Invalid timestamp for `since`. Expected a datetime object. (e.g., 2025-05-23T13:22:47)")
         if self.since.tzinfo is None:
-            raise ValueError("time zone designator required for timestamp `since`")
+            raise ValueError("Timestamp `since` must include a time zone offset (e.g., +00:00).")
 
         if self.until is not None:
             if not isinstance(self.until, datetime):
-                raise TypeError("timestamp `until` expects datetime type")
+                raise TypeError("Invalid timestamp for `until`. Expected a datetime object. (e.g., 2025-05-23T13:22:47)")
             if self.until.tzinfo is None:
-                raise ValueError("time zone designator required for timestamp `until`")
+                raise ValueError("Timestamp `until` must include a time zone offset (e.g., +00:00).")
 
 
 Query = Union[SnapshotQuery, IncrementalQuery]
@@ -423,9 +423,9 @@ class Credentials:
     @classmethod
     def create(cls, *, client_id: str, client_secret: str) -> "Credentials":
         if not client_id:
-            raise ValueError("missing DAP client ID")
+            raise ValueError("Missing DAP client ID. Please provide the client ID before proceeding. Obtain it from identity.instructure.com")
         if not client_secret:
-            raise ValueError("missing DAP client secret")
+            raise ValueError("Missing DAP client secret. Please provide the client secret before proceeding. Obtain it from identity.instructure.com")
 
         basic_credentials = base64.b64encode(
             f"{client_id}:{client_secret}".encode("utf-8")
@@ -478,9 +478,9 @@ class TableDataResult:
 
     def __post_init__(self) -> None:
         if not isinstance(self.timestamp, datetime):
-            raise TypeError("timestamp expects datetime type")
+            raise TypeError("Invalid timestamp. Expected a datetime object. (e.g., 2025-05-23T13:22:47)")
         if self.timestamp.tzinfo is None:
-            raise ValueError("time zone designator required for timestamp")
+            raise ValueError("Timestamp must include a time zone offset (e.g., +00:00).")
 
 
 @dataclass(frozen=True)

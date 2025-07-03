@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "daytona_sdk"
-version = "0.21.5"
+version = "0.21.6"
 authors = [
     { name = "Daytona Platforms Inc.", email = "support@daytona.io"  },
 ]

@@ -1,7 +1,7 @@
 use super::{
     event_queue::{
         batch::EventBatch,
-        queue::{EventQueue, QueueResult},
+        queue::{EventQueue, QueueReconcileResult},
         queued_event::{EnqueueOperation, QueuedEvent},
     },
     exposure_sampling::ExposureSampling,
@@ -10,21 +10,27 @@ use super::{
     statsig_event_internal::StatsigEventInternal,
 };
 use crate::{
-    event_logging::event_logger_constants::EventLoggerConstants,
-    log_d, log_w,
+    event_logging::{
+        event_logger_constants::EventLoggerConstants, event_queue::queue::QueueAddResult,
+    },
+    log_d, log_e, log_w,
     networking::NetworkError,
     observability::ops_stats::{OpsStatsForInstance, OPS_STATS},
     statsig_metadata::StatsigMetadata,
     write_lock_or_noop, EventLoggingAdapter, StatsigErr, StatsigOptions, StatsigRuntime,
 };
-use std::time::Duration;
 use std::{
     collections::HashMap,
     sync::{Arc, RwLock},
 };
+use std::{
+    sync::atomic::{AtomicU64, Ordering},
+    time::Duration,
+};
 use tokio::sync::{Notify, Semaphore};
 
-const BG_TASK_TAG: &str = "EVENT_LOGGER_BG_TASK";
+const BG_LOOP_TAG: &str = "EVT_LOG_BG_LOOP";
+const LIMIT_FLUSH_TAG: &str = "EVT_LOG_LIMIT_FLUSH";
 const DEFAULT_BATCH_SIZE: u32 = 2000;
 const DEFAULT_PENDING_BATCH_MAX: u32 = 100;
 const MAX_LIMIT_FLUSH_TASKS: usize = 5;
@@ -48,6 +54,7 @@ pub struct EventLogger {
     flush_interval: FlushInterval,
     shutdown_notify: Notify,
     ops_stats: Arc<OpsStatsForInstance>,
+    enqueue_dropped_events_count: AtomicU64,
 }
 
 impl EventLogger {
@@ -75,6 +82,7 @@ impl EventLogger {
             limit_flush_notify: Notify::new(),
             limit_flush_semaphore: Arc::new(Semaphore::new(MAX_LIMIT_FLUSH_TASKS)),
             ops_stats: OPS_STATS.get_for_instance(sdk_key),
+            enqueue_dropped_events_count: AtomicU64::new(0),
         });
 
         me.spawn_background_task(statsig_rt);
@@ -92,8 +100,14 @@ impl EventLogger {
         }
 
         let pending_event = operation.into_queued_event(decision);
-        if self.queue.add(pending_event) {
-            self.limit_flush_notify.notify_one();
+        match self.queue.add(pending_event) {
+            QueueAddResult::Noop => (),
+            QueueAddResult::NeedsFlush => self.limit_flush_notify.notify_one(),
+            QueueAddResult::NeedsFlushAndDropped(dropped_events_count) => {
+                self.enqueue_dropped_events_count
+                    .fetch_add(dropped_events_count, Ordering::Relaxed);
+                self.limit_flush_notify.notify_one();
+            }
         }
     }
 
@@ -118,11 +132,15 @@ impl EventLogger {
         result
     }
 
+    pub fn force_shutdown(&self) {
+        self.shutdown_notify.notify_one();
+    }
+
     fn spawn_background_task(self: &Arc<Self>, rt: &Arc<StatsigRuntime>) {
         let me = self.clone();
         let rt_clone = rt.clone();
 
-        rt.spawn(BG_TASK_TAG, |rt_shutdown_notify| async move {
+        rt.spawn(BG_LOOP_TAG, |rt_shutdown_notify| async move {
             let tick_interval_ms = EventLoggerConstants::tick_interval_ms();
             let tick_interval = Duration::from_millis(tick_interval_ms);
 
@@ -156,7 +174,7 @@ impl EventLogger {
         };
 
         let me = inst.clone();
-        rt.spawn(BG_TASK_TAG, |_| async move {
+        rt.spawn(LIMIT_FLUSH_TAG, |_| async move {
             log_d!(TAG, "Attempting limit flush");
             if !me.flush_next_batch(FlushType::Limit).await {
                 return;
@@ -281,10 +299,15 @@ impl EventLogger {
 
     fn prepare_event_queue_for_flush(&self, flush_type: FlushType) {
         self.try_add_non_exposed_checks_event();
+        self.try_log_enqueue_dropped_events();
 
         let dropped_events_count = match self.queue.reconcile_batching() {
-            QueueResult::Success => return,
-            QueueResult::DroppedEvents(dropped_events_count) => dropped_events_count,
+            QueueReconcileResult::Success => return,
+            QueueReconcileResult::LockFailure => {
+                log_e!(TAG, "prepare_event_queue_for_flush lock failure");
+                return;
+            }
+            QueueReconcileResult::DroppedEvents(dropped_events_count) => dropped_events_count,
         };
 
         if dropped_events_count > 0 {
@@ -319,8 +342,12 @@ impl EventLogger {
         }
 
         let dropped_events_count = match self.queue.requeue_batch(batch) {
-            QueueResult::Success => return,
-            QueueResult::DroppedEvents(dropped_events_count) => dropped_events_count,
+            QueueReconcileResult::Success => return,
+            QueueReconcileResult::DroppedEvents(dropped_events_count) => dropped_events_count,
+            QueueReconcileResult::LockFailure => {
+                log_e!(TAG, "try_requeue_failed_batch lock failure");
+                return;
+            }
         };
 
         if dropped_events_count == 0 {
@@ -376,9 +403,33 @@ impl EventLogger {
         }
 
         let checks = std::mem::take(&mut *non_exposed_checks);
-        self.queue.add(QueuedEvent::Passthrough(
+        let result = self.queue.add(QueuedEvent::Passthrough(
             StatsigEventInternal::new_non_exposed_checks_event(checks),
         ));
+
+        if let QueueAddResult::NeedsFlushAndDropped(dropped_events_count) = result {
+            self.enqueue_dropped_events_count
+                .fetch_add(dropped_events_count, Ordering::Relaxed);
+        }
+    }
+
+    fn try_log_enqueue_dropped_events(&self) {
+        let dropped_events_count = self.enqueue_dropped_events_count.swap(0, Ordering::Relaxed);
+        if dropped_events_count == 0 {
+            return;
+        }
+
+        self.log_dropped_event_warning(dropped_events_count);
+
+        self.ops_stats.log_batching_dropped_events(
+            StatsigErr::LogEventError(
+                "Dropped events due to max pending event batches limit".to_string(),
+            ),
+            dropped_events_count,
+            &self.flush_interval,
+            &self.queue,
+            FlushType::Limit,
+        );
     }
 
     fn log_dropped_event_warning(&self, dropped_events_count: u64) {

@@ -382,39 +382,13 @@ class Assets(WMLResource):
         .. code-block:: python
 
             client.data_assets.list()
+
         """
-
-        Assets._validate_type(limit, "limit", int, False)
-        href = self._client._href_definitions.get_search_asset_href()
-
-        data: dict[str, Any] = {"query": "*:*"}
-        if limit is not None:
-            data.update({"limit": limit})
-
-        response = requests.post(
-            href,
-            params=self._client._params(),
-            headers=self._client._get_headers(),
-            json=data,
+        return self._list_asset_based_resource(
+            url=self._client._href_definitions.get_search_data_asset_href(),
+            column_names=["NAME", "ASSET_TYPE", "SIZE", "ASSET_ID"],
+            limit=limit,
         )
-        self._handle_response(200, "list assets", response)
-        asset_details = self._handle_response(200, "list assets", response)["results"]
-        space_values = [
-            (
-                m["metadata"]["name"],
-                m["metadata"]["asset_type"],
-                m["metadata"]["size"],
-                m["metadata"]["asset_id"],
-            )
-            for m in asset_details
-        ]
-
-        table = self._list(
-            space_values,
-            ["NAME", "ASSET_TYPE", "SIZE", "ASSET_ID"],
-            limit,
-        )
-        return table
 
     def download(
         self, asset_id: str | None = None, filename: str = "", **kwargs: Any
@@ -621,24 +595,12 @@ class Assets(WMLResource):
             client.data_assets.delete(asset_id)
 
         """
-        asset_id = _get_id_from_deprecated_uid(kwargs, asset_id, "asset")
-
-        Assets._validate_type(asset_id, "asset_id", str, True)
-
-        params = self._client._params()
-
-        if purge_on_delete:
-            params["purge_on_delete"] = True
-
-        response = requests.delete(
-            self._client._href_definitions.get_asset_href(asset_id),
-            params=params,
-            headers=self._client._get_headers(),
+        return self._delete_asset_based_resource(
+            asset_id,
+            self._get_required_element_from_response,
+            purge_on_delete,
+            **kwargs,
         )
-        if response.status_code == 200:
-            return self._get_required_element_from_response(response.json())
-        else:
-            return self._handle_response(204, "delete assets", response)
 
     def _get_required_element_from_response(self, response_data: dict) -> dict:
 
@@ -678,7 +640,7 @@ class Assets(WMLResource):
             new_el["metadata"].update({"href": href_without_host})
 
             return new_el
-        except Exception as e:
+        except Exception:
             raise WMLClientError(
                 Messages.get_message(
                     response_data,

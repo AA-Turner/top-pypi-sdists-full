@@ -1,11 +1,11 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: instructure-dap-client
-Version: 1.4.0
+Version: 2.0.0
 Summary: Data Access Platform client library
 Maintainer: Instucture, Inc.
 Maintainer-email: dapclient@instructure.com
 License: MIT
-Project-URL: Changelog, https://data-access-platform-api.s3.amazonaws.com/client/RELEASE_NOTES.html
+Project-URL: Changelog, https://community.canvaslms.com/t5/Canvas-Change-Log/2025-API-and-CLI-Change-Log/ta-p/626858
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -22,21 +22,30 @@ License-File: LICENSE
 Requires-Dist: aiohttp>=3.8.4
 Requires-Dist: aiohttp-retry>=2.8.3
 Requires-Dist: aiofiles>=23.1.0
+Requires-Dist: asyncclick>=8.1.8
 Requires-Dist: types-aiofiles>=23.1.0
-Requires-Dist: json_strong_typing>=0.3.4
+Requires-Dist: json_strong_typing>=0.3.9
 Requires-Dist: pysqlsync[tsv]>=0.8.2
 Requires-Dist: PyJWT>=2.7.0
 Requires-Dist: tsv2py>=0.7.1
+Requires-Dist: rich>=14.0.0
 Provides-Extra: postgresql
 Requires-Dist: pysqlsync[postgresql]>=0.8.2; extra == "postgresql"
 Provides-Extra: mysql
 Requires-Dist: pysqlsync[mysql]>=0.8.2; extra == "mysql"
 Provides-Extra: mssql
 Requires-Dist: pysqlsync[mssql]>=0.8.2; extra == "mssql"
+Dynamic: license-file
 
 # Data Access Platform Client Library
 
 Data Access Platform (DAP) acts as a single source of data for analytics at Instructure. It provides efficient access to data collected across various educational products in bulk with high fidelity and low latency, adhering to a canonical data model.
+
+We use analytics tools within the DAP CLI (Data Access Platform Command Line Interface) to help us understand how the tool is used,
+identify areas for improvement, and enhance the overall developer experience. No personal data is collected, stored, or shared through this analytics process.
+You can opt out of analytics tracking at any time by using the DAP CLI (Data Access Platform Command Line Interface).
+Please refer to the documentation for instructions on how to disable analytics through the CLI.
+For more information, please see our [Privacy Policy](https://www.instructure.com/policies/marketing-privacy).
 
 ## Links to documentation
 

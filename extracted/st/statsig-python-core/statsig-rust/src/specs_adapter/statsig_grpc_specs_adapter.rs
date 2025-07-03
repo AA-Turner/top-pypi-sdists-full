@@ -1,10 +1,11 @@
 use crate::observability::observability_client_adapter::{MetricType, ObservabilityEvent};
 use crate::observability::ops_stats::{OpsStatsForInstance, OPS_STATS};
 use crate::observability::ErrorBoundaryEvent;
+#[cfg(feature = "with_shared_dict_compression")]
 use crate::specs_adapter::statsig_http_specs_adapter::INIT_DICT_ID;
 use crate::{
-    log_d, log_error_to_statsig_and_console, log_w, SpecAdapterConfig, SpecsAdapter, SpecsSource,
-    SpecsUpdate, SpecsUpdateListener, StatsigErr, StatsigOptions, StatsigRuntime,
+    log_d, log_e, log_error_to_statsig_and_console, log_w, SpecAdapterConfig, SpecsAdapter,
+    SpecsSource, SpecsUpdate, SpecsUpdateListener, StatsigErr, StatsigOptions, StatsigRuntime,
 };
 use async_trait::async_trait;
 use chrono::Utc;
@@ -16,7 +17,7 @@ use std::time::Duration;
 use tokio::sync::{broadcast, Mutex, Notify};
 use tokio::time::{sleep, timeout};
 
-use super::{ConfigCompressionMode, SpecsInfo, StatsigHttpSpecsAdapter};
+use super::{SpecsInfo, StatsigHttpSpecsAdapter};
 // Todo make those configurable
 const DEFAULT_BACKOFF_INTERVAL_MS: u64 = 3000;
 const DEFAULT_BACKOFF_MULTIPLIER: u64 = 2;
@@ -38,7 +39,6 @@ pub struct StatsigGrpcSpecsAdapter {
     initialization_tx: Arc<broadcast::Sender<Result<(), StatsigErr>>>,
     task_handle_id: Mutex<Option<tokio::task::Id>>,
     grpc_client: StatsigGrpcClient,
-    config_compression_mode: Option<ConfigCompressionMode>,
     retry_state: StreamingRetryState,
     init_timeout: Duration,
     ops_stats: Arc<OpsStatsForInstance>,
@@ -64,8 +64,7 @@ impl SpecsAdapter for StatsigGrpcSpecsAdapter {
             Ok(res) => match res {
                 Ok(Ok(())) => Ok(()),
                 Ok(Err(err)) => Err(StatsigErr::GrpcError(format!(
-                    "Failed to initialize from streaming: {}",
-                    err
+                    "Failed to initialize from streaming: {err}"
                 ))),
                 Err(_) => Err(StatsigErr::GrpcError("Failed to get a ".to_string())),
             },
@@ -107,8 +106,7 @@ impl SpecsAdapter for StatsigGrpcSpecsAdapter {
                     self.ops_stats,
                     TAG,
                     StatsigErr::LockFailure(format!(
-                        "Failed to acquire write lock on listener: {}",
-                        e
+                        "Failed to acquire write lock on listener: {e}"
                     ))
                 );
             }
@@ -180,7 +178,6 @@ impl StatsigGrpcSpecsAdapter {
                 config.client_key_path.clone(),
                 config.domain_name.clone(),
             ),
-            config_compression_mode: options.and_then(|o| o.config_compression_mode.clone()),
             initialization_tx: Arc::new(init_tx),
             retry_state: StreamingRetryState {
                 backoff_interval_ms: DEFAULT_BACKOFF_INTERVAL_MS.into(),
@@ -199,11 +196,17 @@ impl StatsigGrpcSpecsAdapter {
         cancel_notify: Arc<Notify>,
         shutdown_notify: Arc<Notify>,
     ) {
+        let weak_http_adapter = Arc::downgrade(&http_spec_adapter);
         tokio::task::spawn(async move {
             loop {
                 tokio::select! {
                     _ = sleep(Duration::from_millis(3000)) => {
-                        StatsigHttpSpecsAdapter::run_background_sync(&Arc::downgrade(&http_spec_adapter)).await;
+                        if let Some(strong_http_adapter) = weak_http_adapter.upgrade() {
+                            StatsigHttpSpecsAdapter::run_background_sync(strong_http_adapter).await;
+                        } else {
+                            log_e!(TAG, "GRPC adapter lost strong reference to StatsigHttpSpecsAdapter. Stopping polling thread");
+                            break;
+                        }
                     }
                     _ = cancel_notify.notified() => {
                         log_d!(TAG, "Cancel grpc fallback background specs sync");
@@ -232,7 +235,7 @@ impl StatsigGrpcSpecsAdapter {
                         log_error_to_statsig_and_console!(
                             &ops_stats,
                             TAG,
-                            StatsigErr::GrpcError(format!("gRPC streaming thread failed: {}", e))
+                            StatsigErr::GrpcError(format!("gRPC streaming thread failed: {e}"))
                         );
                     }
                 } else {
@@ -255,7 +258,7 @@ impl StatsigGrpcSpecsAdapter {
                     if let Err(err) = result {
                         let attempt = self.retry_state.retry_attempts.fetch_add(1, Ordering::SeqCst);
                         if attempt > RETRY_LIMIT {
-                            log_error_to_statsig_and_console!(&self.ops_stats, TAG, StatsigErr::GrpcError(format!("gRPC stream failure, exhaust retry limit: {:?}", err)));
+                            log_error_to_statsig_and_console!(&self.ops_stats, TAG, StatsigErr::GrpcError(format!("gRPC stream failure, exhaust retry limit: {err:?}")));
                            break;
                         }
                         if attempt == FALL_BACK_TO_POLLING_THREASHOLD {
@@ -290,14 +293,14 @@ impl StatsigGrpcSpecsAdapter {
         self.grpc_client
             .connect_client()
             .await
-            .map_err(|e| StatsigErr::GrpcError(format!("{}", e)))?;
+            .map_err(|e| StatsigErr::GrpcError(format!("{e}")))?;
         let specs_info = self.get_current_specs_info();
         let zstd_id = specs_info.as_ref().and_then(|s| self.get_dict_id(s));
         let mut stream = self
             .grpc_client
             .get_specs_stream(specs_info.as_ref().and_then(|s| s.lcut), zstd_id)
             .await
-            .map_err(|e| StatsigErr::GrpcError(format!("{}", e)))?;
+            .map_err(|e| StatsigErr::GrpcError(format!("{e}")))?;
         loop {
             match stream.message().await {
                 Ok(Some(config_spec)) => {
@@ -328,8 +331,7 @@ impl StatsigGrpcSpecsAdapter {
                 }
                 err => {
                     return Err(StatsigErr::GrpcError(format!(
-                        "Error while receiving stream: {:?}",
-                        err
+                        "Error while receiving stream: {err:?}"
                     )));
                 }
             }
@@ -377,14 +379,17 @@ impl StatsigGrpcSpecsAdapter {
         None
     }
 
+    #[cfg(feature = "with_shared_dict_compression")]
     fn get_dict_id(&self, spec_info: &SpecsInfo) -> Option<String> {
-        match self.config_compression_mode {
-            Some(ConfigCompressionMode::Dictionary) => match spec_info.zstd_dict_id.as_ref() {
-                Some(d) => Some(d.clone()),
-                None => Some(INIT_DICT_ID.to_string()),
-            },
-            _ => None,
+        match spec_info.zstd_dict_id.as_ref() {
+            Some(d) => Some(d.clone()),
+            None => Some(INIT_DICT_ID.to_string()),
         }
+    }
+
+    #[cfg(not(feature = "with_shared_dict_compression"))]
+    fn get_dict_id(&self, _spec_info: &SpecsInfo) -> Option<String> {
+        None
     }
 
     fn log_streaming_err(&self, err: StatsigErr, retry_attempts: u64, backoff: u64) {

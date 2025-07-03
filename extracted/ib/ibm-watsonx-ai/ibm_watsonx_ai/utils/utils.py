@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import base64
 import importlib
 import functools
 import importlib.util
@@ -710,6 +709,7 @@ def next_resource_generator(
     _all: bool = False,
     _filter_func: Callable | None = None,
     use_httpx: bool = False,
+    _silent_response_logging: bool = False,
 ) -> Generator[dict, None, None]:
     """
     Generator to produce next list of resources from REST API.
@@ -748,7 +748,10 @@ def next_resource_generator(
             params=(params if params is not None else client._params()),
         )
         details_json = client.training._handle_response(
-            200, "Get next details", response
+            200,
+            "Get next details",
+            response,
+            _silent_response_logging=_silent_response_logging,
         )
 
         if _all:
@@ -1017,23 +1020,13 @@ def get_user_agent_header() -> str:
 
 
 def _get_expiration_datetime_from_headers(headers: dict) -> datetime | None:
-
     try:
+        from ibm_watsonx_ai.utils.auth.base_auth import _get_token_info
+
         token = headers.get("Authorization", " ").split(" ")[-1]
 
-        token_parts = token.split(".")
-        token_padded = token_parts[1] + "==="
-        try:
-            token_info = json.loads(
-                base64.b64decode(token_padded).decode("utf-8", errors="ignore")
-            )
-        except ValueError:
-            # If there is a problem with decoding (e.g. special char in token), add altchars
-            token_info = json.loads(
-                base64.b64decode(token_padded, altchars="_-").decode(
-                    "utf-8", errors="ignore"
-                )
-            )
+        token_info = _get_token_info(token)
+
         token_expire = token_info.get("exp")
 
         return datetime.fromtimestamp(token_expire)

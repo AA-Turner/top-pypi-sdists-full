@@ -1,7 +1,8 @@
-from unittest.mock import patch
 import time
-from math_verify.parser import parse
+from unittest.mock import patch
+
 from math_verify.grader import verify
+from math_verify.parser import parse
 
 
 @patch("math_verify.parser.parse_expr")

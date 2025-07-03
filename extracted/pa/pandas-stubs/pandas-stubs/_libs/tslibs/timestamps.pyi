@@ -19,9 +19,9 @@ from typing import (
 import numpy as np
 from pandas import (
     DatetimeIndex,
+    Index,
     TimedeltaIndex,
 )
-from pandas.core.indexes.base import UnknownIndex
 from pandas.core.series import (
     Series,
     TimedeltaSeries,
@@ -105,7 +105,7 @@ class Timestamp(datetime, SupportsIndex):
 
     if sys.version_info >= (3, 12):
         @classmethod
-        def fromtimestamp(  # pyright: ignore[reportIncompatibleMethodOverride]
+        def fromtimestamp(  # pyright: ignore[reportIncompatibleMethodOverride]  # pyrefly: ignore
             cls, t: float, tz: _tzinfo | str | None = ...
         ) -> Self: ...
     else:
@@ -143,7 +143,7 @@ class Timestamp(datetime, SupportsIndex):
     # Override since fold is more precise than datetime.replace(fold:int)
     # Here it is restricted to be 0 or 1 using a Literal
     # Violation of Liskov substitution principle
-    def replace(  # type:ignore[override] # pyright: ignore[reportIncompatibleMethodOverride]
+    def replace(  # type:ignore[override] # pyright: ignore[reportIncompatibleMethodOverride] # pyrefly: ignore
         self,
         year: int | None = ...,
         month: int | None = ...,
@@ -236,7 +236,7 @@ class Timestamp(datetime, SupportsIndex):
     @overload
     def __eq__(self, other: TimestampSeries) -> Series[bool]: ...  # type: ignore[overload-overlap]
     @overload
-    def __eq__(self, other: npt.NDArray[np.datetime64] | UnknownIndex) -> np_ndarray_bool: ...  # type: ignore[overload-overlap]
+    def __eq__(self, other: npt.NDArray[np.datetime64] | Index) -> np_ndarray_bool: ...  # type: ignore[overload-overlap]
     @overload
     def __eq__(self, other: object) -> Literal[False]: ...
     @overload
@@ -244,7 +244,7 @@ class Timestamp(datetime, SupportsIndex):
     @overload
     def __ne__(self, other: TimestampSeries) -> Series[bool]: ...  # type: ignore[overload-overlap]
     @overload
-    def __ne__(self, other: npt.NDArray[np.datetime64] | UnknownIndex) -> np_ndarray_bool: ...  # type: ignore[overload-overlap]
+    def __ne__(self, other: npt.NDArray[np.datetime64] | Index) -> np_ndarray_bool: ...  # type: ignore[overload-overlap]
     @overload
     def __ne__(self, other: object) -> Literal[True]: ...
     def __hash__(self) -> int: ...

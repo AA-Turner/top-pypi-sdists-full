@@ -19,8 +19,8 @@ except ImportError:
 
 
 if TYPE_CHECKING:
-    from typing import List, Union, Dict, Any
-
+    from typing import List, Union, Dict, Any, Sequence
+    from transitions.core import TransitionConfig, TransitionConfigDict
 
 test_states = ['A', 'B', {'name': 'C', 'children': ['1', '2', {'name': '3', 'children': ['a', 'b', 'c']}]},
                'D', 'E', 'F']
@@ -90,7 +90,7 @@ class TestReuse(TestCase):
             {'trigger': 'decrease', 'source': '3', 'dest': '2'},
             {'trigger': 'decrease', 'source': '1', 'dest': '1'},
             {'trigger': 'reset', 'source': '*', 'dest': '1'},
-        ]
+        ]  # type: Sequence[TransitionConfigDict]
 
         counter = self.machine_cls(states=states, transitions=transitions, before_state_change='check',
                                    after_state_change='clear', initial='1')
@@ -102,7 +102,7 @@ class TestReuse(TestCase):
             {'trigger': 'backward', 'source': 'C', 'dest': 'B'},
             {'trigger': 'backward', 'source': 'B', 'dest': 'A'},
             {'trigger': 'calc', 'source': '*', 'dest': 'C'},
-        ]
+        ]  # type: Sequence[TransitionConfigDict]
 
         walker = self.machine_cls(states=new_states, transitions=new_transitions, before_state_change='watch',
                                   after_state_change='look_back', initial='A')
@@ -143,7 +143,7 @@ class TestReuse(TestCase):
             {'trigger': 'decrease', 'source': '1', 'dest': '1'},
             {'trigger': 'reset', 'source': '*', 'dest': '1'},
             {'trigger': 'done', 'source': '3', 'dest': 'finished'}
-        ]
+        ]  # type: Sequence[TransitionConfigDict]
 
         counter = self.machine_cls(states=states, transitions=transitions, initial='1')
 
@@ -157,7 +157,7 @@ class TestReuse(TestCase):
             {'trigger': 'backward', 'source': 'C', 'dest': 'B'},
             {'trigger': 'backward', 'source': 'B', 'dest': 'A'},
             {'trigger': 'calc', 'source': '*', 'dest': 'C%s1' % State.separator},
-        ]
+        ]  # type: Sequence[TransitionConfigDict]
 
         walker = self.machine_cls(states=new_states, transitions=new_transitions, before_state_change='watch',
                                   after_state_change='look_back', initial='A')
@@ -199,7 +199,7 @@ class TestReuse(TestCase):
             ['decrease', '3', '2'],
             ['decrease', '2', '1'],
             {'trigger': 'done', 'source': '3', 'dest': 'done', 'conditions': 'this_passes'},
-        ]
+        ]  # type: Sequence[TransitionConfig]
 
         counter = self.machine_cls(states=count_states, transitions=count_trans, initial='1')
         counter.increase()  # love my counter
@@ -211,7 +211,7 @@ class TestReuse(TestCase):
             ['collect', '*', 'collecting'],
             ['wait', '*', 'waiting'],
             ['count', '*', 'counting%s1' % State.separator]
-        ]
+        ]  # type: Sequence[TransitionConfig]
 
         collector = self.stuff.machine_cls(states=states, transitions=transitions, initial='waiting')
         collector.this_passes = self.stuff.this_passes
@@ -264,7 +264,7 @@ class TestReuse(TestCase):
             ['decrease', '3', '2'],
             ['decrease', '2', '1'],
             {'trigger': 'done', 'source': '3', 'dest': 'done', 'conditions': 'this_passes'},
-        ]
+        ]  # type: Sequence[TransitionConfig]
 
         counter = self.machine_cls(states=count_states, transitions=count_trans, initial='1')
         counter.increase()  # love my counter
@@ -322,7 +322,7 @@ class TestReuse(TestCase):
             ['decrease', '3', '2'],
             ['decrease', '2', '1'],
             {'trigger': 'done', 'source': '3', 'dest': 'done', 'conditions': 'this_passes'},
-        ]
+        ]  # type: Sequence[TransitionConfig]
 
         counter = self.machine_cls(states=count_states, transitions=count_trans, initial='1')
         states_remap = ['waiting', 'collecting'] \
@@ -354,7 +354,7 @@ class TestReuse(TestCase):
             ['decrease', '3', '2'],
             ['decrease', '2', '1'],
             {'trigger': 'done', 'source': '3', 'dest': 'done', 'conditions': 'this_passes'},
-        ]
+        ]  # type: Sequence[TransitionConfig]
 
         counter = self.machine_cls(states=count_states, transitions=count_trans, initial='1')
         states_remap = ['waiting', 'collecting'] \
@@ -529,7 +529,7 @@ class TestReuse(TestCase):
         transitions = [
             {"trigger": "go", "source": "A", "dest": "B",
              "conditions": m.check_self, "prepare": m.check_self, "before": m.check_self, "after": m.check_self}
-        ]
+        ]  # type: Sequence[TransitionConfig]
 
         child = self.machine_cls(None, states=["A", "B"], transitions=transitions, initial="A")
         parent = self.machine_cls(m, states=[{"name": "P", "states": child, "remap": {}}], initial="P")

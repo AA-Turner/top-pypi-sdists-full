@@ -425,7 +425,7 @@ class NacosClient:
             params["type"] = config_type
 
         try:
-            resp = self._do_sync_req("/nacos/v1/cs/configs", None, params, None,
+            resp = self._do_sync_req("/nacos/v1/cs/configs", None, None, params,
                                      timeout or self.default_timeout, "POST")
             c = resp.read()
             logger.info("[publish] publish content, group:%s, data_id:%s, server response:%s" % (
@@ -777,11 +777,13 @@ class NacosClient:
             # if contains_init_key:
             #     headers["longPullingNoHangUp"] = "true"
 
+            params = {"tenant": self.namespace} if self.namespace else None
+
             data = {"Listening-Configs": probe_update_string}
 
             changed_keys = list()
             try:
-                resp = self._do_sync_req("/nacos/v1/cs/configs/listener", headers, None, data,
+                resp = self._do_sync_req("/nacos/v1/cs/configs/listener", headers, params, data,
                                          self.pulling_timeout + 10, "POST")
                 changed_keys = [group_key(*i) for i in parse_pulling_result(resp.read())]
                 logger.info("[do-pulling] following keys are changed from server %s" % truncate(str(changed_keys)))

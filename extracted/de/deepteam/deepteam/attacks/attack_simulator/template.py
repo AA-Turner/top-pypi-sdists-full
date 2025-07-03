@@ -19,7 +19,9 @@ from deepteam.vulnerabilities.types import (
 )
 from deepteam.vulnerabilities.bias import BiasTemplate
 from deepteam.vulnerabilities.competition import CompetitionTemplate
-from deepteam.vulnerabilities.excessive_agency import ExcessiveAgencyTemplate
+from deepteam.vulnerabilities.agentic.excessive_agency import (
+    ExcessiveAgencyTemplate,
+)
 from deepteam.vulnerabilities.graphic_content import GraphicContentTemplate
 from deepteam.vulnerabilities.illegal_activity import IllegalActivityTemplate
 from deepteam.vulnerabilities.intellectual_property import (
@@ -29,13 +31,31 @@ from deepteam.vulnerabilities.misinformation import MisinformationTemplate
 from deepteam.vulnerabilities.personal_safety import PersonalSafetyTemplate
 from deepteam.vulnerabilities.pii_leakage import PIILeakageTemplate
 from deepteam.vulnerabilities.prompt_leakage import PromptLeakageTemplate
-from deepteam.vulnerabilities.robustness import RobustnessTemplate
+from deepteam.vulnerabilities.agentic.robustness import RobustnessTemplate
 from deepteam.vulnerabilities.toxicity import ToxicityTemplate
 from deepteam.vulnerabilities.unauthorized_access import (
     UnauthorizedAccessTemplate,
 )
 from deepteam.vulnerabilities.custom.custom_types import CustomVulnerabilityType
 from deepteam.vulnerabilities.custom.template import CustomVulnerabilityTemplate
+
+# Import remaining agentic vulnerability types and templates
+from deepteam.vulnerabilities.agentic.recursive_hijacking.types import (
+    RecursiveHijackingType,
+)
+from deepteam.vulnerabilities.agentic.recursive_hijacking.template import (
+    RecursiveHijackingTemplate,
+)
+from deepteam.vulnerabilities.agentic.goal_theft.types import GoalTheftType
+from deepteam.vulnerabilities.agentic.goal_theft.template import (
+    GoalTheftTemplate,
+)
+from deepteam.vulnerabilities.agentic.validation_bypass.types import (
+    ValidationBypassType,
+)
+from deepteam.vulnerabilities.agentic.validation_bypass.template import (
+    ValidationBypassTemplate,
+)
 
 TEMPLATE_MAP: Dict[Type[VulnerabilityType], TemplateType] = {
     BiasType: BiasTemplate,
@@ -51,6 +71,10 @@ TEMPLATE_MAP: Dict[Type[VulnerabilityType], TemplateType] = {
     RobustnessType: RobustnessTemplate,
     ToxicityType: ToxicityTemplate,
     UnauthorizedAccessType: UnauthorizedAccessTemplate,
+    # Remaining agentic vulnerability types
+    RecursiveHijackingType: RecursiveHijackingTemplate,
+    GoalTheftType: GoalTheftTemplate,
+    ValidationBypassType: ValidationBypassTemplate,
 }
 
 

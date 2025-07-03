@@ -3,13 +3,13 @@ from maleo_metadata.models.transfers.results.service.user_type import MaleoMetad
 
 class MaleoMetadataUserTypeServiceResultsTypes:
     GetMultiple = Union[
-        MaleoMetadataUserTypeServiceResultsTransfers.Fail,
+        MaleoMetadataUserTypeServiceResultsTransfers.MultipleData,
         MaleoMetadataUserTypeServiceResultsTransfers.NoData,
-        MaleoMetadataUserTypeServiceResultsTransfers.MultipleData
+        MaleoMetadataUserTypeServiceResultsTransfers.Fail
     ]
 
     GetSingle = Union[
-        MaleoMetadataUserTypeServiceResultsTransfers.Fail,
+        MaleoMetadataUserTypeServiceResultsTransfers.SingleData,
         MaleoMetadataUserTypeServiceResultsTransfers.NoData,
-        MaleoMetadataUserTypeServiceResultsTransfers.SingleData
+        MaleoMetadataUserTypeServiceResultsTransfers.Fail
     ]

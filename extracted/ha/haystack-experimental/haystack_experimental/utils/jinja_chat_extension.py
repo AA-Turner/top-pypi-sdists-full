@@ -13,6 +13,7 @@ from haystack_experimental.dataclasses.chat_message import (
     ChatMessage,
     ChatMessageContentT,
     ChatRole,
+    ImageContent,
     TextContent,
     ToolCall,
     ToolCallResult,
@@ -24,6 +25,7 @@ logger = logging.getLogger(__name__)
 
 START_TAG = "<haystack_content_part>"
 END_TAG = "</haystack_content_part>"
+
 
 class ChatMessageExtension(Extension):
     """
@@ -162,8 +164,7 @@ class ChatMessageExtension(Extension):
         """
         if not content.strip():
             raise ValueError(
-                f"Message content in template is empty or contains only whitespace characters. "
-                f"Content: {content!r}"
+                f"Message content in template is empty or contains only whitespace characters. Content: {content!r}"
             )
 
         parts: List[ChatMessageContentT] = []
@@ -192,9 +193,8 @@ class ChatMessageExtension(Extension):
             if tag_end == -1:
                 raise ValueError(
                     f"Found unclosed <haystack_content_part> tag at position {tag_start}. "
-                    f"Content: '{content[tag_start:tag_start+50]}...'"
+                    f"Content: '{content[tag_start : tag_start + 50]}...'"
                 )
-
 
             json_content = content[content_start:tag_end]
             data = json.loads(json_content)
@@ -205,8 +205,9 @@ class ChatMessageExtension(Extension):
         return parts
 
     @staticmethod
-    def _validate_build_chat_message(parts: List[ChatMessageContentT], role: str, meta: dict,
-                                     name: Optional[str]=None) -> ChatMessage:
+    def _validate_build_chat_message(
+        parts: List[ChatMessageContentT], role: str, meta: dict, name: Optional[str] = None
+    ) -> ChatMessage:
         """
         Validate the parts of a chat message and build a ChatMessage object.
 
@@ -221,7 +222,10 @@ class ChatMessageExtension(Extension):
         """
 
         if role == "user":
-            return ChatMessage.from_user(meta=meta, name=name, content_parts=parts)
+            valid_parts = [part for part in parts if isinstance(part, (TextContent, str, ImageContent))]
+            if len(parts) != len(valid_parts):
+                raise ValueError("User message must contain only TextContent, string or ImageContent parts.")
+            return ChatMessage.from_user(meta=meta, name=name, content_parts=valid_parts)
 
         if role == "system":
             if not isinstance(parts[0], TextContent):
@@ -240,12 +244,13 @@ class ChatMessageExtension(Extension):
                 raise ValueError("Assistant message must contain at least one text or tool call part.")
             if len(parts) > len(texts) + len(tool_calls):
                 raise ValueError("Assistant message must contain only text or tool call parts.")
-            return ChatMessage.from_assistant(meta=meta, name=name, text=texts[0] if texts else None,
-                                              tool_calls=tool_calls or None)
+            return ChatMessage.from_assistant(
+                meta=meta, name=name, text=texts[0] if texts else None, tool_calls=tool_calls or None
+            )
 
         if role == "tool":
             tool_call_results = [part for part in parts if isinstance(part, ToolCallResult)]
-            if len(tool_call_results) ==0 or len(tool_call_results) > 1 or len(parts) > len(tool_call_results):
+            if len(tool_call_results) == 0 or len(tool_call_results) > 1 or len(parts) > len(tool_call_results):
                 raise ValueError("Tool message must contain only one tool call result.")
 
             tool_result = tool_call_results[0].result
@@ -255,6 +260,7 @@ class ChatMessageExtension(Extension):
             return ChatMessage.from_tool(meta=meta, tool_result=tool_result, origin=origin, error=error)
 
         raise ValueError(f"Unsupported role: {role}")
+
 
 def templatize_part(value: ChatMessageContentT) -> str:
     """
@@ -267,6 +273,8 @@ def templatize_part(value: ChatMessageContentT) -> str:
     chat_message_content_types = get_args(ChatMessageContentT)
     if not isinstance(value, chat_message_content_types):
         chat_message_content_types_str = ", ".join([t.__name__ for t in chat_message_content_types])
-        raise ValueError(f"Value must be an instance of one of the following types: {chat_message_content_types_str}. "
-                         f"Got: {type(value).__name__}")
+        raise ValueError(
+            f"Value must be an instance of one of the following types: {chat_message_content_types_str}. "
+            f"Got: {type(value).__name__}"
+        )
     return f"{START_TAG}{json.dumps(_serialize_content_part(value))}{END_TAG}"

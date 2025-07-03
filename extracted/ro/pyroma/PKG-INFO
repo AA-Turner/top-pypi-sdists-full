@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pyroma
-Version: 4.3.1
+Version: 4.3.2
 Summary: Test your project's packaging friendliness
 Home-page: https://github.com/regebro/pyroma
 Author: Lennart Regebro
@@ -173,6 +173,12 @@ Contributors:
 
 Changelog
 =========
+
+4.3.2 (2025-07-02)
+------------------
+
+- Added support for License-Expression as per PEP 639.
+
 
 4.3.1 (2025-07-01)
 ------------------

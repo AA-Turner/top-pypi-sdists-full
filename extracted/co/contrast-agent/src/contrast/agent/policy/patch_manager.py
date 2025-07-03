@@ -45,23 +45,18 @@ def patch(owner, name, patch=None):
 
     if orig_attr_as_func is None:
         logger.debug(
-            "WARNING: failed to patch %s of %s: no such attribute", name, owner
+            "WARNING: failed to patch - no such attribute", name=name, owner=owner
         )
         return
     if patch is None:
         patch = get_patch(orig_attr_as_func)
         if patch is None:
             logger.debug(
-                "WARNING: failed to repatch %s of %s: no entry in the patch map",
-                name,
-                owner,
+                "WARNING: failed to repatch - no entry in the patch map",
+                name=name,
+                owner=owner,
             )
             return
-
-    if id(orig_attr_as_func) in module.inverse_patch_map:
-        logger.debug(
-            "WARNING: patching over already patched method %s of %s", name, owner
-        )
 
     smart_setattr(owner, name, patch)
     register_patch(owner, name, orig_attr)
@@ -177,9 +172,9 @@ def register_patch(owner, name, orig_attr):
 
     if patch_as_func is orig_as_func:
         logger.debug(
-            "WARNING: attempt to register %s as a patch for itself - "
+            "WARNING: attempted to register an attribute as a patch for itself - "
             "skipping patch map registration",
-            orig_attr,
+            orig_attr=orig_attr,
         )
         return
 

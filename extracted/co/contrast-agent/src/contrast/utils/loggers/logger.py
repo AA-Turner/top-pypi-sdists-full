@@ -135,12 +135,15 @@ def setup_security_logger(config: Mapping):
     module.cef_security_logger = logger
 
 
-def _unescaped_protect_rule_msg(rule_name, outcome, evaluation):
+def _unescaped_protect_rule_msg(rule_name, outcome, evaluation, masker):
+    masked_input = masker.mask_attack_input(evaluation.input) if evaluation else None
     input_type = (
-        evaluation.input.type.cef_string(evaluation.input.name) if evaluation else "-"
+        evaluation.input.type.cef_string(masked_input.name) if masked_input else "-"
     )
     input_value = (
-        ensure_string(evaluation.input.value, errors="replace") if evaluation else "-"
+        masker.mask_attack_vector(ensure_string(masked_input.value, errors="replace"))
+        if masked_input
+        else "-"
     )
     if outcome == "exploited":
         if not evaluation:
@@ -164,11 +167,15 @@ def security_log_attack(attack, evaluation):
 
     Virtual patches, IP denylist and bot blocker activities are not yet supported.
     """
+    if not module.cef_security_logger and not module.syslog_logger:
+        # No security loggers configured.
+        return
+
     from contrast.agent import agent_state
 
-    rule_name = attack.rule_id
-    outcome = attack.report_result()
-    msg = _escape_prefix(_unescaped_protect_rule_msg(rule_name, outcome, evaluation))
+    app_name = agent_state.get_app_name()
+    server_name = agent_state.get_server_name()
+    masker = agent_state.module.request_data_masker
 
     ip = port = url = method_name = "-"
 
@@ -177,9 +184,13 @@ def security_log_attack(attack, evaluation):
         port = context.request.host_port
         method_name = context.request.method
         url = context.request.path
+        masker = context.request_data_masker
 
-    app_name = agent_state.get_app_name()
-    server_name = agent_state.get_server_name()
+    rule_name = attack.rule_id
+    outcome = attack.report_result()
+    msg = _escape_prefix(
+        _unescaped_protect_rule_msg(rule_name, outcome, evaluation, masker)
+    )
 
     log_context = _escape_metadata(
         {
@@ -202,7 +213,12 @@ def security_log_attack(attack, evaluation):
 
 def _escape_prefix(msg: str):
     # Order matters here. Escaping `|` before `\` would result in double escaping.
-    return msg.replace("\\", r"\\").replace("|", r"\|")
+    return (
+        msg.replace("\\", r"\\")
+        .replace("|", r"\|")
+        .replace("\n", r"\n")
+        .replace("\r", r"\r")
+    )
 
 
 def _escape_metadata(metadata: dict[str, str]):

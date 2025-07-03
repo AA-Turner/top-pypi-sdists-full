@@ -6,7 +6,7 @@ readme = Path("README.rst").read_text()
 
 setup(
     name="dj-database-url",
-    version="3.0.0",
+    version="3.0.1",
     url="https://github.com/jazzband/dj-database-url",
     license="BSD",
     author="Original Author: Kenneth Reitz, Maintained by: JazzBand Community",
@@ -14,7 +14,7 @@ setup(
     long_description=readme,
     long_description_content_type="text/x-rst",
     packages=["dj_database_url"],
-    install_requires=["Django>=4.2", "typing_extensions>=4.0.0"],
+    install_requires=["Django>=4.2"],
     include_package_data=True,
     package_data={
         "dj_database_url": ["py.typed"],
@@ -45,5 +45,6 @@ setup(
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
     ],
 )

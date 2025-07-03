@@ -12,10 +12,10 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from typing import Any
 
 class OperationalState(IntEnum):
-    NO_ERROR = 0
-    UNABLE_TO_START_OR_RESUME = 1
-    UNABLE_TO_COMPLETE_OPERATION = 2
-    COMMAND_INVALID_IN_STATE = 3
+    STOPPED = 0
+    RUNNING = 1
+    PAUSED = 2
+    ERROR = 3
     SEEKING_CHARGER = 64
     CHARGING = 65
     DOCKED = 66
@@ -29,7 +29,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
 
 class MatterVacuum(MatterEntity, StateVacuumEntity):
     _last_accepted_commands: list[int] | None
-    _supported_run_modes: dict[int, clusters.RvcCleanMode.Structs.ModeOptionStruct] | None
+    _supported_run_modes: dict[int, clusters.RvcRunMode.Structs.ModeOptionStruct] | None
     entity_description: StateVacuumEntityDescription
     _platform_translation_key: str
     async def async_stop(self, **kwargs: Any) -> None: ...

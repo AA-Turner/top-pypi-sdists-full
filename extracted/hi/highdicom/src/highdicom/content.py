@@ -45,7 +45,7 @@ from highdicom.uid import UID
 from highdicom.valuerep import (
     _check_long_string,
     _check_long_text,
-    _check_short_text
+    _check_short_text,
 )
 from highdicom._module_utils import (
     check_required_attributes,
@@ -661,6 +661,17 @@ class PlaneOrientationSequence(DataElementSequence):
                 f'Unknown coordinate system "{coordinate_system.value}".'
             )
         self.append(item)
+
+    @property
+    def cosines(self) -> tuple[float, float, float, float, float, float]:
+        """tuple[float, float, float, float, float, float]:
+
+        Direction cosines.
+
+        """
+        if hasattr(self[0], 'ImageOrientationPatient'):
+            return tuple(self[0].ImageOrientationPatient)
+        return tuple(self[0].ImageOrientationSlide)
 
     def __eq__(self, other: object) -> bool:
         """Determines whether two image planes have the same orientation.
@@ -3227,7 +3238,7 @@ class PaletteColorLUTTransformation(Dataset):
         ----------
         red_lut: Union[highdicom.PaletteColorLUT, highdicom.SegmentedPaletteColorLUT]
             Lookup table for the red output color channel.
-        green: Union[highdicom.PaletteColorLUT, highdicom.SegmentedPaletteColorLUT]
+        green_lut: Union[highdicom.PaletteColorLUT, highdicom.SegmentedPaletteColorLUT]
             Lookup table for the green output color channel.
         blue_lut: Union[highdicom.PaletteColorLUT, highdicom.SegmentedPaletteColorLUT]
             Lookup table for the blue output color channel.
@@ -3327,7 +3338,7 @@ class PaletteColorLUTTransformation(Dataset):
             string understood by PIL's ``getrgb()`` function (see `here
             <https://pillow.readthedocs.io/en/stable/reference/ImageColor.html#color-names>`_
             for the documentation of that function or `here
-            <https://drafts.csswg.org/css-color-4/#named-colors>`_) for the
+            <https://drafts.csswg.org/css-color-4/#named-colors>`_ for the
             original list of colors). This includes many case-insensitive color
             names (e.g. ``"red"``, ``"Crimson"``, or ``"INDIGO"``), hex codes
             (e.g. ``"#ff7733"``) or decimal integers in the format of this
@@ -3355,7 +3366,7 @@ class PaletteColorLUTTransformation(Dataset):
         -------
         highdicom.PaletteColorLUTTransformation:
             Palette Color Lookup table created from the given colors. This will
-            always be an 8 bit LUT.
+            always be an 8-bit LUT.
 
         """  # noqa: E501
         if len(colors) == 0:
@@ -3416,7 +3427,6 @@ class PaletteColorLUTTransformation(Dataset):
             Palette Color Lookup table created from the given colors. This will
             be an 8-bit or 16-bit LUT depending on the data type of the input
             ``lut_data``.
-
 
         Examples
         --------
@@ -3626,7 +3636,7 @@ class PaletteColorLUTTransformation(Dataset):
 
         Parameters
         ----------
-        apply: numpy.ndarray
+        array: numpy.ndarray
             Pixel array to which the LUT should be applied. Can be of any shape
             but must have an integer datatype.
         dtype: Union[type, str, numpy.dtype, None], optional

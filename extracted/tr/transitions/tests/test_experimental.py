@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Sequence, Union, List
 from unittest import TestCase
 from types import ModuleType
 from unittest.mock import MagicMock
@@ -11,7 +11,7 @@ from transitions.extensions import HierarchicalMachine
 from .utils import Stuff
 
 if TYPE_CHECKING:
-    from transitions.core import MachineConfig
+    from transitions.core import MachineConfig, TransitionConfig
     from typing import Type
 
 
@@ -51,7 +51,7 @@ class TestExperimental(TestCase):
         machine = self.machine_cls(model, states=["A", "B"], initial="A", model_override=True)
         self.assertTrue(model.is_A())
         with self.assertRaises(AttributeError):
-            model.to_B()  # type: ignore # Should not be assigned to model since its not declared
+            model.to_B()  # Should not be assigned to model since its not declared
         self.assertTrue(model.trigger("to_B"))
         self.assertFalse(model.is_A())
         with self.assertRaises(RuntimeError):
@@ -148,7 +148,7 @@ class TestExperimental(TestCase):
         self.assertTrue(machine.is_state("A", model))
         self.assertTrue(model.go())
         with self.assertRaises(AttributeError):
-            model.is_A()  # type: ignore
+            model.is_A()
         self.assertEqual("B", model.state)
         self.assertTrue(model.is_B())
         self.assertTrue(model.go())
@@ -194,7 +194,7 @@ class TestExperimental(TestCase):
             def is_B(self) -> bool:
                 return False
 
-            go = event(transition(source="A", dest="B"), [["A", "B"], "C"])
+            go = event(transition(source="A", dest="B"), [["A", "B"], "C"], {"source": "*", "dest": None})
 
         model = Model()
         machine = self.trigger_machine(model, states=["A", "B", "C"], initial="A")
@@ -202,7 +202,7 @@ class TestExperimental(TestCase):
         self.assertTrue(machine.is_state("A", model))
         self.assertTrue(model.go())
         with self.assertRaises(AttributeError):
-            model.is_A()  # type: ignore
+            model.is_A()
         self.assertEqual("B", model.state)
         self.assertTrue(model.is_B())
         self.assertTrue(model.go())

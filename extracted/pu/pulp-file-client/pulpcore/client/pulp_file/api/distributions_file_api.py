@@ -57,6 +57,7 @@ class DistributionsFileApi:
         self,
         file_file_distribution_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -78,6 +79,8 @@ class DistributionsFileApi:
         :type file_file_distribution_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -103,6 +106,7 @@ class DistributionsFileApi:
         _param = self._add_role_serialize(
             file_file_distribution_href=file_file_distribution_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -128,6 +132,7 @@ class DistributionsFileApi:
         self,
         file_file_distribution_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -149,6 +154,8 @@ class DistributionsFileApi:
         :type file_file_distribution_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -174,6 +181,7 @@ class DistributionsFileApi:
         _param = self._add_role_serialize(
             file_file_distribution_href=file_file_distribution_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -199,6 +207,7 @@ class DistributionsFileApi:
         self,
         file_file_distribution_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -220,6 +229,8 @@ class DistributionsFileApi:
         :type file_file_distribution_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -245,6 +256,7 @@ class DistributionsFileApi:
         _param = self._add_role_serialize(
             file_file_distribution_href=file_file_distribution_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -265,6 +277,7 @@ class DistributionsFileApi:
         self,
         file_file_distribution_href,
         nested_role,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -274,6 +287,7 @@ class DistributionsFileApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -290,6 +304,8 @@ class DistributionsFileApi:
             _path_params['file_file_distribution_href'] = file_file_distribution_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if nested_role is not None:
@@ -348,6 +364,7 @@ class DistributionsFileApi:
     def create(
         self,
         file_file_distribution: FileFileDistribution,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -367,6 +384,8 @@ class DistributionsFileApi:
 
         :param file_file_distribution: (required)
         :type file_file_distribution: FileFileDistribution
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -391,6 +410,7 @@ class DistributionsFileApi:
 
         _param = self._create_serialize(
             file_file_distribution=file_file_distribution,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -415,6 +435,7 @@ class DistributionsFileApi:
     def create_with_http_info(
         self,
         file_file_distribution: FileFileDistribution,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -434,6 +455,8 @@ class DistributionsFileApi:
 
         :param file_file_distribution: (required)
         :type file_file_distribution: FileFileDistribution
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -458,6 +481,7 @@ class DistributionsFileApi:
 
         _param = self._create_serialize(
             file_file_distribution=file_file_distribution,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -482,6 +506,7 @@ class DistributionsFileApi:
     def create_without_preload_content(
         self,
         file_file_distribution: FileFileDistribution,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -501,6 +526,8 @@ class DistributionsFileApi:
 
         :param file_file_distribution: (required)
         :type file_file_distribution: FileFileDistribution
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -525,6 +552,7 @@ class DistributionsFileApi:
 
         _param = self._create_serialize(
             file_file_distribution=file_file_distribution,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -544,6 +572,7 @@ class DistributionsFileApi:
     def _create_serialize(
         self,
         file_file_distribution,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -553,6 +582,7 @@ class DistributionsFileApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -567,6 +597,8 @@ class DistributionsFileApi:
         # process the path parameters
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if file_file_distribution is not None:
@@ -625,6 +657,7 @@ class DistributionsFileApi:
     def delete(
         self,
         file_file_distribution_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -644,6 +677,8 @@ class DistributionsFileApi:
 
         :param file_file_distribution_href: (required)
         :type file_file_distribution_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -668,6 +703,7 @@ class DistributionsFileApi:
 
         _param = self._delete_serialize(
             file_file_distribution_href=file_file_distribution_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -692,6 +728,7 @@ class DistributionsFileApi:
     def delete_with_http_info(
         self,
         file_file_distribution_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -711,6 +748,8 @@ class DistributionsFileApi:
 
         :param file_file_distribution_href: (required)
         :type file_file_distribution_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -735,6 +774,7 @@ class DistributionsFileApi:
 
         _param = self._delete_serialize(
             file_file_distribution_href=file_file_distribution_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -759,6 +799,7 @@ class DistributionsFileApi:
     def delete_without_preload_content(
         self,
         file_file_distribution_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -778,6 +819,8 @@ class DistributionsFileApi:
 
         :param file_file_distribution_href: (required)
         :type file_file_distribution_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -802,6 +845,7 @@ class DistributionsFileApi:
 
         _param = self._delete_serialize(
             file_file_distribution_href=file_file_distribution_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -821,6 +865,7 @@ class DistributionsFileApi:
     def _delete_serialize(
         self,
         file_file_distribution_href,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -830,6 +875,7 @@ class DistributionsFileApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -846,6 +892,8 @@ class DistributionsFileApi:
             _path_params['file_file_distribution_href'] = file_file_distribution_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -886,6 +934,7 @@ class DistributionsFileApi:
     @validate_call
     def list(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         base_path: Annotated[Optional[StrictStr], Field(description="Filter results where base_path matches value")] = None,
         base_path__contains: Annotated[Optional[StrictStr], Field(description="Filter results where base_path contains value")] = None,
         base_path__icontains: Annotated[Optional[StrictStr], Field(description="Filter results where base_path contains value")] = None,
@@ -930,6 +979,8 @@ class DistributionsFileApi:
 
          FileDistributions host File Publications which makes the metadata and the referenced File Content available to HTTP clients. Additionally, a FileDistribution with an associated FilePublication can be the target url of a File Remote , allowing another instance of Pulp to sync the content.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param base_path: Filter results where base_path matches value
         :type base_path: str
         :param base_path__contains: Filter results where base_path contains value
@@ -1007,6 +1058,7 @@ class DistributionsFileApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             base_path=base_path,
             base_path__contains=base_path__contains,
             base_path__icontains=base_path__icontains,
@@ -1057,6 +1109,7 @@ class DistributionsFileApi:
     @validate_call
     def list_with_http_info(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         base_path: Annotated[Optional[StrictStr], Field(description="Filter results where base_path matches value")] = None,
         base_path__contains: Annotated[Optional[StrictStr], Field(description="Filter results where base_path contains value")] = None,
         base_path__icontains: Annotated[Optional[StrictStr], Field(description="Filter results where base_path contains value")] = None,
@@ -1101,6 +1154,8 @@ class DistributionsFileApi:
 
          FileDistributions host File Publications which makes the metadata and the referenced File Content available to HTTP clients. Additionally, a FileDistribution with an associated FilePublication can be the target url of a File Remote , allowing another instance of Pulp to sync the content.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param base_path: Filter results where base_path matches value
         :type base_path: str
         :param base_path__contains: Filter results where base_path contains value
@@ -1178,6 +1233,7 @@ class DistributionsFileApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             base_path=base_path,
             base_path__contains=base_path__contains,
             base_path__icontains=base_path__icontains,
@@ -1228,6 +1284,7 @@ class DistributionsFileApi:
     @validate_call
     def list_without_preload_content(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         base_path: Annotated[Optional[StrictStr], Field(description="Filter results where base_path matches value")] = None,
         base_path__contains: Annotated[Optional[StrictStr], Field(description="Filter results where base_path contains value")] = None,
         base_path__icontains: Annotated[Optional[StrictStr], Field(description="Filter results where base_path contains value")] = None,
@@ -1272,6 +1329,8 @@ class DistributionsFileApi:
 
          FileDistributions host File Publications which makes the metadata and the referenced File Content available to HTTP clients. Additionally, a FileDistribution with an associated FilePublication can be the target url of a File Remote , allowing another instance of Pulp to sync the content.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param base_path: Filter results where base_path matches value
         :type base_path: str
         :param base_path__contains: Filter results where base_path contains value
@@ -1349,6 +1408,7 @@ class DistributionsFileApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             base_path=base_path,
             base_path__contains=base_path__contains,
             base_path__icontains=base_path__icontains,
@@ -1394,6 +1454,7 @@ class DistributionsFileApi:
 
     def _list_serialize(
         self,
+        x_task_diagnostics,
         base_path,
         base_path__contains,
         base_path__icontains,
@@ -1430,6 +1491,7 @@ class DistributionsFileApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'base_path__in': 'csv',
             'name__in': 'csv',
             'ordering': 'csv',
@@ -1561,6 +1623,8 @@ class DistributionsFileApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -1602,6 +1666,7 @@ class DistributionsFileApi:
     def list_roles(
         self,
         file_file_distribution_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1623,6 +1688,8 @@ class DistributionsFileApi:
 
         :param file_file_distribution_href: (required)
         :type file_file_distribution_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1651,6 +1718,7 @@ class DistributionsFileApi:
 
         _param = self._list_roles_serialize(
             file_file_distribution_href=file_file_distribution_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1677,6 +1745,7 @@ class DistributionsFileApi:
     def list_roles_with_http_info(
         self,
         file_file_distribution_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1698,6 +1767,8 @@ class DistributionsFileApi:
 
         :param file_file_distribution_href: (required)
         :type file_file_distribution_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1726,6 +1797,7 @@ class DistributionsFileApi:
 
         _param = self._list_roles_serialize(
             file_file_distribution_href=file_file_distribution_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1752,6 +1824,7 @@ class DistributionsFileApi:
     def list_roles_without_preload_content(
         self,
         file_file_distribution_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1773,6 +1846,8 @@ class DistributionsFileApi:
 
         :param file_file_distribution_href: (required)
         :type file_file_distribution_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1801,6 +1876,7 @@ class DistributionsFileApi:
 
         _param = self._list_roles_serialize(
             file_file_distribution_href=file_file_distribution_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1822,6 +1898,7 @@ class DistributionsFileApi:
     def _list_roles_serialize(
         self,
         file_file_distribution_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -1833,6 +1910,7 @@ class DistributionsFileApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -1859,6 +1937,8 @@ class DistributionsFileApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -1900,6 +1980,7 @@ class DistributionsFileApi:
     def my_permissions(
         self,
         file_file_distribution_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1921,6 +2002,8 @@ class DistributionsFileApi:
 
         :param file_file_distribution_href: (required)
         :type file_file_distribution_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1949,6 +2032,7 @@ class DistributionsFileApi:
 
         _param = self._my_permissions_serialize(
             file_file_distribution_href=file_file_distribution_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1975,6 +2059,7 @@ class DistributionsFileApi:
     def my_permissions_with_http_info(
         self,
         file_file_distribution_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1996,6 +2081,8 @@ class DistributionsFileApi:
 
         :param file_file_distribution_href: (required)
         :type file_file_distribution_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2024,6 +2111,7 @@ class DistributionsFileApi:
 
         _param = self._my_permissions_serialize(
             file_file_distribution_href=file_file_distribution_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2050,6 +2138,7 @@ class DistributionsFileApi:
     def my_permissions_without_preload_content(
         self,
         file_file_distribution_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -2071,6 +2160,8 @@ class DistributionsFileApi:
 
         :param file_file_distribution_href: (required)
         :type file_file_distribution_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2099,6 +2190,7 @@ class DistributionsFileApi:
 
         _param = self._my_permissions_serialize(
             file_file_distribution_href=file_file_distribution_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2120,6 +2212,7 @@ class DistributionsFileApi:
     def _my_permissions_serialize(
         self,
         file_file_distribution_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -2131,6 +2224,7 @@ class DistributionsFileApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -2157,6 +2251,8 @@ class DistributionsFileApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -2199,6 +2295,7 @@ class DistributionsFileApi:
         self,
         file_file_distribution_href: StrictStr,
         patchedfile_file_distribution: PatchedfileFileDistribution,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2220,6 +2317,8 @@ class DistributionsFileApi:
         :type file_file_distribution_href: str
         :param patchedfile_file_distribution: (required)
         :type patchedfile_file_distribution: PatchedfileFileDistribution
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2245,6 +2344,7 @@ class DistributionsFileApi:
         _param = self._partial_update_serialize(
             file_file_distribution_href=file_file_distribution_href,
             patchedfile_file_distribution=patchedfile_file_distribution,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2270,6 +2370,7 @@ class DistributionsFileApi:
         self,
         file_file_distribution_href: StrictStr,
         patchedfile_file_distribution: PatchedfileFileDistribution,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2291,6 +2392,8 @@ class DistributionsFileApi:
         :type file_file_distribution_href: str
         :param patchedfile_file_distribution: (required)
         :type patchedfile_file_distribution: PatchedfileFileDistribution
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2316,6 +2419,7 @@ class DistributionsFileApi:
         _param = self._partial_update_serialize(
             file_file_distribution_href=file_file_distribution_href,
             patchedfile_file_distribution=patchedfile_file_distribution,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2341,6 +2445,7 @@ class DistributionsFileApi:
         self,
         file_file_distribution_href: StrictStr,
         patchedfile_file_distribution: PatchedfileFileDistribution,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2362,6 +2467,8 @@ class DistributionsFileApi:
         :type file_file_distribution_href: str
         :param patchedfile_file_distribution: (required)
         :type patchedfile_file_distribution: PatchedfileFileDistribution
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2387,6 +2494,7 @@ class DistributionsFileApi:
         _param = self._partial_update_serialize(
             file_file_distribution_href=file_file_distribution_href,
             patchedfile_file_distribution=patchedfile_file_distribution,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2407,6 +2515,7 @@ class DistributionsFileApi:
         self,
         file_file_distribution_href,
         patchedfile_file_distribution,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -2416,6 +2525,7 @@ class DistributionsFileApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -2432,6 +2542,8 @@ class DistributionsFileApi:
             _path_params['file_file_distribution_href'] = file_file_distribution_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if patchedfile_file_distribution is not None:
@@ -2490,6 +2602,7 @@ class DistributionsFileApi:
     def read(
         self,
         file_file_distribution_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -2511,6 +2624,8 @@ class DistributionsFileApi:
 
         :param file_file_distribution_href: (required)
         :type file_file_distribution_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2539,6 +2654,7 @@ class DistributionsFileApi:
 
         _param = self._read_serialize(
             file_file_distribution_href=file_file_distribution_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2565,6 +2681,7 @@ class DistributionsFileApi:
     def read_with_http_info(
         self,
         file_file_distribution_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -2586,6 +2703,8 @@ class DistributionsFileApi:
 
         :param file_file_distribution_href: (required)
         :type file_file_distribution_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2614,6 +2733,7 @@ class DistributionsFileApi:
 
         _param = self._read_serialize(
             file_file_distribution_href=file_file_distribution_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2640,6 +2760,7 @@ class DistributionsFileApi:
     def read_without_preload_content(
         self,
         file_file_distribution_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -2661,6 +2782,8 @@ class DistributionsFileApi:
 
         :param file_file_distribution_href: (required)
         :type file_file_distribution_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2689,6 +2812,7 @@ class DistributionsFileApi:
 
         _param = self._read_serialize(
             file_file_distribution_href=file_file_distribution_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2710,6 +2834,7 @@ class DistributionsFileApi:
     def _read_serialize(
         self,
         file_file_distribution_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -2721,6 +2846,7 @@ class DistributionsFileApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -2747,6 +2873,8 @@ class DistributionsFileApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -2789,6 +2917,7 @@ class DistributionsFileApi:
         self,
         file_file_distribution_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2810,6 +2939,8 @@ class DistributionsFileApi:
         :type file_file_distribution_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2835,6 +2966,7 @@ class DistributionsFileApi:
         _param = self._remove_role_serialize(
             file_file_distribution_href=file_file_distribution_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2860,6 +2992,7 @@ class DistributionsFileApi:
         self,
         file_file_distribution_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2881,6 +3014,8 @@ class DistributionsFileApi:
         :type file_file_distribution_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2906,6 +3041,7 @@ class DistributionsFileApi:
         _param = self._remove_role_serialize(
             file_file_distribution_href=file_file_distribution_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2931,6 +3067,7 @@ class DistributionsFileApi:
         self,
         file_file_distribution_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2952,6 +3089,8 @@ class DistributionsFileApi:
         :type file_file_distribution_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2977,6 +3116,7 @@ class DistributionsFileApi:
         _param = self._remove_role_serialize(
             file_file_distribution_href=file_file_distribution_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2997,6 +3137,7 @@ class DistributionsFileApi:
         self,
         file_file_distribution_href,
         nested_role,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -3006,6 +3147,7 @@ class DistributionsFileApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -3022,6 +3164,8 @@ class DistributionsFileApi:
             _path_params['file_file_distribution_href'] = file_file_distribution_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if nested_role is not None:
@@ -3081,6 +3225,7 @@ class DistributionsFileApi:
         self,
         file_file_distribution_href: StrictStr,
         set_label: SetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3102,6 +3247,8 @@ class DistributionsFileApi:
         :type file_file_distribution_href: str
         :param set_label: (required)
         :type set_label: SetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3127,6 +3274,7 @@ class DistributionsFileApi:
         _param = self._set_label_serialize(
             file_file_distribution_href=file_file_distribution_href,
             set_label=set_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3152,6 +3300,7 @@ class DistributionsFileApi:
         self,
         file_file_distribution_href: StrictStr,
         set_label: SetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3173,6 +3322,8 @@ class DistributionsFileApi:
         :type file_file_distribution_href: str
         :param set_label: (required)
         :type set_label: SetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3198,6 +3349,7 @@ class DistributionsFileApi:
         _param = self._set_label_serialize(
             file_file_distribution_href=file_file_distribution_href,
             set_label=set_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3223,6 +3375,7 @@ class DistributionsFileApi:
         self,
         file_file_distribution_href: StrictStr,
         set_label: SetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3244,6 +3397,8 @@ class DistributionsFileApi:
         :type file_file_distribution_href: str
         :param set_label: (required)
         :type set_label: SetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3269,6 +3424,7 @@ class DistributionsFileApi:
         _param = self._set_label_serialize(
             file_file_distribution_href=file_file_distribution_href,
             set_label=set_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3289,6 +3445,7 @@ class DistributionsFileApi:
         self,
         file_file_distribution_href,
         set_label,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -3298,6 +3455,7 @@ class DistributionsFileApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -3314,6 +3472,8 @@ class DistributionsFileApi:
             _path_params['file_file_distribution_href'] = file_file_distribution_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if set_label is not None:
@@ -3373,6 +3533,7 @@ class DistributionsFileApi:
         self,
         file_file_distribution_href: StrictStr,
         unset_label: UnsetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3394,6 +3555,8 @@ class DistributionsFileApi:
         :type file_file_distribution_href: str
         :param unset_label: (required)
         :type unset_label: UnsetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3419,6 +3582,7 @@ class DistributionsFileApi:
         _param = self._unset_label_serialize(
             file_file_distribution_href=file_file_distribution_href,
             unset_label=unset_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3444,6 +3608,7 @@ class DistributionsFileApi:
         self,
         file_file_distribution_href: StrictStr,
         unset_label: UnsetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3465,6 +3630,8 @@ class DistributionsFileApi:
         :type file_file_distribution_href: str
         :param unset_label: (required)
         :type unset_label: UnsetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3490,6 +3657,7 @@ class DistributionsFileApi:
         _param = self._unset_label_serialize(
             file_file_distribution_href=file_file_distribution_href,
             unset_label=unset_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3515,6 +3683,7 @@ class DistributionsFileApi:
         self,
         file_file_distribution_href: StrictStr,
         unset_label: UnsetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3536,6 +3705,8 @@ class DistributionsFileApi:
         :type file_file_distribution_href: str
         :param unset_label: (required)
         :type unset_label: UnsetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3561,6 +3732,7 @@ class DistributionsFileApi:
         _param = self._unset_label_serialize(
             file_file_distribution_href=file_file_distribution_href,
             unset_label=unset_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3581,6 +3753,7 @@ class DistributionsFileApi:
         self,
         file_file_distribution_href,
         unset_label,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -3590,6 +3763,7 @@ class DistributionsFileApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -3606,6 +3780,8 @@ class DistributionsFileApi:
             _path_params['file_file_distribution_href'] = file_file_distribution_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if unset_label is not None:
@@ -3665,6 +3841,7 @@ class DistributionsFileApi:
         self,
         file_file_distribution_href: StrictStr,
         file_file_distribution: FileFileDistribution,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3686,6 +3863,8 @@ class DistributionsFileApi:
         :type file_file_distribution_href: str
         :param file_file_distribution: (required)
         :type file_file_distribution: FileFileDistribution
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3711,6 +3890,7 @@ class DistributionsFileApi:
         _param = self._update_serialize(
             file_file_distribution_href=file_file_distribution_href,
             file_file_distribution=file_file_distribution,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3736,6 +3916,7 @@ class DistributionsFileApi:
         self,
         file_file_distribution_href: StrictStr,
         file_file_distribution: FileFileDistribution,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3757,6 +3938,8 @@ class DistributionsFileApi:
         :type file_file_distribution_href: str
         :param file_file_distribution: (required)
         :type file_file_distribution: FileFileDistribution
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3782,6 +3965,7 @@ class DistributionsFileApi:
         _param = self._update_serialize(
             file_file_distribution_href=file_file_distribution_href,
             file_file_distribution=file_file_distribution,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3807,6 +3991,7 @@ class DistributionsFileApi:
         self,
         file_file_distribution_href: StrictStr,
         file_file_distribution: FileFileDistribution,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3828,6 +4013,8 @@ class DistributionsFileApi:
         :type file_file_distribution_href: str
         :param file_file_distribution: (required)
         :type file_file_distribution: FileFileDistribution
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3853,6 +4040,7 @@ class DistributionsFileApi:
         _param = self._update_serialize(
             file_file_distribution_href=file_file_distribution_href,
             file_file_distribution=file_file_distribution,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3873,6 +4061,7 @@ class DistributionsFileApi:
         self,
         file_file_distribution_href,
         file_file_distribution,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -3882,6 +4071,7 @@ class DistributionsFileApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -3898,6 +4088,8 @@ class DistributionsFileApi:
             _path_params['file_file_distribution_href'] = file_file_distribution_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if file_file_distribution is not None:

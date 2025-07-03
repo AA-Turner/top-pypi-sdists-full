@@ -28,8 +28,6 @@ class NormalizationConfig:
 r_left = re.compile(r"\\m?left(\\\{|\{|\\\||\||\[|\(|\\rbracl|\\lgroup|\\lbrace|\\lbrack|\\vert|\\lvert|\\lceil|\\lfloor|\\vert|\\lvert|\\langle|\\llcorner|\\ulcorner)")
 r_right = re.compile(r"\\m?right(\\\}|\}|\\\||\||\]|\)|\\rbrack|\\rgroup|\\rbrace|\\rbrack|\\vert|\\rvert|\\rceil|\\rfloor|\\vert|\\rvert|\\rangle|\\lrcorner|\\urcorner)")
 
-empty_text_regex = re.compile(r"\\text\s*\{\s*\}")
-
 # Units regex
 units = [
     "integer" "point",
@@ -177,7 +175,8 @@ units = [
 # We sort here to that when matching from right the longest units are matched first
 # E.g "percent" is matched before "cent"
 
-units_regex = re.compile("|".join([f"(?=\\s)(?:{unit}(?:s|es)?)($|\\W)" for unit in units]))
+units_regex_pattern = f"(?:{'|'.join(units)})(?:s|es)?"
+units_regex = re.compile(f"(\\d|\\}}|\\s)\\s*(?:{units_regex_pattern})\\s*$")
 
 # Basic latex regex
 to_remove_regex = re.compile(
@@ -209,8 +208,14 @@ to_replace_patterns = [
     ("infinity", r"infinity", r"\infty"),
     # Dots
     ("dot", r",?(\\ldots)", r" "),
-    ("percent", r"\s*percent", r"\\%"),
-    ("percent_in_text", r"\\text{percent}", r"\\%"),
+    # Support additional synonyms for percent used in model outputs
+    ("percentage", r"\s*percentage", r"\%"),
+    ("percentage_in_text", r"\\text{percentage}", r"\%"),
+    # It's important to have percent before percentage, as percentage is a substring of percent
+    ("percent", r"\s*percent", r"\%"),
+    ("percent_in_text", r"\\text{percent}", r"\%"),
+    ("pct", r"\s*pct", r"\%"),
+    ("pct_in_text", r"\\text{pct}", r"\%"),
     ("inf", r"((?<!\\)inf(?!inity))", r"\infty"),
     ("sqrt", r" sqrt", r"\sqrt"),
 ]
@@ -278,10 +283,30 @@ def extract_boxed_content(text: str, mode: Literal["last", "all"] = "last") -> s
                     return opening_brace_pos, i
         return None
     
-    def has_valid_separator(text: str, content_end: int, next_boxed_start: int) -> bool:
-        between_text = text[content_end + 1:next_boxed_start]
-        # Making regex for it not worth it so this works
-        return len(between_text) < 70 and bool(VALID_SEPARATOR_PATTERN.search(between_text))
+    def should_extract_boxed(full_text: str, boxed_text: str, next_boxed_text: str, boxed_end: int, next_boxed_start: int) -> bool:
+        """
+        Check if the boxed is valid last boxed. We do allow multiple boxed extraction if they are separated
+        by a valid separator.
+
+        Args:
+            boxed_text: The text of the last boxed
+            next_boxed_text: The text of the boxed following the boxed_text
+            boxed_end: The end of the boxed_text
+            next_boxed_start: The start of the next_boxed_text following the boxed_text
+        Returns:
+            True if the boxed should be extracted, False otherwise
+        """
+        between_text = full_text[boxed_end + 1:next_boxed_start]
+        # If they are close to each other we allow it
+        if len(between_text) < 10:
+            return True
+
+        # Or if they are a bit more far from each other are not the same as prev content and
+        # have a valid separator we allow it
+        # Note: Making regex for it not worth it so this works
+        if next_boxed_text != boxed_text and len(between_text) < 70 and bool(VALID_SEPARATOR_PATTERN.search(between_text)):
+            return True
+        return False
     
     results = []
     current_pos = len(text)
@@ -317,7 +342,7 @@ def extract_boxed_content(text: str, mode: Literal["last", "all"] = "last") -> s
             content = text[content_start + 1:content_end].strip()
             
             if mode == "last" and last_boxed_start is not None:
-                if not has_valid_separator(text, content_end, last_boxed_start):
+                if not should_extract_boxed(text, content ,results[-1] if results else "", content_end, last_boxed_start):
                     break
             
             results.append(content)
@@ -463,7 +488,7 @@ def normalize_latex(text: str, config: NormalizationConfig) -> str:
             text = command_slash_fix_regex.sub(r"\\", text)
     
     if config.equations:
-        logger.warning("equations is deprecated, as it handled by the parser now")
+        logger.warning("equations=True in NormalizationConfig is deprecated, as it handled by the parser now")
         # This is to ensure that a=1,b=2 is not splitted
         if not "," in text and not ";" in text:
             eq_parts = equation_split_regex.split(text)
@@ -479,13 +504,12 @@ def normalize_latex(text: str, config: NormalizationConfig) -> str:
             
         # Remove unit texts
         for _ in range(2):
-            _text = units_regex.sub(r"\1\2", text)
+            _text = units_regex.sub(r"\1", text)
             if _text != "" and _text != text:
                 text = _text
         
         # This can trigger empty \text{...}
         # Make sure not to remove space this created
-        text = empty_text_regex.sub(" ", text)
     
     if config.nits:
         # Fix leading decimal

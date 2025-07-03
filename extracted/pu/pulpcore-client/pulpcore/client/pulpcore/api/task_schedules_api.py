@@ -50,6 +50,7 @@ class TaskSchedulesApi:
         self,
         task_schedule_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -71,6 +72,8 @@ class TaskSchedulesApi:
         :type task_schedule_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -96,6 +99,7 @@ class TaskSchedulesApi:
         _param = self._add_role_serialize(
             task_schedule_href=task_schedule_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -121,6 +125,7 @@ class TaskSchedulesApi:
         self,
         task_schedule_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -142,6 +147,8 @@ class TaskSchedulesApi:
         :type task_schedule_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -167,6 +174,7 @@ class TaskSchedulesApi:
         _param = self._add_role_serialize(
             task_schedule_href=task_schedule_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -192,6 +200,7 @@ class TaskSchedulesApi:
         self,
         task_schedule_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -213,6 +222,8 @@ class TaskSchedulesApi:
         :type task_schedule_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -238,6 +249,7 @@ class TaskSchedulesApi:
         _param = self._add_role_serialize(
             task_schedule_href=task_schedule_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -258,6 +270,7 @@ class TaskSchedulesApi:
         self,
         task_schedule_href,
         nested_role,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -267,6 +280,7 @@ class TaskSchedulesApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -283,6 +297,8 @@ class TaskSchedulesApi:
             _path_params['task_schedule_href'] = task_schedule_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if nested_role is not None:
@@ -340,6 +356,7 @@ class TaskSchedulesApi:
     @validate_call
     def list(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter results where name matches value")] = None,
         name__contains: Annotated[Optional[StrictStr], Field(description="Filter results where name contains value")] = None,
@@ -370,6 +387,8 @@ class TaskSchedulesApi:
 
         ViewSet to monitor task schedules.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param limit: Number of results to return per page.
         :type limit: int
         :param name: Filter results where name matches value
@@ -419,6 +438,7 @@ class TaskSchedulesApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             name=name,
             name__contains=name__contains,
@@ -455,6 +475,7 @@ class TaskSchedulesApi:
     @validate_call
     def list_with_http_info(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter results where name matches value")] = None,
         name__contains: Annotated[Optional[StrictStr], Field(description="Filter results where name contains value")] = None,
@@ -485,6 +506,8 @@ class TaskSchedulesApi:
 
         ViewSet to monitor task schedules.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param limit: Number of results to return per page.
         :type limit: int
         :param name: Filter results where name matches value
@@ -534,6 +557,7 @@ class TaskSchedulesApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             name=name,
             name__contains=name__contains,
@@ -570,6 +594,7 @@ class TaskSchedulesApi:
     @validate_call
     def list_without_preload_content(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter results where name matches value")] = None,
         name__contains: Annotated[Optional[StrictStr], Field(description="Filter results where name contains value")] = None,
@@ -600,6 +625,8 @@ class TaskSchedulesApi:
 
         ViewSet to monitor task schedules.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param limit: Number of results to return per page.
         :type limit: int
         :param name: Filter results where name matches value
@@ -649,6 +676,7 @@ class TaskSchedulesApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             name=name,
             name__contains=name__contains,
@@ -680,6 +708,7 @@ class TaskSchedulesApi:
 
     def _list_serialize(
         self,
+        x_task_diagnostics,
         limit,
         name,
         name__contains,
@@ -702,6 +731,7 @@ class TaskSchedulesApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'ordering': 'csv',
             'prn__in': 'csv',
             'pulp_href__in': 'csv',
@@ -774,6 +804,8 @@ class TaskSchedulesApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -815,6 +847,7 @@ class TaskSchedulesApi:
     def list_roles(
         self,
         task_schedule_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -836,6 +869,8 @@ class TaskSchedulesApi:
 
         :param task_schedule_href: (required)
         :type task_schedule_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -864,6 +899,7 @@ class TaskSchedulesApi:
 
         _param = self._list_roles_serialize(
             task_schedule_href=task_schedule_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -890,6 +926,7 @@ class TaskSchedulesApi:
     def list_roles_with_http_info(
         self,
         task_schedule_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -911,6 +948,8 @@ class TaskSchedulesApi:
 
         :param task_schedule_href: (required)
         :type task_schedule_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -939,6 +978,7 @@ class TaskSchedulesApi:
 
         _param = self._list_roles_serialize(
             task_schedule_href=task_schedule_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -965,6 +1005,7 @@ class TaskSchedulesApi:
     def list_roles_without_preload_content(
         self,
         task_schedule_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -986,6 +1027,8 @@ class TaskSchedulesApi:
 
         :param task_schedule_href: (required)
         :type task_schedule_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1014,6 +1057,7 @@ class TaskSchedulesApi:
 
         _param = self._list_roles_serialize(
             task_schedule_href=task_schedule_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1035,6 +1079,7 @@ class TaskSchedulesApi:
     def _list_roles_serialize(
         self,
         task_schedule_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -1046,6 +1091,7 @@ class TaskSchedulesApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -1072,6 +1118,8 @@ class TaskSchedulesApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -1113,6 +1161,7 @@ class TaskSchedulesApi:
     def my_permissions(
         self,
         task_schedule_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1134,6 +1183,8 @@ class TaskSchedulesApi:
 
         :param task_schedule_href: (required)
         :type task_schedule_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1162,6 +1213,7 @@ class TaskSchedulesApi:
 
         _param = self._my_permissions_serialize(
             task_schedule_href=task_schedule_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1188,6 +1240,7 @@ class TaskSchedulesApi:
     def my_permissions_with_http_info(
         self,
         task_schedule_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1209,6 +1262,8 @@ class TaskSchedulesApi:
 
         :param task_schedule_href: (required)
         :type task_schedule_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1237,6 +1292,7 @@ class TaskSchedulesApi:
 
         _param = self._my_permissions_serialize(
             task_schedule_href=task_schedule_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1263,6 +1319,7 @@ class TaskSchedulesApi:
     def my_permissions_without_preload_content(
         self,
         task_schedule_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1284,6 +1341,8 @@ class TaskSchedulesApi:
 
         :param task_schedule_href: (required)
         :type task_schedule_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1312,6 +1371,7 @@ class TaskSchedulesApi:
 
         _param = self._my_permissions_serialize(
             task_schedule_href=task_schedule_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1333,6 +1393,7 @@ class TaskSchedulesApi:
     def _my_permissions_serialize(
         self,
         task_schedule_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -1344,6 +1405,7 @@ class TaskSchedulesApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -1370,6 +1432,8 @@ class TaskSchedulesApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -1411,6 +1475,7 @@ class TaskSchedulesApi:
     def read(
         self,
         task_schedule_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1432,6 +1497,8 @@ class TaskSchedulesApi:
 
         :param task_schedule_href: (required)
         :type task_schedule_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1460,6 +1527,7 @@ class TaskSchedulesApi:
 
         _param = self._read_serialize(
             task_schedule_href=task_schedule_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1486,6 +1554,7 @@ class TaskSchedulesApi:
     def read_with_http_info(
         self,
         task_schedule_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1507,6 +1576,8 @@ class TaskSchedulesApi:
 
         :param task_schedule_href: (required)
         :type task_schedule_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1535,6 +1606,7 @@ class TaskSchedulesApi:
 
         _param = self._read_serialize(
             task_schedule_href=task_schedule_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1561,6 +1633,7 @@ class TaskSchedulesApi:
     def read_without_preload_content(
         self,
         task_schedule_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1582,6 +1655,8 @@ class TaskSchedulesApi:
 
         :param task_schedule_href: (required)
         :type task_schedule_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1610,6 +1685,7 @@ class TaskSchedulesApi:
 
         _param = self._read_serialize(
             task_schedule_href=task_schedule_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1631,6 +1707,7 @@ class TaskSchedulesApi:
     def _read_serialize(
         self,
         task_schedule_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -1642,6 +1719,7 @@ class TaskSchedulesApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -1668,6 +1746,8 @@ class TaskSchedulesApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -1710,6 +1790,7 @@ class TaskSchedulesApi:
         self,
         task_schedule_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1731,6 +1812,8 @@ class TaskSchedulesApi:
         :type task_schedule_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1756,6 +1839,7 @@ class TaskSchedulesApi:
         _param = self._remove_role_serialize(
             task_schedule_href=task_schedule_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1781,6 +1865,7 @@ class TaskSchedulesApi:
         self,
         task_schedule_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1802,6 +1887,8 @@ class TaskSchedulesApi:
         :type task_schedule_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1827,6 +1914,7 @@ class TaskSchedulesApi:
         _param = self._remove_role_serialize(
             task_schedule_href=task_schedule_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1852,6 +1940,7 @@ class TaskSchedulesApi:
         self,
         task_schedule_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1873,6 +1962,8 @@ class TaskSchedulesApi:
         :type task_schedule_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1898,6 +1989,7 @@ class TaskSchedulesApi:
         _param = self._remove_role_serialize(
             task_schedule_href=task_schedule_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1918,6 +2010,7 @@ class TaskSchedulesApi:
         self,
         task_schedule_href,
         nested_role,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -1927,6 +2020,7 @@ class TaskSchedulesApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -1943,6 +2037,8 @@ class TaskSchedulesApi:
             _path_params['task_schedule_href'] = task_schedule_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if nested_role is not None:

@@ -7,6 +7,7 @@ from typing import Literal
 import pandas as pd
 
 from ibm_watsonx_ai import APIClient
+from ibm_watsonx_ai.wml_client_error import WMLClientError
 from ibm_watsonx_ai.wml_resource import WMLResource
 
 
@@ -18,7 +19,7 @@ class Policies(WMLResource):
 
     def create(
         self, action: str, resource: str, subject: str, effect: str | None = None
-    ) -> dict:
+    ) -> None:
         """Create policy.
 
         :param action: action for policy
@@ -32,9 +33,6 @@ class Policies(WMLResource):
 
         :param effect: effect for policy
         :type effect: str, optional
-
-        :returns: policy details
-        :rtype: dict
         """
 
         request_json = {"action": action, "resource": resource, "subject": subject}
@@ -43,12 +41,12 @@ class Policies(WMLResource):
             request_json["effect"] = effect
 
         response = self._client.httpx_client.post(
-            self._client._href_definitions.get_gateway_policy_href(),
+            self._client._href_definitions.get_gateway_policies_href(),
             headers=self._client._get_headers(),
             json=request_json,
         )
 
-        return self._handle_response(204, "policy creation", response)
+        self._handle_response(204, "policy creation", response, json_response=False)
 
     def delete(
         self, action: str, resource: str, subject: str, effect: str | None = None
@@ -67,16 +65,16 @@ class Policies(WMLResource):
         :param effect: effect for policy
         :type effect: str, optional
 
-        :returns: policy details
-        :rtype: dict
+        :return: status ("SUCCESS" if succeeded)
+        :rtype: str
         """
         request_json = {"action": action, "resource": resource, "subject": subject}
 
         if effect:
             request_json["effect"] = effect
 
-        response = self._client.httpx_client.delete(
-            self._client._href_definitions.get_gateway_policy_href(),
+        response = self._client._session.delete(
+            self._client._href_definitions.get_gateway_policies_href(),
             headers=self._client._get_headers(),
             json=request_json,
         )
@@ -92,7 +90,7 @@ class Policies(WMLResource):
         :rtype: dict
         """
         response = self._client.httpx_client.get(
-            self._client._href_definitions.get_gateway_policy_href(),
+            self._client._href_definitions.get_gateway_policies_href(),
             headers=self._client._get_headers(),
         )
 
@@ -104,11 +102,11 @@ class Policies(WMLResource):
         :returns: dataframe with policies details
         :rtype: pandas.DataFrame
         """
-        policy_details = self.get_details()
+        policies_details = self.get_details()["data"]
 
         policies_values = [
             (m["resource"], m["action"], m["subject"], m.get("effect", ""))
-            for m in policy_details
+            for m in policies_details
         ]
 
         table = self._list(

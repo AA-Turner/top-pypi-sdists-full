@@ -965,11 +965,12 @@ class PandasConverter(System.Object):
         ...
 
     @overload
-    def get_indicator_data_frame(self, data: typing.List[System.Collections.Generic.KeyValuePair[str, typing.List[QuantConnect.Indicators.IndicatorDataPoint]]]) -> pandas.DataFrame:
+    def get_indicator_data_frame(self, data: typing.List[System.Collections.Generic.KeyValuePair[str, typing.List[QuantConnect.Indicators.IndicatorDataPoint]]], extra_data: typing.List[System.Collections.Generic.KeyValuePair[str, typing.List[System.ValueTuple[datetime.datetime, System.Object]]]] = None) -> pandas.DataFrame:
         """
         Converts a dictionary with a list of IndicatorDataPoint in a pandas.DataFrame
         
         :param data: Dictionary with a list of IndicatorDataPoint
+        :param extra_data: Optional dynamic properties to include in the DataFrame.
         :returns: PyObject containing a pandas.DataFrame.
         """
         ...

@@ -2104,6 +2104,33 @@ class AssetsMetaNames(MetaNamesBase):
         MetaNamesBase.__init__(self, self._meta_props_definitions)
 
 
+class FolderAssetsMetaNames(MetaNamesBase):
+    NAME = "name"
+    DESCRIPTION = "description"
+    CONNECTION_ID = "connection_id"
+    CONNECTION_PATH = "connection_path"
+
+    _meta_props_definitions = [
+        MetaProp("NAME", NAME, str, True, "my_folder_asset"),
+        MetaProp(
+            "CONNECTION_PATH", CONNECTION_PATH, str, True, "/bucket1/folder1/folder1.1"
+        ),
+        MetaProp(
+            "CONNECTION_ID",
+            CONNECTION_ID,
+            str,
+            False,
+            "f1fea17c-a7e5-49e4-9f8e-23cef3e11ed5",
+        ),
+        MetaProp("DESCRIPTION", DESCRIPTION, str, False, "my_description"),
+    ]
+
+    __doc__ = MetaNamesBase(_meta_props_definitions)._generate_doc("Folder Asset Specs")
+
+    def __init__(self) -> None:
+        MetaNamesBase.__init__(self, self._meta_props_definitions)
+
+
 ## update this later #Todo
 class SwSpecMetaNames(MetaNamesBase):
     TAGS = "tags"
@@ -2955,6 +2982,10 @@ class AIServiceMetaNames(MetaNamesBase):
     DESCRIPTION = "description"
     REQUEST_DOCUMENTATION = "request_documentation"
     RESPONSE_DOCUMENTATION = "response_documentation"
+    DOCUMENTATION_REQUEST = "documentation_request"
+    DOCUMENTATION_RESPONSE = "documentation_response"
+    DOCUMENTATION_INIT = "documentation_init"
+    DOCUMENTATION_FUNCTIONS = "documentation_functions"
     TAGS = "tags"
     SOFTWARE_SPEC_ID = "software_spec_id"
     CODE_TYPE = "code_type"
@@ -2996,6 +3027,7 @@ class AIServiceMetaNames(MetaNamesBase):
                 }
             },
             path="/documentation/request",
+            hidden=True,
         ),
         MetaProp(
             "RESPONSE_DOCUMENTATION",
@@ -3014,6 +3046,80 @@ class AIServiceMetaNames(MetaNamesBase):
                 }
             },
             path="/documentation/response",
+            hidden=True,
+        ),
+        MetaProp(
+            "DOCUMENTATION_REQUEST",
+            DOCUMENTATION_REQUEST,
+            dict,
+            False,
+            {
+                "application/json": {
+                    "$schema": "http://json-schema.org/draft-07/schema#",
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string"},
+                        "parameters": {
+                            "properties": {
+                                "max_new_tokens": {"type": "integer"},
+                                "top_p": {"type": "number"},
+                            },
+                            "required": ["max_new_tokens", "top_p"],
+                        },
+                    },
+                    "required": ["query"],
+                }
+            },
+            path="/documentation/request",
+        ),
+        MetaProp(
+            "DOCUMENTATION_RESPONSE",
+            DOCUMENTATION_RESPONSE,
+            dict,
+            False,
+            {
+                "application/json": {
+                    "$schema": "http://json-schema.org/draft-07/schema#",
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string"},
+                        "result": {"type": "string"},
+                    },
+                    "required": ["query", "result"],
+                }
+            },
+            path="/documentation/response",
+        ),
+        MetaProp(
+            "DOCUMENTATION_INIT",
+            DOCUMENTATION_INIT,
+            dict,
+            False,
+            {
+                "properties": {
+                    "vector_index_name": {
+                        "title": "Vector Index Name",
+                        "type": "string",
+                    },
+                    "url": {
+                        "default": "https://us-south.ml.cloud.ibm.com/",
+                        "type": "string",
+                    },
+                    "model_id": {"default": "meta-llama/llama-3-2-11b-vision-instruct"},
+                    "temperature": {"default": {"temperature": 1}},
+                },
+                "required": ["vector_index_name"],
+                "type": "object",
+            },
+            path="/documentation/init",
+        ),
+        MetaProp(
+            "DOCUMENTATION_FUNCTIONS",
+            DOCUMENTATION_FUNCTIONS,
+            dict,
+            False,
+            {"generate": True, "generate_stream": True, "generate_batch": False},
+            path="/documentation/functions",
         ),
         MetaProp("TAGS", TAGS, list, False, ["tags1", "tags2"], schema=["string"]),
         MetaProp("CODE_TYPE", CODE_TYPE, str, False, "python"),
@@ -3062,7 +3168,7 @@ class RAGOptimizerConfigurationMetaNames(MetaNamesBase):
             "TEST_DATA_REFERENCES",
             TEST_DATA_REFERENCES,
             list,
-            True,
+            False,
             [
                 {
                     "id": "test_input_data",

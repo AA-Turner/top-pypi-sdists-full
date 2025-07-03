@@ -48,6 +48,7 @@ class ExportersFilesystemExportsApi:
         self,
         filesystem_exporter_href: StrictStr,
         filesystem_export: FilesystemExport,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -69,6 +70,8 @@ class ExportersFilesystemExportsApi:
         :type filesystem_exporter_href: str
         :param filesystem_export: (required)
         :type filesystem_export: FilesystemExport
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -94,6 +97,7 @@ class ExportersFilesystemExportsApi:
         _param = self._create_serialize(
             filesystem_exporter_href=filesystem_exporter_href,
             filesystem_export=filesystem_export,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -119,6 +123,7 @@ class ExportersFilesystemExportsApi:
         self,
         filesystem_exporter_href: StrictStr,
         filesystem_export: FilesystemExport,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -140,6 +145,8 @@ class ExportersFilesystemExportsApi:
         :type filesystem_exporter_href: str
         :param filesystem_export: (required)
         :type filesystem_export: FilesystemExport
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -165,6 +172,7 @@ class ExportersFilesystemExportsApi:
         _param = self._create_serialize(
             filesystem_exporter_href=filesystem_exporter_href,
             filesystem_export=filesystem_export,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -190,6 +198,7 @@ class ExportersFilesystemExportsApi:
         self,
         filesystem_exporter_href: StrictStr,
         filesystem_export: FilesystemExport,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -211,6 +220,8 @@ class ExportersFilesystemExportsApi:
         :type filesystem_exporter_href: str
         :param filesystem_export: (required)
         :type filesystem_export: FilesystemExport
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -236,6 +247,7 @@ class ExportersFilesystemExportsApi:
         _param = self._create_serialize(
             filesystem_exporter_href=filesystem_exporter_href,
             filesystem_export=filesystem_export,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -256,6 +268,7 @@ class ExportersFilesystemExportsApi:
         self,
         filesystem_exporter_href,
         filesystem_export,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -265,6 +278,7 @@ class ExportersFilesystemExportsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -281,6 +295,8 @@ class ExportersFilesystemExportsApi:
             _path_params['filesystem_exporter_href'] = filesystem_exporter_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if filesystem_export is not None:
@@ -339,6 +355,7 @@ class ExportersFilesystemExportsApi:
     def delete(
         self,
         filesystem_filesystem_export_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -358,6 +375,8 @@ class ExportersFilesystemExportsApi:
 
         :param filesystem_filesystem_export_href: (required)
         :type filesystem_filesystem_export_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -382,6 +401,7 @@ class ExportersFilesystemExportsApi:
 
         _param = self._delete_serialize(
             filesystem_filesystem_export_href=filesystem_filesystem_export_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -406,6 +426,7 @@ class ExportersFilesystemExportsApi:
     def delete_with_http_info(
         self,
         filesystem_filesystem_export_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -425,6 +446,8 @@ class ExportersFilesystemExportsApi:
 
         :param filesystem_filesystem_export_href: (required)
         :type filesystem_filesystem_export_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -449,6 +472,7 @@ class ExportersFilesystemExportsApi:
 
         _param = self._delete_serialize(
             filesystem_filesystem_export_href=filesystem_filesystem_export_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -473,6 +497,7 @@ class ExportersFilesystemExportsApi:
     def delete_without_preload_content(
         self,
         filesystem_filesystem_export_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -492,6 +517,8 @@ class ExportersFilesystemExportsApi:
 
         :param filesystem_filesystem_export_href: (required)
         :type filesystem_filesystem_export_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -516,6 +543,7 @@ class ExportersFilesystemExportsApi:
 
         _param = self._delete_serialize(
             filesystem_filesystem_export_href=filesystem_filesystem_export_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -535,6 +563,7 @@ class ExportersFilesystemExportsApi:
     def _delete_serialize(
         self,
         filesystem_filesystem_export_href,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -544,6 +573,7 @@ class ExportersFilesystemExportsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -560,6 +590,8 @@ class ExportersFilesystemExportsApi:
             _path_params['filesystem_filesystem_export_href'] = filesystem_filesystem_export_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -594,6 +626,7 @@ class ExportersFilesystemExportsApi:
     def list(
         self,
         filesystem_exporter_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
@@ -617,6 +650,8 @@ class ExportersFilesystemExportsApi:
 
         :param filesystem_exporter_href: (required)
         :type filesystem_exporter_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param limit: Number of results to return per page.
         :type limit: int
         :param offset: The initial index from which to return the results.
@@ -649,6 +684,7 @@ class ExportersFilesystemExportsApi:
 
         _param = self._list_serialize(
             filesystem_exporter_href=filesystem_exporter_href,
+            x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             offset=offset,
             fields=fields,
@@ -677,6 +713,7 @@ class ExportersFilesystemExportsApi:
     def list_with_http_info(
         self,
         filesystem_exporter_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
@@ -700,6 +737,8 @@ class ExportersFilesystemExportsApi:
 
         :param filesystem_exporter_href: (required)
         :type filesystem_exporter_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param limit: Number of results to return per page.
         :type limit: int
         :param offset: The initial index from which to return the results.
@@ -732,6 +771,7 @@ class ExportersFilesystemExportsApi:
 
         _param = self._list_serialize(
             filesystem_exporter_href=filesystem_exporter_href,
+            x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             offset=offset,
             fields=fields,
@@ -760,6 +800,7 @@ class ExportersFilesystemExportsApi:
     def list_without_preload_content(
         self,
         filesystem_exporter_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
@@ -783,6 +824,8 @@ class ExportersFilesystemExportsApi:
 
         :param filesystem_exporter_href: (required)
         :type filesystem_exporter_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param limit: Number of results to return per page.
         :type limit: int
         :param offset: The initial index from which to return the results.
@@ -815,6 +858,7 @@ class ExportersFilesystemExportsApi:
 
         _param = self._list_serialize(
             filesystem_exporter_href=filesystem_exporter_href,
+            x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             offset=offset,
             fields=fields,
@@ -838,6 +882,7 @@ class ExportersFilesystemExportsApi:
     def _list_serialize(
         self,
         filesystem_exporter_href,
+        x_task_diagnostics,
         limit,
         offset,
         fields,
@@ -851,6 +896,7 @@ class ExportersFilesystemExportsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -885,6 +931,8 @@ class ExportersFilesystemExportsApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -926,6 +974,7 @@ class ExportersFilesystemExportsApi:
     def read(
         self,
         filesystem_filesystem_export_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -947,6 +996,8 @@ class ExportersFilesystemExportsApi:
 
         :param filesystem_filesystem_export_href: (required)
         :type filesystem_filesystem_export_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -975,6 +1026,7 @@ class ExportersFilesystemExportsApi:
 
         _param = self._read_serialize(
             filesystem_filesystem_export_href=filesystem_filesystem_export_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1001,6 +1053,7 @@ class ExportersFilesystemExportsApi:
     def read_with_http_info(
         self,
         filesystem_filesystem_export_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1022,6 +1075,8 @@ class ExportersFilesystemExportsApi:
 
         :param filesystem_filesystem_export_href: (required)
         :type filesystem_filesystem_export_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1050,6 +1105,7 @@ class ExportersFilesystemExportsApi:
 
         _param = self._read_serialize(
             filesystem_filesystem_export_href=filesystem_filesystem_export_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1076,6 +1132,7 @@ class ExportersFilesystemExportsApi:
     def read_without_preload_content(
         self,
         filesystem_filesystem_export_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1097,6 +1154,8 @@ class ExportersFilesystemExportsApi:
 
         :param filesystem_filesystem_export_href: (required)
         :type filesystem_filesystem_export_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1125,6 +1184,7 @@ class ExportersFilesystemExportsApi:
 
         _param = self._read_serialize(
             filesystem_filesystem_export_href=filesystem_filesystem_export_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1146,6 +1206,7 @@ class ExportersFilesystemExportsApi:
     def _read_serialize(
         self,
         filesystem_filesystem_export_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -1157,6 +1218,7 @@ class ExportersFilesystemExportsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -1183,6 +1245,8 @@ class ExportersFilesystemExportsApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 

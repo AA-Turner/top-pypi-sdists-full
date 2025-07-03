@@ -1,5 +1,6 @@
 import pytest
-from math_verify import parse, StringExtractionConfig
+
+from math_verify import StringExtractionConfig, parse
 
 
 @pytest.mark.parametrize(

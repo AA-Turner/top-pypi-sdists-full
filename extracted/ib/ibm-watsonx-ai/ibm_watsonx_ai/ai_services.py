@@ -47,7 +47,7 @@ class AIServices(WMLResource):
         :type ai_service: str | Callable
 
         :param meta_props: metadata for storing an AI service asset. To see available meta names
-            use ``client._ai_services.ConfigurationMetaNames.show()``
+            use ``client._ai_services.ConfigurationMetaNames.show()`` or direct to :class:`~metanames.AIServiceMetaNames` class.
         :type meta_props: dict
 
         :return: metadata of the stored AI service
@@ -93,8 +93,8 @@ class AIServices(WMLResource):
                 client._ai_services.ConfigurationMetaNames.NAME: "AI service example",
                 client._ai_services.ConfigurationMetaNames.DESCRIPTION: "This is AI service function",
                 client._ai_services.ConfigurationMetaNames.SOFTWARE_SPEC_ID: "53dc4cf1-252f-424b-b52d-5cdd9814987f",
-                client._ai_services.ConfigurationMetaNames.REQUEST_DOCUMENTATION: documentation_request,
-                client._ai_services.ConfigurationMetaNames.RESPONSE_DOCUMENTATION: documentation_response,
+                client._ai_services.ConfigurationMetaNames.DOCUMENTATION_REQUEST: documentation_request,
+                client._ai_services.ConfigurationMetaNames.DOCUMENTATION_RESPONSE: documentation_response,
                 }
 
             def deployable_ai_service(context, params={"k1":"v1"}, **kwargs):

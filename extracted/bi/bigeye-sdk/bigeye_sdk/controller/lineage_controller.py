@@ -24,7 +24,7 @@ from bigeye_sdk.client.datawatch_client import DatawatchClient
 from bigeye_sdk.model.lineage_facade import SimpleLineageConfigurationFile, SimpleLineageEdgeRequest, \
     LineageColumnOverride, SimpleCustomNode, LineageConfiguration, SimpleLineageNodeRequest
 from bigeye_sdk.model.lineage_graph import LineageGraph, ContainmentNode, IntegrationNode
-from bigeye_sdk.model.protobuf_enum_facade import SimpleDataNodeType
+from bigeye_sdk.model.protobuf_enum_facade import SimpleDataNodeType, SimpleCatalogEntityType
 
 log = get_logger(__file__)
 
@@ -331,6 +331,7 @@ class LineageController:
                     node_name=custom_node.container_name,
                     node_container_name=custom_node.container_name,
                     node_type=DataNodeType.DATA_NODE_TYPE_CUSTOM,
+                    icon_url=custom_node.node_icon_url
                 )
                 custom_node.container_node_id = new_container.id
                 self.custom_nodes_ix_by_id[new_container.id] = new_container
@@ -349,6 +350,7 @@ class LineageController:
 
         if existing_custom_node:
             custom_node.data_node_id = existing_custom_node.id
+            entity_id = existing_custom_node.node_entity_id
         else:
             log.info(f"Searching for {custom_node.name} in {custom_node.container_name}...")
             existing_custom_node = self._search_custom_nodes(custom_node=custom_node)
@@ -356,21 +358,31 @@ class LineageController:
                 custom_node.data_node_id = existing_custom_node.id
                 self.custom_node_search_cache.get(custom_node.name, []).append(existing_custom_node)
                 self.custom_nodes_ix_by_id[custom_node.data_node_id] = existing_custom_node
+                entity_id = existing_custom_node.node_entity_id
             # if task does not exist yet, then create new custom node and assign the data node id
             else:
                 new_task = self.client.create_lineage_node(
                     node_name=custom_node.name,
                     node_container_name=custom_node.container_name,
-                    node_type=custom_node.node_type
+                    node_type=custom_node.node_type,
+                    icon_url=custom_node.node_icon_url
                 )
                 custom_node.data_node_id = new_task.id
                 self.custom_nodes_ix_by_id[custom_node.data_node_id] = new_task
+                entity_id = new_task.node_entity_id
                 # Add containment association to container and task
                 self.client.create_lineage_edge(
                     upstream_data_node_id=custom_node.container_node_id,
                     downstream_data_node_id=custom_node.data_node_id,
                     relationship_type=RelationshipType.RELATIONSHIP_TYPE_CONTAINMENT
                 )
+
+        if custom_node.metadata is not None:
+            self.client.set_attributes(
+                entity_type=SimpleCatalogEntityType.DATA_NODE_ENTITY,
+                entity_id=entity_id,
+                attributes=custom_node.metadata
+            )
 
         return custom_node
 
@@ -495,18 +507,19 @@ class LineageController:
                         f"downstream {r.node_type.name}: {r.downstream.name}. Exception {e}"
                     )
                     count_failed_relations += 1
-                progress.update(1)
+
+            # Make the lineage request
+            cleansed_requests = []
+            for r in final_edge_requests:
+                if r.upstream_data_node_id != r.downstream_data_node_id:
+                    cleansed_requests.append(r)
+            self.client.bulk_create_lineage_edges(cleansed_requests)
+            progress.update(1)
 
         # Delete any custom nodes
         if purge_lineage:
             for node_id, node in self.custom_nodes_ix_by_id.items():
                 self.client.delete_lineage_node(node_id=node_id)
-
-        cleansed_requests = []
-        for r in final_edge_requests:
-            if r.upstream_data_node_id != r.downstream_data_node_id:
-                cleansed_requests.append(r)
-        self.client.bulk_create_lineage_edges(cleansed_requests)
 
         logging.disable(level=logging.NOTSET)
 
@@ -765,7 +778,7 @@ class LineageController:
                 # If upstream is custom, find or create the custom upstream schema node
                 if r.has_custom_upstream:
                     up_database, up_schema = r.upstream_schema_name.split(".", maxsplit=1)
-                    upstream_task = SimpleCustomNode(name=up_schema, container_name=up_database)
+                    upstream_task = SimpleCustomNode(name=up_schema, container_name=up_database, node_icon=r.upstream_icon_url)
                     upstream_schema = self._get_or_set_custom_node(upstream_task)
                     self._update_search_cache_for_node(upstream_schema.data_node_id, scan_upstream=True)
 
@@ -779,7 +792,7 @@ class LineageController:
                 # If downstream is custom, find or create the custom downstream schema node
                 if r.has_custom_downstream:
                     dn_database, dn_schema = r.downstream_schema_name.split(".", maxsplit=1)
-                    downstream_task = SimpleCustomNode(name=dn_schema, container_name=dn_database)
+                    downstream_task = SimpleCustomNode(name=dn_schema, container_name=dn_database, node_icon=r.downstream_icon_url)
                     downstream_schema = self._get_or_set_custom_node(downstream_task)
                     self._update_search_cache_for_node(downstream_schema.data_node_id, scan_upstream=True)
 
@@ -794,8 +807,6 @@ class LineageController:
                 table_node_ids = []
                 for t_override in r.table_overrides:
                     # If upstream is custom, find or create the custom upstream table node
-                    upstream_sub_table = None
-                    downstream_sub_table = None
                     if r.has_custom_upstream:
                         upstream_table_custom_node = SimpleCustomNode(
                             name=t_override.upstream_table_name,
@@ -803,16 +814,6 @@ class LineageController:
                             container_node_id=upstream_schema.data_node_id,
                         )
                         upstream_table = self._get_or_set_custom_node(upstream_table_custom_node)
-
-                        # Handle sub tables if provided
-                        if t_override.upstream_sub_table_name is not None:
-                            u_sub_table_node = SimpleCustomNode(
-                                name=t_override.upstream_sub_table_name,
-                                container_name=t_override.upstream_table_name,
-                                container_node_id=upstream_table.data_node_id
-                            )
-                            upstream_sub_table = self._get_or_set_custom_node(u_sub_table_node)
-                            table_node_ids.append(upstream_sub_table.data_node_id)
                     else:
                         upstream_table = next(
                             (
@@ -837,16 +838,6 @@ class LineageController:
                             container_node_id=downstream_schema.data_node_id
                         )
                         downstream_table = self._get_or_set_custom_node(downstream_table_custom_node)
-
-                        # Handle sub tables if provided
-                        if t_override.downstream_sub_table_name is not None:
-                            d_sub_table_node = SimpleCustomNode(
-                                name=t_override.downstream_sub_table_name,
-                                container_name=t_override.downstream_table_name,
-                                container_node_id=downstream_table.data_node_id
-                            )
-                            downstream_sub_table = self._get_or_set_custom_node(d_sub_table_node)
-                            table_node_ids.append(downstream_sub_table.data_node_id)
                     else:
                         downstream_table = next(
                             (
@@ -920,11 +911,10 @@ class LineageController:
                     for col_override in t_override.column_overrides:
                         # If upstream is custom, find or create the custom upstream column node (convert to custom_entry)
                         if r.has_custom_upstream:
-                            u_table = upstream_table if upstream_sub_table is None else upstream_sub_table
                             upstream_column_custom_node = SimpleCustomNode(
                                 name=col_override.upstream_column_name,
-                                container_name=u_table.name,
-                                container_node_id=u_table.data_node_id,
+                                container_name=upstream_table.name,
+                                container_node_id=upstream_table.data_node_id,
                                 node_type=DataNodeType.DATA_NODE_TYPE_CUSTOM_ENTRY
                             )
                             upstream_column = self._get_or_set_custom_node(upstream_column_custom_node)
@@ -933,11 +923,10 @@ class LineageController:
 
                         # If downstream is custom, find or create the custom downstream column node (convert to custom_entry)
                         if r.has_custom_downstream:
-                            d_table = downstream_table if downstream_sub_table is None else downstream_sub_table
                             downstream_column_custom_node = SimpleCustomNode(
                                 name=col_override.downstream_column_name,
-                                container_name=d_table.name,
-                                container_node_id=d_table.data_node_id,
+                                container_name=downstream_table.name,
+                                container_node_id=downstream_table.data_node_id,
                                 node_type=DataNodeType.DATA_NODE_TYPE_CUSTOM_ENTRY
                             )
                             downstream_column = self._get_or_set_custom_node(downstream_column_custom_node)

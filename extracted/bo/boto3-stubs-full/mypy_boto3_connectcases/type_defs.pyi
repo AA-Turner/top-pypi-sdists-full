@@ -88,10 +88,12 @@ __all__ = (
     "CreateRelatedItemResponseTypeDef",
     "CreateTemplateRequestTypeDef",
     "CreateTemplateResponseTypeDef",
+    "DeleteCaseRequestTypeDef",
     "DeleteCaseRuleRequestTypeDef",
     "DeleteDomainRequestTypeDef",
     "DeleteFieldRequestTypeDef",
     "DeleteLayoutRequestTypeDef",
+    "DeleteRelatedItemRequestTypeDef",
     "DeleteTemplateRequestTypeDef",
     "DomainSummaryTypeDef",
     "EmptyResponseMetadataTypeDef",
@@ -334,6 +336,10 @@ class TemplateRuleTypeDef(TypedDict):
     caseRuleId: str
     fieldId: str
 
+class DeleteCaseRequestTypeDef(TypedDict):
+    caseId: str
+    domainId: str
+
 class DeleteCaseRuleRequestTypeDef(TypedDict):
     caseRuleId: str
     domainId: str
@@ -348,6 +354,11 @@ class DeleteFieldRequestTypeDef(TypedDict):
 class DeleteLayoutRequestTypeDef(TypedDict):
     domainId: str
     layoutId: str
+
+class DeleteRelatedItemRequestTypeDef(TypedDict):
+    caseId: str
+    domainId: str
+    relatedItemId: str
 
 class DeleteTemplateRequestTypeDef(TypedDict):
     domainId: str

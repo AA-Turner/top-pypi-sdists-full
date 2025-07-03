@@ -8,21 +8,24 @@ from pysqlsync.data.exchange import AsyncTextReader
 from pysqlsync.model.properties import get_primary_key_name_type
 from strong_typing.inspection import DataclassInstance
 
-from dap.dap_types import IncrementalQuery, Format, Mode
-from dap.integration.database_errors import (
+from ..dap_types import IncrementalQuery, Format, Mode
+from ..integration.database_errors import (
     MissingMetaActionInSync,
 )
-from dap.replicator import meta_schema
-from dap.replicator.sql_metatable_handler import (
+from ..replicator import meta_schema
+from ..replicator.sql_metatable_handler import (
     get_table_meta_record,
     sync_upsert_table_metadata,
 )
-from dap.replicator.sql_op import (
+from ..replicator.sql_op import (
     _TabularLabelMapping,
     SqlOp,
     UTC_TIMEZONE,
     fetch_schema_for_table,
+    AsyncCountingIterator,
 )
+
+from .. import ui
 
 logger: logging.Logger = logging.getLogger(__name__)
 META_ACTION_NAME = "_action"
@@ -32,21 +35,25 @@ INSERT_BATCH_SIZE: int = 100000
 class SqlOpSync(SqlOp):
     async def run(self) -> None:
         if not self.session:
-            raise ValueError("missing required parameters")
+            raise ValueError("Internal error: session is not set")
+
+        ui.info("Fetching schema and synchronizing with local schema")
         entity_type, schema, versioned_schema = await fetch_schema_for_table(
             self.session, self.namespace, self.table_name
         )
-        await self.explorer.synchronize(modules=[meta_schema, self.namespace_module])
 
-        logger.debug(
-            f"Start operation - Synchronize. Namespace: {self.namespace}, table: {self.table_name}, conn: {self.conn}"
-        )
         logger.debug("fetch meta-data about table whose data to replicate")
         table_meta = await get_table_meta_record(
             self.conn, self.namespace, self.table_name
         )
         if not table_meta:
-            raise ValueError("table not initialized, use `initdb`")
+            raise ValueError("Table not initialized. Please run initdb first.")
+
+        await self.explorer.synchronize(modules=[meta_schema, self.namespace_module])
+
+        logger.debug(
+            f"Start operation - Synchronize. Namespace: {self.namespace}, table: {self.table_name}, conn: {self.conn}"
+        )
 
         logger.debug("fetching incremental data for table from DAP API...")
         result = await self.session.get_table_data(
@@ -62,6 +69,7 @@ class SqlOpSync(SqlOp):
 
         async with aiofiles.tempfile.TemporaryDirectory() as temp_dir:
             await self.session.download_objects(result.objects, temp_dir, decompress=True)
+            ui.info(f"Downloaded data for table [bold]{self.table_name}[/bold]")
             await self.sync_insert_data_from_files_to_db(
                 self.conn, entity_type, temp_dir
             )
@@ -91,30 +99,41 @@ class SqlOpSync(SqlOp):
                 file_names.append(filename)
         file_names.sort()
         total_files = len(file_names)
+        total_upserted_records = 0
 
-        for index, filename in enumerate(file_names):
-            logger.debug(f"processing file {index+1} of {total_files}")
+        with ui.JobProgress("Inserting data from files into database table...",
+                            total_steps=total_files) as progress:
+            for index, filename in enumerate(file_names):
+                logger.debug(f"processing file {index+1} of {total_files}")
 
-            filepath = os.path.join(temp_dir, filename)
+                filepath = os.path.join(temp_dir, filename)
 
-            async with aiofiles.open(filepath, mode="rb") as f:
-                reader = AsyncTextReader(f, mapping.labels_to_types)
-                await reader.read_header()
-                columns, field_types = reader.columns, reader.field_types
-                records = reader.records()
+                async with aiofiles.open(filepath, mode="rb") as f:
+                    reader = AsyncTextReader(f, mapping.labels_to_types)
+                    await reader.read_header()
+                    columns, field_types = reader.columns, reader.field_types
+                    records = reader.records()
 
-                logger.debug(f"inserting/updating data from {filepath} into database table")
-
-                async for recordBatch in SqlOpSync._getRecordBatches(records):
-                    await SqlOpSync.upsert_rows(
-                        columns=columns,
-                        conn=conn,
-                        entity_type=entity_type,
-                        field_types=field_types,
-                        filepath=filepath,
-                        mapping=mapping,
-                        rows=recordBatch,
-                    )
+                    logger.debug(f"inserting/updating data from {filepath} into database table")
+                    records_with_counter = AsyncCountingIterator(records)
+                    async for recordBatch in SqlOpSync._getRecordBatches(records_with_counter):
+                        await SqlOpSync.upsert_rows(
+                            columns=columns,
+                            conn=conn,
+                            entity_type=entity_type,
+                            field_types=field_types,
+                            filepath=filepath,
+                            mapping=mapping,
+                            rows=recordBatch,
+                        )
+                    total_upserted_records += records_with_counter.count
+                progress.update(advance=1)
+        if total_upserted_records > 0:
+            total_upserted_str = f"upserted [bold]{total_upserted_records}[/bold] records"
+        else:
+            total_upserted_str = "no records upserted"
+        ui.info(f"Data import completed successfully, {total_upserted_str}")
+        logger.info(f"Upserted {total_upserted_records} records into table")
 
     @staticmethod
     async def upsert_rows(

@@ -77,6 +77,8 @@ class LoRA(Module):
     lora_param_type: the type of the LoRA params.
   """
 
+  __data__ = ('lora_a', 'lora_b', 'base_module')
+
   def __init__(
       self,
       in_features: int,
@@ -107,7 +109,7 @@ class LoRA(Module):
 
   def __call__(self, x: jax.Array):
     x, lora_a, lora_b = promote_dtype(
-      (x, self.lora_a.value, self.lora_b.value), dtype=self.dtype
+      (x, self.lora_a[...], self.lora_b[...]), dtype=self.dtype
     )
     out = x @ lora_a @ lora_b
     if self.base_module is not None:
@@ -155,6 +157,8 @@ class LoRALinear(Linear):
       `zero initializer`.
     lora_param_type: the type of the LoRA params.
   """
+
+  __data__ = ('lora',)  # type: ignore[assignment]
 
   def __init__(
       self,

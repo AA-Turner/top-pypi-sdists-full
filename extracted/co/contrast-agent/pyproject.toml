@@ -78,9 +78,9 @@ extend-select = [
     # "RUF",
     # "RET",
 ]
-# we may want to remove this eventually
 ignore = [
-  "E501",  # Line too long
+  "E501",  # Line too long (we may want to remove this eventually)
+  "PLC0415", # import-outside-top-level (late imports are useful for testing with instrumentation)
 ]
 
 
@@ -88,6 +88,9 @@ ignore = [
 # https://github.com/astral-sh/ruff/issues/10662
 "tests/**/test_*.py" = ["F811"]
 "tests/**/conftest.py" = ["F811"]
+
+[tool.ruff.per-file-target-version]
+"tests/**/python_12_plus_only/*.py" = "py312"
 
 [tool.pytest.ini_options]
 testpaths = "tests integration-tests/test-create-config-script"

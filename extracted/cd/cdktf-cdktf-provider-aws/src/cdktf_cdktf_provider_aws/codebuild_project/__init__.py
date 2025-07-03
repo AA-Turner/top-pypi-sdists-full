@@ -1,7 +1,7 @@
 r'''
 # `aws_codebuild_project`
 
-Refer to the Terraform Registry for docs: [`aws_codebuild_project`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project).
+Refer to the Terraform Registry for docs: [`aws_codebuild_project`](https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CodebuildProject(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.codebuildProject.CodebuildProject",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project aws_codebuild_project}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project aws_codebuild_project}.'''
 
     def __init__(
         self,
@@ -85,36 +85,36 @@ class CodebuildProject(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project aws_codebuild_project} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project aws_codebuild_project} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param artifacts: artifacts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#artifacts CodebuildProject#artifacts}
-        :param environment: environment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#environment CodebuildProject#environment}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#name CodebuildProject#name}.
-        :param service_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#service_role CodebuildProject#service_role}.
-        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#source CodebuildProject#source}
-        :param badge_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#badge_enabled CodebuildProject#badge_enabled}.
-        :param build_batch_config: build_batch_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#build_batch_config CodebuildProject#build_batch_config}
-        :param build_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#build_timeout CodebuildProject#build_timeout}.
-        :param cache: cache block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#cache CodebuildProject#cache}
-        :param concurrent_build_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#concurrent_build_limit CodebuildProject#concurrent_build_limit}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#description CodebuildProject#description}.
-        :param encryption_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#encryption_key CodebuildProject#encryption_key}.
-        :param file_system_locations: file_system_locations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#file_system_locations CodebuildProject#file_system_locations}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#id CodebuildProject#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param logs_config: logs_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#logs_config CodebuildProject#logs_config}
-        :param project_visibility: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#project_visibility CodebuildProject#project_visibility}.
-        :param queued_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#queued_timeout CodebuildProject#queued_timeout}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#region CodebuildProject#region}
-        :param resource_access_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#resource_access_role CodebuildProject#resource_access_role}.
-        :param secondary_artifacts: secondary_artifacts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#secondary_artifacts CodebuildProject#secondary_artifacts}
-        :param secondary_sources: secondary_sources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#secondary_sources CodebuildProject#secondary_sources}
-        :param secondary_source_version: secondary_source_version block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#secondary_source_version CodebuildProject#secondary_source_version}
-        :param source_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#source_version CodebuildProject#source_version}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#tags CodebuildProject#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#tags_all CodebuildProject#tags_all}.
-        :param vpc_config: vpc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#vpc_config CodebuildProject#vpc_config}
+        :param artifacts: artifacts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#artifacts CodebuildProject#artifacts}
+        :param environment: environment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#environment CodebuildProject#environment}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#name CodebuildProject#name}.
+        :param service_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#service_role CodebuildProject#service_role}.
+        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#source CodebuildProject#source}
+        :param badge_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#badge_enabled CodebuildProject#badge_enabled}.
+        :param build_batch_config: build_batch_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#build_batch_config CodebuildProject#build_batch_config}
+        :param build_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#build_timeout CodebuildProject#build_timeout}.
+        :param cache: cache block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#cache CodebuildProject#cache}
+        :param concurrent_build_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#concurrent_build_limit CodebuildProject#concurrent_build_limit}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#description CodebuildProject#description}.
+        :param encryption_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#encryption_key CodebuildProject#encryption_key}.
+        :param file_system_locations: file_system_locations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#file_system_locations CodebuildProject#file_system_locations}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#id CodebuildProject#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param logs_config: logs_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#logs_config CodebuildProject#logs_config}
+        :param project_visibility: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#project_visibility CodebuildProject#project_visibility}.
+        :param queued_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#queued_timeout CodebuildProject#queued_timeout}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#region CodebuildProject#region}
+        :param resource_access_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#resource_access_role CodebuildProject#resource_access_role}.
+        :param secondary_artifacts: secondary_artifacts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#secondary_artifacts CodebuildProject#secondary_artifacts}
+        :param secondary_sources: secondary_sources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#secondary_sources CodebuildProject#secondary_sources}
+        :param secondary_source_version: secondary_source_version block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#secondary_source_version CodebuildProject#secondary_source_version}
+        :param source_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#source_version CodebuildProject#source_version}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#tags CodebuildProject#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#tags_all CodebuildProject#tags_all}.
+        :param vpc_config: vpc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#vpc_config CodebuildProject#vpc_config}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -178,7 +178,7 @@ class CodebuildProject(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CodebuildProject to import.
-        :param import_from_id: The id of the existing CodebuildProject that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CodebuildProject that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CodebuildProject to import is found.
         '''
         if __debug__:
@@ -205,16 +205,16 @@ class CodebuildProject(
         path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#type CodebuildProject#type}.
-        :param artifact_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#artifact_identifier CodebuildProject#artifact_identifier}.
-        :param bucket_owner_access: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#bucket_owner_access CodebuildProject#bucket_owner_access}.
-        :param encryption_disabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#encryption_disabled CodebuildProject#encryption_disabled}.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#location CodebuildProject#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#name CodebuildProject#name}.
-        :param namespace_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#namespace_type CodebuildProject#namespace_type}.
-        :param override_artifact_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#override_artifact_name CodebuildProject#override_artifact_name}.
-        :param packaging: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#packaging CodebuildProject#packaging}.
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#path CodebuildProject#path}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#type CodebuildProject#type}.
+        :param artifact_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#artifact_identifier CodebuildProject#artifact_identifier}.
+        :param bucket_owner_access: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#bucket_owner_access CodebuildProject#bucket_owner_access}.
+        :param encryption_disabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#encryption_disabled CodebuildProject#encryption_disabled}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#location CodebuildProject#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#name CodebuildProject#name}.
+        :param namespace_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#namespace_type CodebuildProject#namespace_type}.
+        :param override_artifact_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#override_artifact_name CodebuildProject#override_artifact_name}.
+        :param packaging: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#packaging CodebuildProject#packaging}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#path CodebuildProject#path}.
         '''
         value = CodebuildProjectArtifacts(
             type=type,
@@ -241,10 +241,10 @@ class CodebuildProject(
         timeout_in_mins: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param service_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#service_role CodebuildProject#service_role}.
-        :param combine_artifacts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#combine_artifacts CodebuildProject#combine_artifacts}.
-        :param restrictions: restrictions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#restrictions CodebuildProject#restrictions}
-        :param timeout_in_mins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#timeout_in_mins CodebuildProject#timeout_in_mins}.
+        :param service_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#service_role CodebuildProject#service_role}.
+        :param combine_artifacts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#combine_artifacts CodebuildProject#combine_artifacts}.
+        :param restrictions: restrictions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#restrictions CodebuildProject#restrictions}
+        :param timeout_in_mins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#timeout_in_mins CodebuildProject#timeout_in_mins}.
         '''
         value = CodebuildProjectBuildBatchConfig(
             service_role=service_role,
@@ -264,9 +264,9 @@ class CodebuildProject(
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#location CodebuildProject#location}.
-        :param modes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#modes CodebuildProject#modes}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#type CodebuildProject#type}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#location CodebuildProject#location}.
+        :param modes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#modes CodebuildProject#modes}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#type CodebuildProject#type}.
         '''
         value = CodebuildProjectCache(location=location, modes=modes, type=type)
 
@@ -280,6 +280,7 @@ class CodebuildProject(
         image: builtins.str,
         type: builtins.str,
         certificate: typing.Optional[builtins.str] = None,
+        docker_server: typing.Optional[typing.Union["CodebuildProjectEnvironmentDockerServer", typing.Dict[builtins.str, typing.Any]]] = None,
         environment_variable: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["CodebuildProjectEnvironmentEnvironmentVariable", typing.Dict[builtins.str, typing.Any]]]]] = None,
         fleet: typing.Optional[typing.Union["CodebuildProjectEnvironmentFleet", typing.Dict[builtins.str, typing.Any]]] = None,
         image_pull_credentials_type: typing.Optional[builtins.str] = None,
@@ -287,21 +288,23 @@ class CodebuildProject(
         registry_credential: typing.Optional[typing.Union["CodebuildProjectEnvironmentRegistryCredential", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param compute_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#compute_type CodebuildProject#compute_type}.
-        :param image: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#image CodebuildProject#image}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#type CodebuildProject#type}.
-        :param certificate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#certificate CodebuildProject#certificate}.
-        :param environment_variable: environment_variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#environment_variable CodebuildProject#environment_variable}
-        :param fleet: fleet block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#fleet CodebuildProject#fleet}
-        :param image_pull_credentials_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#image_pull_credentials_type CodebuildProject#image_pull_credentials_type}.
-        :param privileged_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#privileged_mode CodebuildProject#privileged_mode}.
-        :param registry_credential: registry_credential block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#registry_credential CodebuildProject#registry_credential}
+        :param compute_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#compute_type CodebuildProject#compute_type}.
+        :param image: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#image CodebuildProject#image}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#type CodebuildProject#type}.
+        :param certificate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#certificate CodebuildProject#certificate}.
+        :param docker_server: docker_server block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#docker_server CodebuildProject#docker_server}
+        :param environment_variable: environment_variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#environment_variable CodebuildProject#environment_variable}
+        :param fleet: fleet block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#fleet CodebuildProject#fleet}
+        :param image_pull_credentials_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#image_pull_credentials_type CodebuildProject#image_pull_credentials_type}.
+        :param privileged_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#privileged_mode CodebuildProject#privileged_mode}.
+        :param registry_credential: registry_credential block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#registry_credential CodebuildProject#registry_credential}
         '''
         value = CodebuildProjectEnvironment(
             compute_type=compute_type,
             image=image,
             type=type,
             certificate=certificate,
+            docker_server=docker_server,
             environment_variable=environment_variable,
             fleet=fleet,
             image_pull_credentials_type=image_pull_credentials_type,
@@ -332,8 +335,8 @@ class CodebuildProject(
         s3_logs: typing.Optional[typing.Union["CodebuildProjectLogsConfigS3Logs", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cloudwatch_logs: cloudwatch_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#cloudwatch_logs CodebuildProject#cloudwatch_logs}
-        :param s3_logs: s3_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#s3_logs CodebuildProject#s3_logs}
+        :param cloudwatch_logs: cloudwatch_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#cloudwatch_logs CodebuildProject#cloudwatch_logs}
+        :param s3_logs: s3_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#s3_logs CodebuildProject#s3_logs}
         '''
         value = CodebuildProjectLogsConfig(
             cloudwatch_logs=cloudwatch_logs, s3_logs=s3_logs
@@ -395,15 +398,15 @@ class CodebuildProject(
         report_build_status: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#type CodebuildProject#type}.
-        :param auth: auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#auth CodebuildProject#auth}
-        :param buildspec: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#buildspec CodebuildProject#buildspec}.
-        :param build_status_config: build_status_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#build_status_config CodebuildProject#build_status_config}
-        :param git_clone_depth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#git_clone_depth CodebuildProject#git_clone_depth}.
-        :param git_submodules_config: git_submodules_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#git_submodules_config CodebuildProject#git_submodules_config}
-        :param insecure_ssl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#insecure_ssl CodebuildProject#insecure_ssl}.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#location CodebuildProject#location}.
-        :param report_build_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#report_build_status CodebuildProject#report_build_status}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#type CodebuildProject#type}.
+        :param auth: auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#auth CodebuildProject#auth}
+        :param buildspec: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#buildspec CodebuildProject#buildspec}.
+        :param build_status_config: build_status_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#build_status_config CodebuildProject#build_status_config}
+        :param git_clone_depth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#git_clone_depth CodebuildProject#git_clone_depth}.
+        :param git_submodules_config: git_submodules_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#git_submodules_config CodebuildProject#git_submodules_config}
+        :param insecure_ssl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#insecure_ssl CodebuildProject#insecure_ssl}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#location CodebuildProject#location}.
+        :param report_build_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#report_build_status CodebuildProject#report_build_status}.
         '''
         value = CodebuildProjectSource(
             type=type,
@@ -428,9 +431,9 @@ class CodebuildProject(
         vpc_id: builtins.str,
     ) -> None:
         '''
-        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#security_group_ids CodebuildProject#security_group_ids}.
-        :param subnets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#subnets CodebuildProject#subnets}.
-        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#vpc_id CodebuildProject#vpc_id}.
+        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#security_group_ids CodebuildProject#security_group_ids}.
+        :param subnets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#subnets CodebuildProject#subnets}.
+        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#vpc_id CodebuildProject#vpc_id}.
         '''
         value = CodebuildProjectVpcConfig(
             security_group_ids=security_group_ids, subnets=subnets, vpc_id=vpc_id
@@ -965,16 +968,16 @@ class CodebuildProjectArtifacts:
         path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#type CodebuildProject#type}.
-        :param artifact_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#artifact_identifier CodebuildProject#artifact_identifier}.
-        :param bucket_owner_access: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#bucket_owner_access CodebuildProject#bucket_owner_access}.
-        :param encryption_disabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#encryption_disabled CodebuildProject#encryption_disabled}.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#location CodebuildProject#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#name CodebuildProject#name}.
-        :param namespace_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#namespace_type CodebuildProject#namespace_type}.
-        :param override_artifact_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#override_artifact_name CodebuildProject#override_artifact_name}.
-        :param packaging: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#packaging CodebuildProject#packaging}.
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#path CodebuildProject#path}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#type CodebuildProject#type}.
+        :param artifact_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#artifact_identifier CodebuildProject#artifact_identifier}.
+        :param bucket_owner_access: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#bucket_owner_access CodebuildProject#bucket_owner_access}.
+        :param encryption_disabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#encryption_disabled CodebuildProject#encryption_disabled}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#location CodebuildProject#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#name CodebuildProject#name}.
+        :param namespace_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#namespace_type CodebuildProject#namespace_type}.
+        :param override_artifact_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#override_artifact_name CodebuildProject#override_artifact_name}.
+        :param packaging: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#packaging CodebuildProject#packaging}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#path CodebuildProject#path}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__60c4c80283ff8bd7cebadb5cf6b461394d2ca370ebc03580d95bbf40834a917a)
@@ -1012,20 +1015,20 @@ class CodebuildProjectArtifacts:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#type CodebuildProject#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#type CodebuildProject#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def artifact_identifier(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#artifact_identifier CodebuildProject#artifact_identifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#artifact_identifier CodebuildProject#artifact_identifier}.'''
         result = self._values.get("artifact_identifier")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def bucket_owner_access(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#bucket_owner_access CodebuildProject#bucket_owner_access}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#bucket_owner_access CodebuildProject#bucket_owner_access}.'''
         result = self._values.get("bucket_owner_access")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1033,25 +1036,25 @@ class CodebuildProjectArtifacts:
     def encryption_disabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#encryption_disabled CodebuildProject#encryption_disabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#encryption_disabled CodebuildProject#encryption_disabled}.'''
         result = self._values.get("encryption_disabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def location(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#location CodebuildProject#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#location CodebuildProject#location}.'''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#name CodebuildProject#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#name CodebuildProject#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def namespace_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#namespace_type CodebuildProject#namespace_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#namespace_type CodebuildProject#namespace_type}.'''
         result = self._values.get("namespace_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1059,19 +1062,19 @@ class CodebuildProjectArtifacts:
     def override_artifact_name(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#override_artifact_name CodebuildProject#override_artifact_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#override_artifact_name CodebuildProject#override_artifact_name}.'''
         result = self._values.get("override_artifact_name")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def packaging(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#packaging CodebuildProject#packaging}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#packaging CodebuildProject#packaging}.'''
         result = self._values.get("packaging")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#path CodebuildProject#path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#path CodebuildProject#path}.'''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1360,10 +1363,10 @@ class CodebuildProjectBuildBatchConfig:
         timeout_in_mins: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param service_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#service_role CodebuildProject#service_role}.
-        :param combine_artifacts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#combine_artifacts CodebuildProject#combine_artifacts}.
-        :param restrictions: restrictions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#restrictions CodebuildProject#restrictions}
-        :param timeout_in_mins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#timeout_in_mins CodebuildProject#timeout_in_mins}.
+        :param service_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#service_role CodebuildProject#service_role}.
+        :param combine_artifacts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#combine_artifacts CodebuildProject#combine_artifacts}.
+        :param restrictions: restrictions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#restrictions CodebuildProject#restrictions}
+        :param timeout_in_mins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#timeout_in_mins CodebuildProject#timeout_in_mins}.
         '''
         if isinstance(restrictions, dict):
             restrictions = CodebuildProjectBuildBatchConfigRestrictions(**restrictions)
@@ -1385,7 +1388,7 @@ class CodebuildProjectBuildBatchConfig:
 
     @builtins.property
     def service_role(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#service_role CodebuildProject#service_role}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#service_role CodebuildProject#service_role}.'''
         result = self._values.get("service_role")
         assert result is not None, "Required property 'service_role' is missing"
         return typing.cast(builtins.str, result)
@@ -1394,7 +1397,7 @@ class CodebuildProjectBuildBatchConfig:
     def combine_artifacts(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#combine_artifacts CodebuildProject#combine_artifacts}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#combine_artifacts CodebuildProject#combine_artifacts}.'''
         result = self._values.get("combine_artifacts")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1404,14 +1407,14 @@ class CodebuildProjectBuildBatchConfig:
     ) -> typing.Optional["CodebuildProjectBuildBatchConfigRestrictions"]:
         '''restrictions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#restrictions CodebuildProject#restrictions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#restrictions CodebuildProject#restrictions}
         '''
         result = self._values.get("restrictions")
         return typing.cast(typing.Optional["CodebuildProjectBuildBatchConfigRestrictions"], result)
 
     @builtins.property
     def timeout_in_mins(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#timeout_in_mins CodebuildProject#timeout_in_mins}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#timeout_in_mins CodebuildProject#timeout_in_mins}.'''
         result = self._values.get("timeout_in_mins")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1455,8 +1458,8 @@ class CodebuildProjectBuildBatchConfigOutputReference(
         maximum_builds_allowed: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param compute_types_allowed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#compute_types_allowed CodebuildProject#compute_types_allowed}.
-        :param maximum_builds_allowed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#maximum_builds_allowed CodebuildProject#maximum_builds_allowed}.
+        :param compute_types_allowed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#compute_types_allowed CodebuildProject#compute_types_allowed}.
+        :param maximum_builds_allowed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#maximum_builds_allowed CodebuildProject#maximum_builds_allowed}.
         '''
         value = CodebuildProjectBuildBatchConfigRestrictions(
             compute_types_allowed=compute_types_allowed,
@@ -1581,8 +1584,8 @@ class CodebuildProjectBuildBatchConfigRestrictions:
         maximum_builds_allowed: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param compute_types_allowed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#compute_types_allowed CodebuildProject#compute_types_allowed}.
-        :param maximum_builds_allowed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#maximum_builds_allowed CodebuildProject#maximum_builds_allowed}.
+        :param compute_types_allowed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#compute_types_allowed CodebuildProject#compute_types_allowed}.
+        :param maximum_builds_allowed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#maximum_builds_allowed CodebuildProject#maximum_builds_allowed}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__35c11a2903bee3574bd911f6583670bc14b10317ba98cff5c508b8ef44450a03)
@@ -1596,13 +1599,13 @@ class CodebuildProjectBuildBatchConfigRestrictions:
 
     @builtins.property
     def compute_types_allowed(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#compute_types_allowed CodebuildProject#compute_types_allowed}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#compute_types_allowed CodebuildProject#compute_types_allowed}.'''
         result = self._values.get("compute_types_allowed")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def maximum_builds_allowed(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#maximum_builds_allowed CodebuildProject#maximum_builds_allowed}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#maximum_builds_allowed CodebuildProject#maximum_builds_allowed}.'''
         result = self._values.get("maximum_builds_allowed")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1712,9 +1715,9 @@ class CodebuildProjectCache:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#location CodebuildProject#location}.
-        :param modes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#modes CodebuildProject#modes}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#type CodebuildProject#type}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#location CodebuildProject#location}.
+        :param modes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#modes CodebuildProject#modes}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#type CodebuildProject#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a82531f779288c2caf9617f49921335db0a58fd5dd9cc07e0cd88b2a2e47c5bf)
@@ -1731,19 +1734,19 @@ class CodebuildProjectCache:
 
     @builtins.property
     def location(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#location CodebuildProject#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#location CodebuildProject#location}.'''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def modes(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#modes CodebuildProject#modes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#modes CodebuildProject#modes}.'''
         result = self._values.get("modes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#type CodebuildProject#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#type CodebuildProject#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1940,32 +1943,32 @@ class CodebuildProjectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param artifacts: artifacts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#artifacts CodebuildProject#artifacts}
-        :param environment: environment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#environment CodebuildProject#environment}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#name CodebuildProject#name}.
-        :param service_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#service_role CodebuildProject#service_role}.
-        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#source CodebuildProject#source}
-        :param badge_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#badge_enabled CodebuildProject#badge_enabled}.
-        :param build_batch_config: build_batch_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#build_batch_config CodebuildProject#build_batch_config}
-        :param build_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#build_timeout CodebuildProject#build_timeout}.
-        :param cache: cache block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#cache CodebuildProject#cache}
-        :param concurrent_build_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#concurrent_build_limit CodebuildProject#concurrent_build_limit}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#description CodebuildProject#description}.
-        :param encryption_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#encryption_key CodebuildProject#encryption_key}.
-        :param file_system_locations: file_system_locations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#file_system_locations CodebuildProject#file_system_locations}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#id CodebuildProject#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param logs_config: logs_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#logs_config CodebuildProject#logs_config}
-        :param project_visibility: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#project_visibility CodebuildProject#project_visibility}.
-        :param queued_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#queued_timeout CodebuildProject#queued_timeout}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#region CodebuildProject#region}
-        :param resource_access_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#resource_access_role CodebuildProject#resource_access_role}.
-        :param secondary_artifacts: secondary_artifacts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#secondary_artifacts CodebuildProject#secondary_artifacts}
-        :param secondary_sources: secondary_sources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#secondary_sources CodebuildProject#secondary_sources}
-        :param secondary_source_version: secondary_source_version block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#secondary_source_version CodebuildProject#secondary_source_version}
-        :param source_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#source_version CodebuildProject#source_version}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#tags CodebuildProject#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#tags_all CodebuildProject#tags_all}.
-        :param vpc_config: vpc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#vpc_config CodebuildProject#vpc_config}
+        :param artifacts: artifacts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#artifacts CodebuildProject#artifacts}
+        :param environment: environment block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#environment CodebuildProject#environment}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#name CodebuildProject#name}.
+        :param service_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#service_role CodebuildProject#service_role}.
+        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#source CodebuildProject#source}
+        :param badge_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#badge_enabled CodebuildProject#badge_enabled}.
+        :param build_batch_config: build_batch_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#build_batch_config CodebuildProject#build_batch_config}
+        :param build_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#build_timeout CodebuildProject#build_timeout}.
+        :param cache: cache block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#cache CodebuildProject#cache}
+        :param concurrent_build_limit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#concurrent_build_limit CodebuildProject#concurrent_build_limit}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#description CodebuildProject#description}.
+        :param encryption_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#encryption_key CodebuildProject#encryption_key}.
+        :param file_system_locations: file_system_locations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#file_system_locations CodebuildProject#file_system_locations}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#id CodebuildProject#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param logs_config: logs_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#logs_config CodebuildProject#logs_config}
+        :param project_visibility: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#project_visibility CodebuildProject#project_visibility}.
+        :param queued_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#queued_timeout CodebuildProject#queued_timeout}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#region CodebuildProject#region}
+        :param resource_access_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#resource_access_role CodebuildProject#resource_access_role}.
+        :param secondary_artifacts: secondary_artifacts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#secondary_artifacts CodebuildProject#secondary_artifacts}
+        :param secondary_sources: secondary_sources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#secondary_sources CodebuildProject#secondary_sources}
+        :param secondary_source_version: secondary_source_version block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#secondary_source_version CodebuildProject#secondary_source_version}
+        :param source_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#source_version CodebuildProject#source_version}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#tags CodebuildProject#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#tags_all CodebuildProject#tags_all}.
+        :param vpc_config: vpc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#vpc_config CodebuildProject#vpc_config}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -2150,7 +2153,7 @@ class CodebuildProjectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def artifacts(self) -> CodebuildProjectArtifacts:
         '''artifacts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#artifacts CodebuildProject#artifacts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#artifacts CodebuildProject#artifacts}
         '''
         result = self._values.get("artifacts")
         assert result is not None, "Required property 'artifacts' is missing"
@@ -2160,7 +2163,7 @@ class CodebuildProjectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def environment(self) -> "CodebuildProjectEnvironment":
         '''environment block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#environment CodebuildProject#environment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#environment CodebuildProject#environment}
         '''
         result = self._values.get("environment")
         assert result is not None, "Required property 'environment' is missing"
@@ -2168,14 +2171,14 @@ class CodebuildProjectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#name CodebuildProject#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#name CodebuildProject#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def service_role(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#service_role CodebuildProject#service_role}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#service_role CodebuildProject#service_role}.'''
         result = self._values.get("service_role")
         assert result is not None, "Required property 'service_role' is missing"
         return typing.cast(builtins.str, result)
@@ -2184,7 +2187,7 @@ class CodebuildProjectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def source(self) -> "CodebuildProjectSource":
         '''source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#source CodebuildProject#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#source CodebuildProject#source}
         '''
         result = self._values.get("source")
         assert result is not None, "Required property 'source' is missing"
@@ -2194,7 +2197,7 @@ class CodebuildProjectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def badge_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#badge_enabled CodebuildProject#badge_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#badge_enabled CodebuildProject#badge_enabled}.'''
         result = self._values.get("badge_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2202,14 +2205,14 @@ class CodebuildProjectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def build_batch_config(self) -> typing.Optional[CodebuildProjectBuildBatchConfig]:
         '''build_batch_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#build_batch_config CodebuildProject#build_batch_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#build_batch_config CodebuildProject#build_batch_config}
         '''
         result = self._values.get("build_batch_config")
         return typing.cast(typing.Optional[CodebuildProjectBuildBatchConfig], result)
 
     @builtins.property
     def build_timeout(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#build_timeout CodebuildProject#build_timeout}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#build_timeout CodebuildProject#build_timeout}.'''
         result = self._values.get("build_timeout")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2217,26 +2220,26 @@ class CodebuildProjectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def cache(self) -> typing.Optional[CodebuildProjectCache]:
         '''cache block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#cache CodebuildProject#cache}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#cache CodebuildProject#cache}
         '''
         result = self._values.get("cache")
         return typing.cast(typing.Optional[CodebuildProjectCache], result)
 
     @builtins.property
     def concurrent_build_limit(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#concurrent_build_limit CodebuildProject#concurrent_build_limit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#concurrent_build_limit CodebuildProject#concurrent_build_limit}.'''
         result = self._values.get("concurrent_build_limit")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#description CodebuildProject#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#description CodebuildProject#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def encryption_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#encryption_key CodebuildProject#encryption_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#encryption_key CodebuildProject#encryption_key}.'''
         result = self._values.get("encryption_key")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2246,14 +2249,14 @@ class CodebuildProjectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CodebuildProjectFileSystemLocations"]]]:
         '''file_system_locations block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#file_system_locations CodebuildProject#file_system_locations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#file_system_locations CodebuildProject#file_system_locations}
         '''
         result = self._values.get("file_system_locations")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CodebuildProjectFileSystemLocations"]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#id CodebuildProject#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#id CodebuildProject#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -2265,20 +2268,20 @@ class CodebuildProjectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def logs_config(self) -> typing.Optional["CodebuildProjectLogsConfig"]:
         '''logs_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#logs_config CodebuildProject#logs_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#logs_config CodebuildProject#logs_config}
         '''
         result = self._values.get("logs_config")
         return typing.cast(typing.Optional["CodebuildProjectLogsConfig"], result)
 
     @builtins.property
     def project_visibility(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#project_visibility CodebuildProject#project_visibility}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#project_visibility CodebuildProject#project_visibility}.'''
         result = self._values.get("project_visibility")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def queued_timeout(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#queued_timeout CodebuildProject#queued_timeout}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#queued_timeout CodebuildProject#queued_timeout}.'''
         result = self._values.get("queued_timeout")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2286,14 +2289,14 @@ class CodebuildProjectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#region CodebuildProject#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#region CodebuildProject#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def resource_access_role(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#resource_access_role CodebuildProject#resource_access_role}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#resource_access_role CodebuildProject#resource_access_role}.'''
         result = self._values.get("resource_access_role")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2303,7 +2306,7 @@ class CodebuildProjectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CodebuildProjectSecondaryArtifacts"]]]:
         '''secondary_artifacts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#secondary_artifacts CodebuildProject#secondary_artifacts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#secondary_artifacts CodebuildProject#secondary_artifacts}
         '''
         result = self._values.get("secondary_artifacts")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CodebuildProjectSecondaryArtifacts"]]], result)
@@ -2314,7 +2317,7 @@ class CodebuildProjectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CodebuildProjectSecondarySources"]]]:
         '''secondary_sources block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#secondary_sources CodebuildProject#secondary_sources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#secondary_sources CodebuildProject#secondary_sources}
         '''
         result = self._values.get("secondary_sources")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CodebuildProjectSecondarySources"]]], result)
@@ -2325,26 +2328,26 @@ class CodebuildProjectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CodebuildProjectSecondarySourceVersion"]]]:
         '''secondary_source_version block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#secondary_source_version CodebuildProject#secondary_source_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#secondary_source_version CodebuildProject#secondary_source_version}
         '''
         result = self._values.get("secondary_source_version")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CodebuildProjectSecondarySourceVersion"]]], result)
 
     @builtins.property
     def source_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#source_version CodebuildProject#source_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#source_version CodebuildProject#source_version}.'''
         result = self._values.get("source_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#tags CodebuildProject#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#tags CodebuildProject#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#tags_all CodebuildProject#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#tags_all CodebuildProject#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -2352,7 +2355,7 @@ class CodebuildProjectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def vpc_config(self) -> typing.Optional["CodebuildProjectVpcConfig"]:
         '''vpc_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#vpc_config CodebuildProject#vpc_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#vpc_config CodebuildProject#vpc_config}
         '''
         result = self._values.get("vpc_config")
         return typing.cast(typing.Optional["CodebuildProjectVpcConfig"], result)
@@ -2377,6 +2380,7 @@ class CodebuildProjectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         "image": "image",
         "type": "type",
         "certificate": "certificate",
+        "docker_server": "dockerServer",
         "environment_variable": "environmentVariable",
         "fleet": "fleet",
         "image_pull_credentials_type": "imagePullCredentialsType",
@@ -2392,6 +2396,7 @@ class CodebuildProjectEnvironment:
         image: builtins.str,
         type: builtins.str,
         certificate: typing.Optional[builtins.str] = None,
+        docker_server: typing.Optional[typing.Union["CodebuildProjectEnvironmentDockerServer", typing.Dict[builtins.str, typing.Any]]] = None,
         environment_variable: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["CodebuildProjectEnvironmentEnvironmentVariable", typing.Dict[builtins.str, typing.Any]]]]] = None,
         fleet: typing.Optional[typing.Union["CodebuildProjectEnvironmentFleet", typing.Dict[builtins.str, typing.Any]]] = None,
         image_pull_credentials_type: typing.Optional[builtins.str] = None,
@@ -2399,16 +2404,19 @@ class CodebuildProjectEnvironment:
         registry_credential: typing.Optional[typing.Union["CodebuildProjectEnvironmentRegistryCredential", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param compute_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#compute_type CodebuildProject#compute_type}.
-        :param image: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#image CodebuildProject#image}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#type CodebuildProject#type}.
-        :param certificate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#certificate CodebuildProject#certificate}.
-        :param environment_variable: environment_variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#environment_variable CodebuildProject#environment_variable}
-        :param fleet: fleet block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#fleet CodebuildProject#fleet}
-        :param image_pull_credentials_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#image_pull_credentials_type CodebuildProject#image_pull_credentials_type}.
-        :param privileged_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#privileged_mode CodebuildProject#privileged_mode}.
-        :param registry_credential: registry_credential block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#registry_credential CodebuildProject#registry_credential}
+        :param compute_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#compute_type CodebuildProject#compute_type}.
+        :param image: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#image CodebuildProject#image}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#type CodebuildProject#type}.
+        :param certificate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#certificate CodebuildProject#certificate}.
+        :param docker_server: docker_server block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#docker_server CodebuildProject#docker_server}
+        :param environment_variable: environment_variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#environment_variable CodebuildProject#environment_variable}
+        :param fleet: fleet block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#fleet CodebuildProject#fleet}
+        :param image_pull_credentials_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#image_pull_credentials_type CodebuildProject#image_pull_credentials_type}.
+        :param privileged_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#privileged_mode CodebuildProject#privileged_mode}.
+        :param registry_credential: registry_credential block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#registry_credential CodebuildProject#registry_credential}
         '''
+        if isinstance(docker_server, dict):
+            docker_server = CodebuildProjectEnvironmentDockerServer(**docker_server)
         if isinstance(fleet, dict):
             fleet = CodebuildProjectEnvironmentFleet(**fleet)
         if isinstance(registry_credential, dict):
@@ -2419,6 +2427,7 @@ class CodebuildProjectEnvironment:
             check_type(argname="argument image", value=image, expected_type=type_hints["image"])
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             check_type(argname="argument certificate", value=certificate, expected_type=type_hints["certificate"])
+            check_type(argname="argument docker_server", value=docker_server, expected_type=type_hints["docker_server"])
             check_type(argname="argument environment_variable", value=environment_variable, expected_type=type_hints["environment_variable"])
             check_type(argname="argument fleet", value=fleet, expected_type=type_hints["fleet"])
             check_type(argname="argument image_pull_credentials_type", value=image_pull_credentials_type, expected_type=type_hints["image_pull_credentials_type"])
@@ -2431,6 +2440,8 @@ class CodebuildProjectEnvironment:
         }
         if certificate is not None:
             self._values["certificate"] = certificate
+        if docker_server is not None:
+            self._values["docker_server"] = docker_server
         if environment_variable is not None:
             self._values["environment_variable"] = environment_variable
         if fleet is not None:
@@ -2444,30 +2455,41 @@ class CodebuildProjectEnvironment:
 
     @builtins.property
     def compute_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#compute_type CodebuildProject#compute_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#compute_type CodebuildProject#compute_type}.'''
         result = self._values.get("compute_type")
         assert result is not None, "Required property 'compute_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def image(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#image CodebuildProject#image}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#image CodebuildProject#image}.'''
         result = self._values.get("image")
         assert result is not None, "Required property 'image' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#type CodebuildProject#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#type CodebuildProject#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def certificate(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#certificate CodebuildProject#certificate}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#certificate CodebuildProject#certificate}.'''
         result = self._values.get("certificate")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def docker_server(
+        self,
+    ) -> typing.Optional["CodebuildProjectEnvironmentDockerServer"]:
+        '''docker_server block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#docker_server CodebuildProject#docker_server}
+        '''
+        result = self._values.get("docker_server")
+        return typing.cast(typing.Optional["CodebuildProjectEnvironmentDockerServer"], result)
 
     @builtins.property
     def environment_variable(
@@ -2475,7 +2497,7 @@ class CodebuildProjectEnvironment:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CodebuildProjectEnvironmentEnvironmentVariable"]]]:
         '''environment_variable block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#environment_variable CodebuildProject#environment_variable}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#environment_variable CodebuildProject#environment_variable}
         '''
         result = self._values.get("environment_variable")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CodebuildProjectEnvironmentEnvironmentVariable"]]], result)
@@ -2484,14 +2506,14 @@ class CodebuildProjectEnvironment:
     def fleet(self) -> typing.Optional["CodebuildProjectEnvironmentFleet"]:
         '''fleet block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#fleet CodebuildProject#fleet}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#fleet CodebuildProject#fleet}
         '''
         result = self._values.get("fleet")
         return typing.cast(typing.Optional["CodebuildProjectEnvironmentFleet"], result)
 
     @builtins.property
     def image_pull_credentials_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#image_pull_credentials_type CodebuildProject#image_pull_credentials_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#image_pull_credentials_type CodebuildProject#image_pull_credentials_type}.'''
         result = self._values.get("image_pull_credentials_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2499,7 +2521,7 @@ class CodebuildProjectEnvironment:
     def privileged_mode(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#privileged_mode CodebuildProject#privileged_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#privileged_mode CodebuildProject#privileged_mode}.'''
         result = self._values.get("privileged_mode")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2509,7 +2531,7 @@ class CodebuildProjectEnvironment:
     ) -> typing.Optional["CodebuildProjectEnvironmentRegistryCredential"]:
         '''registry_credential block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#registry_credential CodebuildProject#registry_credential}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#registry_credential CodebuildProject#registry_credential}
         '''
         result = self._values.get("registry_credential")
         return typing.cast(typing.Optional["CodebuildProjectEnvironmentRegistryCredential"], result)
@@ -2527,6 +2549,136 @@ class CodebuildProjectEnvironment:
 
 
 @jsii.data_type(
+    jsii_type="@cdktf/provider-aws.codebuildProject.CodebuildProjectEnvironmentDockerServer",
+    jsii_struct_bases=[],
+    name_mapping={
+        "compute_type": "computeType",
+        "security_group_ids": "securityGroupIds",
+    },
+)
+class CodebuildProjectEnvironmentDockerServer:
+    def __init__(
+        self,
+        *,
+        compute_type: builtins.str,
+        security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''
+        :param compute_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#compute_type CodebuildProject#compute_type}.
+        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#security_group_ids CodebuildProject#security_group_ids}.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__adcfb5b8aba097b81cc4f0737d9825daa76be188a49aebc04f16241228e96b7d)
+            check_type(argname="argument compute_type", value=compute_type, expected_type=type_hints["compute_type"])
+            check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "compute_type": compute_type,
+        }
+        if security_group_ids is not None:
+            self._values["security_group_ids"] = security_group_ids
+
+    @builtins.property
+    def compute_type(self) -> builtins.str:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#compute_type CodebuildProject#compute_type}.'''
+        result = self._values.get("compute_type")
+        assert result is not None, "Required property 'compute_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#security_group_ids CodebuildProject#security_group_ids}.'''
+        result = self._values.get("security_group_ids")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CodebuildProjectEnvironmentDockerServer(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class CodebuildProjectEnvironmentDockerServerOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.codebuildProject.CodebuildProjectEnvironmentDockerServerOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9e72ab947d17ea2f37c3f3fd884b1b7a9428492b48e88cbcd3ed16b8dfa15d65)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @jsii.member(jsii_name="resetSecurityGroupIds")
+    def reset_security_group_ids(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetSecurityGroupIds", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="computeTypeInput")
+    def compute_type_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "computeTypeInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="securityGroupIdsInput")
+    def security_group_ids_input(self) -> typing.Optional[typing.List[builtins.str]]:
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "securityGroupIdsInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="computeType")
+    def compute_type(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "computeType"))
+
+    @compute_type.setter
+    def compute_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fbcf296dab320fcc2a2d6bcaf40b90ca33903278f4e1b072bb41ac7f52c2f134)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "computeType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="securityGroupIds")
+    def security_group_ids(self) -> typing.List[builtins.str]:
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "securityGroupIds"))
+
+    @security_group_ids.setter
+    def security_group_ids(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2ec97956d561be13bbb52126268156d06c1c6cfbbadae5b895d74c3f9a23f1bf)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "securityGroupIds", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[CodebuildProjectEnvironmentDockerServer]:
+        return typing.cast(typing.Optional[CodebuildProjectEnvironmentDockerServer], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[CodebuildProjectEnvironmentDockerServer],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c0945dba4b73f0cd215f5c5f49314281b95af9447d7549d85b4b8295feedb850)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
     jsii_type="@cdktf/provider-aws.codebuildProject.CodebuildProjectEnvironmentEnvironmentVariable",
     jsii_struct_bases=[],
     name_mapping={"name": "name", "value": "value", "type": "type"},
@@ -2540,9 +2692,9 @@ class CodebuildProjectEnvironmentEnvironmentVariable:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#name CodebuildProject#name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#value CodebuildProject#value}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#type CodebuildProject#type}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#name CodebuildProject#name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#value CodebuildProject#value}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#type CodebuildProject#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__77fd8c83194bf2ccb794c3c01229e0f5e4b8531a94db56c296daf36b0ec1f596)
@@ -2558,21 +2710,21 @@ class CodebuildProjectEnvironmentEnvironmentVariable:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#name CodebuildProject#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#name CodebuildProject#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#value CodebuildProject#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#value CodebuildProject#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#type CodebuildProject#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#type CodebuildProject#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2788,7 +2940,7 @@ class CodebuildProjectEnvironmentEnvironmentVariableOutputReference(
 class CodebuildProjectEnvironmentFleet:
     def __init__(self, *, fleet_arn: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param fleet_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#fleet_arn CodebuildProject#fleet_arn}.
+        :param fleet_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#fleet_arn CodebuildProject#fleet_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d69e1f16b43598c6660f5be0c33194892d8258004b40270a8adb4d209fb3332b)
@@ -2799,7 +2951,7 @@ class CodebuildProjectEnvironmentFleet:
 
     @builtins.property
     def fleet_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#fleet_arn CodebuildProject#fleet_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#fleet_arn CodebuildProject#fleet_arn}.'''
         result = self._values.get("fleet_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2892,6 +3044,23 @@ class CodebuildProjectEnvironmentOutputReference(
             check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
         jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
 
+    @jsii.member(jsii_name="putDockerServer")
+    def put_docker_server(
+        self,
+        *,
+        compute_type: builtins.str,
+        security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''
+        :param compute_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#compute_type CodebuildProject#compute_type}.
+        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#security_group_ids CodebuildProject#security_group_ids}.
+        '''
+        value = CodebuildProjectEnvironmentDockerServer(
+            compute_type=compute_type, security_group_ids=security_group_ids
+        )
+
+        return typing.cast(None, jsii.invoke(self, "putDockerServer", [value]))
+
     @jsii.member(jsii_name="putEnvironmentVariable")
     def put_environment_variable(
         self,
@@ -2908,7 +3077,7 @@ class CodebuildProjectEnvironmentOutputReference(
     @jsii.member(jsii_name="putFleet")
     def put_fleet(self, *, fleet_arn: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param fleet_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#fleet_arn CodebuildProject#fleet_arn}.
+        :param fleet_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#fleet_arn CodebuildProject#fleet_arn}.
         '''
         value = CodebuildProjectEnvironmentFleet(fleet_arn=fleet_arn)
 
@@ -2922,8 +3091,8 @@ class CodebuildProjectEnvironmentOutputReference(
         credential_provider: builtins.str,
     ) -> None:
         '''
-        :param credential: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#credential CodebuildProject#credential}.
-        :param credential_provider: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#credential_provider CodebuildProject#credential_provider}.
+        :param credential: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#credential CodebuildProject#credential}.
+        :param credential_provider: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#credential_provider CodebuildProject#credential_provider}.
         '''
         value = CodebuildProjectEnvironmentRegistryCredential(
             credential=credential, credential_provider=credential_provider
@@ -2934,6 +3103,10 @@ class CodebuildProjectEnvironmentOutputReference(
     @jsii.member(jsii_name="resetCertificate")
     def reset_certificate(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetCertificate", []))
+
+    @jsii.member(jsii_name="resetDockerServer")
+    def reset_docker_server(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetDockerServer", []))
 
     @jsii.member(jsii_name="resetEnvironmentVariable")
     def reset_environment_variable(self) -> None:
@@ -2954,6 +3127,11 @@ class CodebuildProjectEnvironmentOutputReference(
     @jsii.member(jsii_name="resetRegistryCredential")
     def reset_registry_credential(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetRegistryCredential", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="dockerServer")
+    def docker_server(self) -> CodebuildProjectEnvironmentDockerServerOutputReference:
+        return typing.cast(CodebuildProjectEnvironmentDockerServerOutputReference, jsii.get(self, "dockerServer"))
 
     @builtins.property
     @jsii.member(jsii_name="environmentVariable")
@@ -2983,6 +3161,13 @@ class CodebuildProjectEnvironmentOutputReference(
     @jsii.member(jsii_name="computeTypeInput")
     def compute_type_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "computeTypeInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="dockerServerInput")
+    def docker_server_input(
+        self,
+    ) -> typing.Optional[CodebuildProjectEnvironmentDockerServer]:
+        return typing.cast(typing.Optional[CodebuildProjectEnvironmentDockerServer], jsii.get(self, "dockerServerInput"))
 
     @builtins.property
     @jsii.member(jsii_name="environmentVariableInput")
@@ -3134,8 +3319,8 @@ class CodebuildProjectEnvironmentRegistryCredential:
         credential_provider: builtins.str,
     ) -> None:
         '''
-        :param credential: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#credential CodebuildProject#credential}.
-        :param credential_provider: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#credential_provider CodebuildProject#credential_provider}.
+        :param credential: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#credential CodebuildProject#credential}.
+        :param credential_provider: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#credential_provider CodebuildProject#credential_provider}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8649eba717b9de293956d7e8292c9a289b276020861d15cb3f18c16aa0457262)
@@ -3148,14 +3333,14 @@ class CodebuildProjectEnvironmentRegistryCredential:
 
     @builtins.property
     def credential(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#credential CodebuildProject#credential}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#credential CodebuildProject#credential}.'''
         result = self._values.get("credential")
         assert result is not None, "Required property 'credential' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def credential_provider(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#credential_provider CodebuildProject#credential_provider}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#credential_provider CodebuildProject#credential_provider}.'''
         result = self._values.get("credential_provider")
         assert result is not None, "Required property 'credential_provider' is missing"
         return typing.cast(builtins.str, result)
@@ -3266,11 +3451,11 @@ class CodebuildProjectFileSystemLocations:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#identifier CodebuildProject#identifier}.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#location CodebuildProject#location}.
-        :param mount_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#mount_options CodebuildProject#mount_options}.
-        :param mount_point: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#mount_point CodebuildProject#mount_point}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#type CodebuildProject#type}.
+        :param identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#identifier CodebuildProject#identifier}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#location CodebuildProject#location}.
+        :param mount_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#mount_options CodebuildProject#mount_options}.
+        :param mount_point: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#mount_point CodebuildProject#mount_point}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#type CodebuildProject#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a52ebfbe40b430fbd8436516a2b22cdc750f5ba69c112ce27c173f77e804456b)
@@ -3293,31 +3478,31 @@ class CodebuildProjectFileSystemLocations:
 
     @builtins.property
     def identifier(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#identifier CodebuildProject#identifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#identifier CodebuildProject#identifier}.'''
         result = self._values.get("identifier")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def location(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#location CodebuildProject#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#location CodebuildProject#location}.'''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def mount_options(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#mount_options CodebuildProject#mount_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#mount_options CodebuildProject#mount_options}.'''
         result = self._values.get("mount_options")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def mount_point(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#mount_point CodebuildProject#mount_point}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#mount_point CodebuildProject#mount_point}.'''
         result = self._values.get("mount_point")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#type CodebuildProject#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#type CodebuildProject#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3588,8 +3773,8 @@ class CodebuildProjectLogsConfig:
         s3_logs: typing.Optional[typing.Union["CodebuildProjectLogsConfigS3Logs", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cloudwatch_logs: cloudwatch_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#cloudwatch_logs CodebuildProject#cloudwatch_logs}
-        :param s3_logs: s3_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#s3_logs CodebuildProject#s3_logs}
+        :param cloudwatch_logs: cloudwatch_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#cloudwatch_logs CodebuildProject#cloudwatch_logs}
+        :param s3_logs: s3_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#s3_logs CodebuildProject#s3_logs}
         '''
         if isinstance(cloudwatch_logs, dict):
             cloudwatch_logs = CodebuildProjectLogsConfigCloudwatchLogs(**cloudwatch_logs)
@@ -3611,7 +3796,7 @@ class CodebuildProjectLogsConfig:
     ) -> typing.Optional["CodebuildProjectLogsConfigCloudwatchLogs"]:
         '''cloudwatch_logs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#cloudwatch_logs CodebuildProject#cloudwatch_logs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#cloudwatch_logs CodebuildProject#cloudwatch_logs}
         '''
         result = self._values.get("cloudwatch_logs")
         return typing.cast(typing.Optional["CodebuildProjectLogsConfigCloudwatchLogs"], result)
@@ -3620,7 +3805,7 @@ class CodebuildProjectLogsConfig:
     def s3_logs(self) -> typing.Optional["CodebuildProjectLogsConfigS3Logs"]:
         '''s3_logs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#s3_logs CodebuildProject#s3_logs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#s3_logs CodebuildProject#s3_logs}
         '''
         result = self._values.get("s3_logs")
         return typing.cast(typing.Optional["CodebuildProjectLogsConfigS3Logs"], result)
@@ -3655,9 +3840,9 @@ class CodebuildProjectLogsConfigCloudwatchLogs:
         stream_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#group_name CodebuildProject#group_name}.
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#status CodebuildProject#status}.
-        :param stream_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#stream_name CodebuildProject#stream_name}.
+        :param group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#group_name CodebuildProject#group_name}.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#status CodebuildProject#status}.
+        :param stream_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#stream_name CodebuildProject#stream_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3169380c015f8b509e0432dbc4885a1c03491443f16dea0755b3e13f95cc3fe3)
@@ -3674,19 +3859,19 @@ class CodebuildProjectLogsConfigCloudwatchLogs:
 
     @builtins.property
     def group_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#group_name CodebuildProject#group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#group_name CodebuildProject#group_name}.'''
         result = self._values.get("group_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#status CodebuildProject#status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#status CodebuildProject#status}.'''
         result = self._values.get("status")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def stream_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#stream_name CodebuildProject#stream_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#stream_name CodebuildProject#stream_name}.'''
         result = self._values.get("stream_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3832,9 +4017,9 @@ class CodebuildProjectLogsConfigOutputReference(
         stream_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#group_name CodebuildProject#group_name}.
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#status CodebuildProject#status}.
-        :param stream_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#stream_name CodebuildProject#stream_name}.
+        :param group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#group_name CodebuildProject#group_name}.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#status CodebuildProject#status}.
+        :param stream_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#stream_name CodebuildProject#stream_name}.
         '''
         value = CodebuildProjectLogsConfigCloudwatchLogs(
             group_name=group_name, status=status, stream_name=stream_name
@@ -3852,10 +4037,10 @@ class CodebuildProjectLogsConfigOutputReference(
         status: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket_owner_access: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#bucket_owner_access CodebuildProject#bucket_owner_access}.
-        :param encryption_disabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#encryption_disabled CodebuildProject#encryption_disabled}.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#location CodebuildProject#location}.
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#status CodebuildProject#status}.
+        :param bucket_owner_access: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#bucket_owner_access CodebuildProject#bucket_owner_access}.
+        :param encryption_disabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#encryption_disabled CodebuildProject#encryption_disabled}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#location CodebuildProject#location}.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#status CodebuildProject#status}.
         '''
         value = CodebuildProjectLogsConfigS3Logs(
             bucket_owner_access=bucket_owner_access,
@@ -3934,10 +4119,10 @@ class CodebuildProjectLogsConfigS3Logs:
         status: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket_owner_access: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#bucket_owner_access CodebuildProject#bucket_owner_access}.
-        :param encryption_disabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#encryption_disabled CodebuildProject#encryption_disabled}.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#location CodebuildProject#location}.
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#status CodebuildProject#status}.
+        :param bucket_owner_access: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#bucket_owner_access CodebuildProject#bucket_owner_access}.
+        :param encryption_disabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#encryption_disabled CodebuildProject#encryption_disabled}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#location CodebuildProject#location}.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#status CodebuildProject#status}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3ebe7fa30100ccc24d34e45e1b23d5b3e7eee974b4def9c547eb2872105eff06)
@@ -3957,7 +4142,7 @@ class CodebuildProjectLogsConfigS3Logs:
 
     @builtins.property
     def bucket_owner_access(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#bucket_owner_access CodebuildProject#bucket_owner_access}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#bucket_owner_access CodebuildProject#bucket_owner_access}.'''
         result = self._values.get("bucket_owner_access")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3965,19 +4150,19 @@ class CodebuildProjectLogsConfigS3Logs:
     def encryption_disabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#encryption_disabled CodebuildProject#encryption_disabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#encryption_disabled CodebuildProject#encryption_disabled}.'''
         result = self._values.get("encryption_disabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def location(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#location CodebuildProject#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#location CodebuildProject#location}.'''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#status CodebuildProject#status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#status CodebuildProject#status}.'''
         result = self._values.get("status")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4152,16 +4337,16 @@ class CodebuildProjectSecondaryArtifacts:
         path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param artifact_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#artifact_identifier CodebuildProject#artifact_identifier}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#type CodebuildProject#type}.
-        :param bucket_owner_access: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#bucket_owner_access CodebuildProject#bucket_owner_access}.
-        :param encryption_disabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#encryption_disabled CodebuildProject#encryption_disabled}.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#location CodebuildProject#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#name CodebuildProject#name}.
-        :param namespace_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#namespace_type CodebuildProject#namespace_type}.
-        :param override_artifact_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#override_artifact_name CodebuildProject#override_artifact_name}.
-        :param packaging: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#packaging CodebuildProject#packaging}.
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#path CodebuildProject#path}.
+        :param artifact_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#artifact_identifier CodebuildProject#artifact_identifier}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#type CodebuildProject#type}.
+        :param bucket_owner_access: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#bucket_owner_access CodebuildProject#bucket_owner_access}.
+        :param encryption_disabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#encryption_disabled CodebuildProject#encryption_disabled}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#location CodebuildProject#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#name CodebuildProject#name}.
+        :param namespace_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#namespace_type CodebuildProject#namespace_type}.
+        :param override_artifact_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#override_artifact_name CodebuildProject#override_artifact_name}.
+        :param packaging: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#packaging CodebuildProject#packaging}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#path CodebuildProject#path}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__672ac923efa2bde60c0281850ba162f7722ba9069ba4742545cda089367253bc)
@@ -4198,21 +4383,21 @@ class CodebuildProjectSecondaryArtifacts:
 
     @builtins.property
     def artifact_identifier(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#artifact_identifier CodebuildProject#artifact_identifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#artifact_identifier CodebuildProject#artifact_identifier}.'''
         result = self._values.get("artifact_identifier")
         assert result is not None, "Required property 'artifact_identifier' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#type CodebuildProject#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#type CodebuildProject#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def bucket_owner_access(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#bucket_owner_access CodebuildProject#bucket_owner_access}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#bucket_owner_access CodebuildProject#bucket_owner_access}.'''
         result = self._values.get("bucket_owner_access")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4220,25 +4405,25 @@ class CodebuildProjectSecondaryArtifacts:
     def encryption_disabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#encryption_disabled CodebuildProject#encryption_disabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#encryption_disabled CodebuildProject#encryption_disabled}.'''
         result = self._values.get("encryption_disabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def location(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#location CodebuildProject#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#location CodebuildProject#location}.'''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#name CodebuildProject#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#name CodebuildProject#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def namespace_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#namespace_type CodebuildProject#namespace_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#namespace_type CodebuildProject#namespace_type}.'''
         result = self._values.get("namespace_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4246,19 +4431,19 @@ class CodebuildProjectSecondaryArtifacts:
     def override_artifact_name(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#override_artifact_name CodebuildProject#override_artifact_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#override_artifact_name CodebuildProject#override_artifact_name}.'''
         result = self._values.get("override_artifact_name")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def packaging(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#packaging CodebuildProject#packaging}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#packaging CodebuildProject#packaging}.'''
         result = self._values.get("packaging")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#path CodebuildProject#path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#path CodebuildProject#path}.'''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4643,8 +4828,8 @@ class CodebuildProjectSecondarySourceVersion:
         source_version: builtins.str,
     ) -> None:
         '''
-        :param source_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#source_identifier CodebuildProject#source_identifier}.
-        :param source_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#source_version CodebuildProject#source_version}.
+        :param source_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#source_identifier CodebuildProject#source_identifier}.
+        :param source_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#source_version CodebuildProject#source_version}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__96c76b6a1b341bc89b86d25dc09035aff9574143c13696fd8944d812a44479ea)
@@ -4657,14 +4842,14 @@ class CodebuildProjectSecondarySourceVersion:
 
     @builtins.property
     def source_identifier(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#source_identifier CodebuildProject#source_identifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#source_identifier CodebuildProject#source_identifier}.'''
         result = self._values.get("source_identifier")
         assert result is not None, "Required property 'source_identifier' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def source_version(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#source_version CodebuildProject#source_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#source_version CodebuildProject#source_version}.'''
         result = self._values.get("source_version")
         assert result is not None, "Required property 'source_version' is missing"
         return typing.cast(builtins.str, result)
@@ -4884,16 +5069,16 @@ class CodebuildProjectSecondarySources:
         report_build_status: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param source_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#source_identifier CodebuildProject#source_identifier}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#type CodebuildProject#type}.
-        :param auth: auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#auth CodebuildProject#auth}
-        :param buildspec: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#buildspec CodebuildProject#buildspec}.
-        :param build_status_config: build_status_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#build_status_config CodebuildProject#build_status_config}
-        :param git_clone_depth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#git_clone_depth CodebuildProject#git_clone_depth}.
-        :param git_submodules_config: git_submodules_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#git_submodules_config CodebuildProject#git_submodules_config}
-        :param insecure_ssl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#insecure_ssl CodebuildProject#insecure_ssl}.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#location CodebuildProject#location}.
-        :param report_build_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#report_build_status CodebuildProject#report_build_status}.
+        :param source_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#source_identifier CodebuildProject#source_identifier}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#type CodebuildProject#type}.
+        :param auth: auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#auth CodebuildProject#auth}
+        :param buildspec: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#buildspec CodebuildProject#buildspec}.
+        :param build_status_config: build_status_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#build_status_config CodebuildProject#build_status_config}
+        :param git_clone_depth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#git_clone_depth CodebuildProject#git_clone_depth}.
+        :param git_submodules_config: git_submodules_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#git_submodules_config CodebuildProject#git_submodules_config}
+        :param insecure_ssl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#insecure_ssl CodebuildProject#insecure_ssl}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#location CodebuildProject#location}.
+        :param report_build_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#report_build_status CodebuildProject#report_build_status}.
         '''
         if isinstance(auth, dict):
             auth = CodebuildProjectSecondarySourcesAuth(**auth)
@@ -4936,14 +5121,14 @@ class CodebuildProjectSecondarySources:
 
     @builtins.property
     def source_identifier(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#source_identifier CodebuildProject#source_identifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#source_identifier CodebuildProject#source_identifier}.'''
         result = self._values.get("source_identifier")
         assert result is not None, "Required property 'source_identifier' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#type CodebuildProject#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#type CodebuildProject#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -4952,14 +5137,14 @@ class CodebuildProjectSecondarySources:
     def auth(self) -> typing.Optional["CodebuildProjectSecondarySourcesAuth"]:
         '''auth block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#auth CodebuildProject#auth}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#auth CodebuildProject#auth}
         '''
         result = self._values.get("auth")
         return typing.cast(typing.Optional["CodebuildProjectSecondarySourcesAuth"], result)
 
     @builtins.property
     def buildspec(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#buildspec CodebuildProject#buildspec}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#buildspec CodebuildProject#buildspec}.'''
         result = self._values.get("buildspec")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4969,14 +5154,14 @@ class CodebuildProjectSecondarySources:
     ) -> typing.Optional["CodebuildProjectSecondarySourcesBuildStatusConfig"]:
         '''build_status_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#build_status_config CodebuildProject#build_status_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#build_status_config CodebuildProject#build_status_config}
         '''
         result = self._values.get("build_status_config")
         return typing.cast(typing.Optional["CodebuildProjectSecondarySourcesBuildStatusConfig"], result)
 
     @builtins.property
     def git_clone_depth(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#git_clone_depth CodebuildProject#git_clone_depth}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#git_clone_depth CodebuildProject#git_clone_depth}.'''
         result = self._values.get("git_clone_depth")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -4986,7 +5171,7 @@ class CodebuildProjectSecondarySources:
     ) -> typing.Optional["CodebuildProjectSecondarySourcesGitSubmodulesConfig"]:
         '''git_submodules_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#git_submodules_config CodebuildProject#git_submodules_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#git_submodules_config CodebuildProject#git_submodules_config}
         '''
         result = self._values.get("git_submodules_config")
         return typing.cast(typing.Optional["CodebuildProjectSecondarySourcesGitSubmodulesConfig"], result)
@@ -4995,13 +5180,13 @@ class CodebuildProjectSecondarySources:
     def insecure_ssl(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#insecure_ssl CodebuildProject#insecure_ssl}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#insecure_ssl CodebuildProject#insecure_ssl}.'''
         result = self._values.get("insecure_ssl")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def location(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#location CodebuildProject#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#location CodebuildProject#location}.'''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5009,7 +5194,7 @@ class CodebuildProjectSecondarySources:
     def report_build_status(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#report_build_status CodebuildProject#report_build_status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#report_build_status CodebuildProject#report_build_status}.'''
         result = self._values.get("report_build_status")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -5033,8 +5218,8 @@ class CodebuildProjectSecondarySources:
 class CodebuildProjectSecondarySourcesAuth:
     def __init__(self, *, resource: builtins.str, type: builtins.str) -> None:
         '''
-        :param resource: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#resource CodebuildProject#resource}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#type CodebuildProject#type}.
+        :param resource: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#resource CodebuildProject#resource}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#type CodebuildProject#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__376e1a545ec99cb95811b6b2fcb2d4fe94223145fb82ef30081c8324487082ca)
@@ -5047,14 +5232,14 @@ class CodebuildProjectSecondarySourcesAuth:
 
     @builtins.property
     def resource(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#resource CodebuildProject#resource}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#resource CodebuildProject#resource}.'''
         result = self._values.get("resource")
         assert result is not None, "Required property 'resource' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#type CodebuildProject#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#type CodebuildProject#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -5154,8 +5339,8 @@ class CodebuildProjectSecondarySourcesBuildStatusConfig:
         target_url: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param context: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#context CodebuildProject#context}.
-        :param target_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#target_url CodebuildProject#target_url}.
+        :param context: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#context CodebuildProject#context}.
+        :param target_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#target_url CodebuildProject#target_url}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__da8c440819123754fcae5aab88630719964d4bf558e9fe7708845790a2664969)
@@ -5169,13 +5354,13 @@ class CodebuildProjectSecondarySourcesBuildStatusConfig:
 
     @builtins.property
     def context(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#context CodebuildProject#context}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#context CodebuildProject#context}.'''
         result = self._values.get("context")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def target_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#target_url CodebuildProject#target_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#target_url CodebuildProject#target_url}.'''
         result = self._values.get("target_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5283,7 +5468,7 @@ class CodebuildProjectSecondarySourcesGitSubmodulesConfig:
         fetch_submodules: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param fetch_submodules: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#fetch_submodules CodebuildProject#fetch_submodules}.
+        :param fetch_submodules: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#fetch_submodules CodebuildProject#fetch_submodules}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d95474d83bd221ab7c6eeb04a423f88ec1dc7f0bba0fefb5132f0bd791daf96a)
@@ -5296,7 +5481,7 @@ class CodebuildProjectSecondarySourcesGitSubmodulesConfig:
     def fetch_submodules(
         self,
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#fetch_submodules CodebuildProject#fetch_submodules}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#fetch_submodules CodebuildProject#fetch_submodules}.'''
         result = self._values.get("fetch_submodules")
         assert result is not None, "Required property 'fetch_submodules' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -5497,8 +5682,8 @@ class CodebuildProjectSecondarySourcesOutputReference(
     @jsii.member(jsii_name="putAuth")
     def put_auth(self, *, resource: builtins.str, type: builtins.str) -> None:
         '''
-        :param resource: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#resource CodebuildProject#resource}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#type CodebuildProject#type}.
+        :param resource: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#resource CodebuildProject#resource}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#type CodebuildProject#type}.
         '''
         value = CodebuildProjectSecondarySourcesAuth(resource=resource, type=type)
 
@@ -5512,8 +5697,8 @@ class CodebuildProjectSecondarySourcesOutputReference(
         target_url: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param context: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#context CodebuildProject#context}.
-        :param target_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#target_url CodebuildProject#target_url}.
+        :param context: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#context CodebuildProject#context}.
+        :param target_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#target_url CodebuildProject#target_url}.
         '''
         value = CodebuildProjectSecondarySourcesBuildStatusConfig(
             context=context, target_url=target_url
@@ -5528,7 +5713,7 @@ class CodebuildProjectSecondarySourcesOutputReference(
         fetch_submodules: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param fetch_submodules: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#fetch_submodules CodebuildProject#fetch_submodules}.
+        :param fetch_submodules: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#fetch_submodules CodebuildProject#fetch_submodules}.
         '''
         value = CodebuildProjectSecondarySourcesGitSubmodulesConfig(
             fetch_submodules=fetch_submodules
@@ -5785,15 +5970,15 @@ class CodebuildProjectSource:
         report_build_status: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#type CodebuildProject#type}.
-        :param auth: auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#auth CodebuildProject#auth}
-        :param buildspec: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#buildspec CodebuildProject#buildspec}.
-        :param build_status_config: build_status_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#build_status_config CodebuildProject#build_status_config}
-        :param git_clone_depth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#git_clone_depth CodebuildProject#git_clone_depth}.
-        :param git_submodules_config: git_submodules_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#git_submodules_config CodebuildProject#git_submodules_config}
-        :param insecure_ssl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#insecure_ssl CodebuildProject#insecure_ssl}.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#location CodebuildProject#location}.
-        :param report_build_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#report_build_status CodebuildProject#report_build_status}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#type CodebuildProject#type}.
+        :param auth: auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#auth CodebuildProject#auth}
+        :param buildspec: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#buildspec CodebuildProject#buildspec}.
+        :param build_status_config: build_status_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#build_status_config CodebuildProject#build_status_config}
+        :param git_clone_depth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#git_clone_depth CodebuildProject#git_clone_depth}.
+        :param git_submodules_config: git_submodules_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#git_submodules_config CodebuildProject#git_submodules_config}
+        :param insecure_ssl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#insecure_ssl CodebuildProject#insecure_ssl}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#location CodebuildProject#location}.
+        :param report_build_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#report_build_status CodebuildProject#report_build_status}.
         '''
         if isinstance(auth, dict):
             auth = CodebuildProjectSourceAuth(**auth)
@@ -5834,7 +6019,7 @@ class CodebuildProjectSource:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#type CodebuildProject#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#type CodebuildProject#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -5843,14 +6028,14 @@ class CodebuildProjectSource:
     def auth(self) -> typing.Optional["CodebuildProjectSourceAuth"]:
         '''auth block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#auth CodebuildProject#auth}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#auth CodebuildProject#auth}
         '''
         result = self._values.get("auth")
         return typing.cast(typing.Optional["CodebuildProjectSourceAuth"], result)
 
     @builtins.property
     def buildspec(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#buildspec CodebuildProject#buildspec}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#buildspec CodebuildProject#buildspec}.'''
         result = self._values.get("buildspec")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5860,14 +6045,14 @@ class CodebuildProjectSource:
     ) -> typing.Optional["CodebuildProjectSourceBuildStatusConfig"]:
         '''build_status_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#build_status_config CodebuildProject#build_status_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#build_status_config CodebuildProject#build_status_config}
         '''
         result = self._values.get("build_status_config")
         return typing.cast(typing.Optional["CodebuildProjectSourceBuildStatusConfig"], result)
 
     @builtins.property
     def git_clone_depth(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#git_clone_depth CodebuildProject#git_clone_depth}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#git_clone_depth CodebuildProject#git_clone_depth}.'''
         result = self._values.get("git_clone_depth")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -5877,7 +6062,7 @@ class CodebuildProjectSource:
     ) -> typing.Optional["CodebuildProjectSourceGitSubmodulesConfig"]:
         '''git_submodules_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#git_submodules_config CodebuildProject#git_submodules_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#git_submodules_config CodebuildProject#git_submodules_config}
         '''
         result = self._values.get("git_submodules_config")
         return typing.cast(typing.Optional["CodebuildProjectSourceGitSubmodulesConfig"], result)
@@ -5886,13 +6071,13 @@ class CodebuildProjectSource:
     def insecure_ssl(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#insecure_ssl CodebuildProject#insecure_ssl}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#insecure_ssl CodebuildProject#insecure_ssl}.'''
         result = self._values.get("insecure_ssl")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def location(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#location CodebuildProject#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#location CodebuildProject#location}.'''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5900,7 +6085,7 @@ class CodebuildProjectSource:
     def report_build_status(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#report_build_status CodebuildProject#report_build_status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#report_build_status CodebuildProject#report_build_status}.'''
         result = self._values.get("report_build_status")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -5924,8 +6109,8 @@ class CodebuildProjectSource:
 class CodebuildProjectSourceAuth:
     def __init__(self, *, resource: builtins.str, type: builtins.str) -> None:
         '''
-        :param resource: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#resource CodebuildProject#resource}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#type CodebuildProject#type}.
+        :param resource: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#resource CodebuildProject#resource}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#type CodebuildProject#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f89c7cd98451ae71a3f9b6f78cc00c8f6a84042937e155f140c6d24b3a2bced5)
@@ -5938,14 +6123,14 @@ class CodebuildProjectSourceAuth:
 
     @builtins.property
     def resource(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#resource CodebuildProject#resource}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#resource CodebuildProject#resource}.'''
         result = self._values.get("resource")
         assert result is not None, "Required property 'resource' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#type CodebuildProject#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#type CodebuildProject#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -6045,8 +6230,8 @@ class CodebuildProjectSourceBuildStatusConfig:
         target_url: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param context: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#context CodebuildProject#context}.
-        :param target_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#target_url CodebuildProject#target_url}.
+        :param context: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#context CodebuildProject#context}.
+        :param target_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#target_url CodebuildProject#target_url}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1812d534b32d3f9812cc603617cc60d68c02e081de15d90356e486adf50723b7)
@@ -6060,13 +6245,13 @@ class CodebuildProjectSourceBuildStatusConfig:
 
     @builtins.property
     def context(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#context CodebuildProject#context}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#context CodebuildProject#context}.'''
         result = self._values.get("context")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def target_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#target_url CodebuildProject#target_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#target_url CodebuildProject#target_url}.'''
         result = self._values.get("target_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -6174,7 +6359,7 @@ class CodebuildProjectSourceGitSubmodulesConfig:
         fetch_submodules: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param fetch_submodules: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#fetch_submodules CodebuildProject#fetch_submodules}.
+        :param fetch_submodules: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#fetch_submodules CodebuildProject#fetch_submodules}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__afc666a7194f1d19275f1ed54390f0586024ddbb4f3fa8cec1310ae74f067433)
@@ -6187,7 +6372,7 @@ class CodebuildProjectSourceGitSubmodulesConfig:
     def fetch_submodules(
         self,
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#fetch_submodules CodebuildProject#fetch_submodules}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#fetch_submodules CodebuildProject#fetch_submodules}.'''
         result = self._values.get("fetch_submodules")
         assert result is not None, "Required property 'fetch_submodules' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -6289,8 +6474,8 @@ class CodebuildProjectSourceOutputReference(
     @jsii.member(jsii_name="putAuth")
     def put_auth(self, *, resource: builtins.str, type: builtins.str) -> None:
         '''
-        :param resource: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#resource CodebuildProject#resource}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#type CodebuildProject#type}.
+        :param resource: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#resource CodebuildProject#resource}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#type CodebuildProject#type}.
         '''
         value = CodebuildProjectSourceAuth(resource=resource, type=type)
 
@@ -6304,8 +6489,8 @@ class CodebuildProjectSourceOutputReference(
         target_url: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param context: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#context CodebuildProject#context}.
-        :param target_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#target_url CodebuildProject#target_url}.
+        :param context: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#context CodebuildProject#context}.
+        :param target_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#target_url CodebuildProject#target_url}.
         '''
         value = CodebuildProjectSourceBuildStatusConfig(
             context=context, target_url=target_url
@@ -6320,7 +6505,7 @@ class CodebuildProjectSourceOutputReference(
         fetch_submodules: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param fetch_submodules: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#fetch_submodules CodebuildProject#fetch_submodules}.
+        :param fetch_submodules: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#fetch_submodules CodebuildProject#fetch_submodules}.
         '''
         value = CodebuildProjectSourceGitSubmodulesConfig(
             fetch_submodules=fetch_submodules
@@ -6543,9 +6728,9 @@ class CodebuildProjectVpcConfig:
         vpc_id: builtins.str,
     ) -> None:
         '''
-        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#security_group_ids CodebuildProject#security_group_ids}.
-        :param subnets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#subnets CodebuildProject#subnets}.
-        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#vpc_id CodebuildProject#vpc_id}.
+        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#security_group_ids CodebuildProject#security_group_ids}.
+        :param subnets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#subnets CodebuildProject#subnets}.
+        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#vpc_id CodebuildProject#vpc_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d52c7d7ad33c8431078430a63f12da04399439be547a2fbd6e63b8900bb83d68)
@@ -6560,21 +6745,21 @@ class CodebuildProjectVpcConfig:
 
     @builtins.property
     def security_group_ids(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#security_group_ids CodebuildProject#security_group_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#security_group_ids CodebuildProject#security_group_ids}.'''
         result = self._values.get("security_group_ids")
         assert result is not None, "Required property 'security_group_ids' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def subnets(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#subnets CodebuildProject#subnets}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#subnets CodebuildProject#subnets}.'''
         result = self._values.get("subnets")
         assert result is not None, "Required property 'subnets' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def vpc_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codebuild_project#vpc_id CodebuildProject#vpc_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codebuild_project#vpc_id CodebuildProject#vpc_id}.'''
         result = self._values.get("vpc_id")
         assert result is not None, "Required property 'vpc_id' is missing"
         return typing.cast(builtins.str, result)
@@ -6687,6 +6872,8 @@ __all__ = [
     "CodebuildProjectCacheOutputReference",
     "CodebuildProjectConfig",
     "CodebuildProjectEnvironment",
+    "CodebuildProjectEnvironmentDockerServer",
+    "CodebuildProjectEnvironmentDockerServerOutputReference",
     "CodebuildProjectEnvironmentEnvironmentVariable",
     "CodebuildProjectEnvironmentEnvironmentVariableList",
     "CodebuildProjectEnvironmentEnvironmentVariableOutputReference",
@@ -7145,11 +7332,45 @@ def _typecheckingstub__7479fec44d0a964a539696cf568bdd8c71feb01b07e9bafc0a1945448
     image: builtins.str,
     type: builtins.str,
     certificate: typing.Optional[builtins.str] = None,
+    docker_server: typing.Optional[typing.Union[CodebuildProjectEnvironmentDockerServer, typing.Dict[builtins.str, typing.Any]]] = None,
     environment_variable: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[CodebuildProjectEnvironmentEnvironmentVariable, typing.Dict[builtins.str, typing.Any]]]]] = None,
     fleet: typing.Optional[typing.Union[CodebuildProjectEnvironmentFleet, typing.Dict[builtins.str, typing.Any]]] = None,
     image_pull_credentials_type: typing.Optional[builtins.str] = None,
     privileged_mode: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     registry_credential: typing.Optional[typing.Union[CodebuildProjectEnvironmentRegistryCredential, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__adcfb5b8aba097b81cc4f0737d9825daa76be188a49aebc04f16241228e96b7d(
+    *,
+    compute_type: builtins.str,
+    security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9e72ab947d17ea2f37c3f3fd884b1b7a9428492b48e88cbcd3ed16b8dfa15d65(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fbcf296dab320fcc2a2d6bcaf40b90ca33903278f4e1b072bb41ac7f52c2f134(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2ec97956d561be13bbb52126268156d06c1c6cfbbadae5b895d74c3f9a23f1bf(
+    value: typing.List[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c0945dba4b73f0cd215f5c5f49314281b95af9447d7549d85b4b8295feedb850(
+    value: typing.Optional[CodebuildProjectEnvironmentDockerServer],
 ) -> None:
     """Type checking stubs"""
     pass

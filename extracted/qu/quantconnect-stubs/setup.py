@@ -17,7 +17,7 @@ This line imports [all common QuantConnect members](https://github.com/QuantConn
 
 setup(
     name="quantconnect-stubs",
-    version="17169",
+    version="17170",
     description="Type stubs for QuantConnect's Lean",
     author="QuantConnect",
     author_email="support@quantconnect.com",
@@ -208,6 +208,7 @@ setup(
         "System.Runtime.ExceptionServices",
         "System.Runtime.InteropServices",
         "System.Runtime.InteropServices.ComTypes",
+        "System.Runtime.InteropServices.Java",
         "System.Runtime.InteropServices.Marshalling",
         "System.Runtime.InteropServices.ObjectiveC",
         "System.Runtime.InteropServices.Swift",
@@ -421,6 +422,7 @@ setup(
         "System.Runtime.ExceptionServices": ["*.py", "*.pyi", "py.typed"],
         "System.Runtime.InteropServices": ["*.py", "*.pyi", "py.typed"],
         "System.Runtime.InteropServices.ComTypes": ["*.py", "*.pyi", "py.typed"],
+        "System.Runtime.InteropServices.Java": ["*.py", "*.pyi", "py.typed"],
         "System.Runtime.InteropServices.Marshalling": ["*.py", "*.pyi", "py.typed"],
         "System.Runtime.InteropServices.ObjectiveC": ["*.py", "*.pyi", "py.typed"],
         "System.Runtime.InteropServices.Swift": ["*.py", "*.pyi", "py.typed"],

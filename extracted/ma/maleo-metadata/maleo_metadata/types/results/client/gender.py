@@ -3,12 +3,12 @@ from maleo_metadata.models.transfers.results.client.gender import MaleoMetadataG
 
 class MaleoMetadataGenderClientResultsTypes:
     GetMultiple = Union[
-        MaleoMetadataGenderClientResultsTransfers.Fail,
+        MaleoMetadataGenderClientResultsTransfers.MultipleData,
         MaleoMetadataGenderClientResultsTransfers.NoData,
-        MaleoMetadataGenderClientResultsTransfers.MultipleData
+        MaleoMetadataGenderClientResultsTransfers.Fail
     ]
 
     GetSingle = Union[
-        MaleoMetadataGenderClientResultsTransfers.Fail,
-        MaleoMetadataGenderClientResultsTransfers.SingleData
+        MaleoMetadataGenderClientResultsTransfers.SingleData,
+        MaleoMetadataGenderClientResultsTransfers.Fail
     ]

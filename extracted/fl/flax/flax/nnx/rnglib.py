@@ -19,9 +19,10 @@ import typing as tp
 import jax
 import jax.numpy as jnp
 
-from flax import struct
+from flax import errors, struct
 from flax.nnx import graph
 from flax.nnx import statelib
+from flax.nnx import variablelib
 from flax.nnx.statelib import State
 from flax.nnx.variablelib import Variable
 from flax.nnx import filterlib
@@ -33,7 +34,13 @@ F = tp.TypeVar('F', bound=tp.Callable[..., tp.Any])
 Counts = list[int]
 AxesValue = tp.Union[int, None]
 SplitPattern = tp.Union[AxesValue, tuple[AxesValue, ...]]
+_fry_dtype: jnp.dtype | None = None
 
+def get_fry_dtype():
+  global _fry_dtype
+  if _fry_dtype is None:
+    _fry_dtype = jax.eval_shape(lambda: jax.random.key(0)).dtype
+  return _fry_dtype
 
 class RngState(Variable[jax.Array]):
   tag: str
@@ -49,34 +56,44 @@ NotKey = filterlib.All(RngState, filterlib.Not(RngKey))
 
 
 class RngStream(Object):
+  __data__ = ('key', 'count')
+
   def __init__(
     self,
     tag: str,
-    key: jax.Array,
-    count: jax.Array,
+    key: jax.Array | int
   ):
-    if not isinstance(key, jax.Array):
-      raise TypeError(f'key must be a jax.Array, got {type(key)}')
+    if isinstance(key, int):
+      key = jax.random.key(key)
+    elif isinstance(key, jax.Array) and key.dtype == jnp.uint32:
+      key = jax.random.wrap_key_data(key)
 
+    if not isinstance(key, jax.Array) or key.dtype != get_fry_dtype():
+      raise ValueError(f'Invalid rng value: {key}, expected a '
+                       f'jax.Array of dtype {get_fry_dtype()}')
+
+    count = jnp.zeros(key.shape, dtype=jnp.uint32)
+    self.tag = tag
     self.key = RngKey(key, tag=tag)
     self.count = RngCount(count, tag=tag)
 
   def __call__(self) -> jax.Array:
-    self._check_valid_context(
-      lambda: 'Cannot call RngStream from a different trace level'
-    )
-    key = jax.random.fold_in(self.key.value, self.count.value)
-    self.count.value += 1
+    if not self.count.mutable and not self.count._trace_state.is_valid():
+      raise errors.TraceContextError(
+        f'Cannot mutate {type(self).__name__} from a different trace level'
+      )
+    key = jax.random.fold_in(self.key[...], self.count[...])
+    self.count[...] += 1
     return key
+
+  def fork(self, *, split: int | tuple[int, ...] | None = None):
+    key = self()
+    if split is not None:
+      key = jax.random.split(key, split)
+    return type(self)(self.tag, key)
 
 
 RngValue = tp.Union[int, jax.Array]
-RngDict = tp.Union[
-  tp.Mapping[str, int],
-  tp.Mapping[str, jax.Array],
-  tp.Mapping[str, RngValue],
-]
-
 
 class Rngs(Object):
   """NNX rng container class. To instantiate the ``Rngs``, pass
@@ -156,10 +173,15 @@ class Rngs(Object):
     >>> assert_same(x, 0, params=1, dropout=2)
   """
 
+  __data__ = 'all'
+
   def __init__(
-      self,
-      default: RngValue | RngDict | None = None,
-      **rngs: RngValue,
+    self,
+    default: RngValue
+    | RngStream
+    | tp.Mapping[str, RngValue | RngStream]
+    | None = None,
+    **rngs: RngValue | RngStream,
   ):
     """
     Args:
@@ -178,23 +200,14 @@ class Rngs(Object):
       else:
         rngs['default'] = default
 
-    for name, value in rngs.items():
-      if isinstance(value, int):
-        key = jax.random.key(value)
-      elif isinstance(value, jax.Array):
-        if value.dtype == jnp.uint32:
-          key = jax.random.wrap_key_data(value)
-        else:
-          key = value
-      else:
-        raise ValueError(f'Invalid rng value: {value}')
-
+    for tag, key in rngs.items():
+      if isinstance(key, RngStream):
+        key = key.key.value
       stream = RngStream(
-        tag=name,
+        tag=tag,
         key=key,
-        count=jnp.zeros(key.shape, dtype=jnp.uint32),
       )
-      setattr(self, name, stream)
+      setattr(self, tag, stream)
 
   def _get_stream(self, name: str, error_type: type[Exception]) -> RngStream:
     rngs_vars = vars(self)
@@ -227,16 +240,53 @@ class Rngs(Object):
   def __contains__(self, name: tp.Any) -> bool:
     return name in vars(self)
 
-  # pickle support
-  def __getstate__(self):
-    return vars(self).copy()
-
-  def __setstate__(self, state):
-    vars(self).update(state)
-
   def items(self):
     for name in self:
       yield name, self[name]
+
+  def fork(
+    self,
+    /,
+    *,
+    split: tp.Mapping[filterlib.Filter, int | tuple[int, ...]]
+    | int
+    | None = None,
+  ):
+    """Returns a new Rngs object with new unique RNG keys.
+
+    Example::
+      >>> from flax import nnx
+      ...
+      >>> rngs = nnx.Rngs(params=1, dropout=2)
+      >>> new_rngs = rngs.fork()
+      ...
+      >>> assert rngs.params() != new_rngs.params()
+
+    ``split`` can be used to additionally split the RNG keys
+    of the newly created Rngs object::
+
+      >>> rngs = nnx.Rngs(params=1, dropout=2)
+      >>> new_rngs = rngs.fork(split=5)
+      ...
+      >>> assert new_rngs.params.key.shape == (5,)
+      >>> assert new_rngs.dropout.key.shape == (5,)
+    """
+    if split is None:
+      split = {}
+    elif isinstance(split, int):
+      split = {...: split}
+
+    split_predicates = {filterlib.to_predicate(k): v for k, v in split.items()}
+    keys: dict[str, RngStream] = {}
+    for name, stream in self.items():
+      for predicate, num_splits in split_predicates.items():
+        if predicate((), stream):
+          keys[name] = stream.fork(split=num_splits)
+          break
+      else:
+        keys[name] = stream.fork()
+
+    return Rngs(**keys)
 
 
 class ForkStates(tp.NamedTuple):
@@ -440,18 +490,26 @@ def split_rngs(
       and predicate((*path, 'count'), stream.count)
     ):
       key = stream()
-      backups.append((stream, stream.key.value, stream.count.value))
+      backups.append((stream, stream.key.raw_value, stream.count.raw_value))
       key = jax.random.split(key, splits)
       if squeeze:
         key = key[0]
-      stream.key.value = key
+      if variablelib.is_mutable_array(stream.key.raw_value):
+        stream.key.raw_value = variablelib.mutable_array(key)
+      else:
+        stream.key.value = key
       if squeeze:
         counts_shape = stream.count.shape
       elif isinstance(splits, int):
         counts_shape = (splits, *stream.count.shape)
       else:
         counts_shape = (*splits, *stream.count.shape)
-      stream.count.value = jnp.zeros(counts_shape, dtype=jnp.uint32)
+
+      count = jnp.zeros(counts_shape, dtype=jnp.uint32)
+      if variablelib.is_mutable_array(stream.count.raw_value):
+        stream.count.raw_value = variablelib.mutable_array(count)
+      else:
+        stream.count.value = count
 
   return SplitBackups(backups)
 
@@ -460,7 +518,7 @@ def backup_keys(node: tp.Any, /):
   backups: list[StreamBackup] = []
   for _, stream in graph.iter_graph(node):
     if isinstance(stream, RngStream):
-      backups.append((stream, stream.key.value))
+      backups.append((stream, stream.key.raw_value))
   return backups
 
 
@@ -518,6 +576,6 @@ def reseed(node, /, **stream_keys: RngValue):
 def restore_rngs(backups: tp.Iterable[StreamBackup], /):
   for backup in backups:
     stream = backup[0]
-    stream.key.value = backup[1]  # key
+    stream.key.raw_value = backup[1]
     if len(backup) == 3:
-      stream.count.value = backup[2]  # count
+      stream.count.raw_value = backup[2]  # count

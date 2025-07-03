@@ -2,7 +2,7 @@
 """
 @Author: HuangJianYi
 @Date: 2021-08-11 09:10:33
-@LastEditTime: 2025-04-07 15:04:57
+@LastEditTime: 2025-07-02 15:56:00
 @LastEditors: HuangJianYi
 @Description: 
 """
@@ -104,12 +104,13 @@ class FrameBaseModel():
         score_fator = 1_000_000_000
         return int(score/score_fator)
 
-    def lottery_algorithm_chance(self, prize_list, field_name="chance", is_upset_prize=True):
+    def lottery_algorithm_chance(self, prize_list, field_name="chance", is_upset_prize=True, is_must_prize=True):
         """
         :description: 抽奖算法（概率）
         :param prize_list:奖品列表
         :param field_name:字段名称
         :param is_upset_prize:是否打乱奖品，减少多次抽奖得到同一个奖品的概率
+        :param is_must_prize:是否必得到奖品，False的话可能匹配不到奖品
         :return: 中奖的奖品
         :last_editors: HuangJianYi
         """
@@ -123,6 +124,8 @@ class FrameBaseModel():
             current_prize["end_probability"] = init_value + float(prize[field_name])
             probability_list.append(current_prize)
             init_value = init_value + float(prize[field_name])
+        if is_must_prize is False:
+            init_value = 100.00
         prize_index = random.uniform(0.00, init_value)
         for prize in probability_list:
             if (prize["start_probability"] <= prize_index and prize_index < prize["end_probability"]):

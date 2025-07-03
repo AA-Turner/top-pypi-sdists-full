@@ -7,9 +7,11 @@ from collections.abc import (
 )
 from typing import (
     Any,
+    Concatenate,
     Generic,
     Literal,
     NamedTuple,
+    Protocol,
     TypeVar,
     final,
     overload,
@@ -18,6 +20,7 @@ from typing import (
 from matplotlib.axes import Axes as PlotAxes
 import numpy as np
 from pandas.core.frame import DataFrame
+from pandas.core.groupby.base import TransformReductionListType
 from pandas.core.groupby.groupby import (
     GroupBy,
     GroupByPlot,
@@ -30,7 +33,8 @@ from typing_extensions import (
 
 from pandas._libs.tslibs.timestamps import Timestamp
 from pandas._typing import (
-    S1,
+    S2,
+    S3,
     AggFuncTypeBase,
     AggFuncTypeFrame,
     ByT,
@@ -40,6 +44,7 @@ from pandas._typing import (
     Level,
     ListLike,
     NsmallestNlargestKeep,
+    P,
     Scalar,
     TakeIndexer,
     WindowingEngine,
@@ -52,11 +57,31 @@ class NamedAgg(NamedTuple):
     column: str
     aggfunc: AggScalar
 
-class SeriesGroupBy(GroupBy[Series[S1]], Generic[S1, ByT]):
+class SeriesGroupBy(GroupBy[Series[S2]], Generic[S2, ByT]):
+    @overload
+    def aggregate(  # pyrefly: ignore
+        self,
+        func: Callable[Concatenate[Series[S2], P], S3],
+        /,
+        *args,
+        engine: WindowingEngine = ...,
+        engine_kwargs: WindowingEngineKwargs = ...,
+        **kwargs,
+    ) -> Series[S3]: ...
+    @overload
+    def aggregate(
+        self,
+        func: Callable[[Series], S3],
+        *args,
+        engine: WindowingEngine = ...,
+        engine_kwargs: WindowingEngineKwargs = ...,
+        **kwargs,
+    ) -> Series[S3]: ...
     @overload
     def aggregate(
         self,
         func: list[AggFuncTypeBase],
+        /,
         *args,
         engine: WindowingEngine = ...,
         engine_kwargs: WindowingEngineKwargs = ...,
@@ -66,19 +91,33 @@ class SeriesGroupBy(GroupBy[Series[S1]], Generic[S1, ByT]):
     def aggregate(
         self,
         func: AggFuncTypeBase | None = ...,
+        /,
         *args,
         engine: WindowingEngine = ...,
         engine_kwargs: WindowingEngineKwargs = ...,
         **kwargs,
     ) -> Series: ...
     agg = aggregate
+    @overload
     def transform(
         self,
-        func: Callable | str,
-        *args,
+        func: Callable[Concatenate[Series[S2], P], Series[S3]],
+        /,
+        *args: Any,
         engine: WindowingEngine = ...,
         engine_kwargs: WindowingEngineKwargs = ...,
-        **kwargs,
+        **kwargs: Any,
+    ) -> Series[S3]: ...
+    @overload
+    def transform(
+        self,
+        func: Callable,
+        *args: Any,
+        **kwargs: Any,
+    ) -> Series: ...
+    @overload
+    def transform(
+        self, func: TransformReductionListType, *args, **kwargs
     ) -> Series: ...
     def filter(
         self, func: Callable | str, dropna: bool = ..., *args, **kwargs
@@ -114,7 +153,7 @@ class SeriesGroupBy(GroupBy[Series[S1]], Generic[S1, ByT]):
         self,
         indices: TakeIndexer,
         **kwargs,
-    ) -> Series[S1]: ...
+    ) -> Series[S2]: ...
     def skew(
         self,
         skipna: bool = ...,
@@ -125,10 +164,10 @@ class SeriesGroupBy(GroupBy[Series[S1]], Generic[S1, ByT]):
     def plot(self) -> GroupByPlot[Self]: ...
     def nlargest(
         self, n: int = ..., keep: NsmallestNlargestKeep = ...
-    ) -> Series[S1]: ...
+    ) -> Series[S2]: ...
     def nsmallest(
         self, n: int = ..., keep: NsmallestNlargestKeep = ...
-    ) -> Series[S1]: ...
+    ) -> Series[S2]: ...
     def idxmin(self, skipna: bool = ...) -> Series: ...
     def idxmax(self, skipna: bool = ...) -> Series: ...
     def corr(
@@ -166,32 +205,49 @@ class SeriesGroupBy(GroupBy[Series[S1]], Generic[S1, ByT]):
     @final  # type: ignore[misc]
     def __iter__(  # pyright: ignore[reportIncompatibleMethodOverride]
         self,
-    ) -> Iterator[tuple[ByT, Series[S1]]]: ...
+    ) -> Iterator[tuple[ByT, Series[S2]]]: ...
 
 _TT = TypeVar("_TT", bound=Literal[True, False])
+
+# ty ignore needed because of https://github.com/astral-sh/ty/issues/157#issuecomment-3017337945
+class DFCallable1(Protocol[P]):  # ty: ignore[invalid-argument-type]
+    def __call__(
+        self, df: DataFrame, /, *args: P.args, **kwargs: P.kwargs
+    ) -> Scalar | list | dict: ...
+
+class DFCallable2(Protocol[P]):  # ty: ignore[invalid-argument-type]
+    def __call__(
+        self, df: DataFrame, /, *args: P.args, **kwargs: P.kwargs
+    ) -> DataFrame | Series: ...
+
+class DFCallable3(Protocol[P]):  # ty: ignore[invalid-argument-type]
+    def __call__(self, df: Iterable, /, *args: P.args, **kwargs: P.kwargs) -> float: ...
 
 class DataFrameGroupBy(GroupBy[DataFrame], Generic[ByT, _TT]):
     # error: Overload 3 for "apply" will never be used because its parameters overlap overload 1
     @overload  # type: ignore[override]
     def apply(
         self,
-        func: Callable[[DataFrame], Scalar | list | dict],
-        *args,
-        **kwargs,
+        func: DFCallable1[P],
+        /,
+        *args: P.args,
+        **kwargs: P.kwargs,
     ) -> Series: ...
     @overload
     def apply(
         self,
-        func: Callable[[DataFrame], Series | DataFrame],
-        *args,
-        **kwargs,
+        func: DFCallable2[P],
+        /,
+        *args: P.args,
+        **kwargs: P.kwargs,
     ) -> DataFrame: ...
     @overload
-    def apply(  # pyright: ignore[reportOverlappingOverload]
+    def apply(
         self,
-        func: Callable[[Iterable], float],
-        *args,
-        **kwargs,
+        func: DFCallable3[P],
+        /,
+        *args: P.args,
+        **kwargs: P.kwargs,
     ) -> DataFrame: ...
     # error: overload 1 overlaps overload 2 because of different return types
     @overload
@@ -206,13 +262,25 @@ class DataFrameGroupBy(GroupBy[DataFrame], Generic[ByT, _TT]):
         **kwargs,
     ) -> DataFrame: ...
     agg = aggregate
+    @overload
     def transform(
         self,
-        func: Callable | str,
-        *args,
+        func: Callable[Concatenate[DataFrame, P], DataFrame],
+        *args: Any,
         engine: WindowingEngine = ...,
         engine_kwargs: WindowingEngineKwargs = ...,
-        **kwargs,
+        **kwargs: Any,
+    ) -> DataFrame: ...
+    @overload
+    def transform(
+        self,
+        func: Callable,
+        *args: Any,
+        **kwargs: Any,
+    ) -> DataFrame: ...
+    @overload
+    def transform(
+        self, func: TransformReductionListType, *args, **kwargs
     ) -> DataFrame: ...
     def filter(
         self, func: Callable, dropna: bool = ..., *args, **kwargs
@@ -222,7 +290,7 @@ class DataFrameGroupBy(GroupBy[DataFrame], Generic[ByT, _TT]):
     @overload
     def __getitem__(  # pyright: ignore[reportIncompatibleMethodOverride]
         self, key: Iterable[Hashable]
-    ) -> DataFrameGroupBy[ByT, bool]: ...
+    ) -> DataFrameGroupBy[ByT, _TT]: ...
     def nunique(self, dropna: bool = ...) -> DataFrame: ...
     def idxmax(
         self,

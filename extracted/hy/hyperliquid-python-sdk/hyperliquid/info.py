@@ -598,12 +598,16 @@ class Info(API):
     def query_user_to_multi_sig_signers(self, multi_sig_user: str) -> Any:
         return self.post("/info", {"type": "userToMultiSigSigners", "user": multi_sig_user})
 
+    def query_perp_deploy_auction_status(self) -> Any:
+        return self.post("/info", {"type": "perpDeployAuctionStatus"})
+
     def _remap_coin_subscription(self, subscription: Subscription) -> None:
         if (
             subscription["type"] == "l2Book"
             or subscription["type"] == "trades"
             or subscription["type"] == "candle"
             or subscription["type"] == "bbo"
+            or subscription["type"] == "activeAssetCtx"
         ):
             subscription["coin"] = self.name_to_coin[subscription["coin"]]
 

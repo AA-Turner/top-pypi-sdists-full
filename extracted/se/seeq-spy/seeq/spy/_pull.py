@@ -543,11 +543,11 @@ def pull(items, *, start=None, end=None, grid='15min', header='__auto__', group_
             # DataFrame with all of the results appended one after the other. The user can
             # then choose to sort by one of the columns if they would like.
             result_list.insert(0, output.df)
-            output.df = pd.concat(result_list, ignore_index=True)
+            output.df = _common.smart_pd_concat(result_list, ignore_index=True)
         else:
             if group_by:
                 result_list.insert(0, output.df)
-                output.df = pd.concat(result_list)
+                output.df = _common.smart_pd_concat(result_list)
                 output.df = output.df.groupby(['Timestamp'] + group_by).first()
             else:
                 # noinspection PyTypeChecker

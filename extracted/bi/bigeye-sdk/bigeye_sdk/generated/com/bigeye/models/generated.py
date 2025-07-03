@@ -737,6 +737,7 @@ class AuthType(betterproto.Enum):
     AUTH_TYPE_UNSPECIFIED = 0
     AUTH_TYPE_PAT = 1
     AUTH_TYPE_OAUTH2_M2M = 2
+    AUTH_TYPE_KEYPAIR = 3
 
 
 class SourceSortField(betterproto.Enum):
@@ -990,6 +991,24 @@ class TagSortField(betterproto.Enum):
 class SampleMethod(betterproto.Enum):
     SAMPLE_METHOD_UNSPECIFIED = 0
     SAMPLE_METHOD_SIMPLE_LIMIT = 1
+
+
+class TopLevelCategory(betterproto.Enum):
+    """Dimensions"""
+
+    TOP_LEVEL_CATEGORY_UNSPECIFIED = 0
+    TOP_LEVEL_CATEGORY_PIPELINE_RELIABILITY = 1
+    TOP_LEVEL_CATEGORY_DATA_QUALITY = 2
+
+
+class DimensionInstanceType(betterproto.Enum):
+    DIMENSION_INSTANCE_TYPE_UNSPECIFIED = 0
+    DIMENSION_INSTANCE_TYPE_METRIC = 1
+    DIMENSION_INSTANCE_TYPE_DELTA = 2
+    DIMENSION_INSTANCE_TYPE_ROW_LEVEL_DELTA = 3
+    DIMENSION_INSTANCE_TYPE_CUSTOM_RULE = 4
+    DIMENSION_INSTANCE_TYPE_JOIN_RULE = 5
+    DIMENSION_INSTANCE_TYPE_TEMPLATE_METRIC = 6
 
 
 class ModelTypes(betterproto.Enum):
@@ -1327,6 +1346,7 @@ class MetricConfiguration(betterproto.Message):
     rct_override: str = betterproto.string_field(21)
     is_lookback_using_current_time: bool = betterproto.bool_field(22)
     bigconfig_namespace: str = betterproto.string_field(23)
+    dimension: "IdAndDisplayName" = betterproto.message_field(24)
 
 
 @dataclass
@@ -2144,6 +2164,7 @@ class CreateLineageNodeV2Request(betterproto.Message):
     workspace_id: int = betterproto.int32_field(4)
     node_container_name: str = betterproto.string_field(5)
     rebuild_graph: bool = betterproto.bool_field(6)
+    icon_url: str = betterproto.string_field(7)
 
 
 @dataclass
@@ -2321,6 +2342,7 @@ class Integration(betterproto.Message):
     integration_type: "IntegrationType" = betterproto.enum_field(19)
     most_recent_scan_at: int = betterproto.int64_field(20)
     tags: List["Tag"] = betterproto.message_field(21)
+    exception_message: str = betterproto.string_field(22)
 
 
 @dataclass
@@ -2545,6 +2567,7 @@ class Table(betterproto.Message):
     is_favorite: bool = betterproto.bool_field(19)
     requires_partition_filter: bool = betterproto.bool_field(20)
     tags: List["Tag"] = betterproto.message_field(21)
+    uses_agent: bool = betterproto.bool_field(22)
 
 
 @dataclass
@@ -2716,6 +2739,7 @@ class GetMetricInfoListRequest(betterproto.Message):
     include_latest_metric_runs: bool = betterproto.bool_field(17)
     workspace_id: int = betterproto.int32_field(18)
     tag_ids: List[int] = betterproto.int32_field(19)
+    dimension_ids: List[int] = betterproto.int32_field(20)
 
 
 @dataclass
@@ -3894,6 +3918,7 @@ class MetricTemplate(betterproto.Message):
         5
     )
     source: "Warehouse" = betterproto.message_field(6)
+    dimension: "IdAndDisplayName" = betterproto.message_field(7)
 
 
 @dataclass
@@ -4633,6 +4658,7 @@ class Delta(betterproto.Message):
     is_source_table_deleted: bool = betterproto.bool_field(15)
     delta_type: "DeltaType" = betterproto.enum_field(16)
     tags: List["Tag"] = betterproto.message_field(17)
+    dimension: "IdAndDisplayName" = betterproto.message_field(18)
 
 
 @dataclass
@@ -5130,7 +5156,7 @@ class UpsertDbtJobRun(betterproto.Message):
     id: int = betterproto.int64_field(1)
     job_id: int = betterproto.int32_field(2)
     status: "DbtJobRunStatus" = betterproto.enum_field(3)
-    dbt_job_run_ext_id: int = betterproto.int32_field(4)
+    dbt_job_run_ext_id: int = betterproto.int64_field(4)
     started_at: int = betterproto.int64_field(5)
     completed_at: int = betterproto.int64_field(6)
     git_sha: str = betterproto.string_field(7)
@@ -5293,6 +5319,7 @@ class BulkMetricConfiguration(betterproto.Message):
     volume_thresholds: List["Threshold"] = betterproto.message_field(16)
     owner_id: int = betterproto.int32_field(17)
     is_lookback_using_current_time: bool = betterproto.bool_field(18)
+    dimension_id: int = betterproto.int32_field(19)
 
 
 @dataclass
@@ -5424,6 +5451,9 @@ class CustomRule(betterproto.Message):
     join_type: "JoinType" = betterproto.enum_field(14)
     left_alias: str = betterproto.string_field(15)
     right_alias: str = betterproto.string_field(16)
+    left_select_columns: List["IdAndDisplayName"] = betterproto.message_field(17)
+    right_select_columns: List["IdAndDisplayName"] = betterproto.message_field(18)
+    dimension: "IdAndDisplayName" = betterproto.message_field(19)
 
 
 @dataclass
@@ -5847,6 +5877,59 @@ class QueueTableProfileRequest(betterproto.Message):
 class SampleSelection(betterproto.Message):
     row_limit: int = betterproto.int32_field(1)
     sample_method: "SampleMethod" = betterproto.enum_field(2)
+
+
+@dataclass
+class InstanceTypeWithCounts(betterproto.Message):
+    instance_type: "DimensionInstanceType" = betterproto.enum_field(1)
+    name: str = betterproto.string_field(2)
+    is_override: bool = betterproto.bool_field(3)
+    count: int = betterproto.int64_field(4)
+
+
+@dataclass
+class Dimension(betterproto.Message):
+    id: int = betterproto.int32_field(1)
+    name: str = betterproto.string_field(2)
+    top_level_category: "TopLevelCategory" = betterproto.enum_field(3)
+    entity_info: "EntityInfo" = betterproto.message_field(4)
+    instance_types_with_counts: List["InstanceTypeWithCounts"] = (
+        betterproto.message_field(5)
+    )
+    description: str = betterproto.string_field(6)
+
+
+@dataclass
+class UpsertDimensionRequest(betterproto.Message):
+    id: int = betterproto.int32_field(1)
+    name: str = betterproto.string_field(2)
+    top_level_category: "TopLevelCategory" = betterproto.enum_field(3)
+    description: str = betterproto.string_field(4)
+
+
+@dataclass
+class UpsertDimensionResponse(betterproto.Message):
+    dimension: "Dimension" = betterproto.message_field(1)
+
+
+@dataclass
+class GetDimensionsListResponse(betterproto.Message):
+    dimensions: List["Dimension"] = betterproto.message_field(1)
+
+
+@dataclass
+class StatDimension(betterproto.Message):
+    id: int = betterproto.int32_field(1)
+    stat_name: str = betterproto.string_field(2)
+    dimension: "Dimension" = betterproto.message_field(3)
+    comments: str = betterproto.string_field(4)
+    entity_info: "EntityInfo" = betterproto.message_field(5)
+
+
+@dataclass
+class UpsertStatDimensionRequest(betterproto.Message):
+    dimension_id: int = betterproto.int32_field(1)
+    stat_name: str = betterproto.string_field(2)
 
 
 @dataclass
@@ -6369,6 +6452,8 @@ class RunJoinRuleRequest(betterproto.Message):
     is_outbound: bool = betterproto.bool_field(6)
     collection_queue: str = betterproto.string_field(7)
     workspace_id: int = betterproto.int32_field(8)
+    left_select_columns: List[str] = betterproto.string_field(9)
+    right_select_columns: List[str] = betterproto.string_field(10)
 
 
 @dataclass
@@ -6402,6 +6487,31 @@ class RunSingleJoinRuleResult(betterproto.Message):
     rule_id: int = betterproto.int32_field(1)
     rows_scanned: int = betterproto.int64_field(2)
     rows_matched: int = betterproto.int64_field(3)
+
+
+@dataclass
+class DebugPreviewJoinRuleRequest(betterproto.Message):
+    run_request: "RunJoinRuleRequest" = betterproto.message_field(1)
+    row_count_limit: int = betterproto.int32_field(2)
+    should_retrieve_affected_row_count: bool = betterproto.bool_field(3)
+    agent_uuid: str = betterproto.string_field(4)
+
+
+@dataclass
+class DebugPreviewJoinRuleResponse(betterproto.Message):
+    query_error: "QueryError" = betterproto.message_field(1)
+    response: "GetPreviewResponse" = betterproto.message_field(2)
+    large_payload_metadata: "AgentLargePayloadMetadata" = betterproto.message_field(3)
+
+
+@dataclass
+class AgentLargePayloadMetadata(betterproto.Message):
+    agent_uuid: str = betterproto.string_field(1)
+    response_key: str = betterproto.string_field(2)
+    company_uuid: str = betterproto.string_field(3)
+    encryption_metadata: "EncryptionMetadata" = betterproto.message_field(4)
+    compressed: bool = betterproto.bool_field(5)
+    byte_encoded: bool = betterproto.bool_field(6)
 
 
 class MetricServiceStub(betterproto.ServiceStub):
@@ -6486,6 +6596,7 @@ class MetricServiceStub(betterproto.ServiceStub):
         include_latest_metric_runs: bool = False,
         workspace_id: int = 0,
         tag_ids: List[int] = [],
+        dimension_ids: List[int] = [],
     ) -> MetricInfoList:
         """Get metric information"""
 
@@ -6509,6 +6620,7 @@ class MetricServiceStub(betterproto.ServiceStub):
         request.include_latest_metric_runs = include_latest_metric_runs
         request.workspace_id = workspace_id
         request.tag_ids = tag_ids
+        request.dimension_ids = dimension_ids
 
         return await self._unary_unary(
             "/com.bigeye.models.generated.MetricService/GetMetricInfoBatch",
@@ -6538,6 +6650,7 @@ class MetricServiceStub(betterproto.ServiceStub):
         include_latest_metric_runs: bool = False,
         workspace_id: int = 0,
         tag_ids: List[int] = [],
+        dimension_ids: List[int] = [],
     ) -> MetricInfoList:
         """Get batch metric information"""
 
@@ -6561,6 +6674,7 @@ class MetricServiceStub(betterproto.ServiceStub):
         request.include_latest_metric_runs = include_latest_metric_runs
         request.workspace_id = workspace_id
         request.tag_ids = tag_ids
+        request.dimension_ids = dimension_ids
 
         return await self._unary_unary(
             "/com.bigeye.models.generated.MetricService/GetMetricInfoBatchPost",
@@ -6590,6 +6704,7 @@ class MetricServiceStub(betterproto.ServiceStub):
         include_latest_metric_runs: bool = False,
         workspace_id: int = 0,
         tag_ids: List[int] = [],
+        dimension_ids: List[int] = [],
     ) -> GetMetricsCountResponse:
         """Get count of metrics"""
 
@@ -6613,6 +6728,7 @@ class MetricServiceStub(betterproto.ServiceStub):
         request.include_latest_metric_runs = include_latest_metric_runs
         request.workspace_id = workspace_id
         request.tag_ids = tag_ids
+        request.dimension_ids = dimension_ids
 
         return await self._unary_unary(
             "/com.bigeye.models.generated.MetricService/GetMetricsCount",
@@ -6646,6 +6762,7 @@ class MetricServiceStub(betterproto.ServiceStub):
         rct_override: str = "",
         is_lookback_using_current_time: bool = False,
         bigconfig_namespace: str = "",
+        dimension: Optional["IdAndDisplayName"] = None,
     ) -> MetricConfiguration:
         """Create or update metric"""
 
@@ -6681,6 +6798,8 @@ class MetricServiceStub(betterproto.ServiceStub):
         request.rct_override = rct_override
         request.is_lookback_using_current_time = is_lookback_using_current_time
         request.bigconfig_namespace = bigconfig_namespace
+        if dimension is not None:
+            request.dimension = dimension
 
         return await self._unary_unary(
             "/com.bigeye.models.generated.MetricService/CreateMetric",
@@ -6901,6 +7020,7 @@ class MetricServiceStub(betterproto.ServiceStub):
         rct_override: str = "",
         is_lookback_using_current_time: bool = False,
         bigconfig_namespace: str = "",
+        dimension: Optional["IdAndDisplayName"] = None,
     ) -> MetricValidationResult:
         """Validate a metric configuration"""
 
@@ -6936,6 +7056,8 @@ class MetricServiceStub(betterproto.ServiceStub):
         request.rct_override = rct_override
         request.is_lookback_using_current_time = is_lookback_using_current_time
         request.bigconfig_namespace = bigconfig_namespace
+        if dimension is not None:
+            request.dimension = dimension
 
         return await self._unary_unary(
             "/com.bigeye.models.generated.MetricService/ValidateMetric",
@@ -8886,6 +9008,7 @@ class LineageV2ServiceStub(betterproto.ServiceStub):
         workspace_id: int = 0,
         node_container_name: str = "",
         rebuild_graph: bool = False,
+        icon_url: str = "",
     ) -> LineageNodeV2:
         """Create custom lineage node"""
 
@@ -8896,6 +9019,7 @@ class LineageV2ServiceStub(betterproto.ServiceStub):
         request.workspace_id = workspace_id
         request.node_container_name = node_container_name
         request.rebuild_graph = rebuild_graph
+        request.icon_url = icon_url
 
         return await self._unary_unary(
             "/com.bigeye.models.generated.LineageV2Service/CreateCustomLineageNode",

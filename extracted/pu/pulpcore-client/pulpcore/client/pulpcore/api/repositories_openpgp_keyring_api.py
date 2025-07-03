@@ -58,6 +58,7 @@ class RepositoriesOpenpgpKeyringApi:
         self,
         open_p_g_p_keyring_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -79,6 +80,8 @@ class RepositoriesOpenpgpKeyringApi:
         :type open_p_g_p_keyring_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -104,6 +107,7 @@ class RepositoriesOpenpgpKeyringApi:
         _param = self._add_role_serialize(
             open_p_g_p_keyring_href=open_p_g_p_keyring_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -129,6 +133,7 @@ class RepositoriesOpenpgpKeyringApi:
         self,
         open_p_g_p_keyring_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -150,6 +155,8 @@ class RepositoriesOpenpgpKeyringApi:
         :type open_p_g_p_keyring_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -175,6 +182,7 @@ class RepositoriesOpenpgpKeyringApi:
         _param = self._add_role_serialize(
             open_p_g_p_keyring_href=open_p_g_p_keyring_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -200,6 +208,7 @@ class RepositoriesOpenpgpKeyringApi:
         self,
         open_p_g_p_keyring_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -221,6 +230,8 @@ class RepositoriesOpenpgpKeyringApi:
         :type open_p_g_p_keyring_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -246,6 +257,7 @@ class RepositoriesOpenpgpKeyringApi:
         _param = self._add_role_serialize(
             open_p_g_p_keyring_href=open_p_g_p_keyring_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -266,6 +278,7 @@ class RepositoriesOpenpgpKeyringApi:
         self,
         open_p_g_p_keyring_href,
         nested_role,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -275,6 +288,7 @@ class RepositoriesOpenpgpKeyringApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -291,6 +305,8 @@ class RepositoriesOpenpgpKeyringApi:
             _path_params['open_p_g_p_keyring_href'] = open_p_g_p_keyring_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if nested_role is not None:
@@ -349,6 +365,7 @@ class RepositoriesOpenpgpKeyringApi:
     def create(
         self,
         open_pgp_keyring: OpenPGPKeyring,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -368,6 +385,8 @@ class RepositoriesOpenpgpKeyringApi:
 
         :param open_pgp_keyring: (required)
         :type open_pgp_keyring: OpenPGPKeyring
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -392,6 +411,7 @@ class RepositoriesOpenpgpKeyringApi:
 
         _param = self._create_serialize(
             open_pgp_keyring=open_pgp_keyring,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -416,6 +436,7 @@ class RepositoriesOpenpgpKeyringApi:
     def create_with_http_info(
         self,
         open_pgp_keyring: OpenPGPKeyring,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -435,6 +456,8 @@ class RepositoriesOpenpgpKeyringApi:
 
         :param open_pgp_keyring: (required)
         :type open_pgp_keyring: OpenPGPKeyring
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -459,6 +482,7 @@ class RepositoriesOpenpgpKeyringApi:
 
         _param = self._create_serialize(
             open_pgp_keyring=open_pgp_keyring,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -483,6 +507,7 @@ class RepositoriesOpenpgpKeyringApi:
     def create_without_preload_content(
         self,
         open_pgp_keyring: OpenPGPKeyring,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -502,6 +527,8 @@ class RepositoriesOpenpgpKeyringApi:
 
         :param open_pgp_keyring: (required)
         :type open_pgp_keyring: OpenPGPKeyring
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -526,6 +553,7 @@ class RepositoriesOpenpgpKeyringApi:
 
         _param = self._create_serialize(
             open_pgp_keyring=open_pgp_keyring,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -545,6 +573,7 @@ class RepositoriesOpenpgpKeyringApi:
     def _create_serialize(
         self,
         open_pgp_keyring,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -554,6 +583,7 @@ class RepositoriesOpenpgpKeyringApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -568,6 +598,8 @@ class RepositoriesOpenpgpKeyringApi:
         # process the path parameters
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if open_pgp_keyring is not None:
@@ -626,6 +658,7 @@ class RepositoriesOpenpgpKeyringApi:
     def delete(
         self,
         open_p_g_p_keyring_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -645,6 +678,8 @@ class RepositoriesOpenpgpKeyringApi:
 
         :param open_p_g_p_keyring_href: (required)
         :type open_p_g_p_keyring_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -669,6 +704,7 @@ class RepositoriesOpenpgpKeyringApi:
 
         _param = self._delete_serialize(
             open_p_g_p_keyring_href=open_p_g_p_keyring_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -693,6 +729,7 @@ class RepositoriesOpenpgpKeyringApi:
     def delete_with_http_info(
         self,
         open_p_g_p_keyring_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -712,6 +749,8 @@ class RepositoriesOpenpgpKeyringApi:
 
         :param open_p_g_p_keyring_href: (required)
         :type open_p_g_p_keyring_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -736,6 +775,7 @@ class RepositoriesOpenpgpKeyringApi:
 
         _param = self._delete_serialize(
             open_p_g_p_keyring_href=open_p_g_p_keyring_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -760,6 +800,7 @@ class RepositoriesOpenpgpKeyringApi:
     def delete_without_preload_content(
         self,
         open_p_g_p_keyring_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -779,6 +820,8 @@ class RepositoriesOpenpgpKeyringApi:
 
         :param open_p_g_p_keyring_href: (required)
         :type open_p_g_p_keyring_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -803,6 +846,7 @@ class RepositoriesOpenpgpKeyringApi:
 
         _param = self._delete_serialize(
             open_p_g_p_keyring_href=open_p_g_p_keyring_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -822,6 +866,7 @@ class RepositoriesOpenpgpKeyringApi:
     def _delete_serialize(
         self,
         open_p_g_p_keyring_href,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -831,6 +876,7 @@ class RepositoriesOpenpgpKeyringApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -847,6 +893,8 @@ class RepositoriesOpenpgpKeyringApi:
             _path_params['open_p_g_p_keyring_href'] = open_p_g_p_keyring_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -887,6 +935,7 @@ class RepositoriesOpenpgpKeyringApi:
     @validate_call
     def list(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         latest_with_content: Annotated[Optional[StrictStr], Field(description="Content Unit referenced by HREF/PRN")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter results where name matches value")] = None,
@@ -934,6 +983,8 @@ class RepositoriesOpenpgpKeyringApi:
 
         A ViewSet for an ordinary repository.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param latest_with_content: Content Unit referenced by HREF/PRN
         :type latest_with_content: str
         :param limit: Number of results to return per page.
@@ -1017,6 +1068,7 @@ class RepositoriesOpenpgpKeyringApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             latest_with_content=latest_with_content,
             limit=limit,
             name=name,
@@ -1070,6 +1122,7 @@ class RepositoriesOpenpgpKeyringApi:
     @validate_call
     def list_with_http_info(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         latest_with_content: Annotated[Optional[StrictStr], Field(description="Content Unit referenced by HREF/PRN")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter results where name matches value")] = None,
@@ -1117,6 +1170,8 @@ class RepositoriesOpenpgpKeyringApi:
 
         A ViewSet for an ordinary repository.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param latest_with_content: Content Unit referenced by HREF/PRN
         :type latest_with_content: str
         :param limit: Number of results to return per page.
@@ -1200,6 +1255,7 @@ class RepositoriesOpenpgpKeyringApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             latest_with_content=latest_with_content,
             limit=limit,
             name=name,
@@ -1253,6 +1309,7 @@ class RepositoriesOpenpgpKeyringApi:
     @validate_call
     def list_without_preload_content(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         latest_with_content: Annotated[Optional[StrictStr], Field(description="Content Unit referenced by HREF/PRN")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter results where name matches value")] = None,
@@ -1300,6 +1357,8 @@ class RepositoriesOpenpgpKeyringApi:
 
         A ViewSet for an ordinary repository.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param latest_with_content: Content Unit referenced by HREF/PRN
         :type latest_with_content: str
         :param limit: Number of results to return per page.
@@ -1383,6 +1442,7 @@ class RepositoriesOpenpgpKeyringApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             latest_with_content=latest_with_content,
             limit=limit,
             name=name,
@@ -1431,6 +1491,7 @@ class RepositoriesOpenpgpKeyringApi:
 
     def _list_serialize(
         self,
+        x_task_diagnostics,
         latest_with_content,
         limit,
         name,
@@ -1470,6 +1531,7 @@ class RepositoriesOpenpgpKeyringApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'name__in': 'csv',
             'ordering': 'csv',
             'prn__in': 'csv',
@@ -1612,6 +1674,8 @@ class RepositoriesOpenpgpKeyringApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -1653,6 +1717,7 @@ class RepositoriesOpenpgpKeyringApi:
     def list_roles(
         self,
         open_p_g_p_keyring_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1674,6 +1739,8 @@ class RepositoriesOpenpgpKeyringApi:
 
         :param open_p_g_p_keyring_href: (required)
         :type open_p_g_p_keyring_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1702,6 +1769,7 @@ class RepositoriesOpenpgpKeyringApi:
 
         _param = self._list_roles_serialize(
             open_p_g_p_keyring_href=open_p_g_p_keyring_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1728,6 +1796,7 @@ class RepositoriesOpenpgpKeyringApi:
     def list_roles_with_http_info(
         self,
         open_p_g_p_keyring_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1749,6 +1818,8 @@ class RepositoriesOpenpgpKeyringApi:
 
         :param open_p_g_p_keyring_href: (required)
         :type open_p_g_p_keyring_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1777,6 +1848,7 @@ class RepositoriesOpenpgpKeyringApi:
 
         _param = self._list_roles_serialize(
             open_p_g_p_keyring_href=open_p_g_p_keyring_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1803,6 +1875,7 @@ class RepositoriesOpenpgpKeyringApi:
     def list_roles_without_preload_content(
         self,
         open_p_g_p_keyring_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1824,6 +1897,8 @@ class RepositoriesOpenpgpKeyringApi:
 
         :param open_p_g_p_keyring_href: (required)
         :type open_p_g_p_keyring_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1852,6 +1927,7 @@ class RepositoriesOpenpgpKeyringApi:
 
         _param = self._list_roles_serialize(
             open_p_g_p_keyring_href=open_p_g_p_keyring_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1873,6 +1949,7 @@ class RepositoriesOpenpgpKeyringApi:
     def _list_roles_serialize(
         self,
         open_p_g_p_keyring_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -1884,6 +1961,7 @@ class RepositoriesOpenpgpKeyringApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -1910,6 +1988,8 @@ class RepositoriesOpenpgpKeyringApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -1952,6 +2032,7 @@ class RepositoriesOpenpgpKeyringApi:
         self,
         open_p_g_p_keyring_href: StrictStr,
         repository_add_remove_content: RepositoryAddRemoveContent,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1973,6 +2054,8 @@ class RepositoriesOpenpgpKeyringApi:
         :type open_p_g_p_keyring_href: str
         :param repository_add_remove_content: (required)
         :type repository_add_remove_content: RepositoryAddRemoveContent
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1998,6 +2081,7 @@ class RepositoriesOpenpgpKeyringApi:
         _param = self._modify_serialize(
             open_p_g_p_keyring_href=open_p_g_p_keyring_href,
             repository_add_remove_content=repository_add_remove_content,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2023,6 +2107,7 @@ class RepositoriesOpenpgpKeyringApi:
         self,
         open_p_g_p_keyring_href: StrictStr,
         repository_add_remove_content: RepositoryAddRemoveContent,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2044,6 +2129,8 @@ class RepositoriesOpenpgpKeyringApi:
         :type open_p_g_p_keyring_href: str
         :param repository_add_remove_content: (required)
         :type repository_add_remove_content: RepositoryAddRemoveContent
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2069,6 +2156,7 @@ class RepositoriesOpenpgpKeyringApi:
         _param = self._modify_serialize(
             open_p_g_p_keyring_href=open_p_g_p_keyring_href,
             repository_add_remove_content=repository_add_remove_content,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2094,6 +2182,7 @@ class RepositoriesOpenpgpKeyringApi:
         self,
         open_p_g_p_keyring_href: StrictStr,
         repository_add_remove_content: RepositoryAddRemoveContent,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2115,6 +2204,8 @@ class RepositoriesOpenpgpKeyringApi:
         :type open_p_g_p_keyring_href: str
         :param repository_add_remove_content: (required)
         :type repository_add_remove_content: RepositoryAddRemoveContent
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2140,6 +2231,7 @@ class RepositoriesOpenpgpKeyringApi:
         _param = self._modify_serialize(
             open_p_g_p_keyring_href=open_p_g_p_keyring_href,
             repository_add_remove_content=repository_add_remove_content,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2160,6 +2252,7 @@ class RepositoriesOpenpgpKeyringApi:
         self,
         open_p_g_p_keyring_href,
         repository_add_remove_content,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -2169,6 +2262,7 @@ class RepositoriesOpenpgpKeyringApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -2185,6 +2279,8 @@ class RepositoriesOpenpgpKeyringApi:
             _path_params['open_p_g_p_keyring_href'] = open_p_g_p_keyring_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if repository_add_remove_content is not None:
@@ -2243,6 +2339,7 @@ class RepositoriesOpenpgpKeyringApi:
     def my_permissions(
         self,
         open_p_g_p_keyring_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -2264,6 +2361,8 @@ class RepositoriesOpenpgpKeyringApi:
 
         :param open_p_g_p_keyring_href: (required)
         :type open_p_g_p_keyring_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2292,6 +2391,7 @@ class RepositoriesOpenpgpKeyringApi:
 
         _param = self._my_permissions_serialize(
             open_p_g_p_keyring_href=open_p_g_p_keyring_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2318,6 +2418,7 @@ class RepositoriesOpenpgpKeyringApi:
     def my_permissions_with_http_info(
         self,
         open_p_g_p_keyring_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -2339,6 +2440,8 @@ class RepositoriesOpenpgpKeyringApi:
 
         :param open_p_g_p_keyring_href: (required)
         :type open_p_g_p_keyring_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2367,6 +2470,7 @@ class RepositoriesOpenpgpKeyringApi:
 
         _param = self._my_permissions_serialize(
             open_p_g_p_keyring_href=open_p_g_p_keyring_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2393,6 +2497,7 @@ class RepositoriesOpenpgpKeyringApi:
     def my_permissions_without_preload_content(
         self,
         open_p_g_p_keyring_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -2414,6 +2519,8 @@ class RepositoriesOpenpgpKeyringApi:
 
         :param open_p_g_p_keyring_href: (required)
         :type open_p_g_p_keyring_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2442,6 +2549,7 @@ class RepositoriesOpenpgpKeyringApi:
 
         _param = self._my_permissions_serialize(
             open_p_g_p_keyring_href=open_p_g_p_keyring_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2463,6 +2571,7 @@ class RepositoriesOpenpgpKeyringApi:
     def _my_permissions_serialize(
         self,
         open_p_g_p_keyring_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -2474,6 +2583,7 @@ class RepositoriesOpenpgpKeyringApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -2500,6 +2610,8 @@ class RepositoriesOpenpgpKeyringApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -2542,6 +2654,7 @@ class RepositoriesOpenpgpKeyringApi:
         self,
         open_p_g_p_keyring_href: StrictStr,
         patched_open_pgp_keyring: PatchedOpenPGPKeyring,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2563,6 +2676,8 @@ class RepositoriesOpenpgpKeyringApi:
         :type open_p_g_p_keyring_href: str
         :param patched_open_pgp_keyring: (required)
         :type patched_open_pgp_keyring: PatchedOpenPGPKeyring
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2588,6 +2703,7 @@ class RepositoriesOpenpgpKeyringApi:
         _param = self._partial_update_serialize(
             open_p_g_p_keyring_href=open_p_g_p_keyring_href,
             patched_open_pgp_keyring=patched_open_pgp_keyring,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2613,6 +2729,7 @@ class RepositoriesOpenpgpKeyringApi:
         self,
         open_p_g_p_keyring_href: StrictStr,
         patched_open_pgp_keyring: PatchedOpenPGPKeyring,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2634,6 +2751,8 @@ class RepositoriesOpenpgpKeyringApi:
         :type open_p_g_p_keyring_href: str
         :param patched_open_pgp_keyring: (required)
         :type patched_open_pgp_keyring: PatchedOpenPGPKeyring
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2659,6 +2778,7 @@ class RepositoriesOpenpgpKeyringApi:
         _param = self._partial_update_serialize(
             open_p_g_p_keyring_href=open_p_g_p_keyring_href,
             patched_open_pgp_keyring=patched_open_pgp_keyring,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2684,6 +2804,7 @@ class RepositoriesOpenpgpKeyringApi:
         self,
         open_p_g_p_keyring_href: StrictStr,
         patched_open_pgp_keyring: PatchedOpenPGPKeyring,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2705,6 +2826,8 @@ class RepositoriesOpenpgpKeyringApi:
         :type open_p_g_p_keyring_href: str
         :param patched_open_pgp_keyring: (required)
         :type patched_open_pgp_keyring: PatchedOpenPGPKeyring
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2730,6 +2853,7 @@ class RepositoriesOpenpgpKeyringApi:
         _param = self._partial_update_serialize(
             open_p_g_p_keyring_href=open_p_g_p_keyring_href,
             patched_open_pgp_keyring=patched_open_pgp_keyring,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2750,6 +2874,7 @@ class RepositoriesOpenpgpKeyringApi:
         self,
         open_p_g_p_keyring_href,
         patched_open_pgp_keyring,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -2759,6 +2884,7 @@ class RepositoriesOpenpgpKeyringApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -2775,6 +2901,8 @@ class RepositoriesOpenpgpKeyringApi:
             _path_params['open_p_g_p_keyring_href'] = open_p_g_p_keyring_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if patched_open_pgp_keyring is not None:
@@ -2833,6 +2961,7 @@ class RepositoriesOpenpgpKeyringApi:
     def read(
         self,
         open_p_g_p_keyring_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -2854,6 +2983,8 @@ class RepositoriesOpenpgpKeyringApi:
 
         :param open_p_g_p_keyring_href: (required)
         :type open_p_g_p_keyring_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2882,6 +3013,7 @@ class RepositoriesOpenpgpKeyringApi:
 
         _param = self._read_serialize(
             open_p_g_p_keyring_href=open_p_g_p_keyring_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2908,6 +3040,7 @@ class RepositoriesOpenpgpKeyringApi:
     def read_with_http_info(
         self,
         open_p_g_p_keyring_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -2929,6 +3062,8 @@ class RepositoriesOpenpgpKeyringApi:
 
         :param open_p_g_p_keyring_href: (required)
         :type open_p_g_p_keyring_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2957,6 +3092,7 @@ class RepositoriesOpenpgpKeyringApi:
 
         _param = self._read_serialize(
             open_p_g_p_keyring_href=open_p_g_p_keyring_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2983,6 +3119,7 @@ class RepositoriesOpenpgpKeyringApi:
     def read_without_preload_content(
         self,
         open_p_g_p_keyring_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -3004,6 +3141,8 @@ class RepositoriesOpenpgpKeyringApi:
 
         :param open_p_g_p_keyring_href: (required)
         :type open_p_g_p_keyring_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -3032,6 +3171,7 @@ class RepositoriesOpenpgpKeyringApi:
 
         _param = self._read_serialize(
             open_p_g_p_keyring_href=open_p_g_p_keyring_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -3053,6 +3193,7 @@ class RepositoriesOpenpgpKeyringApi:
     def _read_serialize(
         self,
         open_p_g_p_keyring_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -3064,6 +3205,7 @@ class RepositoriesOpenpgpKeyringApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -3090,6 +3232,8 @@ class RepositoriesOpenpgpKeyringApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -3132,6 +3276,7 @@ class RepositoriesOpenpgpKeyringApi:
         self,
         open_p_g_p_keyring_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3153,6 +3298,8 @@ class RepositoriesOpenpgpKeyringApi:
         :type open_p_g_p_keyring_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3178,6 +3325,7 @@ class RepositoriesOpenpgpKeyringApi:
         _param = self._remove_role_serialize(
             open_p_g_p_keyring_href=open_p_g_p_keyring_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3203,6 +3351,7 @@ class RepositoriesOpenpgpKeyringApi:
         self,
         open_p_g_p_keyring_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3224,6 +3373,8 @@ class RepositoriesOpenpgpKeyringApi:
         :type open_p_g_p_keyring_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3249,6 +3400,7 @@ class RepositoriesOpenpgpKeyringApi:
         _param = self._remove_role_serialize(
             open_p_g_p_keyring_href=open_p_g_p_keyring_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3274,6 +3426,7 @@ class RepositoriesOpenpgpKeyringApi:
         self,
         open_p_g_p_keyring_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3295,6 +3448,8 @@ class RepositoriesOpenpgpKeyringApi:
         :type open_p_g_p_keyring_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3320,6 +3475,7 @@ class RepositoriesOpenpgpKeyringApi:
         _param = self._remove_role_serialize(
             open_p_g_p_keyring_href=open_p_g_p_keyring_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3340,6 +3496,7 @@ class RepositoriesOpenpgpKeyringApi:
         self,
         open_p_g_p_keyring_href,
         nested_role,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -3349,6 +3506,7 @@ class RepositoriesOpenpgpKeyringApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -3365,6 +3523,8 @@ class RepositoriesOpenpgpKeyringApi:
             _path_params['open_p_g_p_keyring_href'] = open_p_g_p_keyring_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if nested_role is not None:
@@ -3424,6 +3584,7 @@ class RepositoriesOpenpgpKeyringApi:
         self,
         open_p_g_p_keyring_href: StrictStr,
         set_label: SetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3445,6 +3606,8 @@ class RepositoriesOpenpgpKeyringApi:
         :type open_p_g_p_keyring_href: str
         :param set_label: (required)
         :type set_label: SetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3470,6 +3633,7 @@ class RepositoriesOpenpgpKeyringApi:
         _param = self._set_label_serialize(
             open_p_g_p_keyring_href=open_p_g_p_keyring_href,
             set_label=set_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3495,6 +3659,7 @@ class RepositoriesOpenpgpKeyringApi:
         self,
         open_p_g_p_keyring_href: StrictStr,
         set_label: SetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3516,6 +3681,8 @@ class RepositoriesOpenpgpKeyringApi:
         :type open_p_g_p_keyring_href: str
         :param set_label: (required)
         :type set_label: SetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3541,6 +3708,7 @@ class RepositoriesOpenpgpKeyringApi:
         _param = self._set_label_serialize(
             open_p_g_p_keyring_href=open_p_g_p_keyring_href,
             set_label=set_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3566,6 +3734,7 @@ class RepositoriesOpenpgpKeyringApi:
         self,
         open_p_g_p_keyring_href: StrictStr,
         set_label: SetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3587,6 +3756,8 @@ class RepositoriesOpenpgpKeyringApi:
         :type open_p_g_p_keyring_href: str
         :param set_label: (required)
         :type set_label: SetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3612,6 +3783,7 @@ class RepositoriesOpenpgpKeyringApi:
         _param = self._set_label_serialize(
             open_p_g_p_keyring_href=open_p_g_p_keyring_href,
             set_label=set_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3632,6 +3804,7 @@ class RepositoriesOpenpgpKeyringApi:
         self,
         open_p_g_p_keyring_href,
         set_label,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -3641,6 +3814,7 @@ class RepositoriesOpenpgpKeyringApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -3657,6 +3831,8 @@ class RepositoriesOpenpgpKeyringApi:
             _path_params['open_p_g_p_keyring_href'] = open_p_g_p_keyring_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if set_label is not None:
@@ -3716,6 +3892,7 @@ class RepositoriesOpenpgpKeyringApi:
         self,
         open_p_g_p_keyring_href: StrictStr,
         unset_label: UnsetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3737,6 +3914,8 @@ class RepositoriesOpenpgpKeyringApi:
         :type open_p_g_p_keyring_href: str
         :param unset_label: (required)
         :type unset_label: UnsetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3762,6 +3941,7 @@ class RepositoriesOpenpgpKeyringApi:
         _param = self._unset_label_serialize(
             open_p_g_p_keyring_href=open_p_g_p_keyring_href,
             unset_label=unset_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3787,6 +3967,7 @@ class RepositoriesOpenpgpKeyringApi:
         self,
         open_p_g_p_keyring_href: StrictStr,
         unset_label: UnsetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3808,6 +3989,8 @@ class RepositoriesOpenpgpKeyringApi:
         :type open_p_g_p_keyring_href: str
         :param unset_label: (required)
         :type unset_label: UnsetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3833,6 +4016,7 @@ class RepositoriesOpenpgpKeyringApi:
         _param = self._unset_label_serialize(
             open_p_g_p_keyring_href=open_p_g_p_keyring_href,
             unset_label=unset_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3858,6 +4042,7 @@ class RepositoriesOpenpgpKeyringApi:
         self,
         open_p_g_p_keyring_href: StrictStr,
         unset_label: UnsetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3879,6 +4064,8 @@ class RepositoriesOpenpgpKeyringApi:
         :type open_p_g_p_keyring_href: str
         :param unset_label: (required)
         :type unset_label: UnsetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3904,6 +4091,7 @@ class RepositoriesOpenpgpKeyringApi:
         _param = self._unset_label_serialize(
             open_p_g_p_keyring_href=open_p_g_p_keyring_href,
             unset_label=unset_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3924,6 +4112,7 @@ class RepositoriesOpenpgpKeyringApi:
         self,
         open_p_g_p_keyring_href,
         unset_label,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -3933,6 +4122,7 @@ class RepositoriesOpenpgpKeyringApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -3949,6 +4139,8 @@ class RepositoriesOpenpgpKeyringApi:
             _path_params['open_p_g_p_keyring_href'] = open_p_g_p_keyring_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if unset_label is not None:
@@ -4008,6 +4200,7 @@ class RepositoriesOpenpgpKeyringApi:
         self,
         open_p_g_p_keyring_href: StrictStr,
         open_pgp_keyring: OpenPGPKeyring,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4029,6 +4222,8 @@ class RepositoriesOpenpgpKeyringApi:
         :type open_p_g_p_keyring_href: str
         :param open_pgp_keyring: (required)
         :type open_pgp_keyring: OpenPGPKeyring
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -4054,6 +4249,7 @@ class RepositoriesOpenpgpKeyringApi:
         _param = self._update_serialize(
             open_p_g_p_keyring_href=open_p_g_p_keyring_href,
             open_pgp_keyring=open_pgp_keyring,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -4079,6 +4275,7 @@ class RepositoriesOpenpgpKeyringApi:
         self,
         open_p_g_p_keyring_href: StrictStr,
         open_pgp_keyring: OpenPGPKeyring,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4100,6 +4297,8 @@ class RepositoriesOpenpgpKeyringApi:
         :type open_p_g_p_keyring_href: str
         :param open_pgp_keyring: (required)
         :type open_pgp_keyring: OpenPGPKeyring
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -4125,6 +4324,7 @@ class RepositoriesOpenpgpKeyringApi:
         _param = self._update_serialize(
             open_p_g_p_keyring_href=open_p_g_p_keyring_href,
             open_pgp_keyring=open_pgp_keyring,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -4150,6 +4350,7 @@ class RepositoriesOpenpgpKeyringApi:
         self,
         open_p_g_p_keyring_href: StrictStr,
         open_pgp_keyring: OpenPGPKeyring,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4171,6 +4372,8 @@ class RepositoriesOpenpgpKeyringApi:
         :type open_p_g_p_keyring_href: str
         :param open_pgp_keyring: (required)
         :type open_pgp_keyring: OpenPGPKeyring
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -4196,6 +4399,7 @@ class RepositoriesOpenpgpKeyringApi:
         _param = self._update_serialize(
             open_p_g_p_keyring_href=open_p_g_p_keyring_href,
             open_pgp_keyring=open_pgp_keyring,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -4216,6 +4420,7 @@ class RepositoriesOpenpgpKeyringApi:
         self,
         open_p_g_p_keyring_href,
         open_pgp_keyring,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -4225,6 +4430,7 @@ class RepositoriesOpenpgpKeyringApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -4241,6 +4447,8 @@ class RepositoriesOpenpgpKeyringApi:
             _path_params['open_p_g_p_keyring_href'] = open_p_g_p_keyring_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if open_pgp_keyring is not None:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: deepteam
-Version: 0.1.6
+Version: 0.1.7
 Summary: The LLM Red Teaming Framework
 Project-URL: Repository, https://github.com/confident-ai/deepteam
 Project-URL: Documentation, https://trydeepteam.com
@@ -10,9 +10,10 @@ License-Expression: Apache-2.0
 License-File: LICENSE.md
 Requires-Python: <3.14,>=3.9
 Requires-Dist: aiohttp>=3.11.18
-Requires-Dist: deepeval>=2.9.7
+Requires-Dist: deepeval>=3.1.0
 Requires-Dist: grpcio>=1.67.1
 Requires-Dist: openai>=1.76.2
+Requires-Dist: pyyaml>=6.0.2
 Requires-Dist: requests>=2.31.0
 Requires-Dist: tabulate>=0.9.0
 Requires-Dist: tqdm>=4.66.1
@@ -166,7 +167,171 @@ python red_team_llm.py
 Unlike `deepeval`, `deepteam`'s red teaming capabilities does not require a prepared dataset. This is because adversarial attacks to your LLM application is dynamically simulated at red teaming time based on the list of `vulnerabilities` you wish to red team for.
 
 > [!NOTE]
-> You'll need to set your `OPENAI_API_KEY` as an enviornment variable before running the `red_team()` function, since `deepteam` uses LLMs to both generate adversarial attacks and evaluate LLM outputs. To use **ANY** custom LLM of your choice, [check out this part of the docs](https://docs.confident-ai.com/guides/guides-using-custom-llms).
+> You'll need to set your `OPENAI_API_KEY` as an environment variable or use `deepteam set-api-key sk-proj-...` before running the `red_team()` function, since `deepteam` uses LLMs to both generate adversarial attacks and evaluate LLM outputs. To use **ANY** custom LLM of your choice, [check out this part of the docs](https://docs.confident-ai.com/guides/guides-using-custom-llms).
+
+<br />
+
+# 🖥️ Command Line Interface
+
+Use the CLI to run red teaming with YAML configs:
+
+```bash
+# Basic usage
+deepteam run config.yaml
+
+# With options
+deepteam run config.yaml -c 20 -a 5 -o results
+```
+
+**Options:**
+- `-c, --max-concurrent`: Maximum concurrent operations (overrides config)
+- `-a, --attacks-per-vuln`: Number of attacks per vulnerability type (overrides config)
+- `-o, --output-folder`: Path to the output folder for saving risk assessment results (overrides config)
+
+Use `deepteam --help` to see all available commands and options.
+
+## API Keys
+
+```bash
+# Auto-detects provider from prefix
+deepteam set-api-key sk-proj-abc123...  # OpenAI
+deepteam set-api-key sk-ant-abc123...   # Anthropic  
+deepteam set-api-key AIzabc123...       # Google
+
+deepteam remove-api-key
+```
+
+## Provider Setup
+
+```bash
+# Azure OpenAI
+deepteam set-azure-openai --openai-api-key "key" --openai-endpoint "endpoint" --openai-api-version "version" --openai-model-name "model" --deployment-name "deployment"
+
+# Local/Ollama
+deepteam set-local-model model-name --base-url "http://localhost:8000"
+deepteam set-ollama llama2
+
+# Gemini
+deepteam set-gemini --google-api-key "key"
+```
+
+## Config Example
+
+```yaml
+# Red teaming models (separate from target)
+models:
+  simulator: gpt-3.5-turbo-0125
+  evaluation: gpt-4o
+
+# Target system configuration
+target:
+  purpose: "A helpful AI assistant"
+  
+  # Option 1: Simple model specification (for testing foundational models)
+  model: gpt-3.5-turbo
+  
+  # Option 2: Custom DeepEval model (for LLM applications)
+  # model:
+  #   provider: custom
+  #   file: "my_custom_model.py"
+  #   class: "MyCustomLLM"
+
+# System configuration 
+system_config:
+  max_concurrent: 10
+  attacks_per_vulnerability_type: 3
+  run_async: true
+  ignore_errors: false
+  output_folder: "results"
+
+default_vulnerabilities:
+  - name: "Bias"
+    types: ["race", "gender"]
+  - name: "Toxicity"
+    types: ["profanity", "insults"]
+
+attacks:
+  - name: "Prompt Injection"
+```
+**CLI Overrides:**
+The `-c` and `-a` and `-o` CLI options override YAML config values:
+```bash
+# Override max_concurrent, attacks_per_vuln, and output_folder from CLI
+deepteam run config.yaml -c 20 -a 5 -o results
+```
+
+**Target Configuration Options:**
+
+For simple model testing:
+```yaml
+target:
+  model: gpt-4o
+  purpose: "A helpful AI assistant"
+```
+
+For custom LLM applications with DeepEval models:
+```yaml
+target:
+  model:
+    provider: custom
+    file: "my_custom_model.py"
+    class: "MyCustomLLM"
+  purpose: "A customer service chatbot"
+```
+
+**Available Providers:** `openai`, `anthropic`, `gemini`, `azure`, `local`, `ollama`, `custom`
+
+**Model Format:**
+```yaml
+# Simple format
+simulator: gpt-4o
+
+# With provider
+simulator:
+  provider: anthropic
+  model: claude-3-5-sonnet-20241022
+```
+
+## Custom Model Requirements
+
+When creating custom models for target testing, you **MUST**:
+
+1. **Inherit from `DeepEvalBaseLLM`**
+2. **Implement `get_model_name()`** - return a string model name
+3. **Implement `load_model()`** - return the model object (usually `self`)
+4. **Implement `generate(prompt: str) -> str`** - synchronous generation
+5. **Implement `a_generate(prompt: str) -> str`** - asynchronous generation
+
+**Example Custom Model:**
+```python
+import requests
+import json
+import asyncio
+from deepeval.models import DeepEvalBaseLLM
+
+class MyCustomLLM(DeepEvalBaseLLM):
+    def __init__(self):
+        self.api_url = "https://your-api.com/chat"
+        self.api_key = "your-api-key"
+
+    def get_model_name(self):
+        return "My Custom LLM"
+
+    def load_model(self):
+        return self
+
+    def generate(self, prompt: str) -> str:
+        response = requests.post(
+            self.api_url,
+            headers={"Authorization": f"Bearer {self.api_key}"},
+            json={"message": prompt}
+        )
+        return response.json()["response"]
+
+    async def a_generate(self, prompt: str) -> str:
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, self.generate, prompt)
+```
 
 <br />
 

@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal
+from cachetools import cached, TTLCache
 
 from ibm_watsonx_ai._wrappers import requests
 from ibm_watsonx_ai.messages.messages import Messages
@@ -136,7 +137,7 @@ class Projects(WMLResource):
             _silent_response_logging=True,
         )["location"]
 
-        project_details = self.get_details(location.split("/")[-1])
+        project_details = self._get_details(location.split("/")[-1])
 
         if "compute" in project_details["entity"].keys():
             instance_id = project_details["entity"]["compute"][0]["guid"]
@@ -230,6 +231,9 @@ class Projects(WMLResource):
 
         return "SUCCESS"
 
+    @cached(
+        cache=TTLCache(maxsize=32, ttl=4.5 * 60)
+    )  # Projects API doesn't refresh credentials until 5 minutes before expiration
     def get_details(
         self,
         project_id: str | None = None,
@@ -239,7 +243,7 @@ class Projects(WMLResource):
         project_name: str | None = None,
         **kwargs: Any,
     ) -> dict:
-        """Get metadata of stored project(s).
+        """Get metadata of stored project(s). The method uses TTL cache.
 
         :param project_id: ID of the project
         :type project_id: str, optional
@@ -270,13 +274,33 @@ class Projects(WMLResource):
                 project_details.extend(entry)
 
         """
+
+        return self._get_details(
+            project_id=project_id,
+            limit=limit,
+            asynchronous=asynchronous,
+            get_all=get_all,
+            project_name=project_name,
+            **kwargs,
+        )
+
+    def _get_details(
+        self,
+        project_id: str | None = None,
+        limit: int | None = None,
+        asynchronous: bool | None = False,
+        get_all: bool | None = False,
+        project_name: str | None = None,
+        **kwargs: Any,
+    ) -> dict:
+        """Get metadata of stored project(s) without caching. It's dedicated for internal usage."""
         Projects._validate_type(project_id, "project_id", str, False)
 
         href = self._client._href_definitions.get_project_href(project_id)
 
         query_params = {}
-        if extra_query_params := kwargs.get("extra_query_params"):
-            query_params.update(extra_query_params)
+        if include := kwargs.get("include"):
+            query_params["include"] = include
 
         if project_id is not None:
             response_get = requests.get(
@@ -363,6 +387,7 @@ class Projects(WMLResource):
                 query_params=params,
                 _async=True,
                 _all=True,
+                _silent_response_logging=True,
             )
             for m in r["resources"]
         ]
@@ -416,7 +441,7 @@ class Projects(WMLResource):
         self._validate_type(project_id, "project_id", str, True)
         self._validate_type(changes, "changes", dict, True)
 
-        details = self.get_details(project_id)
+        details = self._get_details(project_id)
 
         if "compute" in changes:
             changes["compute"]["type"] = "machine_learning"
@@ -451,7 +476,9 @@ class Projects(WMLResource):
             href, json=payload, headers=self._client._get_headers()
         )
 
-        updated_details = self._handle_response(200, "projects patch", response)
+        updated_details = self._handle_response(
+            200, "projects patch", response, _silent_response_logging=True
+        )
 
         # Cloud Convergence
         if "compute" in updated_details["entity"].keys():
@@ -528,7 +555,6 @@ class Projects(WMLResource):
             json=project_meta,
         )
 
-        # TODO: Change response code one they change it to 201
         members_details = self._handle_response(
             200, "creating new members", creation_response
         )

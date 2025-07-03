@@ -55,6 +55,7 @@ class TasksApi:
         self,
         task_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -76,6 +77,8 @@ class TasksApi:
         :type task_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -101,6 +104,7 @@ class TasksApi:
         _param = self._add_role_serialize(
             task_href=task_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -126,6 +130,7 @@ class TasksApi:
         self,
         task_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -147,6 +152,8 @@ class TasksApi:
         :type task_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -172,6 +179,7 @@ class TasksApi:
         _param = self._add_role_serialize(
             task_href=task_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -197,6 +205,7 @@ class TasksApi:
         self,
         task_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -218,6 +227,8 @@ class TasksApi:
         :type task_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -243,6 +254,7 @@ class TasksApi:
         _param = self._add_role_serialize(
             task_href=task_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -263,6 +275,7 @@ class TasksApi:
         self,
         task_href,
         nested_role,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -272,6 +285,7 @@ class TasksApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -288,6 +302,8 @@ class TasksApi:
             _path_params['task_href'] = task_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if nested_role is not None:
@@ -346,6 +362,7 @@ class TasksApi:
     def delete(
         self,
         task_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -365,6 +382,8 @@ class TasksApi:
 
         :param task_href: (required)
         :type task_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -389,6 +408,7 @@ class TasksApi:
 
         _param = self._delete_serialize(
             task_href=task_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -413,6 +433,7 @@ class TasksApi:
     def delete_with_http_info(
         self,
         task_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -432,6 +453,8 @@ class TasksApi:
 
         :param task_href: (required)
         :type task_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -456,6 +479,7 @@ class TasksApi:
 
         _param = self._delete_serialize(
             task_href=task_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -480,6 +504,7 @@ class TasksApi:
     def delete_without_preload_content(
         self,
         task_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -499,6 +524,8 @@ class TasksApi:
 
         :param task_href: (required)
         :type task_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -523,6 +550,7 @@ class TasksApi:
 
         _param = self._delete_serialize(
             task_href=task_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -542,6 +570,7 @@ class TasksApi:
     def _delete_serialize(
         self,
         task_href,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -551,6 +580,7 @@ class TasksApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -567,6 +597,8 @@ class TasksApi:
             _path_params['task_href'] = task_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -600,6 +632,7 @@ class TasksApi:
     @validate_call
     def list(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         child_tasks: Annotated[Optional[StrictStr], Field(description="Filter results where child_tasks matches value")] = None,
         created_resources: Optional[StrictStr] = None,
         exclusive_resources: Optional[StrictStr] = None,
@@ -619,7 +652,7 @@ class TasksApi:
         name__in: Annotated[Optional[List[StrictStr]], Field(description="Filter results where name is in a comma-separated list of values")] = None,
         name__ne: Annotated[Optional[StrictStr], Field(description="Filter results where name not equal to value")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
-        ordering: Annotated[Optional[List[StrictStr]], Field(description="Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `state` - State * `-state` - State (descending) * `name` - Name * `-name` - Name (descending) * `logging_cid` - Logging cid * `-logging_cid` - Logging cid (descending) * `unblocked_at` - Unblocked at * `-unblocked_at` - Unblocked at (descending) * `started_at` - Started at * `-started_at` - Started at (descending) * `finished_at` - Finished at * `-finished_at` - Finished at (descending) * `error` - Error * `-error` - Error (descending) * `enc_args` - Enc args * `-enc_args` - Enc args (descending) * `enc_kwargs` - Enc kwargs * `-enc_kwargs` - Enc kwargs (descending) * `reserved_resources_record` - Reserved resources record * `-reserved_resources_record` - Reserved resources record (descending) * `versions` - Versions * `-versions` - Versions (descending) * `immediate` - Immediate * `-immediate` - Immediate (descending) * `deferred` - Deferred * `-deferred` - Deferred (descending) * `pk` - Pk * `-pk` - Pk (descending)")] = None,
+        ordering: Annotated[Optional[List[StrictStr]], Field(description="Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `state` - State * `-state` - State (descending) * `name` - Name * `-name` - Name (descending) * `logging_cid` - Logging cid * `-logging_cid` - Logging cid (descending) * `unblocked_at` - Unblocked at * `-unblocked_at` - Unblocked at (descending) * `started_at` - Started at * `-started_at` - Started at (descending) * `finished_at` - Finished at * `-finished_at` - Finished at (descending) * `error` - Error * `-error` - Error (descending) * `enc_args` - Enc args * `-enc_args` - Enc args (descending) * `enc_kwargs` - Enc kwargs * `-enc_kwargs` - Enc kwargs (descending) * `reserved_resources_record` - Reserved resources record * `-reserved_resources_record` - Reserved resources record (descending) * `versions` - Versions * `-versions` - Versions (descending) * `profile_options` - Profile options * `-profile_options` - Profile options (descending) * `immediate` - Immediate * `-immediate` - Immediate (descending) * `deferred` - Deferred * `-deferred` - Deferred (descending) * `pk` - Pk * `-pk` - Pk (descending)")] = None,
         parent_task: Annotated[Optional[StrictStr], Field(description="Filter results where parent_task matches value")] = None,
         prn__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
         pulp_created: Annotated[Optional[datetime], Field(description="Filter results where pulp_created matches value")] = None,
@@ -676,6 +709,8 @@ class TasksApi:
 
         A customized named ModelViewSet that knows how to register itself with the Pulp API router.  This viewset is discoverable by its name. \"Normal\" Django Models and Master/Detail models are supported by the ``register_with`` method.  Attributes:     lookup_field (str): The name of the field by which an object should be looked up, in         addition to any parent lookups if this ViewSet is nested. Defaults to 'pk'     endpoint_name (str): The name of the final path segment that should identify the ViewSet's         collection endpoint.     nest_prefix (str): Optional prefix under which this ViewSet should be nested. This must         correspond to the \"parent_prefix\" of a router with rest_framework_nested.NestedMixin.         None indicates this ViewSet should not be nested.     parent_lookup_kwargs (dict): Optional mapping of key names that would appear in self.kwargs         to django model filter expressions that can be used with the corresponding value from         self.kwargs, used only by a nested ViewSet to filter based on the parent object's         identity.     schema (DefaultSchema): The schema class to use by default in a viewset.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param child_tasks: Filter results where child_tasks matches value
         :type child_tasks: str
         :param created_resources:
@@ -714,7 +749,7 @@ class TasksApi:
         :type name__ne: str
         :param offset: The initial index from which to return the results.
         :type offset: int
-        :param ordering: Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `state` - State * `-state` - State (descending) * `name` - Name * `-name` - Name (descending) * `logging_cid` - Logging cid * `-logging_cid` - Logging cid (descending) * `unblocked_at` - Unblocked at * `-unblocked_at` - Unblocked at (descending) * `started_at` - Started at * `-started_at` - Started at (descending) * `finished_at` - Finished at * `-finished_at` - Finished at (descending) * `error` - Error * `-error` - Error (descending) * `enc_args` - Enc args * `-enc_args` - Enc args (descending) * `enc_kwargs` - Enc kwargs * `-enc_kwargs` - Enc kwargs (descending) * `reserved_resources_record` - Reserved resources record * `-reserved_resources_record` - Reserved resources record (descending) * `versions` - Versions * `-versions` - Versions (descending) * `immediate` - Immediate * `-immediate` - Immediate (descending) * `deferred` - Deferred * `-deferred` - Deferred (descending) * `pk` - Pk * `-pk` - Pk (descending)
+        :param ordering: Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `state` - State * `-state` - State (descending) * `name` - Name * `-name` - Name (descending) * `logging_cid` - Logging cid * `-logging_cid` - Logging cid (descending) * `unblocked_at` - Unblocked at * `-unblocked_at` - Unblocked at (descending) * `started_at` - Started at * `-started_at` - Started at (descending) * `finished_at` - Finished at * `-finished_at` - Finished at (descending) * `error` - Error * `-error` - Error (descending) * `enc_args` - Enc args * `-enc_args` - Enc args (descending) * `enc_kwargs` - Enc kwargs * `-enc_kwargs` - Enc kwargs (descending) * `reserved_resources_record` - Reserved resources record * `-reserved_resources_record` - Reserved resources record (descending) * `versions` - Versions * `-versions` - Versions (descending) * `profile_options` - Profile options * `-profile_options` - Profile options (descending) * `immediate` - Immediate * `-immediate` - Immediate (descending) * `deferred` - Deferred * `-deferred` - Deferred (descending) * `pk` - Pk * `-pk` - Pk (descending)
         :type ordering: List[str]
         :param parent_task: Filter results where parent_task matches value
         :type parent_task: str
@@ -817,6 +852,7 @@ class TasksApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             child_tasks=child_tasks,
             created_resources=created_resources,
             exclusive_resources=exclusive_resources,
@@ -899,6 +935,7 @@ class TasksApi:
     @validate_call
     def list_with_http_info(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         child_tasks: Annotated[Optional[StrictStr], Field(description="Filter results where child_tasks matches value")] = None,
         created_resources: Optional[StrictStr] = None,
         exclusive_resources: Optional[StrictStr] = None,
@@ -918,7 +955,7 @@ class TasksApi:
         name__in: Annotated[Optional[List[StrictStr]], Field(description="Filter results where name is in a comma-separated list of values")] = None,
         name__ne: Annotated[Optional[StrictStr], Field(description="Filter results where name not equal to value")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
-        ordering: Annotated[Optional[List[StrictStr]], Field(description="Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `state` - State * `-state` - State (descending) * `name` - Name * `-name` - Name (descending) * `logging_cid` - Logging cid * `-logging_cid` - Logging cid (descending) * `unblocked_at` - Unblocked at * `-unblocked_at` - Unblocked at (descending) * `started_at` - Started at * `-started_at` - Started at (descending) * `finished_at` - Finished at * `-finished_at` - Finished at (descending) * `error` - Error * `-error` - Error (descending) * `enc_args` - Enc args * `-enc_args` - Enc args (descending) * `enc_kwargs` - Enc kwargs * `-enc_kwargs` - Enc kwargs (descending) * `reserved_resources_record` - Reserved resources record * `-reserved_resources_record` - Reserved resources record (descending) * `versions` - Versions * `-versions` - Versions (descending) * `immediate` - Immediate * `-immediate` - Immediate (descending) * `deferred` - Deferred * `-deferred` - Deferred (descending) * `pk` - Pk * `-pk` - Pk (descending)")] = None,
+        ordering: Annotated[Optional[List[StrictStr]], Field(description="Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `state` - State * `-state` - State (descending) * `name` - Name * `-name` - Name (descending) * `logging_cid` - Logging cid * `-logging_cid` - Logging cid (descending) * `unblocked_at` - Unblocked at * `-unblocked_at` - Unblocked at (descending) * `started_at` - Started at * `-started_at` - Started at (descending) * `finished_at` - Finished at * `-finished_at` - Finished at (descending) * `error` - Error * `-error` - Error (descending) * `enc_args` - Enc args * `-enc_args` - Enc args (descending) * `enc_kwargs` - Enc kwargs * `-enc_kwargs` - Enc kwargs (descending) * `reserved_resources_record` - Reserved resources record * `-reserved_resources_record` - Reserved resources record (descending) * `versions` - Versions * `-versions` - Versions (descending) * `profile_options` - Profile options * `-profile_options` - Profile options (descending) * `immediate` - Immediate * `-immediate` - Immediate (descending) * `deferred` - Deferred * `-deferred` - Deferred (descending) * `pk` - Pk * `-pk` - Pk (descending)")] = None,
         parent_task: Annotated[Optional[StrictStr], Field(description="Filter results where parent_task matches value")] = None,
         prn__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
         pulp_created: Annotated[Optional[datetime], Field(description="Filter results where pulp_created matches value")] = None,
@@ -975,6 +1012,8 @@ class TasksApi:
 
         A customized named ModelViewSet that knows how to register itself with the Pulp API router.  This viewset is discoverable by its name. \"Normal\" Django Models and Master/Detail models are supported by the ``register_with`` method.  Attributes:     lookup_field (str): The name of the field by which an object should be looked up, in         addition to any parent lookups if this ViewSet is nested. Defaults to 'pk'     endpoint_name (str): The name of the final path segment that should identify the ViewSet's         collection endpoint.     nest_prefix (str): Optional prefix under which this ViewSet should be nested. This must         correspond to the \"parent_prefix\" of a router with rest_framework_nested.NestedMixin.         None indicates this ViewSet should not be nested.     parent_lookup_kwargs (dict): Optional mapping of key names that would appear in self.kwargs         to django model filter expressions that can be used with the corresponding value from         self.kwargs, used only by a nested ViewSet to filter based on the parent object's         identity.     schema (DefaultSchema): The schema class to use by default in a viewset.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param child_tasks: Filter results where child_tasks matches value
         :type child_tasks: str
         :param created_resources:
@@ -1013,7 +1052,7 @@ class TasksApi:
         :type name__ne: str
         :param offset: The initial index from which to return the results.
         :type offset: int
-        :param ordering: Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `state` - State * `-state` - State (descending) * `name` - Name * `-name` - Name (descending) * `logging_cid` - Logging cid * `-logging_cid` - Logging cid (descending) * `unblocked_at` - Unblocked at * `-unblocked_at` - Unblocked at (descending) * `started_at` - Started at * `-started_at` - Started at (descending) * `finished_at` - Finished at * `-finished_at` - Finished at (descending) * `error` - Error * `-error` - Error (descending) * `enc_args` - Enc args * `-enc_args` - Enc args (descending) * `enc_kwargs` - Enc kwargs * `-enc_kwargs` - Enc kwargs (descending) * `reserved_resources_record` - Reserved resources record * `-reserved_resources_record` - Reserved resources record (descending) * `versions` - Versions * `-versions` - Versions (descending) * `immediate` - Immediate * `-immediate` - Immediate (descending) * `deferred` - Deferred * `-deferred` - Deferred (descending) * `pk` - Pk * `-pk` - Pk (descending)
+        :param ordering: Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `state` - State * `-state` - State (descending) * `name` - Name * `-name` - Name (descending) * `logging_cid` - Logging cid * `-logging_cid` - Logging cid (descending) * `unblocked_at` - Unblocked at * `-unblocked_at` - Unblocked at (descending) * `started_at` - Started at * `-started_at` - Started at (descending) * `finished_at` - Finished at * `-finished_at` - Finished at (descending) * `error` - Error * `-error` - Error (descending) * `enc_args` - Enc args * `-enc_args` - Enc args (descending) * `enc_kwargs` - Enc kwargs * `-enc_kwargs` - Enc kwargs (descending) * `reserved_resources_record` - Reserved resources record * `-reserved_resources_record` - Reserved resources record (descending) * `versions` - Versions * `-versions` - Versions (descending) * `profile_options` - Profile options * `-profile_options` - Profile options (descending) * `immediate` - Immediate * `-immediate` - Immediate (descending) * `deferred` - Deferred * `-deferred` - Deferred (descending) * `pk` - Pk * `-pk` - Pk (descending)
         :type ordering: List[str]
         :param parent_task: Filter results where parent_task matches value
         :type parent_task: str
@@ -1116,6 +1155,7 @@ class TasksApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             child_tasks=child_tasks,
             created_resources=created_resources,
             exclusive_resources=exclusive_resources,
@@ -1198,6 +1238,7 @@ class TasksApi:
     @validate_call
     def list_without_preload_content(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         child_tasks: Annotated[Optional[StrictStr], Field(description="Filter results where child_tasks matches value")] = None,
         created_resources: Optional[StrictStr] = None,
         exclusive_resources: Optional[StrictStr] = None,
@@ -1217,7 +1258,7 @@ class TasksApi:
         name__in: Annotated[Optional[List[StrictStr]], Field(description="Filter results where name is in a comma-separated list of values")] = None,
         name__ne: Annotated[Optional[StrictStr], Field(description="Filter results where name not equal to value")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
-        ordering: Annotated[Optional[List[StrictStr]], Field(description="Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `state` - State * `-state` - State (descending) * `name` - Name * `-name` - Name (descending) * `logging_cid` - Logging cid * `-logging_cid` - Logging cid (descending) * `unblocked_at` - Unblocked at * `-unblocked_at` - Unblocked at (descending) * `started_at` - Started at * `-started_at` - Started at (descending) * `finished_at` - Finished at * `-finished_at` - Finished at (descending) * `error` - Error * `-error` - Error (descending) * `enc_args` - Enc args * `-enc_args` - Enc args (descending) * `enc_kwargs` - Enc kwargs * `-enc_kwargs` - Enc kwargs (descending) * `reserved_resources_record` - Reserved resources record * `-reserved_resources_record` - Reserved resources record (descending) * `versions` - Versions * `-versions` - Versions (descending) * `immediate` - Immediate * `-immediate` - Immediate (descending) * `deferred` - Deferred * `-deferred` - Deferred (descending) * `pk` - Pk * `-pk` - Pk (descending)")] = None,
+        ordering: Annotated[Optional[List[StrictStr]], Field(description="Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `state` - State * `-state` - State (descending) * `name` - Name * `-name` - Name (descending) * `logging_cid` - Logging cid * `-logging_cid` - Logging cid (descending) * `unblocked_at` - Unblocked at * `-unblocked_at` - Unblocked at (descending) * `started_at` - Started at * `-started_at` - Started at (descending) * `finished_at` - Finished at * `-finished_at` - Finished at (descending) * `error` - Error * `-error` - Error (descending) * `enc_args` - Enc args * `-enc_args` - Enc args (descending) * `enc_kwargs` - Enc kwargs * `-enc_kwargs` - Enc kwargs (descending) * `reserved_resources_record` - Reserved resources record * `-reserved_resources_record` - Reserved resources record (descending) * `versions` - Versions * `-versions` - Versions (descending) * `profile_options` - Profile options * `-profile_options` - Profile options (descending) * `immediate` - Immediate * `-immediate` - Immediate (descending) * `deferred` - Deferred * `-deferred` - Deferred (descending) * `pk` - Pk * `-pk` - Pk (descending)")] = None,
         parent_task: Annotated[Optional[StrictStr], Field(description="Filter results where parent_task matches value")] = None,
         prn__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
         pulp_created: Annotated[Optional[datetime], Field(description="Filter results where pulp_created matches value")] = None,
@@ -1274,6 +1315,8 @@ class TasksApi:
 
         A customized named ModelViewSet that knows how to register itself with the Pulp API router.  This viewset is discoverable by its name. \"Normal\" Django Models and Master/Detail models are supported by the ``register_with`` method.  Attributes:     lookup_field (str): The name of the field by which an object should be looked up, in         addition to any parent lookups if this ViewSet is nested. Defaults to 'pk'     endpoint_name (str): The name of the final path segment that should identify the ViewSet's         collection endpoint.     nest_prefix (str): Optional prefix under which this ViewSet should be nested. This must         correspond to the \"parent_prefix\" of a router with rest_framework_nested.NestedMixin.         None indicates this ViewSet should not be nested.     parent_lookup_kwargs (dict): Optional mapping of key names that would appear in self.kwargs         to django model filter expressions that can be used with the corresponding value from         self.kwargs, used only by a nested ViewSet to filter based on the parent object's         identity.     schema (DefaultSchema): The schema class to use by default in a viewset.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param child_tasks: Filter results where child_tasks matches value
         :type child_tasks: str
         :param created_resources:
@@ -1312,7 +1355,7 @@ class TasksApi:
         :type name__ne: str
         :param offset: The initial index from which to return the results.
         :type offset: int
-        :param ordering: Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `state` - State * `-state` - State (descending) * `name` - Name * `-name` - Name (descending) * `logging_cid` - Logging cid * `-logging_cid` - Logging cid (descending) * `unblocked_at` - Unblocked at * `-unblocked_at` - Unblocked at (descending) * `started_at` - Started at * `-started_at` - Started at (descending) * `finished_at` - Finished at * `-finished_at` - Finished at (descending) * `error` - Error * `-error` - Error (descending) * `enc_args` - Enc args * `-enc_args` - Enc args (descending) * `enc_kwargs` - Enc kwargs * `-enc_kwargs` - Enc kwargs (descending) * `reserved_resources_record` - Reserved resources record * `-reserved_resources_record` - Reserved resources record (descending) * `versions` - Versions * `-versions` - Versions (descending) * `immediate` - Immediate * `-immediate` - Immediate (descending) * `deferred` - Deferred * `-deferred` - Deferred (descending) * `pk` - Pk * `-pk` - Pk (descending)
+        :param ordering: Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `state` - State * `-state` - State (descending) * `name` - Name * `-name` - Name (descending) * `logging_cid` - Logging cid * `-logging_cid` - Logging cid (descending) * `unblocked_at` - Unblocked at * `-unblocked_at` - Unblocked at (descending) * `started_at` - Started at * `-started_at` - Started at (descending) * `finished_at` - Finished at * `-finished_at` - Finished at (descending) * `error` - Error * `-error` - Error (descending) * `enc_args` - Enc args * `-enc_args` - Enc args (descending) * `enc_kwargs` - Enc kwargs * `-enc_kwargs` - Enc kwargs (descending) * `reserved_resources_record` - Reserved resources record * `-reserved_resources_record` - Reserved resources record (descending) * `versions` - Versions * `-versions` - Versions (descending) * `profile_options` - Profile options * `-profile_options` - Profile options (descending) * `immediate` - Immediate * `-immediate` - Immediate (descending) * `deferred` - Deferred * `-deferred` - Deferred (descending) * `pk` - Pk * `-pk` - Pk (descending)
         :type ordering: List[str]
         :param parent_task: Filter results where parent_task matches value
         :type parent_task: str
@@ -1415,6 +1458,7 @@ class TasksApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             child_tasks=child_tasks,
             created_resources=created_resources,
             exclusive_resources=exclusive_resources,
@@ -1492,6 +1536,7 @@ class TasksApi:
 
     def _list_serialize(
         self,
+        x_task_diagnostics,
         child_tasks,
         created_resources,
         exclusive_resources,
@@ -1560,6 +1605,7 @@ class TasksApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'exclusive_resources__in': 'csv',
             'finished_at__range': 'csv',
             'name__in': 'csv',
@@ -2006,6 +2052,8 @@ class TasksApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -2047,6 +2095,7 @@ class TasksApi:
     def list_roles(
         self,
         task_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -2068,6 +2117,8 @@ class TasksApi:
 
         :param task_href: (required)
         :type task_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2096,6 +2147,7 @@ class TasksApi:
 
         _param = self._list_roles_serialize(
             task_href=task_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2122,6 +2174,7 @@ class TasksApi:
     def list_roles_with_http_info(
         self,
         task_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -2143,6 +2196,8 @@ class TasksApi:
 
         :param task_href: (required)
         :type task_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2171,6 +2226,7 @@ class TasksApi:
 
         _param = self._list_roles_serialize(
             task_href=task_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2197,6 +2253,7 @@ class TasksApi:
     def list_roles_without_preload_content(
         self,
         task_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -2218,6 +2275,8 @@ class TasksApi:
 
         :param task_href: (required)
         :type task_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2246,6 +2305,7 @@ class TasksApi:
 
         _param = self._list_roles_serialize(
             task_href=task_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2267,6 +2327,7 @@ class TasksApi:
     def _list_roles_serialize(
         self,
         task_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -2278,6 +2339,7 @@ class TasksApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -2304,6 +2366,8 @@ class TasksApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -2345,6 +2409,7 @@ class TasksApi:
     def my_permissions(
         self,
         task_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -2366,6 +2431,8 @@ class TasksApi:
 
         :param task_href: (required)
         :type task_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2394,6 +2461,7 @@ class TasksApi:
 
         _param = self._my_permissions_serialize(
             task_href=task_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2420,6 +2488,7 @@ class TasksApi:
     def my_permissions_with_http_info(
         self,
         task_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -2441,6 +2510,8 @@ class TasksApi:
 
         :param task_href: (required)
         :type task_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2469,6 +2540,7 @@ class TasksApi:
 
         _param = self._my_permissions_serialize(
             task_href=task_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2495,6 +2567,7 @@ class TasksApi:
     def my_permissions_without_preload_content(
         self,
         task_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -2516,6 +2589,8 @@ class TasksApi:
 
         :param task_href: (required)
         :type task_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2544,6 +2619,7 @@ class TasksApi:
 
         _param = self._my_permissions_serialize(
             task_href=task_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2565,6 +2641,7 @@ class TasksApi:
     def _my_permissions_serialize(
         self,
         task_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -2576,6 +2653,7 @@ class TasksApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -2602,6 +2680,8 @@ class TasksApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -2643,6 +2723,7 @@ class TasksApi:
     def profile_artifacts(
         self,
         task_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -2664,6 +2745,8 @@ class TasksApi:
 
         :param task_href: (required)
         :type task_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2692,6 +2775,7 @@ class TasksApi:
 
         _param = self._profile_artifacts_serialize(
             task_href=task_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2718,6 +2802,7 @@ class TasksApi:
     def profile_artifacts_with_http_info(
         self,
         task_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -2739,6 +2824,8 @@ class TasksApi:
 
         :param task_href: (required)
         :type task_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2767,6 +2854,7 @@ class TasksApi:
 
         _param = self._profile_artifacts_serialize(
             task_href=task_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2793,6 +2881,7 @@ class TasksApi:
     def profile_artifacts_without_preload_content(
         self,
         task_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -2814,6 +2903,8 @@ class TasksApi:
 
         :param task_href: (required)
         :type task_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2842,6 +2933,7 @@ class TasksApi:
 
         _param = self._profile_artifacts_serialize(
             task_href=task_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2863,6 +2955,7 @@ class TasksApi:
     def _profile_artifacts_serialize(
         self,
         task_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -2874,6 +2967,7 @@ class TasksApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -2900,6 +2994,8 @@ class TasksApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -2941,6 +3037,7 @@ class TasksApi:
     def purge(
         self,
         purge: Purge,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2960,6 +3057,8 @@ class TasksApi:
 
         :param purge: (required)
         :type purge: Purge
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2984,6 +3083,7 @@ class TasksApi:
 
         _param = self._purge_serialize(
             purge=purge,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3008,6 +3108,7 @@ class TasksApi:
     def purge_with_http_info(
         self,
         purge: Purge,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3027,6 +3128,8 @@ class TasksApi:
 
         :param purge: (required)
         :type purge: Purge
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3051,6 +3154,7 @@ class TasksApi:
 
         _param = self._purge_serialize(
             purge=purge,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3075,6 +3179,7 @@ class TasksApi:
     def purge_without_preload_content(
         self,
         purge: Purge,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3094,6 +3199,8 @@ class TasksApi:
 
         :param purge: (required)
         :type purge: Purge
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3118,6 +3225,7 @@ class TasksApi:
 
         _param = self._purge_serialize(
             purge=purge,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3137,6 +3245,7 @@ class TasksApi:
     def _purge_serialize(
         self,
         purge,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -3146,6 +3255,7 @@ class TasksApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -3160,6 +3270,8 @@ class TasksApi:
         # process the path parameters
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if purge is not None:
@@ -3218,6 +3330,7 @@ class TasksApi:
     def read(
         self,
         task_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -3239,6 +3352,8 @@ class TasksApi:
 
         :param task_href: (required)
         :type task_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -3267,6 +3382,7 @@ class TasksApi:
 
         _param = self._read_serialize(
             task_href=task_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -3293,6 +3409,7 @@ class TasksApi:
     def read_with_http_info(
         self,
         task_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -3314,6 +3431,8 @@ class TasksApi:
 
         :param task_href: (required)
         :type task_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -3342,6 +3461,7 @@ class TasksApi:
 
         _param = self._read_serialize(
             task_href=task_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -3368,6 +3488,7 @@ class TasksApi:
     def read_without_preload_content(
         self,
         task_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -3389,6 +3510,8 @@ class TasksApi:
 
         :param task_href: (required)
         :type task_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -3417,6 +3540,7 @@ class TasksApi:
 
         _param = self._read_serialize(
             task_href=task_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -3438,6 +3562,7 @@ class TasksApi:
     def _read_serialize(
         self,
         task_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -3449,6 +3574,7 @@ class TasksApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -3475,6 +3601,8 @@ class TasksApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -3517,6 +3645,7 @@ class TasksApi:
         self,
         task_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3538,6 +3667,8 @@ class TasksApi:
         :type task_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3563,6 +3694,7 @@ class TasksApi:
         _param = self._remove_role_serialize(
             task_href=task_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3588,6 +3720,7 @@ class TasksApi:
         self,
         task_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3609,6 +3742,8 @@ class TasksApi:
         :type task_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3634,6 +3769,7 @@ class TasksApi:
         _param = self._remove_role_serialize(
             task_href=task_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3659,6 +3795,7 @@ class TasksApi:
         self,
         task_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3680,6 +3817,8 @@ class TasksApi:
         :type task_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3705,6 +3844,7 @@ class TasksApi:
         _param = self._remove_role_serialize(
             task_href=task_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3725,6 +3865,7 @@ class TasksApi:
         self,
         task_href,
         nested_role,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -3734,6 +3875,7 @@ class TasksApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -3750,6 +3892,8 @@ class TasksApi:
             _path_params['task_href'] = task_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if nested_role is not None:
@@ -3809,6 +3953,7 @@ class TasksApi:
         self,
         task_href: StrictStr,
         patched_task_cancel: PatchedTaskCancel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3830,6 +3975,8 @@ class TasksApi:
         :type task_href: str
         :param patched_task_cancel: (required)
         :type patched_task_cancel: PatchedTaskCancel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3855,6 +4002,7 @@ class TasksApi:
         _param = self._tasks_cancel_serialize(
             task_href=task_href,
             patched_task_cancel=patched_task_cancel,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3881,6 +4029,7 @@ class TasksApi:
         self,
         task_href: StrictStr,
         patched_task_cancel: PatchedTaskCancel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3902,6 +4051,8 @@ class TasksApi:
         :type task_href: str
         :param patched_task_cancel: (required)
         :type patched_task_cancel: PatchedTaskCancel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3927,6 +4078,7 @@ class TasksApi:
         _param = self._tasks_cancel_serialize(
             task_href=task_href,
             patched_task_cancel=patched_task_cancel,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3953,6 +4105,7 @@ class TasksApi:
         self,
         task_href: StrictStr,
         patched_task_cancel: PatchedTaskCancel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3974,6 +4127,8 @@ class TasksApi:
         :type task_href: str
         :param patched_task_cancel: (required)
         :type patched_task_cancel: PatchedTaskCancel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3999,6 +4154,7 @@ class TasksApi:
         _param = self._tasks_cancel_serialize(
             task_href=task_href,
             patched_task_cancel=patched_task_cancel,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -4020,6 +4176,7 @@ class TasksApi:
         self,
         task_href,
         patched_task_cancel,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -4029,6 +4186,7 @@ class TasksApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -4045,6 +4203,8 @@ class TasksApi:
             _path_params['task_href'] = task_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if patched_task_cancel is not None:

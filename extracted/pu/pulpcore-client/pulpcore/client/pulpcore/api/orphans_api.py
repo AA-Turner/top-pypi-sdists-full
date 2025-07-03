@@ -17,6 +17,9 @@ from pydantic import validate_call, Field, StrictFloat, StrictStr, StrictInt
 from typing import Any, Dict, List, Optional, Tuple, Union
 from typing_extensions import Annotated
 
+from pydantic import Field, StrictStr
+from typing import List, Optional
+from typing_extensions import Annotated
 from pulpcore.client.pulpcore.models.async_operation_response import AsyncOperationResponse
 
 from pulpcore.client.pulpcore.api_client import ApiClient, RequestSerialized
@@ -40,6 +43,7 @@ class OrphansApi:
     @validate_call
     def delete(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -57,6 +61,8 @@ class OrphansApi:
 
         DEPRECATED! Trigger an asynchronous task that deletes all orphaned content and artifacts. Use the `POST /pulp/api/v3/orphans/cleanup/` call instead.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -80,6 +86,7 @@ class OrphansApi:
         """ # noqa: E501
 
         _param = self._delete_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -103,6 +110,7 @@ class OrphansApi:
     @validate_call
     def delete_with_http_info(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -120,6 +128,8 @@ class OrphansApi:
 
         DEPRECATED! Trigger an asynchronous task that deletes all orphaned content and artifacts. Use the `POST /pulp/api/v3/orphans/cleanup/` call instead.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -143,6 +153,7 @@ class OrphansApi:
         """ # noqa: E501
 
         _param = self._delete_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -166,6 +177,7 @@ class OrphansApi:
     @validate_call
     def delete_without_preload_content(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -183,6 +195,8 @@ class OrphansApi:
 
         DEPRECATED! Trigger an asynchronous task that deletes all orphaned content and artifacts. Use the `POST /pulp/api/v3/orphans/cleanup/` call instead.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -206,6 +220,7 @@ class OrphansApi:
         """ # noqa: E501
 
         _param = self._delete_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -224,6 +239,7 @@ class OrphansApi:
 
     def _delete_serialize(
         self,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -233,6 +249,7 @@ class OrphansApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -247,6 +264,8 @@ class OrphansApi:
         # process the path parameters
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 

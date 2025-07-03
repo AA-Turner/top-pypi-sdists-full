@@ -1,4 +1,5 @@
 import pytest
+
 from tests.test_all import compare_strings
 
 

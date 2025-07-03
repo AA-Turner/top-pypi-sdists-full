@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tensorstore
-Version: 0.1.75
+Version: 0.1.76
 Summary: Read and write large, multi-dimensional arrays
 Author-email: TensorStore Team <tensorstore-team@google.com>
 License: Files: **/*

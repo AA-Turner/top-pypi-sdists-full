@@ -26,7 +26,7 @@ def requirements_txt(tmpdir):
             dedent(
                 """\
                 cowsay<6
-                psutil<7
+                psutil==5.9.5
                 """
             )
         )
@@ -40,27 +40,25 @@ def assert_downloaded_requirements(dest_dir):
     # that.
     interpreter = PythonInterpreter.get()
     platform = interpreter.platform
-    if interpreter.is_pypy:
-        expected_psutil = "psutil-6.1.1.tar.gz"
+    if interpreter.is_pypy or (LINUX and sys.version_info[:2] == (3, 5)):
+        expected_psutil = "psutil-5.9.5.tar.gz"
     elif LINUX and sys.version_info[0] == 2:
-        expected_psutil = "psutil-6.1.1-cp27-{abi}-manylinux2010_x86_64.whl".format(
+        expected_psutil = "psutil-5.9.5-cp27-{abi}-manylinux2010_x86_64.whl".format(
             abi=platform.abi
         )
-    elif LINUX and sys.version_info[:2] == (3, 5):
-        expected_psutil = "psutil-6.1.1.tar.gz"
     elif LINUX and sys.version_info[:2] >= (3, 6):
         expected_psutil = (
-            "psutil-6.1.1-cp36-abi3-"
+            "psutil-5.9.5-cp36-abi3-"
             "manylinux_2_12_x86_64.manylinux2010_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64"
             ".whl"
         )
     elif MAC:
         if "arm64" in platform.platform:
-            expected_psutil = "psutil-6.1.1-cp36-abi3-macosx_11_0_arm64.whl"
+            expected_psutil = "psutil-5.9.5-cp36-abi3-macosx_11_0_arm64.whl"
         else:
-            expected_psutil = "psutil-6.1.1-cp36-abi3-macosx_10_9_x86_64.whl"
+            expected_psutil = "psutil-5.9.5-cp36-abi3-macosx_10_9_x86_64.whl"
     elif WINDOWS:
-        expected_psutil = "psutil-6.1.1-cp37-abi3-win_amd64.whl"
+        expected_psutil = "psutil-5.9.5-cp37-abi3-win_amd64.whl"
     else:
         assert False, "The current OS / arch / interpreter is not supported by this test."
 
@@ -127,7 +125,7 @@ def test_download_via_pylock(
                 requires-python = ">=2.7,!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,<{max_plus_one}"
                 dependencies = [
                     "cowsay<6",
-                    "psutil<7",
+                    "psutil==5.9.5",
                 ]
                 """
             ).format(

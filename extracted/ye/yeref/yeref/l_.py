@@ -13264,7 +13264,7 @@ l_tonest_btn2 = {
 }
 
 l_tonest_welcome = {
-    "ru": "🌱 <b>{0}</b>, добро пожаловать в <i>@tg-приложение</i> создания Web3ᵀᴼᴺ-проектов на блокчейне:\n\n<blockquote>▪️соло/альбом NFT\n▪️монеты(токены) FT\n▪️смарт-контракты\n▪️NFT-диалоги</blockquote>",
+    "ru": "🌱 <b>{0}</b>, добро пожаловать в <i>@tg-приложение</i> создания Web3ᵀᴼᴺ-проектов на блокчейне:\n\n<blockquote>▪️соло/альбом NFT\n▪️монеты (токены) FT\n▪️смарт-контракты\n▪️NFT-диалоги</blockquote>",
     "en": "🌱 <b>{0}</b>, welcome to the <i>@tg-app</i> for creating Web3ᵀᴼᴺ projects on the blockchain:\n\n<blockquote>▪️solo/NFT album\n▪️coins (tokens) FT\n▪️smart contracts</blockquote>",
     "es": "🌱 <b>{0}</b>, bienvenido a la <i>@tg-app</i> para la creación de proyectos Web3ᵀᴼᴺ en la blockchain:\n\n<blockquote>▪️álbum solo/NFT\n▪️monedas (tokens) FT\n▪️contratos inteligentes</blockquote>",
     "fr": "🌱 <b>{0}</b>, bienvenue dans l’<i>@tg-app</i> de création de projets Web3ᵀᴼᴺ sur la blockchain:\n\n<blockquote>▪️solo/album NFT\n▪️pièces (jetons) FT\n▪️contrats intelligents</blockquote>",

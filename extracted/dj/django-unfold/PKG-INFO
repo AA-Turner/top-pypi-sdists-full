@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: django-unfold
-Version: 0.61.0
+Version: 0.62.0
 Summary: Modern Django admin theme for seamless interface development
 License: MIT
 Keywords: django,admin,tailwind,theme

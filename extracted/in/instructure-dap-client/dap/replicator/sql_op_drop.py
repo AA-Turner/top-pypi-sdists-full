@@ -14,8 +14,6 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 class SqlOpDrop(SqlOp):
     async def run(self) -> None:
-        if not self.namespace_module:
-            raise ValueError("missing required parameters")
         await self.explorer.synchronize(modules=[meta_schema, self.namespace_module])
 
         logger.debug(
@@ -26,7 +24,7 @@ class SqlOpDrop(SqlOp):
             self.conn, self.namespace, self.table_name
         )
         if not table_meta:
-            raise ValueError("table not initialized, use `initdb`")
+            raise ValueError("Table not initialized. Please run initdb first.")
 
         table_id = self.conn.get_table_id(
             ClassRef(module=self.namespace_module, entity_name=self.table_name)

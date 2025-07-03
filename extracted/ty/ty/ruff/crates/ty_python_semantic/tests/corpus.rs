@@ -1,5 +1,5 @@
 use anyhow::{Context, anyhow};
-use ruff_db::Upcast;
+use ruff_db::Db;
 use ruff_db::files::{File, Files, system_path_to_file};
 use ruff_db::system::{DbWithTestSystem, System, SystemPath, SystemPathBuf, TestSystem};
 use ruff_db::vendored::VendoredFileSystem;
@@ -205,15 +205,16 @@ impl CorpusDb {
         Program::from_settings(
             &db,
             ProgramSettings {
-                python_version: Some(PythonVersionWithSource {
+                python_version: PythonVersionWithSource {
                     version: PythonVersion::latest_ty(),
                     source: PythonVersionSource::default(),
-                }),
+                },
                 python_platform: PythonPlatform::default(),
-                search_paths: SearchPathSettings::new(vec![]),
+                search_paths: SearchPathSettings::new(vec![])
+                    .to_search_paths(db.system(), db.vendored())
+                    .unwrap(),
             },
-        )
-        .unwrap();
+        );
 
         db
     }
@@ -245,15 +246,6 @@ impl ruff_db::Db for CorpusDb {
 
     fn python_version(&self) -> PythonVersion {
         Program::get(self).python_version(self)
-    }
-}
-
-impl Upcast<dyn ruff_db::Db> for CorpusDb {
-    fn upcast(&self) -> &(dyn ruff_db::Db + 'static) {
-        self
-    }
-    fn upcast_mut(&mut self) -> &mut (dyn ruff_db::Db + 'static) {
-        self
     }
 }
 

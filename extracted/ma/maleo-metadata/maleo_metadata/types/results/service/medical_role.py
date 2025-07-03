@@ -3,25 +3,25 @@ from maleo_metadata.models.transfers.results.service.medical_role import MaleoMe
 
 class MaleoMetadataMedicalRoleServiceResultsTypes:
     GetMultiple = Union[
-        MaleoMetadataMedicalRoleServiceResultsTransfers.Fail,
+        MaleoMetadataMedicalRoleServiceResultsTransfers.MultipleData,
         MaleoMetadataMedicalRoleServiceResultsTransfers.NoData,
-        MaleoMetadataMedicalRoleServiceResultsTransfers.MultipleData
+        MaleoMetadataMedicalRoleServiceResultsTransfers.Fail
     ]
 
     GetStructuredMultiple = Union[
-        MaleoMetadataMedicalRoleServiceResultsTransfers.Fail,
+        MaleoMetadataMedicalRoleServiceResultsTransfers.MultipleStructured,
         MaleoMetadataMedicalRoleServiceResultsTransfers.NoData,
-        MaleoMetadataMedicalRoleServiceResultsTransfers.MultipleStructured
+        MaleoMetadataMedicalRoleServiceResultsTransfers.Fail
     ]
 
     GetSingle = Union[
-        MaleoMetadataMedicalRoleServiceResultsTransfers.Fail,
+        MaleoMetadataMedicalRoleServiceResultsTransfers.SingleData,
         MaleoMetadataMedicalRoleServiceResultsTransfers.NoData,
-        MaleoMetadataMedicalRoleServiceResultsTransfers.SingleData
+        MaleoMetadataMedicalRoleServiceResultsTransfers.Fail
     ]
 
     GetSingleStructured = Union[
-        MaleoMetadataMedicalRoleServiceResultsTransfers.Fail,
+        MaleoMetadataMedicalRoleServiceResultsTransfers.SingleStructured,
         MaleoMetadataMedicalRoleServiceResultsTransfers.NoData,
-        MaleoMetadataMedicalRoleServiceResultsTransfers.SingleStructured
+        MaleoMetadataMedicalRoleServiceResultsTransfers.Fail
     ]

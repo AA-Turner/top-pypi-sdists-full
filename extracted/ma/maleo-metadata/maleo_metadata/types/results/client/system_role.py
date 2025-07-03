@@ -3,12 +3,12 @@ from maleo_metadata.models.transfers.results.client.system_role import MaleoMeta
 
 class MaleoMetadataSystemRoleClientResultsTypes:
     GetMultiple = Union[
-        MaleoMetadataSystemRoleClientResultsTransfers.Fail,
+        MaleoMetadataSystemRoleClientResultsTransfers.MultipleData,
         MaleoMetadataSystemRoleClientResultsTransfers.NoData,
-        MaleoMetadataSystemRoleClientResultsTransfers.MultipleData
+        MaleoMetadataSystemRoleClientResultsTransfers.Fail
     ]
 
     GetSingle = Union[
-        MaleoMetadataSystemRoleClientResultsTransfers.Fail,
-        MaleoMetadataSystemRoleClientResultsTransfers.SingleData
+        MaleoMetadataSystemRoleClientResultsTransfers.SingleData,
+        MaleoMetadataSystemRoleClientResultsTransfers.Fail
     ]

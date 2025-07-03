@@ -19,7 +19,7 @@ from typing import (
 from pandas.core.frame import DataFrame
 from typing_extensions import Self
 
-from pandas._libs.lib import NoDefault
+from pandas._libs.lib import _NoDefaultDoNotUse
 from pandas._typing import (
     CompressionOptions,
     CSVEngine,
@@ -27,6 +27,7 @@ from pandas._typing import (
     DtypeArg,
     DtypeBackend,
     FilePath,
+    HashableT,
     ListLikeHashable,
     ReadCsvBuffer,
     StorageOptions,
@@ -44,7 +45,7 @@ def read_csv(
     header: int | Sequence[int] | Literal["infer"] | None = ...,
     names: ListLikeHashable | None = ...,
     index_col: int | str | Sequence[str | int] | Literal[False] | None = ...,
-    usecols: UsecolsArgType = ...,
+    usecols: UsecolsArgType[HashableT] = ...,
     dtype: DtypeArg | defaultdict | None = ...,
     engine: CSVEngine | None = ...,
     converters: (
@@ -97,7 +98,7 @@ def read_csv(
     memory_map: bool = ...,
     float_precision: Literal["high", "legacy", "round_trip"] | None = ...,
     storage_options: StorageOptions | None = ...,
-    dtype_backend: DtypeBackend | NoDefault = ...,
+    dtype_backend: DtypeBackend | _NoDefaultDoNotUse = ...,
 ) -> TextFileReader: ...
 @overload
 def read_csv(
@@ -108,7 +109,7 @@ def read_csv(
     header: int | Sequence[int] | Literal["infer"] | None = ...,
     names: ListLikeHashable | None = ...,
     index_col: int | str | Sequence[str | int] | Literal[False] | None = ...,
-    usecols: UsecolsArgType = ...,
+    usecols: UsecolsArgType[HashableT] = ...,
     dtype: DtypeArg | defaultdict | None = ...,
     engine: CSVEngine | None = ...,
     converters: (
@@ -161,7 +162,7 @@ def read_csv(
     memory_map: bool = ...,
     float_precision: Literal["high", "legacy", "round_trip"] | None = ...,
     storage_options: StorageOptions | None = ...,
-    dtype_backend: DtypeBackend | NoDefault = ...,
+    dtype_backend: DtypeBackend | _NoDefaultDoNotUse = ...,
 ) -> TextFileReader: ...
 @overload
 def read_csv(
@@ -172,7 +173,7 @@ def read_csv(
     header: int | Sequence[int] | Literal["infer"] | None = ...,
     names: ListLikeHashable | None = ...,
     index_col: int | str | Sequence[str | int] | Literal[False] | None = ...,
-    usecols: UsecolsArgType = ...,
+    usecols: UsecolsArgType[HashableT] = ...,
     dtype: DtypeArg | defaultdict | None = ...,
     engine: CSVEngine | None = ...,
     converters: (
@@ -225,7 +226,7 @@ def read_csv(
     memory_map: bool = ...,
     float_precision: Literal["high", "legacy", "round_trip"] | None = ...,
     storage_options: StorageOptions | None = ...,
-    dtype_backend: DtypeBackend | NoDefault = ...,
+    dtype_backend: DtypeBackend | _NoDefaultDoNotUse = ...,
 ) -> DataFrame: ...
 @overload
 def read_table(
@@ -236,7 +237,7 @@ def read_table(
     header: int | Sequence[int] | Literal["infer"] | None = ...,
     names: ListLikeHashable | None = ...,
     index_col: int | str | Sequence[str | int] | Literal[False] | None = ...,
-    usecols: UsecolsArgType = ...,
+    usecols: UsecolsArgType[HashableT] = ...,
     dtype: DtypeArg | defaultdict | None = ...,
     engine: CSVEngine | None = ...,
     converters: (
@@ -300,7 +301,7 @@ def read_table(
     header: int | Sequence[int] | Literal["infer"] | None = ...,
     names: ListLikeHashable | None = ...,
     index_col: int | str | Sequence[str | int] | Literal[False] | None = ...,
-    usecols: UsecolsArgType = ...,
+    usecols: UsecolsArgType[HashableT] = ...,
     dtype: DtypeArg | defaultdict | None = ...,
     engine: CSVEngine | None = ...,
     converters: (
@@ -364,7 +365,7 @@ def read_table(
     header: int | Sequence[int] | Literal["infer"] | None = ...,
     names: ListLikeHashable | None = ...,
     index_col: int | str | Sequence[str | int] | Literal[False] | None = ...,
-    usecols: UsecolsArgType = ...,
+    usecols: UsecolsArgType[HashableT] = ...,
     dtype: DtypeArg | defaultdict | None = ...,
     engine: CSVEngine | None = ...,
     converters: (
@@ -426,7 +427,7 @@ def read_fwf(
     colspecs: Sequence[tuple[int, int]] | Literal["infer"] | None = ...,
     widths: Sequence[int] | None = ...,
     infer_nrows: int = ...,
-    dtype_backend: DtypeBackend | NoDefault = ...,
+    dtype_backend: DtypeBackend | _NoDefaultDoNotUse = ...,
     date_format: dict[Hashable, str] | str | None = ...,
     iterator: Literal[True],
     chunksize: int | None = ...,
@@ -439,7 +440,7 @@ def read_fwf(
     colspecs: Sequence[tuple[int, int]] | Literal["infer"] | None = ...,
     widths: Sequence[int] | None = ...,
     infer_nrows: int = ...,
-    dtype_backend: DtypeBackend | NoDefault = ...,
+    dtype_backend: DtypeBackend | _NoDefaultDoNotUse = ...,
     date_format: dict[Hashable, str] | str | None = ...,
     iterator: bool = ...,
     chunksize: int,
@@ -452,7 +453,7 @@ def read_fwf(
     colspecs: Sequence[tuple[int, int]] | Literal["infer"] | None = ...,
     widths: Sequence[int] | None = ...,
     infer_nrows: int = ...,
-    dtype_backend: DtypeBackend | NoDefault = ...,
+    dtype_backend: DtypeBackend | _NoDefaultDoNotUse = ...,
     date_format: dict[Hashable, str] | str | None = ...,
     iterator: Literal[False] = ...,
     chunksize: None = ...,

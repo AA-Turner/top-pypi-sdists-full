@@ -118,7 +118,7 @@ red_team(
     vulnerabilities=[
         bias,
         toxicity,
-        unauthorized_access,
+        # unauthorized_access,
         # misinformation,
         # pii_leakage,
         # prompt_leakage,

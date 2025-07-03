@@ -33,7 +33,7 @@ def load_config(config_file: Optional[str]) -> Dict[str, Any]:
         logging.error(f"Invalid JSON in config file '{config_file_used}'")
         raise
     except Exception as e:
-        logging.error(f"Error loading config file: {e}")
+        logging.exception(f"Error loading config file: {e}")
         raise
     
     return config

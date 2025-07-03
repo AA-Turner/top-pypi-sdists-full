@@ -1,4 +1,4 @@
-__version__ = '1.2.1'
+__version__ = '1.1.18.3'
 
 from cv2_enumerate_cameras.camera_info import CameraInfo
 import platform
@@ -15,8 +15,6 @@ if system == 'Windows':
     from cv2_enumerate_cameras.windows_backend import supported_backends, cameras_generator
 elif system == 'Linux':
     from cv2_enumerate_cameras.linux_backend import supported_backends, cameras_generator
-elif system == 'Darwin':
-    from cv2_enumerate_cameras.macos_backend import supported_backends, cameras_generator
 else:
     from cv2_enumerate_cameras.opencv_backend import supported_backends, cameras_generator
 

@@ -41,8 +41,6 @@ from sqlmesh.utils.date import (
 )
 from sqlmesh.utils.errors import SQLMeshError, SignalEvalError
 from sqlmesh.utils.metaprogramming import (
-    prepare_env,
-    print_exception,
     format_evaluated_code_exception,
     Executable,
 )
@@ -965,37 +963,35 @@ class Snapshot(PydanticModel, SnapshotInfoMixin):
             model_end_ts,
         )
 
-    def check_ready_intervals(self, intervals: Intervals, context: ExecutionContext) -> Intervals:
+    def check_ready_intervals(
+        self,
+        intervals: Intervals,
+        context: ExecutionContext,
+    ) -> Intervals:
         """Returns a list of intervals that are considered ready by the provided signal.
 
         Note that this will handle gaps in the provided intervals. The returned intervals
         may introduce new gaps.
         """
         signals = self.is_model and self.model.render_signal_calls()
-
         if not signals:
             return intervals
 
-        python_env = self.model.python_env
-        env = prepare_env(python_env)
-
-        for signal_name, kwargs in signals.items():
+        for signal_name, kwargs in signals.signals_to_kwargs.items():
             try:
-                intervals = _check_ready_intervals(
-                    env[signal_name],
+                intervals = check_ready_intervals(
+                    signals.prepared_python_env[signal_name],
                     intervals,
                     context,
-                    python_env=python_env,
+                    python_env=signals.python_env,
                     dialect=self.model.dialect,
                     path=self.model._path,
                     kwargs=kwargs,
                 )
             except SQLMeshError as e:
-                print_exception(e, python_env)
-                raise SQLMeshError(
+                raise SignalEvalError(
                     f"{e} '{signal_name}' for '{self.model.name}' at {self.model._path}"
                 )
-
         return intervals
 
     def categorize_as(self, category: SnapshotChangeCategory) -> None:
@@ -1867,7 +1863,7 @@ def missing_intervals(
     return missing
 
 
-@lru_cache(maxsize=None)
+@lru_cache(maxsize=16384)
 def expand_range(start_ts: int, end_ts: int, interval_unit: IntervalUnit) -> t.List[int]:
     croniter = interval_unit.croniter(start_ts)
     timestamps = [start_ts]
@@ -1884,7 +1880,7 @@ def expand_range(start_ts: int, end_ts: int, interval_unit: IntervalUnit) -> t.L
     return timestamps
 
 
-@lru_cache(maxsize=None)
+@lru_cache(maxsize=16384)
 def compute_missing_intervals(
     interval_unit: IntervalUnit,
     intervals: t.Tuple[Interval, ...],
@@ -1946,7 +1942,7 @@ def compute_missing_intervals(
     return sorted(missing)
 
 
-@lru_cache(maxsize=None)
+@lru_cache(maxsize=16384)
 def inclusive_exclusive(
     start: TimeLike,
     end: TimeLike,
@@ -2191,7 +2187,7 @@ def _contiguous_intervals(intervals: Intervals) -> t.List[Intervals]:
     return contiguous_intervals
 
 
-def _check_ready_intervals(
+def check_ready_intervals(
     check: t.Callable,
     intervals: Intervals,
     context: ExecutionContext,

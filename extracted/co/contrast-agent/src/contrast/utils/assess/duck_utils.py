@@ -65,7 +65,7 @@ def len_or_zero(value):
 def safe_iterator(it):
     if isinstance(it, (list_iterator, dict_iterator)):
         logger.debug(
-            "WARNING: skipping iteration of non-seekable iterator: %s", type(it)
+            "WARNING: skipping iteration of non-seekable iterator", type=type(it)
         )
         return
 
@@ -77,21 +77,23 @@ def safe_iterator(it):
         return
 
     if not (hasattr(it, "tell") and hasattr(it, "seek")):
-        logger.debug("WARNING: skipping iteration of non-seekable object: %s", type(it))
+        logger.debug(
+            "WARNING: skipping iteration of non-seekable object", type=type(it)
+        )
         return
 
     try:
         orig_pos = it.tell()
     except Exception:
         logger.debug(
-            "WARNING: skipping iteration of non-tell()-able object: %s", type(it)
+            "WARNING: skipping iteration of non-tell()-able object", type=type(it)
         )
         return
 
     try:
         yield from it
     except Exception:
-        logger.debug("safe_iterator failed to iterate over %s", type(it))
+        logger.debug("safe_iterator failed during iteration", type=type(it))
     finally:
         it.seek(orig_pos)
 

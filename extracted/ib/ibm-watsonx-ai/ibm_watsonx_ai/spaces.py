@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import time
 from typing import TYPE_CHECKING, Any, Literal
+from cachetools import cached, TTLCache
 
 from ibm_watsonx_ai._wrappers import requests
 from ibm_watsonx_ai.service_instance import ServiceInstance
@@ -222,7 +223,7 @@ class Spaces(WMLResource):
                     "active",
                 ]:
                     time.sleep(10)
-                    spaces_details = self.get_details(space_id)
+                    spaces_details = self._get_details(space_id)
                     status = spaces_details["entity"]["status"].get("state")
                     status_logger.log_state(status)
             # --- end note
@@ -343,6 +344,7 @@ class Spaces(WMLResource):
 
         return response
 
+    @cached(cache=TTLCache(maxsize=32, ttl=4.5 * 60))
     def get_details(
         self,
         space_id: str | None = None,
@@ -352,7 +354,7 @@ class Spaces(WMLResource):
         space_name: str | None = None,
         **kwargs: Any,
     ) -> dict:
-        """Get metadata of stored space(s).
+        """Get metadata of stored space(s). The method uses TTL cache.
 
         :param space_id: ID of the space
         :type space_id: str, optional
@@ -383,12 +385,31 @@ class Spaces(WMLResource):
                 space_details.extend(entry)
 
         """
+        return self._get_details(
+            space_id=space_id,
+            limit=limit,
+            asynchronous=asynchronous,
+            get_all=get_all,
+            space_name=space_name,
+            **kwargs,
+        )
+
+    def _get_details(
+        self,
+        space_id: str | None = None,
+        limit: int | None = None,
+        asynchronous: bool | None = False,
+        get_all: bool | None = False,
+        space_name: str | None = None,
+        **kwargs: Any,
+    ) -> dict:
+        """Get metadata of stored space(s) without caching. It's dedicated for internal usage."""
         Spaces._validate_type(space_id, "space_id", str, False)
 
         href = self._client._href_definitions.get_platform_space_href(space_id)
         query_params = {}
-        if extra_query_params := kwargs.get("extra_query_params"):
-            query_params.update(extra_query_params)
+        if include := kwargs.get("include"):
+            query_params["include"] = include
 
         if space_id is not None:
             response_get = requests.get(
@@ -476,6 +497,7 @@ class Spaces(WMLResource):
                 query_params=params,
                 _async=True,
                 _all=True,
+                _silent_response_logging=True,
             )
             for m in r["resources"]
         ]
@@ -529,7 +551,7 @@ class Spaces(WMLResource):
         self._validate_type(space_id, "space_id", str, True)
         self._validate_type(changes, "changes", dict, True)
 
-        details = self.get_details(space_id)
+        details = self._get_details(space_id)
 
         if "compute" in changes and self._client.CLOUD_PLATFORM_SPACES:
             changes["compute"]["type"] = "machine_learning"
@@ -548,7 +570,9 @@ class Spaces(WMLResource):
             href, json=patch_payload, headers=self._client._get_headers()
         )
 
-        updated_details = self._handle_response(200, "spaces patch", response)
+        updated_details = self._handle_response(
+            200, "spaces patch", response, _silent_response_logging=True
+        )
 
         # Cloud Convergence
         if (
@@ -628,7 +652,6 @@ class Spaces(WMLResource):
             json=space_meta,
         )
 
-        # TODO: Change response code one they change it to 201
         members_details = self._handle_response(
             200, "creating new members", creation_response
         )

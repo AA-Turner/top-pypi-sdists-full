@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: civis
-Version: 2.5.0
+Version: 2.6.0
 Summary: Civis API Python Client
 Author-email: Civis Analytics <opensource@civisanalytics.com>
 License: BSD-3-Clause
@@ -20,7 +20,7 @@ Description-Content-Type: text/x-rst
 License-File: LICENSE.md
 Requires-Dist: click>=6.0
 Requires-Dist: cloudpickle>=0.2
-Requires-Dist: joblib>=1.3.0
+Requires-Dist: joblib>=1.5.0
 Requires-Dist: jsonref>=0.1
 Requires-Dist: jsonschema>=2.5.1
 Requires-Dist: PyYAML>=3.0
@@ -28,23 +28,25 @@ Requires-Dist: requests>=2.32.3
 Requires-Dist: tenacity>=6.2
 Provides-Extra: dev-core
 Requires-Dist: bandit; extra == "dev-core"
-Requires-Dist: black==24.10.0; extra == "dev-core"
-Requires-Dist: build==1.2.1; extra == "dev-core"
-Requires-Dist: flake8==7.1.1; extra == "dev-core"
-Requires-Dist: pandas==2.2.3; extra == "dev-core"
+Requires-Dist: black==25.1.0; extra == "dev-core"
+Requires-Dist: build==1.2.2; extra == "dev-core"
+Requires-Dist: flake8==7.2.0; extra == "dev-core"
+Requires-Dist: pandas==2.3.0; extra == "dev-core"
 Requires-Dist: pip-audit; extra == "dev-core"
-Requires-Dist: pytest==8.3.3; extra == "dev-core"
-Requires-Dist: pytest-cov==5.0.0; extra == "dev-core"
-Requires-Dist: twine==5.1.1; extra == "dev-core"
+Requires-Dist: polars==1.31.0; extra == "dev-core"
+Requires-Dist: pytest==8.4.0; extra == "dev-core"
+Requires-Dist: pytest-cov==6.2.1; extra == "dev-core"
+Requires-Dist: twine==6.1.0; extra == "dev-core"
 Provides-Extra: dev-civisml
 Requires-Dist: feather-format==0.4.1; extra == "dev-civisml"
-Requires-Dist: numpy==2.1.2; extra == "dev-civisml"
-Requires-Dist: scikit-learn==1.5.2; extra == "dev-civisml"
-Requires-Dist: scipy==1.14.1; extra == "dev-civisml"
+Requires-Dist: numpy==2.2.6; extra == "dev-civisml"
+Requires-Dist: scikit-learn==1.7.0; extra == "dev-civisml"
+Requires-Dist: scipy==1.15.3; extra == "dev-civisml"
 Provides-Extra: docs
 Requires-Dist: numpydoc==1.8.0; extra == "docs"
-Requires-Dist: Sphinx==8.1.3; extra == "docs"
+Requires-Dist: Sphinx==8.2.3; extra == "docs"
 Requires-Dist: sphinx-rtd-theme==3.0.2; extra == "docs"
+Dynamic: license-file
 
 Civis API Python Client
 =======================
@@ -72,7 +74,7 @@ Civis API Python Client
 The Civis API Python client is a Python package that helps analysts
 and developers interact with Civis Platform programmatically. The package includes a set of
 tools around common workflows as well as a convenient interface to make
-requests directly to the Civis API.
+requests directly to the `Civis API <https://support.civisanalytics.com/hc/en-us/articles/360001597191-API-Basics>`_.
 
 .. end-include-marker-introductory-paragraph
 
@@ -92,6 +94,10 @@ API keys have a set expiration date and new keys will need to be created at
 least every 30 days. The API client will look for a ``CIVIS_API_KEY``
 environment variable to access your API key, so after creating a new API key,
 follow the steps below for your operating system to set up your environment.
+
+.. note::
+   Treat your API key like a password. Do not keep it under version control
+   or share it with others.
 
 Linux / MacOS
 ~~~~~~~~~~~~~
@@ -145,15 +151,21 @@ You can test your installation by running
 If ``civis`` was installed correctly, this will print your Civis
 Platform username.
 
-The client has a soft dependency on ``pandas`` to support features such as
-data type parsing.  If you are using the ``io`` namespace to read or write
-data from Civis, it is highly recommended that you install ``pandas`` and
-set ``use_pandas=True`` in functions that accept that parameter.  To install
-``pandas``:
+The client has a soft dependency on ``pandas`` or ``polars`` to support dataframes.
+If you are using the ``civis.io`` namespace to read or write
+data from Civis, it is highly recommended that you install ``pandas`` or ``polars`` and
+set the argument ``return_as`` to ``"pandas"`` or ``"polars"``, respectively, in functions
+that accept that parameter.  To install ``pandas``:
 
 .. code-block:: bash
 
    pip install pandas
+
+To install ``polars``:
+
+.. code-block:: bash
+
+   pip install polars
 
 Machine learning features in the ``ml`` namespace have a soft dependency on
 ``scikit-learn`` and ``pandas``. Install ``scikit-learn`` to
@@ -196,7 +208,7 @@ common workflows.
     import civis
     df = civis.io.read_civis(table="my_schema.my_table",
                              database="database",
-                             use_pandas=True)
+                             return_as="pandas")
 
 The Civis API may also be directly accessed via the ``APIClient`` class.
 

@@ -5564,6 +5564,10 @@ class AWSManagedPolicies(enum.Enum):
     '''
     :stability: experimental
     '''
+    AWSZONE_GROUP_ACCESS_MANAGEMENT_SERVICE_ROLE_POLICY = "AWSZONE_GROUP_ACCESS_MANAGEMENT_SERVICE_ROLE_POLICY"
+    '''
+    :stability: experimental
+    '''
 
 
 class LambdaArmFunction(

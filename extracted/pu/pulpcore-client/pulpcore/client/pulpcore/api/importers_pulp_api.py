@@ -47,6 +47,7 @@ class ImportersPulpApi:
     def create(
         self,
         pulp_importer: PulpImporter,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -66,6 +67,8 @@ class ImportersPulpApi:
 
         :param pulp_importer: (required)
         :type pulp_importer: PulpImporter
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -90,6 +93,7 @@ class ImportersPulpApi:
 
         _param = self._create_serialize(
             pulp_importer=pulp_importer,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -114,6 +118,7 @@ class ImportersPulpApi:
     def create_with_http_info(
         self,
         pulp_importer: PulpImporter,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -133,6 +138,8 @@ class ImportersPulpApi:
 
         :param pulp_importer: (required)
         :type pulp_importer: PulpImporter
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -157,6 +164,7 @@ class ImportersPulpApi:
 
         _param = self._create_serialize(
             pulp_importer=pulp_importer,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -181,6 +189,7 @@ class ImportersPulpApi:
     def create_without_preload_content(
         self,
         pulp_importer: PulpImporter,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -200,6 +209,8 @@ class ImportersPulpApi:
 
         :param pulp_importer: (required)
         :type pulp_importer: PulpImporter
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -224,6 +235,7 @@ class ImportersPulpApi:
 
         _param = self._create_serialize(
             pulp_importer=pulp_importer,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -243,6 +255,7 @@ class ImportersPulpApi:
     def _create_serialize(
         self,
         pulp_importer,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -252,6 +265,7 @@ class ImportersPulpApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -266,6 +280,8 @@ class ImportersPulpApi:
         # process the path parameters
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if pulp_importer is not None:
@@ -324,6 +340,7 @@ class ImportersPulpApi:
     def delete(
         self,
         pulp_importer_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -343,6 +360,8 @@ class ImportersPulpApi:
 
         :param pulp_importer_href: (required)
         :type pulp_importer_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -367,6 +386,7 @@ class ImportersPulpApi:
 
         _param = self._delete_serialize(
             pulp_importer_href=pulp_importer_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -391,6 +411,7 @@ class ImportersPulpApi:
     def delete_with_http_info(
         self,
         pulp_importer_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -410,6 +431,8 @@ class ImportersPulpApi:
 
         :param pulp_importer_href: (required)
         :type pulp_importer_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -434,6 +457,7 @@ class ImportersPulpApi:
 
         _param = self._delete_serialize(
             pulp_importer_href=pulp_importer_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -458,6 +482,7 @@ class ImportersPulpApi:
     def delete_without_preload_content(
         self,
         pulp_importer_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -477,6 +502,8 @@ class ImportersPulpApi:
 
         :param pulp_importer_href: (required)
         :type pulp_importer_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -501,6 +528,7 @@ class ImportersPulpApi:
 
         _param = self._delete_serialize(
             pulp_importer_href=pulp_importer_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -520,6 +548,7 @@ class ImportersPulpApi:
     def _delete_serialize(
         self,
         pulp_importer_href,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -529,6 +558,7 @@ class ImportersPulpApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -545,6 +575,8 @@ class ImportersPulpApi:
             _path_params['pulp_importer_href'] = pulp_importer_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -578,6 +610,7 @@ class ImportersPulpApi:
     @validate_call
     def list(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter results where name matches value")] = None,
         name__contains: Annotated[Optional[StrictStr], Field(description="Filter results where name contains value")] = None,
@@ -613,6 +646,8 @@ class ImportersPulpApi:
 
         ViewSet for PulpImporters.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param limit: Number of results to return per page.
         :type limit: int
         :param name: Filter results where name matches value
@@ -672,6 +707,7 @@ class ImportersPulpApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             name=name,
             name__contains=name__contains,
@@ -713,6 +749,7 @@ class ImportersPulpApi:
     @validate_call
     def list_with_http_info(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter results where name matches value")] = None,
         name__contains: Annotated[Optional[StrictStr], Field(description="Filter results where name contains value")] = None,
@@ -748,6 +785,8 @@ class ImportersPulpApi:
 
         ViewSet for PulpImporters.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param limit: Number of results to return per page.
         :type limit: int
         :param name: Filter results where name matches value
@@ -807,6 +846,7 @@ class ImportersPulpApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             name=name,
             name__contains=name__contains,
@@ -848,6 +888,7 @@ class ImportersPulpApi:
     @validate_call
     def list_without_preload_content(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter results where name matches value")] = None,
         name__contains: Annotated[Optional[StrictStr], Field(description="Filter results where name contains value")] = None,
@@ -883,6 +924,8 @@ class ImportersPulpApi:
 
         ViewSet for PulpImporters.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param limit: Number of results to return per page.
         :type limit: int
         :param name: Filter results where name matches value
@@ -942,6 +985,7 @@ class ImportersPulpApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             name=name,
             name__contains=name__contains,
@@ -978,6 +1022,7 @@ class ImportersPulpApi:
 
     def _list_serialize(
         self,
+        x_task_diagnostics,
         limit,
         name,
         name__contains,
@@ -1005,6 +1050,7 @@ class ImportersPulpApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'name__in': 'csv',
             'ordering': 'csv',
             'prn__in': 'csv',
@@ -1098,6 +1144,8 @@ class ImportersPulpApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -1140,6 +1188,7 @@ class ImportersPulpApi:
         self,
         pulp_importer_href: StrictStr,
         patched_pulp_importer: PatchedPulpImporter,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1161,6 +1210,8 @@ class ImportersPulpApi:
         :type pulp_importer_href: str
         :param patched_pulp_importer: (required)
         :type patched_pulp_importer: PatchedPulpImporter
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1186,6 +1237,7 @@ class ImportersPulpApi:
         _param = self._partial_update_serialize(
             pulp_importer_href=pulp_importer_href,
             patched_pulp_importer=patched_pulp_importer,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1211,6 +1263,7 @@ class ImportersPulpApi:
         self,
         pulp_importer_href: StrictStr,
         patched_pulp_importer: PatchedPulpImporter,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1232,6 +1285,8 @@ class ImportersPulpApi:
         :type pulp_importer_href: str
         :param patched_pulp_importer: (required)
         :type patched_pulp_importer: PatchedPulpImporter
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1257,6 +1312,7 @@ class ImportersPulpApi:
         _param = self._partial_update_serialize(
             pulp_importer_href=pulp_importer_href,
             patched_pulp_importer=patched_pulp_importer,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1282,6 +1338,7 @@ class ImportersPulpApi:
         self,
         pulp_importer_href: StrictStr,
         patched_pulp_importer: PatchedPulpImporter,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1303,6 +1360,8 @@ class ImportersPulpApi:
         :type pulp_importer_href: str
         :param patched_pulp_importer: (required)
         :type patched_pulp_importer: PatchedPulpImporter
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1328,6 +1387,7 @@ class ImportersPulpApi:
         _param = self._partial_update_serialize(
             pulp_importer_href=pulp_importer_href,
             patched_pulp_importer=patched_pulp_importer,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1348,6 +1408,7 @@ class ImportersPulpApi:
         self,
         pulp_importer_href,
         patched_pulp_importer,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -1357,6 +1418,7 @@ class ImportersPulpApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -1373,6 +1435,8 @@ class ImportersPulpApi:
             _path_params['pulp_importer_href'] = pulp_importer_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if patched_pulp_importer is not None:
@@ -1431,6 +1495,7 @@ class ImportersPulpApi:
     def read(
         self,
         pulp_importer_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1452,6 +1517,8 @@ class ImportersPulpApi:
 
         :param pulp_importer_href: (required)
         :type pulp_importer_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1480,6 +1547,7 @@ class ImportersPulpApi:
 
         _param = self._read_serialize(
             pulp_importer_href=pulp_importer_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1506,6 +1574,7 @@ class ImportersPulpApi:
     def read_with_http_info(
         self,
         pulp_importer_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1527,6 +1596,8 @@ class ImportersPulpApi:
 
         :param pulp_importer_href: (required)
         :type pulp_importer_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1555,6 +1626,7 @@ class ImportersPulpApi:
 
         _param = self._read_serialize(
             pulp_importer_href=pulp_importer_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1581,6 +1653,7 @@ class ImportersPulpApi:
     def read_without_preload_content(
         self,
         pulp_importer_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1602,6 +1675,8 @@ class ImportersPulpApi:
 
         :param pulp_importer_href: (required)
         :type pulp_importer_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1630,6 +1705,7 @@ class ImportersPulpApi:
 
         _param = self._read_serialize(
             pulp_importer_href=pulp_importer_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1651,6 +1727,7 @@ class ImportersPulpApi:
     def _read_serialize(
         self,
         pulp_importer_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -1662,6 +1739,7 @@ class ImportersPulpApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -1688,6 +1766,8 @@ class ImportersPulpApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -1730,6 +1810,7 @@ class ImportersPulpApi:
         self,
         pulp_importer_href: StrictStr,
         pulp_importer: PulpImporter,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1751,6 +1832,8 @@ class ImportersPulpApi:
         :type pulp_importer_href: str
         :param pulp_importer: (required)
         :type pulp_importer: PulpImporter
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1776,6 +1859,7 @@ class ImportersPulpApi:
         _param = self._update_serialize(
             pulp_importer_href=pulp_importer_href,
             pulp_importer=pulp_importer,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1801,6 +1885,7 @@ class ImportersPulpApi:
         self,
         pulp_importer_href: StrictStr,
         pulp_importer: PulpImporter,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1822,6 +1907,8 @@ class ImportersPulpApi:
         :type pulp_importer_href: str
         :param pulp_importer: (required)
         :type pulp_importer: PulpImporter
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1847,6 +1934,7 @@ class ImportersPulpApi:
         _param = self._update_serialize(
             pulp_importer_href=pulp_importer_href,
             pulp_importer=pulp_importer,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1872,6 +1960,7 @@ class ImportersPulpApi:
         self,
         pulp_importer_href: StrictStr,
         pulp_importer: PulpImporter,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1893,6 +1982,8 @@ class ImportersPulpApi:
         :type pulp_importer_href: str
         :param pulp_importer: (required)
         :type pulp_importer: PulpImporter
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1918,6 +2009,7 @@ class ImportersPulpApi:
         _param = self._update_serialize(
             pulp_importer_href=pulp_importer_href,
             pulp_importer=pulp_importer,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1938,6 +2030,7 @@ class ImportersPulpApi:
         self,
         pulp_importer_href,
         pulp_importer,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -1947,6 +2040,7 @@ class ImportersPulpApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -1963,6 +2057,8 @@ class ImportersPulpApi:
             _path_params['pulp_importer_href'] = pulp_importer_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if pulp_importer is not None:

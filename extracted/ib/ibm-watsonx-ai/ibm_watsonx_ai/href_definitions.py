@@ -123,6 +123,8 @@ ASSET = "{}/v2/assets/{}"
 ASSETS = "{}/v2/assets"
 ASSET_TYPE = "{}/v2/asset_types"
 ASSET_FILES = "{}/v2/asset_files/"
+FOLDER_ASSET = "{}/v2/folder_assets/{}"
+FOLDER_ASSETS = "{}/v2/folder_assets"
 TRASHED_ASSETS = "{}/v2/trashed_assets"
 TRASHED_ASSETS_PURGE_ALL = "{}/v2/trashed_assets/purge_all"
 TRASHED_ASSET = "{}/v2/trashed_assets/{}"
@@ -133,12 +135,15 @@ ATTACHMENTS = "{}/v2/assets/{}/attachments"
 SEARCH_ASSETS = "{}/v2/asset_types/{}/search"
 SEARCH_MODEL_DEFINITIONS = "{}/v2/asset_types/wml_model_definition/search"
 SEARCH_DATA_ASSETS = "{}/v2/asset_types/data_asset/search"
+SEARCH_FOLDER_ASSETS = "{}/v2/asset_types/folder_asset/search"
 SEARCH_SHINY = "{}/v2/asset_types/shiny_asset/search"
 SEARCH_SCRIPT = "{}/v2/asset_types/script/search"
 GIT_BASED_PROJECT_ASSET = "{}/userfs/v2/assets/{}"
 GIT_BASED_PROJECT_ASSETS = "{}/userfs/v2/assets"
 GIT_BASED_PROJECT_ASSET_TYPE = "{}/userfs/v2/asset_types"
 GIT_BASED_PROJECT_ASSET_FILES = "{}/v2/asset_files/"
+GIT_BASED_PROJECT_FOLDER_ASSET = "{}/userfs/v2/folder_assets/{}"
+GIT_BASED_PROJECT_FOLDER_ASSETS = "{}/userfs/v2/folder_assets"
 GIT_BASED_PROJECT_ATTACHMENT = "{}/userfs/v2/assets/{}/attachments/{}"
 GIT_BASED_PROJECT_ATTACHMENT_COMPLETE = "{}/userfs/v2/assets/{}/attachments/{}/complete"
 GIT_BASED_PROJECT_ATTACHMENTS = "{}/userfs/v2/assets/{}/attachments"
@@ -147,10 +152,11 @@ GIT_BASED_PROJECT_SEARCH_MODEL_DEFINITIONS = (
     "{}/userfs/v2/asset_types/wml_model_definition/search"
 )
 GIT_BASED_PROJECT_SEARCH_DATA_ASSETS = "{}/userfs/v2/asset_types/data_asset/search"
+GIT_BASED_PROJECT_SEARCH_FOLDER_ASSETS = "{}/userfs/v2/asset_types/folder_asset/search"
 GIT_BASED_PROJECT_SEARCH_SHINY = "{}/userfs/v2/asset_types/shiny_asset/search"
 GIT_BASED_PROJECT_SEARCH_SCRIPT = "{}/userfs/v2/asset_types/script/search"
-DATA_SOURCE_TYPE = "{}/v2/datasource_types"
-DATA_SOURCE_TYPE_BY_ID = "{}/v2/datasource_types/{}"
+DATA_SOURCE_TYPES = "{}/v2/datasource_types"
+DATA_SOURCE_TYPE = "{}/v2/datasource_types/{}"
 CONNECTION_ASSET = "{}/v2/connections"
 CONNECTION_ASSET_SEARCH = "{}/v2/connections"
 CONNECTION_BY_ID = "{}/v2/connections/{}"
@@ -258,7 +264,7 @@ GATEWAY_UPDATE_PROVIDER = "{}/ml/gateway/v1/providers/{}/{}"
 GATEWAY_MODELS = "{}/ml/gateway/v1/providers/{}/models"
 GATEWAY_ALL_TENANT_MODELS = "{}/ml/gateway/v1/models"
 GATEWAY_MODEL = "{}/ml/gateway/v1/models/{}"
-GATEWAY_POLICY = "{}/ml/gateway/v1/policy"
+GATEWAY_POLICIES = "{}/ml/gateway/v1/policies"
 GATEWAY_EMBEDDINGS = "{}/ml/gateway/v1/embeddings"
 GATEWAY_TEXT_COMPLETIONS = "{}/ml/gateway/v1/completions"
 GATEWAY_CHAT_COMPLETIONS = "{}/ml/gateway/v1/chat/completions"
@@ -497,6 +503,20 @@ class HrefDefinitions:
             ASSETS if not self._is_git_based_project() else GIT_BASED_PROJECT_ASSETS
         ).format(self._get_platform_url_if_exists())
 
+    def get_folder_asset_href(self, folder_asset_id: str) -> str:
+        return (
+            FOLDER_ASSET
+            if not self._is_git_based_project()
+            else GIT_BASED_PROJECT_FOLDER_ASSET
+        ).format(self._get_platform_url_if_exists(), folder_asset_id)
+
+    def get_folder_assets_href(self) -> str:
+        return (
+            FOLDER_ASSETS
+            if not self._is_git_based_project()
+            else GIT_BASED_PROJECT_FOLDER_ASSETS
+        ).format(self._get_platform_url_if_exists())
+
     def get_assets_href(self) -> str:
         return (
             ASSETS if not self._is_git_based_project() else GIT_BASED_PROJECT_ASSETS
@@ -547,11 +567,18 @@ class HrefDefinitions:
             else GIT_BASED_PROJECT_ATTACHMENT_COMPLETE
         ).format(self._get_platform_url_if_exists(), asset_id, attachment_id)
 
-    def get_search_asset_href(self) -> str:
+    def get_search_data_asset_href(self) -> str:
         return (
             SEARCH_DATA_ASSETS
             if not self._is_git_based_project()
             else GIT_BASED_PROJECT_SEARCH_DATA_ASSETS
+        ).format(self._get_platform_url_if_exists())
+
+    def get_search_folder_asset_href(self) -> str:
+        return (
+            SEARCH_FOLDER_ASSETS
+            if not self._is_git_based_project()
+            else GIT_BASED_PROJECT_SEARCH_FOLDER_ASSETS
         ).format(self._get_platform_url_if_exists())
 
     def get_search_shiny_href(self) -> str:
@@ -629,11 +656,11 @@ class HrefDefinitions:
         return CONNECTIONS_FILE.format(self._get_platform_url_if_exists(), file_name)
 
     def get_connection_data_types_href(self) -> str:
-        return DATA_SOURCE_TYPE.format(self._get_platform_url_if_exists())
+        return DATA_SOURCE_TYPES.format(self._get_platform_url_if_exists())
 
-    def get_connection_data_type_by_id_href(self, datasource_type_id: str) -> str:
-        return DATA_SOURCE_TYPE_BY_ID.format(
-            self._get_platform_url_if_exists(), datasource_type_id
+    def get_connection_data_type_href(self, datasource_type: str) -> str:
+        return DATA_SOURCE_TYPE.format(
+            self._get_platform_url_if_exists(), datasource_type
         )
 
     def get_sw_spec_href(self, sw_spec_id: str) -> str:
@@ -925,8 +952,8 @@ class HrefDefinitions:
     def get_gateway_model_href(self, model_id: str) -> str:
         return GATEWAY_MODEL.format(self.url, model_id)
 
-    def get_gateway_policy_href(self):
-        return GATEWAY_POLICY.format(self.url)
+    def get_gateway_policies_href(self):
+        return GATEWAY_POLICIES.format(self.url)
 
     def get_gateway_embeddings_href(self):
         return GATEWAY_EMBEDDINGS.format(self.url)

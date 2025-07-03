@@ -237,7 +237,7 @@ bool2str(bool_t value) {
 void
 create_lanczos_lut(const int kernel_order, const size_t npix, const float del,
                    float *lanczos_lut) {
-    size_t i;
+    integer_t i;
     const float forder = (float)kernel_order;
     float poff;
 

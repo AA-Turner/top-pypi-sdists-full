@@ -3,7 +3,8 @@
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Callable, Any
+import json
 
 from ibm_watsonx_ai.utils.utils import _requests_retry_session
 from ibm_watsonx_ai.wml_client_error import WMLClientError
@@ -11,6 +12,7 @@ from ibm_watsonx_ai.utils.auth.base_auth import (
     RefreshableTokenAuth,
     TokenInfo,
     STATUS_FORCELIST,
+    _get_token_info,
 )
 
 if TYPE_CHECKING:
@@ -67,3 +69,22 @@ class IAMTokenAuth(RefreshableTokenAuth):
             return TokenInfo(response.json().get("access_token"))
         else:
             raise WMLClientError("Error getting IAM Token.", response)
+
+
+def get_iam_user_details(token: str) -> dict[str, Any]:
+    """Get IAM user details from token.
+
+    :param token: IAM token
+    :type token: str
+
+    :returns: IAM user details
+    :rtype: dict[str, Any]
+
+    :raises: WMLClientError if there is an error getting IAM user details
+    """
+    try:
+        token_info = _get_token_info(token)
+    except json.JSONDecodeError as e:
+        raise WMLClientError("Error getting IAM user details.") from e
+
+    return token_info

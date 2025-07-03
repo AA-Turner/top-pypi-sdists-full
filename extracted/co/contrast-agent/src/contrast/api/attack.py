@@ -62,7 +62,7 @@ class Attack:
             {
                 "blocked": self.blocked,
                 "input": self._convert_user_input(sample),
-                "details": sample.details,
+                "details": self._mask_details(sample),
                 "request": reportable_request,
                 "stack": [
                     {
@@ -83,18 +83,29 @@ class Attack:
             for sample in self.samples
         ]
 
-    def _convert_user_input(self, sample: Sample) -> dict:
-        json_sample = {
-            "documentType": sample.user_input.document_type.name,
-            "filters": sample.user_input.matcher_ids,
-            "time": sample.timestamp_ms,
-            "type": sample.user_input.type.name,
-            "value": sample.user_input.value,
+    def _mask_details(self, sample: Sample) -> dict:
+        if not self.masker.mask_rules.mask_attack_vector:
+            return sample.details
+
+        return {
+            k: self.masker.mask_attack_vector(v) if isinstance(v, str) else v
+            for k, v in sample.details.items()
         }
-        if sample.user_input.path:
-            json_sample["documentPath"] = sample.user_input.path
-        if sample.user_input.name:
-            json_sample["name"] = sample.user_input.name
+
+    def _convert_user_input(self, sample: Sample) -> dict:
+        masked_user_input = self.masker.mask_attack_input(sample.user_input)
+        json_sample = {
+            "documentType": masked_user_input.document_type.name,
+            "filters": masked_user_input.matcher_ids,
+            "time": sample.timestamp_ms,
+            "type": masked_user_input.type.name,
+            "value": masked_user_input.value,
+        }
+        if masked_user_input.path:
+            json_sample["documentPath"] = masked_user_input.path
+        if masked_user_input.name:
+            json_sample["name"] = masked_user_input.name
+
         return json_sample
 
     def report_result(self) -> str:
@@ -108,7 +119,10 @@ class Attack:
         }
         return response_map[self.response]
 
-    def to_json(self, request: Request) -> dict:
+    def to_json(self, request: Request, request_data_masker) -> dict:
+        self.masker = request_data_masker
+        request_data_masker.mask_sensitive_data(request, self)
+
         common_fields = {
             "startTime": 0,
             "total": 0,

@@ -94,7 +94,7 @@ def pull(job_folder, *, resume: bool = True, errors: Optional[str] = None, quiet
     def _consumer(_row, _df):
         _df_filename = get_df_filename(job_folder, _row['ID'])
         util.safe_makedirs(os.path.dirname(_df_filename), exist_ok=True)
-        _df.to_pickle(_df_filename, protocol=4)
+        _df.to_pickle(_df_filename, protocol=_common.DEFAULT_PICKLE_PROTOCOL)
 
     spy.pull(pull_df, grid=None, shape=_consumer, header='ID', status=status, session=session)
 

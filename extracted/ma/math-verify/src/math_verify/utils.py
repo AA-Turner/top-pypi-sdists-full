@@ -20,11 +20,16 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+import logging
 import os
+
 from math_verify.errors import TimeoutException
 
+TIMEOUT_WARNING_SHOWN = False
+logger = logging.getLogger(__name__)
 
-def timeout(timeout_seconds: int = 10):  # noqa: C901
+
+def timeout(timeout_seconds: int | None = 10):  # noqa: C901
     """A decorator that applies a timeout to the decorated function.
 
     Args:
@@ -35,6 +40,13 @@ def timeout(timeout_seconds: int = 10):  # noqa: C901
         On Unix systems, uses a signal-based alarm approach which is more efficient as it doesn't require spawning a new process.
         On Windows systems, uses a multiprocessing-based approach since signal.alarm is not available. This will incur a huge performance penalty.
     """
+    if timeout_seconds is None or timeout_seconds <= 0:
+
+        def no_timeout_decorator(func):
+            return func
+
+        return no_timeout_decorator
+
     if os.name == "posix":
         # Unix-like approach: signal.alarm
         import signal

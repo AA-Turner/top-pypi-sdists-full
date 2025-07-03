@@ -52,6 +52,7 @@ class DistributionsOpenpgpApi:
     def create(
         self,
         open_pgp_distribution: OpenPGPDistribution,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -71,6 +72,8 @@ class DistributionsOpenpgpApi:
 
         :param open_pgp_distribution: (required)
         :type open_pgp_distribution: OpenPGPDistribution
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -95,6 +98,7 @@ class DistributionsOpenpgpApi:
 
         _param = self._create_serialize(
             open_pgp_distribution=open_pgp_distribution,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -119,6 +123,7 @@ class DistributionsOpenpgpApi:
     def create_with_http_info(
         self,
         open_pgp_distribution: OpenPGPDistribution,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -138,6 +143,8 @@ class DistributionsOpenpgpApi:
 
         :param open_pgp_distribution: (required)
         :type open_pgp_distribution: OpenPGPDistribution
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -162,6 +169,7 @@ class DistributionsOpenpgpApi:
 
         _param = self._create_serialize(
             open_pgp_distribution=open_pgp_distribution,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -186,6 +194,7 @@ class DistributionsOpenpgpApi:
     def create_without_preload_content(
         self,
         open_pgp_distribution: OpenPGPDistribution,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -205,6 +214,8 @@ class DistributionsOpenpgpApi:
 
         :param open_pgp_distribution: (required)
         :type open_pgp_distribution: OpenPGPDistribution
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -229,6 +240,7 @@ class DistributionsOpenpgpApi:
 
         _param = self._create_serialize(
             open_pgp_distribution=open_pgp_distribution,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -248,6 +260,7 @@ class DistributionsOpenpgpApi:
     def _create_serialize(
         self,
         open_pgp_distribution,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -257,6 +270,7 @@ class DistributionsOpenpgpApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -271,6 +285,8 @@ class DistributionsOpenpgpApi:
         # process the path parameters
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if open_pgp_distribution is not None:
@@ -329,6 +345,7 @@ class DistributionsOpenpgpApi:
     def delete(
         self,
         open_p_g_p_distribution_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -348,6 +365,8 @@ class DistributionsOpenpgpApi:
 
         :param open_p_g_p_distribution_href: (required)
         :type open_p_g_p_distribution_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -372,6 +391,7 @@ class DistributionsOpenpgpApi:
 
         _param = self._delete_serialize(
             open_p_g_p_distribution_href=open_p_g_p_distribution_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -396,6 +416,7 @@ class DistributionsOpenpgpApi:
     def delete_with_http_info(
         self,
         open_p_g_p_distribution_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -415,6 +436,8 @@ class DistributionsOpenpgpApi:
 
         :param open_p_g_p_distribution_href: (required)
         :type open_p_g_p_distribution_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -439,6 +462,7 @@ class DistributionsOpenpgpApi:
 
         _param = self._delete_serialize(
             open_p_g_p_distribution_href=open_p_g_p_distribution_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -463,6 +487,7 @@ class DistributionsOpenpgpApi:
     def delete_without_preload_content(
         self,
         open_p_g_p_distribution_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -482,6 +507,8 @@ class DistributionsOpenpgpApi:
 
         :param open_p_g_p_distribution_href: (required)
         :type open_p_g_p_distribution_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -506,6 +533,7 @@ class DistributionsOpenpgpApi:
 
         _param = self._delete_serialize(
             open_p_g_p_distribution_href=open_p_g_p_distribution_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -525,6 +553,7 @@ class DistributionsOpenpgpApi:
     def _delete_serialize(
         self,
         open_p_g_p_distribution_href,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -534,6 +563,7 @@ class DistributionsOpenpgpApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -550,6 +580,8 @@ class DistributionsOpenpgpApi:
             _path_params['open_p_g_p_distribution_href'] = open_p_g_p_distribution_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -590,6 +622,7 @@ class DistributionsOpenpgpApi:
     @validate_call
     def list(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
         ordering: Annotated[Optional[List[StrictStr]], Field(description="Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `pulp_type` - Pulp type * `-pulp_type` - Pulp type (descending) * `name` - Name * `-name` - Name (descending) * `pulp_labels` - Pulp labels * `-pulp_labels` - Pulp labels (descending) * `base_path` - Base path * `-base_path` - Base path (descending) * `hidden` - Hidden * `-hidden` - Hidden (descending) * `checkpoint` - Checkpoint * `-checkpoint` - Checkpoint (descending) * `pk` - Pk * `-pk` - Pk (descending)")] = None,
@@ -619,6 +652,8 @@ class DistributionsOpenpgpApi:
 
         Provides read and list methods and also provides asynchronous CUD methods to dispatch tasks with reservation that lock all Distributions preventing race conditions during base_path checking.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param limit: Number of results to return per page.
         :type limit: int
         :param offset: The initial index from which to return the results.
@@ -666,6 +701,7 @@ class DistributionsOpenpgpApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             offset=offset,
             ordering=ordering,
@@ -701,6 +737,7 @@ class DistributionsOpenpgpApi:
     @validate_call
     def list_with_http_info(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
         ordering: Annotated[Optional[List[StrictStr]], Field(description="Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `pulp_type` - Pulp type * `-pulp_type` - Pulp type (descending) * `name` - Name * `-name` - Name (descending) * `pulp_labels` - Pulp labels * `-pulp_labels` - Pulp labels (descending) * `base_path` - Base path * `-base_path` - Base path (descending) * `hidden` - Hidden * `-hidden` - Hidden (descending) * `checkpoint` - Checkpoint * `-checkpoint` - Checkpoint (descending) * `pk` - Pk * `-pk` - Pk (descending)")] = None,
@@ -730,6 +767,8 @@ class DistributionsOpenpgpApi:
 
         Provides read and list methods and also provides asynchronous CUD methods to dispatch tasks with reservation that lock all Distributions preventing race conditions during base_path checking.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param limit: Number of results to return per page.
         :type limit: int
         :param offset: The initial index from which to return the results.
@@ -777,6 +816,7 @@ class DistributionsOpenpgpApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             offset=offset,
             ordering=ordering,
@@ -812,6 +852,7 @@ class DistributionsOpenpgpApi:
     @validate_call
     def list_without_preload_content(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
         ordering: Annotated[Optional[List[StrictStr]], Field(description="Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `pulp_type` - Pulp type * `-pulp_type` - Pulp type (descending) * `name` - Name * `-name` - Name (descending) * `pulp_labels` - Pulp labels * `-pulp_labels` - Pulp labels (descending) * `base_path` - Base path * `-base_path` - Base path (descending) * `hidden` - Hidden * `-hidden` - Hidden (descending) * `checkpoint` - Checkpoint * `-checkpoint` - Checkpoint (descending) * `pk` - Pk * `-pk` - Pk (descending)")] = None,
@@ -841,6 +882,8 @@ class DistributionsOpenpgpApi:
 
         Provides read and list methods and also provides asynchronous CUD methods to dispatch tasks with reservation that lock all Distributions preventing race conditions during base_path checking.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param limit: Number of results to return per page.
         :type limit: int
         :param offset: The initial index from which to return the results.
@@ -888,6 +931,7 @@ class DistributionsOpenpgpApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             offset=offset,
             ordering=ordering,
@@ -918,6 +962,7 @@ class DistributionsOpenpgpApi:
 
     def _list_serialize(
         self,
+        x_task_diagnostics,
         limit,
         offset,
         ordering,
@@ -939,6 +984,7 @@ class DistributionsOpenpgpApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'ordering': 'csv',
             'prn__in': 'csv',
             'pulp_href__in': 'csv',
@@ -1007,6 +1053,8 @@ class DistributionsOpenpgpApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -1049,6 +1097,7 @@ class DistributionsOpenpgpApi:
         self,
         open_p_g_p_distribution_href: StrictStr,
         patched_open_pgp_distribution: PatchedOpenPGPDistribution,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1070,6 +1119,8 @@ class DistributionsOpenpgpApi:
         :type open_p_g_p_distribution_href: str
         :param patched_open_pgp_distribution: (required)
         :type patched_open_pgp_distribution: PatchedOpenPGPDistribution
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1095,6 +1146,7 @@ class DistributionsOpenpgpApi:
         _param = self._partial_update_serialize(
             open_p_g_p_distribution_href=open_p_g_p_distribution_href,
             patched_open_pgp_distribution=patched_open_pgp_distribution,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1120,6 +1172,7 @@ class DistributionsOpenpgpApi:
         self,
         open_p_g_p_distribution_href: StrictStr,
         patched_open_pgp_distribution: PatchedOpenPGPDistribution,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1141,6 +1194,8 @@ class DistributionsOpenpgpApi:
         :type open_p_g_p_distribution_href: str
         :param patched_open_pgp_distribution: (required)
         :type patched_open_pgp_distribution: PatchedOpenPGPDistribution
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1166,6 +1221,7 @@ class DistributionsOpenpgpApi:
         _param = self._partial_update_serialize(
             open_p_g_p_distribution_href=open_p_g_p_distribution_href,
             patched_open_pgp_distribution=patched_open_pgp_distribution,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1191,6 +1247,7 @@ class DistributionsOpenpgpApi:
         self,
         open_p_g_p_distribution_href: StrictStr,
         patched_open_pgp_distribution: PatchedOpenPGPDistribution,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1212,6 +1269,8 @@ class DistributionsOpenpgpApi:
         :type open_p_g_p_distribution_href: str
         :param patched_open_pgp_distribution: (required)
         :type patched_open_pgp_distribution: PatchedOpenPGPDistribution
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1237,6 +1296,7 @@ class DistributionsOpenpgpApi:
         _param = self._partial_update_serialize(
             open_p_g_p_distribution_href=open_p_g_p_distribution_href,
             patched_open_pgp_distribution=patched_open_pgp_distribution,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1257,6 +1317,7 @@ class DistributionsOpenpgpApi:
         self,
         open_p_g_p_distribution_href,
         patched_open_pgp_distribution,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -1266,6 +1327,7 @@ class DistributionsOpenpgpApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -1282,6 +1344,8 @@ class DistributionsOpenpgpApi:
             _path_params['open_p_g_p_distribution_href'] = open_p_g_p_distribution_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if patched_open_pgp_distribution is not None:
@@ -1340,6 +1404,7 @@ class DistributionsOpenpgpApi:
     def read(
         self,
         open_p_g_p_distribution_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1361,6 +1426,8 @@ class DistributionsOpenpgpApi:
 
         :param open_p_g_p_distribution_href: (required)
         :type open_p_g_p_distribution_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1389,6 +1456,7 @@ class DistributionsOpenpgpApi:
 
         _param = self._read_serialize(
             open_p_g_p_distribution_href=open_p_g_p_distribution_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1415,6 +1483,7 @@ class DistributionsOpenpgpApi:
     def read_with_http_info(
         self,
         open_p_g_p_distribution_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1436,6 +1505,8 @@ class DistributionsOpenpgpApi:
 
         :param open_p_g_p_distribution_href: (required)
         :type open_p_g_p_distribution_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1464,6 +1535,7 @@ class DistributionsOpenpgpApi:
 
         _param = self._read_serialize(
             open_p_g_p_distribution_href=open_p_g_p_distribution_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1490,6 +1562,7 @@ class DistributionsOpenpgpApi:
     def read_without_preload_content(
         self,
         open_p_g_p_distribution_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1511,6 +1584,8 @@ class DistributionsOpenpgpApi:
 
         :param open_p_g_p_distribution_href: (required)
         :type open_p_g_p_distribution_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1539,6 +1614,7 @@ class DistributionsOpenpgpApi:
 
         _param = self._read_serialize(
             open_p_g_p_distribution_href=open_p_g_p_distribution_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1560,6 +1636,7 @@ class DistributionsOpenpgpApi:
     def _read_serialize(
         self,
         open_p_g_p_distribution_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -1571,6 +1648,7 @@ class DistributionsOpenpgpApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -1597,6 +1675,8 @@ class DistributionsOpenpgpApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -1639,6 +1719,7 @@ class DistributionsOpenpgpApi:
         self,
         open_p_g_p_distribution_href: StrictStr,
         set_label: SetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1660,6 +1741,8 @@ class DistributionsOpenpgpApi:
         :type open_p_g_p_distribution_href: str
         :param set_label: (required)
         :type set_label: SetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1685,6 +1768,7 @@ class DistributionsOpenpgpApi:
         _param = self._set_label_serialize(
             open_p_g_p_distribution_href=open_p_g_p_distribution_href,
             set_label=set_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1710,6 +1794,7 @@ class DistributionsOpenpgpApi:
         self,
         open_p_g_p_distribution_href: StrictStr,
         set_label: SetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1731,6 +1816,8 @@ class DistributionsOpenpgpApi:
         :type open_p_g_p_distribution_href: str
         :param set_label: (required)
         :type set_label: SetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1756,6 +1843,7 @@ class DistributionsOpenpgpApi:
         _param = self._set_label_serialize(
             open_p_g_p_distribution_href=open_p_g_p_distribution_href,
             set_label=set_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1781,6 +1869,7 @@ class DistributionsOpenpgpApi:
         self,
         open_p_g_p_distribution_href: StrictStr,
         set_label: SetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1802,6 +1891,8 @@ class DistributionsOpenpgpApi:
         :type open_p_g_p_distribution_href: str
         :param set_label: (required)
         :type set_label: SetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1827,6 +1918,7 @@ class DistributionsOpenpgpApi:
         _param = self._set_label_serialize(
             open_p_g_p_distribution_href=open_p_g_p_distribution_href,
             set_label=set_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1847,6 +1939,7 @@ class DistributionsOpenpgpApi:
         self,
         open_p_g_p_distribution_href,
         set_label,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -1856,6 +1949,7 @@ class DistributionsOpenpgpApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -1872,6 +1966,8 @@ class DistributionsOpenpgpApi:
             _path_params['open_p_g_p_distribution_href'] = open_p_g_p_distribution_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if set_label is not None:
@@ -1931,6 +2027,7 @@ class DistributionsOpenpgpApi:
         self,
         open_p_g_p_distribution_href: StrictStr,
         unset_label: UnsetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1952,6 +2049,8 @@ class DistributionsOpenpgpApi:
         :type open_p_g_p_distribution_href: str
         :param unset_label: (required)
         :type unset_label: UnsetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1977,6 +2076,7 @@ class DistributionsOpenpgpApi:
         _param = self._unset_label_serialize(
             open_p_g_p_distribution_href=open_p_g_p_distribution_href,
             unset_label=unset_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2002,6 +2102,7 @@ class DistributionsOpenpgpApi:
         self,
         open_p_g_p_distribution_href: StrictStr,
         unset_label: UnsetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2023,6 +2124,8 @@ class DistributionsOpenpgpApi:
         :type open_p_g_p_distribution_href: str
         :param unset_label: (required)
         :type unset_label: UnsetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2048,6 +2151,7 @@ class DistributionsOpenpgpApi:
         _param = self._unset_label_serialize(
             open_p_g_p_distribution_href=open_p_g_p_distribution_href,
             unset_label=unset_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2073,6 +2177,7 @@ class DistributionsOpenpgpApi:
         self,
         open_p_g_p_distribution_href: StrictStr,
         unset_label: UnsetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2094,6 +2199,8 @@ class DistributionsOpenpgpApi:
         :type open_p_g_p_distribution_href: str
         :param unset_label: (required)
         :type unset_label: UnsetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2119,6 +2226,7 @@ class DistributionsOpenpgpApi:
         _param = self._unset_label_serialize(
             open_p_g_p_distribution_href=open_p_g_p_distribution_href,
             unset_label=unset_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2139,6 +2247,7 @@ class DistributionsOpenpgpApi:
         self,
         open_p_g_p_distribution_href,
         unset_label,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -2148,6 +2257,7 @@ class DistributionsOpenpgpApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -2164,6 +2274,8 @@ class DistributionsOpenpgpApi:
             _path_params['open_p_g_p_distribution_href'] = open_p_g_p_distribution_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if unset_label is not None:
@@ -2223,6 +2335,7 @@ class DistributionsOpenpgpApi:
         self,
         open_p_g_p_distribution_href: StrictStr,
         open_pgp_distribution: OpenPGPDistribution,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2244,6 +2357,8 @@ class DistributionsOpenpgpApi:
         :type open_p_g_p_distribution_href: str
         :param open_pgp_distribution: (required)
         :type open_pgp_distribution: OpenPGPDistribution
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2269,6 +2384,7 @@ class DistributionsOpenpgpApi:
         _param = self._update_serialize(
             open_p_g_p_distribution_href=open_p_g_p_distribution_href,
             open_pgp_distribution=open_pgp_distribution,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2294,6 +2410,7 @@ class DistributionsOpenpgpApi:
         self,
         open_p_g_p_distribution_href: StrictStr,
         open_pgp_distribution: OpenPGPDistribution,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2315,6 +2432,8 @@ class DistributionsOpenpgpApi:
         :type open_p_g_p_distribution_href: str
         :param open_pgp_distribution: (required)
         :type open_pgp_distribution: OpenPGPDistribution
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2340,6 +2459,7 @@ class DistributionsOpenpgpApi:
         _param = self._update_serialize(
             open_p_g_p_distribution_href=open_p_g_p_distribution_href,
             open_pgp_distribution=open_pgp_distribution,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2365,6 +2485,7 @@ class DistributionsOpenpgpApi:
         self,
         open_p_g_p_distribution_href: StrictStr,
         open_pgp_distribution: OpenPGPDistribution,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2386,6 +2507,8 @@ class DistributionsOpenpgpApi:
         :type open_p_g_p_distribution_href: str
         :param open_pgp_distribution: (required)
         :type open_pgp_distribution: OpenPGPDistribution
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2411,6 +2534,7 @@ class DistributionsOpenpgpApi:
         _param = self._update_serialize(
             open_p_g_p_distribution_href=open_p_g_p_distribution_href,
             open_pgp_distribution=open_pgp_distribution,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2431,6 +2555,7 @@ class DistributionsOpenpgpApi:
         self,
         open_p_g_p_distribution_href,
         open_pgp_distribution,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -2440,6 +2565,7 @@ class DistributionsOpenpgpApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -2456,6 +2582,8 @@ class DistributionsOpenpgpApi:
             _path_params['open_p_g_p_distribution_href'] = open_p_g_p_distribution_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if open_pgp_distribution is not None:

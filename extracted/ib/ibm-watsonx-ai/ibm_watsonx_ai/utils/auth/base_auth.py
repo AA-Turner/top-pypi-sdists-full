@@ -6,11 +6,12 @@ from __future__ import annotations
 
 import threading
 from abc import ABC
-import json
-import base64
 from dataclasses import dataclass
 from datetime import timedelta, datetime
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Callable, Any
+
+import json
+import base64
 
 from ibm_watsonx_ai.utils.autoai.errors import TokenRemovedDuringClientCopy
 from ibm_watsonx_ai.wml_resource import WMLResource
@@ -161,19 +162,7 @@ class RefreshableTokenAuth(BaseAuth, ABC):
         if self._hardcoded_expiration_datetime is not None:
             return self._hardcoded_expiration_datetime
 
-        token_parts = self._token.split(".")
-        token_padded = token_parts[1] + "==="
-        try:
-            token_info = json.loads(
-                base64.b64decode(token_padded).decode("utf-8", errors="ignore")
-            )
-        except ValueError:
-            # If there is a problem with decoding (e.g. special char in token), add altchars
-            token_info = json.loads(
-                base64.b64decode(token_padded, altchars="_-").decode(
-                    "utf-8", errors="ignore"
-                )
-            )
+        token_info = _get_token_info(self._token)
         token_expire = token_info.get("exp")
 
         return datetime.fromtimestamp(token_expire)
@@ -305,3 +294,31 @@ def get_auth_method(
             on_token_creation=on_token_creation,
             on_token_refresh=on_token_refresh,
         )
+
+
+def _get_token_info(token: str) -> dict[str, Any]:
+    """Get info (aka payload part) from token.
+
+    :param token: token with encoded information
+    :type token: str
+
+    :returns: info from token
+    :rtype: dict[str, Any]
+
+    """
+    token_parts = token.split(".")
+    token_padded = token_parts[1] + "==="
+
+    try:
+        token_info = json.loads(
+            base64.b64decode(token_padded).decode("utf-8", errors="ignore")
+        )
+    except ValueError:
+        # If there is a problem with decoding (e.g. special char in token), add altchars
+        token_info = json.loads(
+            base64.b64decode(token_padded, altchars="_-").decode(
+                "utf-8", errors="ignore"
+            )
+        )
+
+    return token_info

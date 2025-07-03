@@ -18,9 +18,9 @@ use std::collections::HashMap;
 const EXPLORE_RULE_ID_SUFFIX: &str = "explore";
 
 lazy_static! {
-    static ref NOT_STARTED_RULE: ExposableString = ExposableString::new("prestart".to_string());
+    static ref NOT_STARTED_RULE: ExposableString = ExposableString::from_str_ref("prestart");
     static ref FAILS_TARGETING: ExposableString =
-        ExposableString::new("inlineTargetingRules".to_string());
+        ExposableString::from_str_ref("inlineTargetingRules");
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -77,7 +77,7 @@ pub fn get_cmab_ranked_list(ctx: &mut EvaluatorContext, name: &str) -> Vec<CMABR
             .map(|group| CMABRankedGroup {
                 score: 0.0001,
                 variant_name: group.name.clone(),
-                rule_id: ExposableString::new(format!("{}:explore", group.id.as_str())),
+                rule_id: ExposableString::from_str_parts(&[group.id.as_str(), ":explore"]),
                 value: group.parameter_values.get_json(),
                 cmab_name: name.to_string(),
             })
@@ -124,7 +124,7 @@ pub(crate) fn evaluate_cmab(
         ctx.result.is_experiment_active = cmab.enabled;
         ctx.result.bool_value = false;
         ctx.result.rule_id = Some(&NOT_STARTED_RULE);
-        ctx.result.json_value = cmab.default_value.get_json();
+        ctx.result.json_value = Some(cmab.default_value.clone());
         return true;
     }
 
@@ -134,7 +134,7 @@ pub(crate) fn evaluate_cmab(
         ctx.result.is_experiment_active = cmab.enabled;
         ctx.result.bool_value = false;
         ctx.result.rule_id = Some(&FAILS_TARGETING);
-        ctx.result.json_value = cmab.default_value.get_json();
+        ctx.result.json_value = Some(cmab.default_value.clone());
         return true;
     }
 
@@ -220,7 +220,7 @@ fn apply_random_group<'a>(
     ctx.result.bool_value = true;
     ctx.result.rule_id = Some(&group.id);
     ctx.result.group_name = Some(&group.name);
-    ctx.result.json_value = group.parameter_values.get_json();
+    ctx.result.json_value = Some(group.parameter_values.clone());
 }
 
 fn apply_sampling_group<'a>(
@@ -251,7 +251,7 @@ fn apply_sampling_group<'a>(
             ctx.result.rule_id_suffix = Some(EXPLORE_RULE_ID_SUFFIX);
             ctx.result.bool_value = true;
             ctx.result.group_name = Some(&group.name);
-            ctx.result.json_value = group.parameter_values.get_json();
+            ctx.result.json_value = Some(group.parameter_values.clone());
             return true;
         }
     }
@@ -292,7 +292,7 @@ fn apply_best_group<'a>(
     ctx.result.bool_value = true;
     ctx.result.rule_id = Some(&best_group.id);
     ctx.result.group_name = Some(&best_group.name);
-    ctx.result.json_value = best_group.parameter_values.get_json();
+    ctx.result.json_value = Some(best_group.parameter_values.clone());
 }
 
 fn get_cmab_score_for_group(

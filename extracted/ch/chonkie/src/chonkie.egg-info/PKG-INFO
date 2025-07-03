@@ -1,10 +1,31 @@
 Metadata-Version: 2.4
 Name: chonkie
-Version: 1.0.10
+Version: 1.1.0
 Summary: 🦛 CHONK your texts with Chonkie ✨ - The no-nonsense chunking library
 Author-email: Bhavnick Minhas <bhavnick@chonkie.ai>, Shreyash Nigam <shreyash@chonkie.ai>
 Maintainer-email: Bhavnick Minhas <bhavnick@chonkie.ai>, Shreyash Nigam <shreyash@chonkie.ai>
-License-Expression: MIT
+License: MIT License
+        
+        Copyright (c) 2025 Chonkie
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+        
 Project-URL: Homepage, https://github.com/chonkie-inc/chonkie
 Project-URL: Documentation, https://docs.chonkie.ai
 Project-URL: Bug Tracker, https://github.com/chonkie-inc/chonkie/issues
@@ -25,13 +46,16 @@ Classifier: Topic :: Text Processing :: Linguistic
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: tokenizers>=0.16.0
 Requires-Dist: tqdm>=4.64.0
 Provides-Extra: hub
 Requires-Dist: huggingface-hub>=0.24.0; extra == "hub"
 Requires-Dist: jsonschema>=4.23.0; extra == "hub"
 Provides-Extra: viz
 Requires-Dist: rich>=13.0.0; extra == "viz"
+Provides-Extra: tokenizers
+Requires-Dist: tokenizers>=0.16.0; extra == "tokenizers"
+Provides-Extra: tiktoken
+Requires-Dist: tiktoken>=0.5.0; extra == "tiktoken"
 Provides-Extra: code
 Requires-Dist: tree-sitter>=0.20.0; extra == "code"
 Requires-Dist: tree-sitter-language-pack>=0.7.0; extra == "code"
@@ -47,7 +71,6 @@ Requires-Dist: sentence-transformers>=3.0.0; extra == "st"
 Requires-Dist: numpy<3.0,>=2.0.0; extra == "st"
 Requires-Dist: accelerate>=1.6.0; extra == "st"
 Provides-Extra: openai
-Requires-Dist: tiktoken>=0.5.0; extra == "openai"
 Requires-Dist: openai>=1.0.0; extra == "openai"
 Requires-Dist: numpy<3.0,>=2.0.0; extra == "openai"
 Requires-Dist: pydantic>=2.0.0; extra == "openai"
@@ -77,6 +100,8 @@ Provides-Extra: genie
 Requires-Dist: pydantic>=2.0.0; extra == "genie"
 Requires-Dist: google-genai>=1.0.0; extra == "genie"
 Provides-Extra: all
+Requires-Dist: tokenizers>=0.16.0; extra == "all"
+Requires-Dist: tiktoken>=0.5.0; extra == "all"
 Requires-Dist: rich>=13.0.0; extra == "all"
 Requires-Dist: tree-sitter>=0.20.0; extra == "all"
 Requires-Dist: tree-sitter-language-pack>=0.7.0; extra == "all"
@@ -84,7 +109,6 @@ Requires-Dist: magika<0.7.0,>=0.6.0; extra == "all"
 Requires-Dist: sentence-transformers>=3.0.0; extra == "all"
 Requires-Dist: numpy<3.0,>=2.0.0; extra == "all"
 Requires-Dist: openai>=1.0.0; extra == "all"
-Requires-Dist: tiktoken>=0.5.0; extra == "all"
 Requires-Dist: model2vec>=0.3.0; extra == "all"
 Requires-Dist: cohere>=5.13.0; extra == "all"
 Requires-Dist: accelerate>=1.6.0; extra == "all"
@@ -119,10 +143,10 @@ Dynamic: license-file
 [![PyPI version](https://img.shields.io/pypi/v/chonkie.svg)](https://pypi.org/project/chonkie/)
 [![License](https://img.shields.io/github/license/chonkie-inc/chonkie.svg)](https://github.com/chonkie-inc/chonkie/blob/main/LICENSE)
 [![Documentation](https://img.shields.io/badge/docs-chonkie.ai-blue.svg)](https://docs.chonkie.ai)
-[![Package size](https://img.shields.io/badge/size-15MB-blue)](https://github.com/chonkie-inc/chonkie/blob/main/README.md#installation)
+[![Package size](https://img.shields.io/badge/size-450KB-blue)](https://github.com/chonkie-inc/chonkie/blob/main/README.md#installation)
 [![codecov](https://codecov.io/gh/chonkie-inc/chonkie/graph/badge.svg?token=V4EWIJWREZ)](https://codecov.io/gh/chonkie-inc/chonkie)
 [![Downloads](https://static.pepy.tech/badge/chonkie)](https://pepy.tech/project/chonkie)
-[![Discord](https://dcbadge.limes.pink/api/server/https://discord.gg/rYYp6DC4cv?style=flat)](https://discord.gg/rYYp6DC4cv)
+[![Discord](https://dcbadge.limes.pink/api/server/https://discord.gg/vH3SkRqmUz?style=flat)](https://discord.gg/vH3SkRqmUz)
 [![GitHub stars](https://img.shields.io/github/stars/chonkie-inc/chonkie.svg)](https://github.com/chonkie-inc/chonkie/stargazers)
 
 _The no-nonsense ultra-light and lightning-fast chunking library that's ready to CHONK your texts!_
@@ -143,7 +167,7 @@ Tired of making your gazillionth chunker? Sick of the overhead of large librarie
 **⚡ Fast**: CHONK at the speed of light! zooooom </br>
 **🪶 Light-weight**: No bloat, just CHONK </br>
 **🌏 Wide support**: CHONKie [integrates](#integrations) with your favorite tokenizer, embedding model and APIs! </br>
-**💬 ️Multilingual**: Out-of-the-box support for 5+ language CHONKS (more coming 🔜) </br>
+**💬 ️Multilingual**: Out-of-the-box support for 56 languages </br>
 **☁️ Cloud-Ready**: CHONK locally or in the [Chonkie Cloud](https://cloud.chonkie.ai) </br>
 **🦛 Cute CHONK mascot**: psst it's a pygmy hippo btw </br>
 **❤️ [Moto Moto](#acknowledgements)'s favorite python library** </br>
@@ -198,13 +222,13 @@ Here's a conceptual overview of the pipeline, as illustrated in the diagram:
 
 The main stages are:
 
-1. 📄 Document: The starting point – your input text data. It can be in any format!
-2. 👨‍🍳 Chef: This stage handles initial text preprocessing. It might involve cleaning, normalization, or other preparatory steps to get the text ready for chunking. While this is optional, it is recommended to use the `Chef` stage to clean your text before chunking.
-3. 🦛 Chunker: The core component you select (e.g., RecursiveChunker, SentenceChunker). It applies its specific logic to split the preprocessed text into initial chunks based on the chosen strategy and parameters.
-4. 🏭 Refinery: After initial chunking, the Refinery performs post-processing. This can include merging small chunks based on overlap, adding embeddings, or adding additional context to the chunks. It helps ensure the quality and consistency of the output. You can have multiple `Refineries` to apply different post-processing steps. 
-5. 🤗 Friends: The pipeline's produces the final results which can be either exported to be saved or ingested into your vector database. Chonkie offers `Porters` to export the chunks and `Handshakes` to ingest the chunks into your vector database.
-   - 🐴 Porters: Porters can save the chunks to a file or a database. Currently, only `JSON` is supported for exporting the chunks.
-   - 🤝 Handshakes: Handshakes provide a unified interface for ingesting the chunks into your preferred vector databases.
+1. **📄 Document**: The starting point – your input text data. It can be in any format!
+2. **👨‍🍳 Chef**: This stage handles initial text preprocessing. It might involve cleaning, normalization, or other preparatory steps to get the text ready for chunking. While this is optional, it is recommended to use the `Chef` stage to clean your text before chunking.
+3. **🦛 Chunker**: The core component you select (e.g., RecursiveChunker, SentenceChunker). It applies its specific logic to split the preprocessed text into initial chunks based on the chosen strategy and parameters.
+4. **🏭 Refinery**: After initial chunking, the Refinery performs post-processing. This can include merging small chunks based on overlap, adding embeddings, or adding additional context to the chunks. It helps ensure the quality and consistency of the output. You can have multiple `Refineries` to apply different post-processing steps.
+5. **🤗 Friends**: The pipeline's produces the final results which can be either exported to be saved or ingested into your vector database. Chonkie offers `Porters` to export the chunks and `Handshakes` to ingest the chunks into your vector database.
+   - **🐴 Porters**: Porters can save the chunks to a file or a database. Currently, only `JSON` is supported for exporting the chunks.
+   - **🤝 Handshakes**: Handshakes provide a unified interface for ingesting the chunks into your preferred vector databases.
 
 This modular pipeline allows Chonkie to be both powerful and easy to configure for various text chunking needs.
 
@@ -237,8 +261,8 @@ Choose from supported tokenizers or provide your own custom token counting funct
 
 | Name           | Description                                                    | Optional Install   |
 |----------------|----------------------------------------------------------------|--------------------|
-| `character`    | Basic character-level tokenizer.                               | `default`          |
-| `word`         | Basic word-level tokenizer.                                    | `default`          | 
+| `character`    | Basic character-level tokenizer. **Default tokenizer.**       | `default`          |
+| `word`         | Basic word-level tokenizer.                                    | `default`          |
 | `tokenizers`   | Load any tokenizer from the Hugging Face `tokenizers` library. | `default`          |
 | `tiktoken`     | Use OpenAI's `tiktoken` library (e.g., for `gpt-4`).           | `chonkie[tiktoken]`|
 | `transformers` | Load tokenizers via `AutoTokenizer` from HF `transformers`.    | `chonkie[transformers]`|

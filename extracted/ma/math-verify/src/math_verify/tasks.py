@@ -1,18 +1,16 @@
 import logging
 from textwrap import dedent
 from typing import Callable, Optional
+
+import numpy as np
+from lighteval.metrics.dynamic_metrics import SampleLevelMetric
+from lighteval.metrics.utils.metric_utils import MetricCategory, MetricUseCase
 from lighteval.tasks.lighteval_task import LightevalTaskConfig
 from lighteval.tasks.requests import Doc
-from lighteval.metrics.utils.metric_utils import MetricCategory, MetricUseCase
-from lighteval.metrics.dynamic_metrics import SampleLevelMetric
 
-from math_verify.metric import math_metric
 from math_verify.few_shots import GSM8K_FEW_SHOTS, MATH_HARD_FEW_SHOTS
-import numpy as np
-
-
+from math_verify.metric import math_metric
 from math_verify.parser import ExprExtractionConfig, LatexExtractionConfig
-
 
 logger = logging.getLogger(__name__)
 
@@ -56,10 +54,12 @@ def math_hard_prompt_function(x: dict, task_name: str) -> Doc:
         answer = str(x["solution"])
         question = x["problem"]
 
-    query = dedent(f"""\
+    query = dedent(
+        f"""\
 Question: {question}
 Step-by-Step Answer:\
-""").strip()
+"""
+    ).strip()
 
     choices = [answer]
     return Doc(query=query, choices=choices, gold_index=0)
@@ -79,10 +79,12 @@ def math_prompt_function(x: dict, task_name: str) -> Doc:
         answer = str(x["answer"])
         question = x["problem"]
 
-    query = dedent(f"""\
+    query = dedent(
+        f"""\
 Question: {question}
 Step-by-Step Answer:\
-""").strip()
+"""
+    ).strip()
 
     choices = [answer]
     return Doc(query=query, choices=choices, gold_index=0)
@@ -102,10 +104,12 @@ def math_aime24_prompt_function(x: dict, task_name: str) -> Doc:
         answer = str(x["reference_solution"])
         question = x["problem"]
 
-    query = dedent(f"""\
+    query = dedent(
+        f"""\
 Question: {question}
 Step-by-Step Answer:\
-""").strip()
+"""
+    ).strip()
 
     choices = [f" {answer}"]
     return Doc(query=query, choices=choices, gold_index=0)
@@ -125,10 +129,12 @@ def math_amc23_prompt_function(x: dict, task_name: str) -> Doc:
         answer = str(x["answer"])
         question = x["question"]
 
-    query = dedent(f"""\
+    query = dedent(
+        f"""\
 Question: {question}
 Step-by-Step Answer:\
-""").strip()
+"""
+    ).strip()
     choices = [f" {answer}"]
     return Doc(query=query, choices=choices, gold_index=0)
 
@@ -147,10 +153,12 @@ def gsm8k_prompt_function(x: dict, task_name: str) -> Doc:
         answer = f"{x['answer'].split('####')[-1].strip()}"
         question = x["question"]
 
-    query = dedent(f"""\
+    query = dedent(
+        f"""\
 Question: {question}
 Step-by-Step Answer:\
-""").strip()
+"""
+    ).strip()
 
     choices = [f" {answer}"]
     return Doc(query=query, choices=choices, gold_index=0)

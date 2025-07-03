@@ -5,6 +5,8 @@ import structlog
 from starlette.requests import ClientDisconnect
 from starlette.types import Message, Receive, Scope, Send
 
+from langgraph_api.http_metrics import HTTP_METRICS_COLLECTOR
+
 asgi = structlog.stdlib.get_logger("asgi")
 
 PATHS_IGNORE = {"/ok", "/metrics"}
@@ -64,13 +66,22 @@ class AccessLoggerMiddleware:
         finally:
             info["end_time"] = loop.time()
             latency = int((info["end_time"] - info["start_time"]) * 1_000)
+
+            status = info["response"].get("status")
+            method = scope.get("method")
+            path = scope.get("path")
+            route = scope.get("route")
+
+            if method and route and status:
+                HTTP_METRICS_COLLECTOR.record_request(method, route, status, latency)
+
             self.logger.info(
-                f"{scope.get('method')} {scope.get('path')} {info['response'].get('status')} {latency}ms",
-                method=scope.get("method"),
-                path=scope.get("path"),
-                status=info["response"].get("status"),
+                f"{method} {path} {status} {latency}ms",
+                method=method,
+                path=path,
+                status=status,
                 latency_ms=latency,
-                route=scope.get("route"),
+                route=route,
                 path_params=scope.get("path_params"),
                 query_string=scope.get("query_string").decode(),
                 proto=scope.get("http_version"),

@@ -48,6 +48,7 @@ class ContentOpenpgpSignatureApi:
     @validate_call
     def list(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         issuer: Annotated[Optional[StrictStr], Field(description="Filter results where issuer matches value")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
@@ -80,6 +81,8 @@ class ContentOpenpgpSignatureApi:
 
         Content viewset that supports only GET by default.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param issuer: Filter results where issuer matches value
         :type issuer: str
         :param limit: Number of results to return per page.
@@ -133,6 +136,7 @@ class ContentOpenpgpSignatureApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             issuer=issuer,
             limit=limit,
             offset=offset,
@@ -171,6 +175,7 @@ class ContentOpenpgpSignatureApi:
     @validate_call
     def list_with_http_info(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         issuer: Annotated[Optional[StrictStr], Field(description="Filter results where issuer matches value")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
@@ -203,6 +208,8 @@ class ContentOpenpgpSignatureApi:
 
         Content viewset that supports only GET by default.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param issuer: Filter results where issuer matches value
         :type issuer: str
         :param limit: Number of results to return per page.
@@ -256,6 +263,7 @@ class ContentOpenpgpSignatureApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             issuer=issuer,
             limit=limit,
             offset=offset,
@@ -294,6 +302,7 @@ class ContentOpenpgpSignatureApi:
     @validate_call
     def list_without_preload_content(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         issuer: Annotated[Optional[StrictStr], Field(description="Filter results where issuer matches value")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
@@ -326,6 +335,8 @@ class ContentOpenpgpSignatureApi:
 
         Content viewset that supports only GET by default.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param issuer: Filter results where issuer matches value
         :type issuer: str
         :param limit: Number of results to return per page.
@@ -379,6 +390,7 @@ class ContentOpenpgpSignatureApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             issuer=issuer,
             limit=limit,
             offset=offset,
@@ -412,6 +424,7 @@ class ContentOpenpgpSignatureApi:
 
     def _list_serialize(
         self,
+        x_task_diagnostics,
         issuer,
         limit,
         offset,
@@ -436,6 +449,7 @@ class ContentOpenpgpSignatureApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'ordering': 'csv',
             'prn__in': 'csv',
             'pulp_href__in': 'csv',
@@ -516,6 +530,8 @@ class ContentOpenpgpSignatureApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -557,6 +573,7 @@ class ContentOpenpgpSignatureApi:
     def read(
         self,
         open_p_g_p_signature_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -578,6 +595,8 @@ class ContentOpenpgpSignatureApi:
 
         :param open_p_g_p_signature_href: (required)
         :type open_p_g_p_signature_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -606,6 +625,7 @@ class ContentOpenpgpSignatureApi:
 
         _param = self._read_serialize(
             open_p_g_p_signature_href=open_p_g_p_signature_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -632,6 +652,7 @@ class ContentOpenpgpSignatureApi:
     def read_with_http_info(
         self,
         open_p_g_p_signature_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -653,6 +674,8 @@ class ContentOpenpgpSignatureApi:
 
         :param open_p_g_p_signature_href: (required)
         :type open_p_g_p_signature_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -681,6 +704,7 @@ class ContentOpenpgpSignatureApi:
 
         _param = self._read_serialize(
             open_p_g_p_signature_href=open_p_g_p_signature_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -707,6 +731,7 @@ class ContentOpenpgpSignatureApi:
     def read_without_preload_content(
         self,
         open_p_g_p_signature_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -728,6 +753,8 @@ class ContentOpenpgpSignatureApi:
 
         :param open_p_g_p_signature_href: (required)
         :type open_p_g_p_signature_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -756,6 +783,7 @@ class ContentOpenpgpSignatureApi:
 
         _param = self._read_serialize(
             open_p_g_p_signature_href=open_p_g_p_signature_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -777,6 +805,7 @@ class ContentOpenpgpSignatureApi:
     def _read_serialize(
         self,
         open_p_g_p_signature_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -788,6 +817,7 @@ class ContentOpenpgpSignatureApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -814,6 +844,8 @@ class ContentOpenpgpSignatureApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -856,6 +888,7 @@ class ContentOpenpgpSignatureApi:
         self,
         open_p_g_p_signature_href: StrictStr,
         set_label: SetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -877,6 +910,8 @@ class ContentOpenpgpSignatureApi:
         :type open_p_g_p_signature_href: str
         :param set_label: (required)
         :type set_label: SetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -902,6 +937,7 @@ class ContentOpenpgpSignatureApi:
         _param = self._set_label_serialize(
             open_p_g_p_signature_href=open_p_g_p_signature_href,
             set_label=set_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -927,6 +963,7 @@ class ContentOpenpgpSignatureApi:
         self,
         open_p_g_p_signature_href: StrictStr,
         set_label: SetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -948,6 +985,8 @@ class ContentOpenpgpSignatureApi:
         :type open_p_g_p_signature_href: str
         :param set_label: (required)
         :type set_label: SetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -973,6 +1012,7 @@ class ContentOpenpgpSignatureApi:
         _param = self._set_label_serialize(
             open_p_g_p_signature_href=open_p_g_p_signature_href,
             set_label=set_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -998,6 +1038,7 @@ class ContentOpenpgpSignatureApi:
         self,
         open_p_g_p_signature_href: StrictStr,
         set_label: SetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1019,6 +1060,8 @@ class ContentOpenpgpSignatureApi:
         :type open_p_g_p_signature_href: str
         :param set_label: (required)
         :type set_label: SetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1044,6 +1087,7 @@ class ContentOpenpgpSignatureApi:
         _param = self._set_label_serialize(
             open_p_g_p_signature_href=open_p_g_p_signature_href,
             set_label=set_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1064,6 +1108,7 @@ class ContentOpenpgpSignatureApi:
         self,
         open_p_g_p_signature_href,
         set_label,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -1073,6 +1118,7 @@ class ContentOpenpgpSignatureApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -1089,6 +1135,8 @@ class ContentOpenpgpSignatureApi:
             _path_params['open_p_g_p_signature_href'] = open_p_g_p_signature_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if set_label is not None:
@@ -1148,6 +1196,7 @@ class ContentOpenpgpSignatureApi:
         self,
         open_p_g_p_signature_href: StrictStr,
         unset_label: UnsetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1169,6 +1218,8 @@ class ContentOpenpgpSignatureApi:
         :type open_p_g_p_signature_href: str
         :param unset_label: (required)
         :type unset_label: UnsetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1194,6 +1245,7 @@ class ContentOpenpgpSignatureApi:
         _param = self._unset_label_serialize(
             open_p_g_p_signature_href=open_p_g_p_signature_href,
             unset_label=unset_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1219,6 +1271,7 @@ class ContentOpenpgpSignatureApi:
         self,
         open_p_g_p_signature_href: StrictStr,
         unset_label: UnsetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1240,6 +1293,8 @@ class ContentOpenpgpSignatureApi:
         :type open_p_g_p_signature_href: str
         :param unset_label: (required)
         :type unset_label: UnsetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1265,6 +1320,7 @@ class ContentOpenpgpSignatureApi:
         _param = self._unset_label_serialize(
             open_p_g_p_signature_href=open_p_g_p_signature_href,
             unset_label=unset_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1290,6 +1346,7 @@ class ContentOpenpgpSignatureApi:
         self,
         open_p_g_p_signature_href: StrictStr,
         unset_label: UnsetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1311,6 +1368,8 @@ class ContentOpenpgpSignatureApi:
         :type open_p_g_p_signature_href: str
         :param unset_label: (required)
         :type unset_label: UnsetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1336,6 +1395,7 @@ class ContentOpenpgpSignatureApi:
         _param = self._unset_label_serialize(
             open_p_g_p_signature_href=open_p_g_p_signature_href,
             unset_label=unset_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1356,6 +1416,7 @@ class ContentOpenpgpSignatureApi:
         self,
         open_p_g_p_signature_href,
         unset_label,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -1365,6 +1426,7 @@ class ContentOpenpgpSignatureApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -1381,6 +1443,8 @@ class ContentOpenpgpSignatureApi:
             _path_params['open_p_g_p_signature_href'] = open_p_g_p_signature_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if unset_label is not None:

@@ -1,6 +1,7 @@
 # Copyright © 2025 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
 from collections import defaultdict
+from contextlib import suppress
 import time
 from types import ModuleType
 from typing import Optional
@@ -23,11 +24,24 @@ from contrast_vendor import structlog as logging
 logger = logging.getLogger("contrast")
 
 IMPORTABLE_FILE_SUFFIXES = (".py", ".so")
-CONTRAST_DIST_NAMES = ("contrast-agent", "contrast-agent-lib", "contrast-fireball")
+CONTRAST_DIST_NAMES = (
+    "contrast-agent",
+    "contrast-agent-lib",
+    "contrast-fireball",
+    "contrast-agent-bundle",
+)
+
+
+def try_distribution(name: str) -> Optional[importlib_metadata.Distribution]:
+    with suppress(importlib_metadata.PackageNotFoundError):
+        return importlib_metadata.distribution(name)
+    return None
+
+
 CONTRAST_DIST_HASHES = tuple(
     get_hash(dist.name, dist.version)
     for name in CONTRAST_DIST_NAMES
-    if (dist := importlib_metadata.distribution(name))
+    if (dist := try_distribution(name))
 )
 
 

@@ -26,7 +26,7 @@ from typing_extensions import Self
 
 class CompositeContentGuardResponse(BaseModel):
     """
-    Base serializer for use with [pulpcore.app.models.Model][]  This ensures that all Serializers provide values for the 'pulp_href` field.  The class provides a default for the ``ref_name`` attribute in the ModelSerializers's ``Meta`` class. This ensures that the OpenAPI definitions of plugins are namespaced properly.
+    Base class for content guard serializers.
     """ # noqa: E501
     pulp_href: Optional[StrictStr] = None
     prn: Optional[StrictStr] = Field(default=None, description="The Pulp Resource Name (PRN).")

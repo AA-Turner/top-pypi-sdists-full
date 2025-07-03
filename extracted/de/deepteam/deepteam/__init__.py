@@ -4,9 +4,11 @@ import re
 
 # Optionally add telemetry
 from deepteam.red_team import red_team
+from deepteam.frameworks import FrameworkType
 
 __all__ = [
     "red_team",
+    "FrameworkType",
 ]
 
 

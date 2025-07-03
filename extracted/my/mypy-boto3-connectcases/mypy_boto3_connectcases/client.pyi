@@ -47,10 +47,12 @@ from .type_defs import (
     CreateRelatedItemResponseTypeDef,
     CreateTemplateRequestTypeDef,
     CreateTemplateResponseTypeDef,
+    DeleteCaseRequestTypeDef,
     DeleteCaseRuleRequestTypeDef,
     DeleteDomainRequestTypeDef,
     DeleteFieldRequestTypeDef,
     DeleteLayoutRequestTypeDef,
+    DeleteRelatedItemRequestTypeDef,
     DeleteTemplateRequestTypeDef,
     EmptyResponseMetadataTypeDef,
     GetCaseAuditEventsRequestTypeDef,
@@ -186,8 +188,8 @@ class ConnectCasesClient(BaseClient):
 
     def create_case(self, **kwargs: Unpack[CreateCaseRequestTypeDef]) -> CreateCaseResponseTypeDef:
         """
-        If you provide a value for <code>PerformedBy.UserArn</code> you must also have
-        <a
+        <note> <p>If you provide a value for <code>PerformedBy.UserArn</code> you must
+        also have <a
         href="https://docs.aws.amazon.com/connect/latest/APIReference/API_DescribeUser.html">connect:DescribeUser</a>
         permission on the User ARN resource that you provide.
 
@@ -257,6 +259,15 @@ class ConnectCasesClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connectcases/client/#create_template)
         """
 
+    def delete_case(self, **kwargs: Unpack[DeleteCaseRequestTypeDef]) -> Dict[str, Any]:
+        """
+        The DeleteCase API permanently deletes a case and all its associated resources
+        from the cases data store.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connectcases/client/delete_case.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connectcases/client/#delete_case)
+        """
+
     def delete_case_rule(self, **kwargs: Unpack[DeleteCaseRuleRequestTypeDef]) -> Dict[str, Any]:
         """
         Deletes a case rule.
@@ -287,6 +298,16 @@ class ConnectCasesClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connectcases/client/delete_layout.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connectcases/client/#delete_layout)
+        """
+
+    def delete_related_item(
+        self, **kwargs: Unpack[DeleteRelatedItemRequestTypeDef]
+    ) -> Dict[str, Any]:
+        """
+        Deletes the related item resource under a case.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connectcases/client/delete_related_item.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connectcases/client/#delete_related_item)
         """
 
     def delete_template(self, **kwargs: Unpack[DeleteTemplateRequestTypeDef]) -> Dict[str, Any]:
@@ -481,8 +502,8 @@ class ConnectCasesClient(BaseClient):
 
     def update_case(self, **kwargs: Unpack[UpdateCaseRequestTypeDef]) -> Dict[str, Any]:
         """
-        If you provide a value for <code>PerformedBy.UserArn</code> you must also have
-        <a
+        <note> <p>If you provide a value for <code>PerformedBy.UserArn</code> you must
+        also have <a
         href="https://docs.aws.amazon.com/connect/latest/APIReference/API_DescribeUser.html">connect:DescribeUser</a>
         permission on the User ARN resource that you provide.
 

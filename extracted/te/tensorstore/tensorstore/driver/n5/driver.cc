@@ -55,6 +55,7 @@
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/kvstore/auto_detect.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/open_mode.h"
@@ -478,8 +479,8 @@ Future<internal::Driver::Handle> N5DriverSpec::Open(
 
 Result<internal::TransformedDriverSpec> ParseN5Url(std::string_view url,
                                                    kvstore::Spec&& base) {
-  auto parsed = internal::ParseGenericUriWithoutSlashSlash(url);
-  assert(parsed.scheme == N5DriverSpec::id);
+  auto parsed = internal::ParseGenericUri(url);
+  TENSORSTORE_RETURN_IF_ERROR(internal::EnsureSchema(parsed, N5DriverSpec::id));
   TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoQueryOrFragment(parsed));
   auto driver_spec = internal::MakeIntrusivePtr<N5DriverSpec>();
   driver_spec->InitializeFromUrl(std::move(base), parsed.authority_and_path);
@@ -509,5 +510,11 @@ const tensorstore::internal::DriverRegistration<
 const tensorstore::internal::UrlSchemeRegistration url_scheme_registration(
     tensorstore::internal_n5::N5DriverSpec::id,
     tensorstore::internal_n5::ParseN5Url);
+
+const tensorstore::internal_kvstore::AutoDetectRegistration
+    auto_detect_registration{
+        tensorstore::internal_kvstore::AutoDetectDirectorySpec::SingleFile(
+            tensorstore::internal_n5::N5DriverSpec::id,
+            tensorstore::internal_n5::kMetadataKey)};
 
 }  // namespace

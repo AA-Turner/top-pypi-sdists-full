@@ -6,6 +6,7 @@ authors = [
 ]
 dependencies = [
     "packaging>=20",
+    "platformdirs>=4.3.6",
 ]
 requires-python = ">=3.8"
 readme = "README.md"
@@ -17,8 +18,9 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 ]
-version = "0.6.3"
+version = "0.7.0"
 
 [project.license]
 text = "MIT"
@@ -42,6 +44,9 @@ tests = [
     "pytest",
 ]
 
+[tool.pdm.scripts]
+test = "pytest tests"
+
 [tool.black]
 line-length = 90
 include = "\\.pyi?$"
@@ -49,6 +54,15 @@ exclude = "/(\n    \\.eggs\n  | \\.git\n  | \\.hg\n  | \\.mypy_cache\n  | \\.tox
 
 [tool.ruff]
 line-length = 90
+src = [
+    "src",
+]
+exclude = [
+    "tests/fixtures",
+]
+target-version = "py38"
+
+[tool.ruff.lint]
 select = [
     "B",
     "C4",
@@ -63,20 +77,18 @@ extend-ignore = [
     "B018",
     "B019",
 ]
-src = [
-    "src",
-]
-exclude = [
-    "tests/fixtures",
-]
-target-version = "py37"
 
-[tool.ruff.mccabe]
+[tool.ruff.lint.mccabe]
 max-complexity = 10
 
-[tool.ruff.isort]
+[tool.ruff.lint.isort]
 known-first-party = [
     "findpython",
+]
+
+[tool.mypy]
+overrides = [
+    { module = "_winreg", ignore_missing_imports = true },
 ]
 
 [build-system]

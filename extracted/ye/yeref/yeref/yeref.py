@@ -7149,16 +7149,14 @@ async def onchain_metadata(cell, result):
 async def check_error(data):
     result = False
     try:
-        if 'exit_code' in data and data['exit_code'] == -13:
-            result = True
-            return
-        if 'exit_code' in data and data['exit_code'] == 9:
-            result = True
-            return
+        print(f"check_error .. {data=}")
         if 'stack' in data and not len(data):
             result = True
             return
-        if 'stack' in data and data['stack'][0]['value'] == '0x18fcf':
+        if data.get('exit_code') in (-13, 9, 11):
+            result = True
+            return
+        if 'stack' in data and data['stack'][0]['value'] in ('0x18fcf', '0x1905b'):
             result = True
             return
     except Exception as e:
@@ -7732,6 +7730,81 @@ async def get_nft_data(address, KEYS_JSON, is_test_only=False, help_link=None):
         return result
 
 
+async def get_nft_address_by_index(address, index, KEYS_JSON, is_test_only=False):
+    result = None
+    try:
+        _ = Address(address)
+        pfx_testnet = "testnet." if is_test_only else ""
+        async with aiofiles.open(KEYS_JSON, mode='r') as f:
+            data = json.loads(await f.read())
+
+        items = []
+        for provider, keys in data["ton"].items():
+            for _ in keys:
+                if provider == "tonapi":
+                    key = random.choice([it['all'] for it in keys if 'all' in it]) if keys else None
+                    if key:
+                        items.append([
+                            'tonapi',
+                            f'https://{pfx_testnet}tonapi.io/v2/blockchain/accounts/{address}/methods/get_collection_data',
+                            {
+                                'accept': 'application/json',
+                                'Authorization': f'Bearer {key}'
+                            }
+                        ])
+                elif provider == "toncenter":
+                    key = next((it['testnet'] if is_test_only else it['mainnet'] for it in keys if (is_test_only and 'testnet' in it) or (not is_test_only and 'mainnet' in it)), None)
+                    if key:
+                        items.append([
+                            'toncenter',
+                            f'https://{pfx_testnet}toncenter.com/api/v3/runGetMethod',
+                            {
+                                'accept': 'application/json',
+                                'X-API-Key': key
+                            }
+                        ])
+        print(f"{items=}")
+
+        while True:
+            random.shuffle(items)
+            for item in items:
+                try:
+                    name, url, headers = item
+
+                    if name == 'tonapi':
+                        async with aiohttp.ClientSession() as session:
+                            async with session.get(url, headers=headers) as response:
+                                response.raise_for_status()
+                                data = await response.json()
+
+                        if 'error' in data or not data['success']: return result
+                        result = data['decoded']['address']
+                        print(f"get_nft_address_by_index: {result}")
+                    else:
+                        payload = {"address": address, "method": 'get_nft_address_by_index',
+                                   "stack": [{"type": "num", "value": hex(index)}]}
+                        async with aiohttp.ClientSession() as session:
+                            async with session.post(url, headers=headers, json=payload) as response:
+                                response.raise_for_status()
+                                data = await response.json()
+                        if await check_error(data): return result
+
+                        result = (Cell.one_from_boc(data['stack'][0]['value']).begin_parse().load_address()).to_str(
+                            is_bounceable=True, is_test_only=is_test_only)
+                        print(f"toncenter get_nft_address_by_index: {result}")
+
+                    await asyncio.sleep(0.6)
+                    return result
+                except Exception as e:
+                    logger.info(log_ % str(e))
+                    await asyncio.sleep(round(random.uniform(0, 1), 2))
+            break
+    except Exception as e:
+        logger.info(log_ % str(e))
+        await asyncio.sleep(round(random.uniform(0, 1), 2))
+    return result
+
+
 async def get_collection_data(address, KEYS_JSON, is_test_only=False):
     result = {}
     try:
@@ -7739,19 +7812,6 @@ async def get_collection_data(address, KEYS_JSON, is_test_only=False):
         pfx_testnet = "testnet." if is_test_only else ""
         async with aiofiles.open(KEYS_JSON, mode='r') as f:
             data = json.loads(await f.read())
-
-        # item1 = ['tonapi',
-        #          f'https://{pfx_testnet}tonapi.io/v2/blockchain/accounts/{address}/methods/get_collection_data',
-        #          {'accept': 'application/json',
-        #           'Authorization': 'Bearer AFQTWCA5N2BCKRYAAAAILLMH5NYQ2VQTMVPEFE2TIWZVVPKMCJWJLC3UO3NRVEGJXE5XLPA'}]
-        # item2 = ['toncenter', f'https://{pfx_testnet}toncenter.com/api/v3/runGetMethod',
-        #          {'accept': 'application/json', 'X-API-Key': toncenter_key}]
-        # item3 = ['tonapi',
-        #          f'https://{pfx_testnet}tonapi.io/v2/blockchain/accounts/{address}/methods/get_collection_data',
-        #          {'accept': 'application/json',
-        #           'Authorization': 'Bearer AFPJTKEBPOX3AIYAAAAKA2HWOTRNJP5MUCV5DMDCZAAOCPSAYEYS3CILNQVLF2HWKED6USY'}]
-        # items = [item1, item2, item3]
-        # # items = [item2]
 
         items = []
         for provider, keys in data["ton"].items():
@@ -7857,6 +7917,161 @@ async def get_collection_data(address, KEYS_JSON, is_test_only=False):
         await asyncio.sleep(round(random.uniform(0, 1), 2))
     finally:
         return result
+
+
+async def get_royalty_params(address, KEYS_JSON, is_test_only=False):
+    result = {}
+    try:
+        _ = Address(address)
+        pfx_testnet = "testnet." if is_test_only else ""
+        async with aiofiles.open(KEYS_JSON, mode='r') as f:
+            data = json.loads(await f.read())
+
+        items = []
+        for provider, keys in data["ton"].items():
+            for _ in keys:
+                if provider == "tonapi":
+                    key = random.choice([it['all'] for it in keys if 'all' in it]) if keys else None
+                    if key:
+                        items.append([
+                            'tonapi',
+                            f'https://{pfx_testnet}tonapi.io/v2/blockchain/accounts/{address}/methods/get_collection_data',
+                            {
+                                'accept': 'application/json',
+                                'Authorization': f'Bearer {key}'
+                            }
+                        ])
+                elif provider == "toncenter":
+                    key = next((it['testnet'] if is_test_only else it['mainnet'] for it in keys if (is_test_only and 'testnet' in it) or (not is_test_only and 'mainnet' in it)), None)
+                    if key:
+                        items.append([
+                            'toncenter',
+                            f'https://{pfx_testnet}toncenter.com/api/v3/runGetMethod',
+                            {
+                                'accept': 'application/json',
+                                'X-API-Key': key
+                            }
+                        ])
+        print(f"{items=}")
+
+        while True:
+            random.shuffle(items)
+            for item in items:
+                try:
+                    name, url, headers = item
+
+                    if name == 'tonapi':
+                        async with aiohttp.ClientSession() as session:
+                            async with session.get(url, headers=headers) as response:
+                                response.raise_for_status()
+                                data = await response.json()
+
+                        if 'error' in data or not data['success']: return result
+                        print('success')
+                        result['numerator'] = data['decoded']['numerator']
+                        result['denominator'] = data['decoded']['denominator']
+                        result['destination'] = data['decoded']['destination']
+                    else:
+                        payload = {"address": address, "method": 'royalty_params', "stack": []}
+                        async with aiohttp.ClientSession() as session:
+                            async with session.post(url, headers=headers, json=payload) as response:
+                                response.raise_for_status()
+                                data = await response.json()
+                        if await check_error(data): return result
+                        if len(data['stack']) < 3: return result
+
+                        result['numerator'] = int(data['stack'][0]['value'], 16)
+                        result['denominator'] = int(data['stack'][1]['value'], 16)
+                        result['destination'] = (
+                            Cell.one_from_boc(data['stack'][2]['value']).begin_parse().load_address()).to_str(
+                            is_bounceable=False, is_test_only=is_test_only)
+                        print(f"toncenter {result=}")
+
+                    await asyncio.sleep(0.6)
+                    return result
+                except Exception as e:
+                    logger.info(log_ % str(e))
+                    await asyncio.sleep(round(random.uniform(0, 1), 2))
+            break
+    except Exception as e:
+        logger.info(log_ % str(e))
+        await asyncio.sleep(round(random.uniform(0, 1), 2))
+    return result
+
+
+async def get_editor(address, KEYS_JSON, is_test_only=False):
+    result = {}
+    try:
+        _ = Address(address)
+        pfx_testnet = "testnet." if is_test_only else ""
+        async with aiofiles.open(KEYS_JSON, mode='r') as f:
+            data = json.loads(await f.read())
+
+        items = []
+        for provider, keys in data["ton"].items():
+            for _ in keys:
+                if provider == "tonapi":
+                    key = random.choice([it['all'] for it in keys if 'all' in it]) if keys else None
+                    if key:
+                        items.append([
+                            'tonapi',
+                            f'https://{pfx_testnet}tonapi.io/v2/blockchain/accounts/{address}/methods/get_collection_data',
+                            {
+                                'accept': 'application/json',
+                                'Authorization': f'Bearer {key}'
+                            }
+                        ])
+                elif provider == "toncenter":
+                    key = next((it['testnet'] if is_test_only else it['mainnet'] for it in keys if (is_test_only and 'testnet' in it) or (not is_test_only and 'mainnet' in it)), None)
+                    if key:
+                        items.append([
+                            'toncenter',
+                            f'https://{pfx_testnet}toncenter.com/api/v3/runGetMethod',
+                            {
+                                'accept': 'application/json',
+                                'X-API-Key': key
+                            }
+                        ])
+        print(f"{items=}")
+
+        while True:
+            random.shuffle(items)
+            for item in items:
+                try:
+                    name, url, headers = item
+
+                    if name == 'tonapi':
+                        async with aiohttp.ClientSession() as session:
+                            async with session.get(url, headers=headers) as response:
+                                response.raise_for_status()
+                                data = await response.json()
+
+                        if 'error' in data or not data['success']: return result
+                        print(data, 'success')
+                        result['editor'] = data['decoded']['editor']
+                    else:
+                        payload = {"address": address, "method": 'get_editor', "stack": []}
+                        async with aiohttp.ClientSession() as session:
+                            async with session.post(url, headers=headers, json=payload) as response:
+                                response.raise_for_status()
+                                data = await response.json()
+                        if await check_error(data): return result
+
+                        result['editor'] = (
+                            Cell.one_from_boc(data['stack'][0]['value']).begin_parse().load_address()).to_str(
+                            is_bounceable=False, is_test_only=is_test_only)
+                        print(f"toncenter {result=}")
+
+                    await asyncio.sleep(0.6)
+                    return result
+                except Exception as e:
+                    logger.info(log_ % str(e))
+                    await asyncio.sleep(round(random.uniform(0, 1), 2))
+            break
+    except Exception as e:
+        logger.info(log_ % str(e))
+        await asyncio.sleep(round(random.uniform(0, 1), 2))
+    return result
 
 
 async def get_nft_in_account(address, collection, KEYS_JSON, is_test_only=False, cnt=1):
@@ -8267,8 +8482,8 @@ async def calculate_wallet_address(owner, master, KEYS_JSON, is_test_only=False)
         return result
 
 
-async def get_method_data(address, KEYS_JSON, is_test_only=False, method_name='get_jetton_data'):
-    result = None
+async def get_jetton_data(address, KEYS_JSON, is_test_only=False):
+    result = {}
     try:
         pfx_testnet = "testnet." if is_test_only else ""
         async with aiofiles.open(KEYS_JSON, mode='r') as f:
@@ -8282,7 +8497,7 @@ async def get_method_data(address, KEYS_JSON, is_test_only=False, method_name='g
                     if key:
                         items.append([
                             'tonapi',
-                            f'https://{pfx_testnet}tonapi.io/v2/blockchain/accounts/{address}/methods/{method_name}',
+                            f'https://{pfx_testnet}tonapi.io/v2/blockchain/accounts/{address}/methods/get_jetton_data',
                             {
                                 'accept': 'application/json',
                                 'Authorization': f'Bearer {key}'
@@ -8340,7 +8555,7 @@ async def get_method_data(address, KEYS_JSON, is_test_only=False, method_name='g
                             result['total_supply'] = int(
                                 int(result['total_supply']) / (10 ** (int(result['decimals']))))
                     else:
-                        payload = {"address": address, "method": method_name, "stack": []}
+                        payload = {"address": address, "method": 'get_jetton_data', "stack": []}
                         print(f" {address=}")
                         async with aiohttp.ClientSession() as session:
                             async with session.post(url, headers=headers, json=payload) as response:
@@ -8390,9 +8605,95 @@ async def get_method_data(address, KEYS_JSON, is_test_only=False, method_name='g
         return result
 
 
+async def get_wallet_data(address, decimals, KEYS_JSON, is_test_only=False):
+    result = {}
+    try:
+        pfx_testnet = "testnet." if is_test_only else ""
+        async with aiofiles.open(KEYS_JSON, mode='r') as f:
+            data = json.loads(await f.read())
+
+        items = []
+        for provider, keys in data["ton"].items():
+            for _ in keys:
+                if provider == "tonapi":
+                    key = random.choice([it['all'] for it in keys if 'all' in it]) if keys else None
+                    if key:
+                        items.append([
+                            'tonapi',
+                            f'https://{pfx_testnet}tonapi.io/v2/blockchain/accounts/{address}/methods/get_wallet_data',
+                            {
+                                'accept': 'application/json',
+                                'Authorization': f'Bearer {key}'
+                            }
+                        ])
+                elif provider == "toncenter":
+                    key = next((it['testnet'] if is_test_only else it['mainnet'] for it in keys if (is_test_only and 'testnet' in it) or (not is_test_only and 'mainnet' in it)), None)
+                    if key:
+                        items.append([
+                            'toncenter',
+                            f'https://{pfx_testnet}toncenter.com/api/v3/runGetMethod',
+                            {
+                                'accept': 'application/json',
+                                'X-API-Key': key
+                            }
+                        ])
+
+        while True:
+            random.shuffle(items)
+            for item in items:
+                try:
+                    name, url, headers = item
+
+                    if name == 'tonapi':
+                        async with aiohttp.ClientSession() as session:
+                            async with session.get(url, headers=headers) as response:
+                                response.raise_for_status()
+                                data = await response.json()
+
+                        # print('sooooo', data)
+                        if 'error' in data or not data['success']: return
+                        result['balance'] = str(int(int(data['decoded']['balance']) / (10 ** int(decimals))))
+                        result['owner'] = data['decoded']['owner']
+                        result['jetton'] = data['decoded']['jetton']
+                    else:
+                        payload = {"address": address, "method": 'get_wallet_data', "stack": []}
+                        async with aiohttp.ClientSession() as session:
+                            async with session.post(url, headers=headers, json=payload) as response:
+                                response.raise_for_status()
+                                data = await response.json()
+                        if await check_error(data): return result
+
+                        result['balance'] = str(int(data['stack'][0]['value'], 16))
+                        result['balance'] = str(int(int(result['balance']) / (10 ** int(decimals))))
+                        try:
+                            result['admin_address'] = (
+                                Cell.one_from_boc(data['stack'][1]['value']).begin_parse().load_address()).to_str(
+                                is_bounceable=False, is_test_only=is_test_only)
+                        except Exception as _:
+                            result['admin_address'] = ""
+
+                        result['jetton'] = (
+                            Cell.one_from_boc(data['stack'][2]['value']).begin_parse().load_address()).to_str(
+                            is_bounceable=True, is_test_only=is_test_only)
+                        print(f"{result=}")
+
+                    await asyncio.sleep(0.6)
+                    return
+                except Exception as e:
+                    logger.info(log_ % str(e))
+                    await asyncio.sleep(round(random.uniform(0, 1), 2))
+            break
+    except Exception as e:
+        logger.info(log_ % str(e))
+        await asyncio.sleep(round(random.uniform(0, 1), 2))
+    finally:
+        return result
+
+
 async def get_next_admin_address(address, KEYS_JSON, is_test_only=False):
     result = {}
     try:
+        print('get_next_admin_address start..')
         pfx_testnet = "testnet." if is_test_only else ""
         async with aiofiles.open(KEYS_JSON, mode='r') as f:
             data = json.loads(await f.read())
@@ -8441,7 +8742,7 @@ async def get_next_admin_address(address, KEYS_JSON, is_test_only=False):
                         print(f"{data['decoded']=}")
                         result['next_admin_address'] = data['decoded']['next_admin_address']
                     else:
-                        payload = {"address": address, "method": get_next_admin_address, "stack": []}
+                        payload = {"address": address, "method": 'get_next_admin_address', "stack": []}
                         async with aiohttp.ClientSession() as session:
                             async with session.post(url, headers=headers, json=payload) as response:
                                 response.raise_for_status()
@@ -8455,7 +8756,7 @@ async def get_next_admin_address(address, KEYS_JSON, is_test_only=False):
                             result['next_admin_address'] = ""
 
                     await asyncio.sleep(0.6)
-                    # return
+                    return
                 except Exception as e:
                     logger.info(log_ % str(e))
                     await asyncio.sleep(round(random.uniform(0, 1), 2))

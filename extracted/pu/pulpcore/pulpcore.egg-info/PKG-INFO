@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pulpcore
-Version: 3.81.0
+Version: 3.82.0
 Summary: Pulp Django Application and Related Modules
 Author-email: Pulp Team <pulp-list@redhat.com>
 Project-URL: Homepage, https://pulpproject.org
@@ -23,7 +23,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: aiodns<3.6,>=3.3.0
 Requires-Dist: aiofiles<=24.1.0,>=22.1
-Requires-Dist: aiohttp<3.13,>=3.8.1
+Requires-Dist: aiohttp<3.13,>=3.8.3
 Requires-Dist: asyncio-throttle<=1.0.2,>=1.0
 Requires-Dist: async-timeout<4.0.4,>=4.0.3; python_version < "3.11"
 Requires-Dist: backoff<2.3,>=2.1.2
@@ -50,7 +50,7 @@ Requires-Dist: opentelemetry-api<1.35,>=1.27.0
 Requires-Dist: opentelemetry-sdk<1.35,>=1.27.0
 Requires-Dist: opentelemetry-exporter-otlp-proto-http<1.35,>=1.27.0
 Requires-Dist: protobuf<6.0,>=4.21.1
-Requires-Dist: pulp-glue<0.34,>=0.18.0
+Requires-Dist: pulp-glue<0.34,>=0.28.0
 Requires-Dist: pygtrie<=2.5.0,>=2.5
 Requires-Dist: psycopg[binary]<3.3,>=3.1.8
 Requires-Dist: pyparsing<3.3,>=3.1.0
@@ -74,7 +74,7 @@ Provides-Extra: prometheus
 Requires-Dist: django-prometheus; extra == "prometheus"
 Provides-Extra: kafka
 Requires-Dist: cloudevents==1.11.0; extra == "kafka"
-Requires-Dist: confluent-kafka<2.10.0,>=2.4.0; extra == "kafka"
+Requires-Dist: confluent-kafka<2.11.0,>=2.4.0; extra == "kafka"
 Provides-Extra: diagnostics
 Requires-Dist: pyinstrument~=5.0; extra == "diagnostics"
 Requires-Dist: memray~=1.17; extra == "diagnostics"

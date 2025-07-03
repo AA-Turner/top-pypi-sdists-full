@@ -76,7 +76,7 @@ def convert_response_data_type(
 
     Returns
     -------
-    list, dict, `civis.Response`, or `requests.Response`
+    dict, `civis.Response`, `civis.ListResponse`, or `requests.Response`
         Depending on the value of `return_type`.
     """
     if return_type == "raw":
@@ -90,10 +90,11 @@ def convert_response_data_type(
             data = response
 
         if isinstance(data, list):
-            return [
+            responses = [
                 Response(d, headers=headers, from_json_values=from_json_values)
                 for d in data
             ]
+            return ListResponse(responses, headers)
         else:
             return Response(data, headers=headers, from_json_values=from_json_values)
 
@@ -336,7 +337,7 @@ pprint.PrettyPrinter._dispatch[Response.__repr__] = _pprint_response
 
 
 class PaginatedResponse:
-    """A response object which is an iterator
+    """A generator of :class:`civis.Response` objects, for paginated API calls.
 
     Parameters
     ----------
@@ -398,6 +399,41 @@ class PaginatedResponse:
         if self._iter is None:
             self._iter = self._get_iter()
         return next(self._iter)
+
+
+class ListResponse(list):
+    """A list of :class:`civis.Response` objects.
+
+    Parameters
+    ----------
+    responses : list[civis.Response]
+        A list of response objects to be stored in this list.
+    headers : dict, optional
+        Headers to be attached to the list response.
+        The headers info is available as an attribute, so that it can be accessed
+        even when the list is empty.
+    """
+
+    __slots__ = ("headers",)
+
+    def __init__(self, responses, headers=None):
+        super().__init__(responses)
+        self.headers = headers
+
+    def json(self, snake_case=True):
+        """Return the JSON data of all responses in the list.
+
+        Parameters
+        ----------
+        snake_case : bool, optional
+            If True (the default), return the keys in snake case.
+            If False, return the keys in camel case.
+
+        Returns
+        -------
+        list[dict]
+        """
+        return [r.json(snake_case) for r in self]
 
 
 def find(object_list, filter_func=None, **kwargs):

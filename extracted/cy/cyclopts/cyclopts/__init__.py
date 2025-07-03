@@ -1,5 +1,5 @@
 # Don't manually change, let poetry-dynamic-versioning handle it.
-__version__ = "3.22.0"
+__version__ = "3.22.1"
 
 __all__ = [
     "App",

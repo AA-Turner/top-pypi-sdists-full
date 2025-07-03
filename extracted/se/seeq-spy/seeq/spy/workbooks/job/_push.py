@@ -252,7 +252,7 @@ def load_item_map(job_folder):
 def save_item_map(job_folder, item_map):
     item_map_file = get_item_map_filename(job_folder)
     with util.safe_open(item_map_file, 'wb') as f:
-        pickle.dump(item_map, f, protocol=4)
+        pickle.dump(item_map, f, protocol=_common.DEFAULT_PICKLE_PROTOCOL)
 
 
 def get_dummy_workbook_name(job_folder):

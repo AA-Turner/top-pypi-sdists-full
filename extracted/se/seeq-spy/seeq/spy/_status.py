@@ -17,7 +17,8 @@ from seeq.spy._errors import *
 from seeq.spy._session import Session
 from seeq.spy._usage import Usage
 
-display_thread_lock = threading.Lock()
+display_thread_start_lock = threading.Lock()
+display_thread_finish_lock = threading.Lock()
 
 
 class Status:
@@ -310,16 +311,18 @@ class Status:
         Make sure all pending display messages are flushed to the notebook, otherwise the background thread could
         call clear_output() on subsequent statements within the cell, erasing the output that the user wants to see.
         """
-        if self._skip_display() or self.message is None:
-            return
-
-        self.display(finish=True)
+        if not self._skip_display() and self.message is not None:
+            self.display(finish=True)
 
         if not hasattr(Status, 'display_ipython_queue'):
             return
 
         timer = _common.timer_start()
-        while not Status.display_ipython_queue.empty():
+        while True:
+            with display_thread_finish_lock:
+                if Status.display_ipython_queue.empty():
+                    break
+
             try:
                 Status.display_ipython_now.set()
                 time.sleep(0.001)
@@ -327,6 +330,15 @@ class Status:
                 # This can happen if we are dying. Try to give some time for the display thread to finish.
                 if _common.timer_elapsed(timer) > 1.0:
                     raise SPyKeyboardInterrupt()
+
+    @staticmethod
+    def log_to_browser_console(message):
+        # Useful for debugging timing issues
+        if not _datalab.is_ipython():
+            return
+
+        from IPython.display import display, Javascript
+        display(Javascript(f"console.log({repr(message)});"))
 
     def _display_text(self, new_message, *, warning_summary=False):
         print_func = print
@@ -458,7 +470,7 @@ class Status:
         Jupyter cell are guaranteed to appear in that cell and not "bleed" over to the next cell. It is therefore
         important that the decorator is used on all top-level functions that involve Status and can be called by users.
         """
-        with display_thread_lock:
+        with display_thread_start_lock:
             if not hasattr(Status, 'display_ipython_queue'):
                 Status.display_ipython_queue = queue.Queue()
                 Status.display_ipython_now = _common.AutoResetEvent()
@@ -486,15 +498,19 @@ class Status:
                 # Try to get the last payload displayed before we have to exit
                 stop = True
 
-            payload = Status._get_ipython_display_payload()
+            with display_thread_finish_lock:
+                # We use a lock here because we have to get the payload and send it to the display before
+                # _finish() allows the main thread to continue.
 
-            if payload is None:
-                continue
+                payload = Status._get_ipython_display_payload()
 
-            if _common.display_supports_html():
-                display(HTML(payload), clear=True)
-            else:
-                display(payload, clear=True)
+                if payload is None:
+                    continue
+
+                if _common.display_supports_html():
+                    display(HTML(payload), clear=True)
+                else:
+                    display(payload, clear=True)
 
     @staticmethod
     def _get_ipython_display_payload():

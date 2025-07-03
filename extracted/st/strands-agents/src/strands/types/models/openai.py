@@ -11,7 +11,7 @@ import base64
 import json
 import logging
 import mimetypes
-from typing import Any, Callable, Optional, Type, TypeVar, cast
+from typing import Any, Generator, Optional, Type, TypeVar, Union, cast
 
 from pydantic import BaseModel
 from typing_extensions import override
@@ -262,6 +262,9 @@ class OpenAIModel(Model, abc.ABC):
                         "contentBlockDelta": {"delta": {"toolUse": {"input": event["data"].function.arguments or ""}}}
                     }
 
+                if event["data_type"] == "reasoning_content":
+                    return {"contentBlockDelta": {"delta": {"reasoningContent": {"text": event["data"]}}}}
+
                 return {"contentBlockDelta": {"delta": {"text": event["data"]}}}
 
             case "content_stop":
@@ -295,13 +298,15 @@ class OpenAIModel(Model, abc.ABC):
 
     @override
     def structured_output(
-        self, output_model: Type[T], prompt: Messages, callback_handler: Optional[Callable] = None
-    ) -> T:
+        self, output_model: Type[T], prompt: Messages
+    ) -> Generator[dict[str, Union[T, Any]], None, None]:
         """Get structured output from the model.
 
         Args:
-            output_model(Type[BaseModel]): The output model to use for the agent.
-            prompt(Messages): The prompt to use for the agent.
-            callback_handler(Optional[Callable]): Optional callback handler for processing events. Defaults to None.
+            output_model: The output model to use for the agent.
+            prompt: The prompt to use for the agent.
+
+        Yields:
+            Model events with the last being the structured output.
         """
-        return output_model()
+        yield {"output": output_model()}

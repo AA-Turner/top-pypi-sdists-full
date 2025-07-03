@@ -54,6 +54,7 @@ class AcsFileApi:
         self,
         file_file_alternate_content_source_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -75,6 +76,8 @@ class AcsFileApi:
         :type file_file_alternate_content_source_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -100,6 +103,7 @@ class AcsFileApi:
         _param = self._add_role_serialize(
             file_file_alternate_content_source_href=file_file_alternate_content_source_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -125,6 +129,7 @@ class AcsFileApi:
         self,
         file_file_alternate_content_source_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -146,6 +151,8 @@ class AcsFileApi:
         :type file_file_alternate_content_source_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -171,6 +178,7 @@ class AcsFileApi:
         _param = self._add_role_serialize(
             file_file_alternate_content_source_href=file_file_alternate_content_source_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -196,6 +204,7 @@ class AcsFileApi:
         self,
         file_file_alternate_content_source_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -217,6 +226,8 @@ class AcsFileApi:
         :type file_file_alternate_content_source_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -242,6 +253,7 @@ class AcsFileApi:
         _param = self._add_role_serialize(
             file_file_alternate_content_source_href=file_file_alternate_content_source_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -262,6 +274,7 @@ class AcsFileApi:
         self,
         file_file_alternate_content_source_href,
         nested_role,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -271,6 +284,7 @@ class AcsFileApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -287,6 +301,8 @@ class AcsFileApi:
             _path_params['file_file_alternate_content_source_href'] = file_file_alternate_content_source_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if nested_role is not None:
@@ -345,6 +361,7 @@ class AcsFileApi:
     def create(
         self,
         file_file_alternate_content_source: FileFileAlternateContentSource,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -364,6 +381,8 @@ class AcsFileApi:
 
         :param file_file_alternate_content_source: (required)
         :type file_file_alternate_content_source: FileFileAlternateContentSource
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -388,6 +407,7 @@ class AcsFileApi:
 
         _param = self._create_serialize(
             file_file_alternate_content_source=file_file_alternate_content_source,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -412,6 +432,7 @@ class AcsFileApi:
     def create_with_http_info(
         self,
         file_file_alternate_content_source: FileFileAlternateContentSource,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -431,6 +452,8 @@ class AcsFileApi:
 
         :param file_file_alternate_content_source: (required)
         :type file_file_alternate_content_source: FileFileAlternateContentSource
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -455,6 +478,7 @@ class AcsFileApi:
 
         _param = self._create_serialize(
             file_file_alternate_content_source=file_file_alternate_content_source,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -479,6 +503,7 @@ class AcsFileApi:
     def create_without_preload_content(
         self,
         file_file_alternate_content_source: FileFileAlternateContentSource,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -498,6 +523,8 @@ class AcsFileApi:
 
         :param file_file_alternate_content_source: (required)
         :type file_file_alternate_content_source: FileFileAlternateContentSource
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -522,6 +549,7 @@ class AcsFileApi:
 
         _param = self._create_serialize(
             file_file_alternate_content_source=file_file_alternate_content_source,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -541,6 +569,7 @@ class AcsFileApi:
     def _create_serialize(
         self,
         file_file_alternate_content_source,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -550,6 +579,7 @@ class AcsFileApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -564,6 +594,8 @@ class AcsFileApi:
         # process the path parameters
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if file_file_alternate_content_source is not None:
@@ -622,6 +654,7 @@ class AcsFileApi:
     def delete(
         self,
         file_file_alternate_content_source_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -641,6 +674,8 @@ class AcsFileApi:
 
         :param file_file_alternate_content_source_href: (required)
         :type file_file_alternate_content_source_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -665,6 +700,7 @@ class AcsFileApi:
 
         _param = self._delete_serialize(
             file_file_alternate_content_source_href=file_file_alternate_content_source_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -689,6 +725,7 @@ class AcsFileApi:
     def delete_with_http_info(
         self,
         file_file_alternate_content_source_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -708,6 +745,8 @@ class AcsFileApi:
 
         :param file_file_alternate_content_source_href: (required)
         :type file_file_alternate_content_source_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -732,6 +771,7 @@ class AcsFileApi:
 
         _param = self._delete_serialize(
             file_file_alternate_content_source_href=file_file_alternate_content_source_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -756,6 +796,7 @@ class AcsFileApi:
     def delete_without_preload_content(
         self,
         file_file_alternate_content_source_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -775,6 +816,8 @@ class AcsFileApi:
 
         :param file_file_alternate_content_source_href: (required)
         :type file_file_alternate_content_source_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -799,6 +842,7 @@ class AcsFileApi:
 
         _param = self._delete_serialize(
             file_file_alternate_content_source_href=file_file_alternate_content_source_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -818,6 +862,7 @@ class AcsFileApi:
     def _delete_serialize(
         self,
         file_file_alternate_content_source_href,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -827,6 +872,7 @@ class AcsFileApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -843,6 +889,8 @@ class AcsFileApi:
             _path_params['file_file_alternate_content_source_href'] = file_file_alternate_content_source_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -883,6 +931,7 @@ class AcsFileApi:
     @validate_call
     def list(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter results where name matches value")] = None,
         name__contains: Annotated[Optional[StrictStr], Field(description="Filter results where name contains value")] = None,
@@ -918,6 +967,8 @@ class AcsFileApi:
 
         Alternate Content Source ViewSet for File
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param limit: Number of results to return per page.
         :type limit: int
         :param name: Filter results where name matches value
@@ -977,6 +1028,7 @@ class AcsFileApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             name=name,
             name__contains=name__contains,
@@ -1018,6 +1070,7 @@ class AcsFileApi:
     @validate_call
     def list_with_http_info(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter results where name matches value")] = None,
         name__contains: Annotated[Optional[StrictStr], Field(description="Filter results where name contains value")] = None,
@@ -1053,6 +1106,8 @@ class AcsFileApi:
 
         Alternate Content Source ViewSet for File
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param limit: Number of results to return per page.
         :type limit: int
         :param name: Filter results where name matches value
@@ -1112,6 +1167,7 @@ class AcsFileApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             name=name,
             name__contains=name__contains,
@@ -1153,6 +1209,7 @@ class AcsFileApi:
     @validate_call
     def list_without_preload_content(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter results where name matches value")] = None,
         name__contains: Annotated[Optional[StrictStr], Field(description="Filter results where name contains value")] = None,
@@ -1188,6 +1245,8 @@ class AcsFileApi:
 
         Alternate Content Source ViewSet for File
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param limit: Number of results to return per page.
         :type limit: int
         :param name: Filter results where name matches value
@@ -1247,6 +1306,7 @@ class AcsFileApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             name=name,
             name__contains=name__contains,
@@ -1283,6 +1343,7 @@ class AcsFileApi:
 
     def _list_serialize(
         self,
+        x_task_diagnostics,
         limit,
         name,
         name__contains,
@@ -1310,6 +1371,7 @@ class AcsFileApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'name__in': 'csv',
             'ordering': 'csv',
             'prn__in': 'csv',
@@ -1403,6 +1465,8 @@ class AcsFileApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -1444,6 +1508,7 @@ class AcsFileApi:
     def list_roles(
         self,
         file_file_alternate_content_source_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1465,6 +1530,8 @@ class AcsFileApi:
 
         :param file_file_alternate_content_source_href: (required)
         :type file_file_alternate_content_source_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1493,6 +1560,7 @@ class AcsFileApi:
 
         _param = self._list_roles_serialize(
             file_file_alternate_content_source_href=file_file_alternate_content_source_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1519,6 +1587,7 @@ class AcsFileApi:
     def list_roles_with_http_info(
         self,
         file_file_alternate_content_source_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1540,6 +1609,8 @@ class AcsFileApi:
 
         :param file_file_alternate_content_source_href: (required)
         :type file_file_alternate_content_source_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1568,6 +1639,7 @@ class AcsFileApi:
 
         _param = self._list_roles_serialize(
             file_file_alternate_content_source_href=file_file_alternate_content_source_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1594,6 +1666,7 @@ class AcsFileApi:
     def list_roles_without_preload_content(
         self,
         file_file_alternate_content_source_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1615,6 +1688,8 @@ class AcsFileApi:
 
         :param file_file_alternate_content_source_href: (required)
         :type file_file_alternate_content_source_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1643,6 +1718,7 @@ class AcsFileApi:
 
         _param = self._list_roles_serialize(
             file_file_alternate_content_source_href=file_file_alternate_content_source_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1664,6 +1740,7 @@ class AcsFileApi:
     def _list_roles_serialize(
         self,
         file_file_alternate_content_source_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -1675,6 +1752,7 @@ class AcsFileApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -1701,6 +1779,8 @@ class AcsFileApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -1742,6 +1822,7 @@ class AcsFileApi:
     def my_permissions(
         self,
         file_file_alternate_content_source_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1763,6 +1844,8 @@ class AcsFileApi:
 
         :param file_file_alternate_content_source_href: (required)
         :type file_file_alternate_content_source_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1791,6 +1874,7 @@ class AcsFileApi:
 
         _param = self._my_permissions_serialize(
             file_file_alternate_content_source_href=file_file_alternate_content_source_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1817,6 +1901,7 @@ class AcsFileApi:
     def my_permissions_with_http_info(
         self,
         file_file_alternate_content_source_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1838,6 +1923,8 @@ class AcsFileApi:
 
         :param file_file_alternate_content_source_href: (required)
         :type file_file_alternate_content_source_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1866,6 +1953,7 @@ class AcsFileApi:
 
         _param = self._my_permissions_serialize(
             file_file_alternate_content_source_href=file_file_alternate_content_source_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1892,6 +1980,7 @@ class AcsFileApi:
     def my_permissions_without_preload_content(
         self,
         file_file_alternate_content_source_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1913,6 +2002,8 @@ class AcsFileApi:
 
         :param file_file_alternate_content_source_href: (required)
         :type file_file_alternate_content_source_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1941,6 +2032,7 @@ class AcsFileApi:
 
         _param = self._my_permissions_serialize(
             file_file_alternate_content_source_href=file_file_alternate_content_source_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1962,6 +2054,7 @@ class AcsFileApi:
     def _my_permissions_serialize(
         self,
         file_file_alternate_content_source_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -1973,6 +2066,7 @@ class AcsFileApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -1999,6 +2093,8 @@ class AcsFileApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -2041,6 +2137,7 @@ class AcsFileApi:
         self,
         file_file_alternate_content_source_href: StrictStr,
         patchedfile_file_alternate_content_source: PatchedfileFileAlternateContentSource,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2062,6 +2159,8 @@ class AcsFileApi:
         :type file_file_alternate_content_source_href: str
         :param patchedfile_file_alternate_content_source: (required)
         :type patchedfile_file_alternate_content_source: PatchedfileFileAlternateContentSource
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2087,6 +2186,7 @@ class AcsFileApi:
         _param = self._partial_update_serialize(
             file_file_alternate_content_source_href=file_file_alternate_content_source_href,
             patchedfile_file_alternate_content_source=patchedfile_file_alternate_content_source,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2112,6 +2212,7 @@ class AcsFileApi:
         self,
         file_file_alternate_content_source_href: StrictStr,
         patchedfile_file_alternate_content_source: PatchedfileFileAlternateContentSource,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2133,6 +2234,8 @@ class AcsFileApi:
         :type file_file_alternate_content_source_href: str
         :param patchedfile_file_alternate_content_source: (required)
         :type patchedfile_file_alternate_content_source: PatchedfileFileAlternateContentSource
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2158,6 +2261,7 @@ class AcsFileApi:
         _param = self._partial_update_serialize(
             file_file_alternate_content_source_href=file_file_alternate_content_source_href,
             patchedfile_file_alternate_content_source=patchedfile_file_alternate_content_source,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2183,6 +2287,7 @@ class AcsFileApi:
         self,
         file_file_alternate_content_source_href: StrictStr,
         patchedfile_file_alternate_content_source: PatchedfileFileAlternateContentSource,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2204,6 +2309,8 @@ class AcsFileApi:
         :type file_file_alternate_content_source_href: str
         :param patchedfile_file_alternate_content_source: (required)
         :type patchedfile_file_alternate_content_source: PatchedfileFileAlternateContentSource
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2229,6 +2336,7 @@ class AcsFileApi:
         _param = self._partial_update_serialize(
             file_file_alternate_content_source_href=file_file_alternate_content_source_href,
             patchedfile_file_alternate_content_source=patchedfile_file_alternate_content_source,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2249,6 +2357,7 @@ class AcsFileApi:
         self,
         file_file_alternate_content_source_href,
         patchedfile_file_alternate_content_source,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -2258,6 +2367,7 @@ class AcsFileApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -2274,6 +2384,8 @@ class AcsFileApi:
             _path_params['file_file_alternate_content_source_href'] = file_file_alternate_content_source_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if patchedfile_file_alternate_content_source is not None:
@@ -2332,6 +2444,7 @@ class AcsFileApi:
     def read(
         self,
         file_file_alternate_content_source_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -2353,6 +2466,8 @@ class AcsFileApi:
 
         :param file_file_alternate_content_source_href: (required)
         :type file_file_alternate_content_source_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2381,6 +2496,7 @@ class AcsFileApi:
 
         _param = self._read_serialize(
             file_file_alternate_content_source_href=file_file_alternate_content_source_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2407,6 +2523,7 @@ class AcsFileApi:
     def read_with_http_info(
         self,
         file_file_alternate_content_source_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -2428,6 +2545,8 @@ class AcsFileApi:
 
         :param file_file_alternate_content_source_href: (required)
         :type file_file_alternate_content_source_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2456,6 +2575,7 @@ class AcsFileApi:
 
         _param = self._read_serialize(
             file_file_alternate_content_source_href=file_file_alternate_content_source_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2482,6 +2602,7 @@ class AcsFileApi:
     def read_without_preload_content(
         self,
         file_file_alternate_content_source_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -2503,6 +2624,8 @@ class AcsFileApi:
 
         :param file_file_alternate_content_source_href: (required)
         :type file_file_alternate_content_source_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2531,6 +2654,7 @@ class AcsFileApi:
 
         _param = self._read_serialize(
             file_file_alternate_content_source_href=file_file_alternate_content_source_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2552,6 +2676,7 @@ class AcsFileApi:
     def _read_serialize(
         self,
         file_file_alternate_content_source_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -2563,6 +2688,7 @@ class AcsFileApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -2589,6 +2715,8 @@ class AcsFileApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -2630,6 +2758,7 @@ class AcsFileApi:
     def refresh(
         self,
         file_file_alternate_content_source_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2649,6 +2778,8 @@ class AcsFileApi:
 
         :param file_file_alternate_content_source_href: (required)
         :type file_file_alternate_content_source_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2673,6 +2804,7 @@ class AcsFileApi:
 
         _param = self._refresh_serialize(
             file_file_alternate_content_source_href=file_file_alternate_content_source_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2697,6 +2829,7 @@ class AcsFileApi:
     def refresh_with_http_info(
         self,
         file_file_alternate_content_source_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2716,6 +2849,8 @@ class AcsFileApi:
 
         :param file_file_alternate_content_source_href: (required)
         :type file_file_alternate_content_source_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2740,6 +2875,7 @@ class AcsFileApi:
 
         _param = self._refresh_serialize(
             file_file_alternate_content_source_href=file_file_alternate_content_source_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2764,6 +2900,7 @@ class AcsFileApi:
     def refresh_without_preload_content(
         self,
         file_file_alternate_content_source_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2783,6 +2920,8 @@ class AcsFileApi:
 
         :param file_file_alternate_content_source_href: (required)
         :type file_file_alternate_content_source_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2807,6 +2946,7 @@ class AcsFileApi:
 
         _param = self._refresh_serialize(
             file_file_alternate_content_source_href=file_file_alternate_content_source_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2826,6 +2966,7 @@ class AcsFileApi:
     def _refresh_serialize(
         self,
         file_file_alternate_content_source_href,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -2835,6 +2976,7 @@ class AcsFileApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -2851,6 +2993,8 @@ class AcsFileApi:
             _path_params['file_file_alternate_content_source_href'] = file_file_alternate_content_source_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -2893,6 +3037,7 @@ class AcsFileApi:
         self,
         file_file_alternate_content_source_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2914,6 +3059,8 @@ class AcsFileApi:
         :type file_file_alternate_content_source_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2939,6 +3086,7 @@ class AcsFileApi:
         _param = self._remove_role_serialize(
             file_file_alternate_content_source_href=file_file_alternate_content_source_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2964,6 +3112,7 @@ class AcsFileApi:
         self,
         file_file_alternate_content_source_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2985,6 +3134,8 @@ class AcsFileApi:
         :type file_file_alternate_content_source_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3010,6 +3161,7 @@ class AcsFileApi:
         _param = self._remove_role_serialize(
             file_file_alternate_content_source_href=file_file_alternate_content_source_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3035,6 +3187,7 @@ class AcsFileApi:
         self,
         file_file_alternate_content_source_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3056,6 +3209,8 @@ class AcsFileApi:
         :type file_file_alternate_content_source_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3081,6 +3236,7 @@ class AcsFileApi:
         _param = self._remove_role_serialize(
             file_file_alternate_content_source_href=file_file_alternate_content_source_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3101,6 +3257,7 @@ class AcsFileApi:
         self,
         file_file_alternate_content_source_href,
         nested_role,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -3110,6 +3267,7 @@ class AcsFileApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -3126,6 +3284,8 @@ class AcsFileApi:
             _path_params['file_file_alternate_content_source_href'] = file_file_alternate_content_source_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if nested_role is not None:
@@ -3185,6 +3345,7 @@ class AcsFileApi:
         self,
         file_file_alternate_content_source_href: StrictStr,
         file_file_alternate_content_source: FileFileAlternateContentSource,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3206,6 +3367,8 @@ class AcsFileApi:
         :type file_file_alternate_content_source_href: str
         :param file_file_alternate_content_source: (required)
         :type file_file_alternate_content_source: FileFileAlternateContentSource
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3231,6 +3394,7 @@ class AcsFileApi:
         _param = self._update_serialize(
             file_file_alternate_content_source_href=file_file_alternate_content_source_href,
             file_file_alternate_content_source=file_file_alternate_content_source,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3256,6 +3420,7 @@ class AcsFileApi:
         self,
         file_file_alternate_content_source_href: StrictStr,
         file_file_alternate_content_source: FileFileAlternateContentSource,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3277,6 +3442,8 @@ class AcsFileApi:
         :type file_file_alternate_content_source_href: str
         :param file_file_alternate_content_source: (required)
         :type file_file_alternate_content_source: FileFileAlternateContentSource
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3302,6 +3469,7 @@ class AcsFileApi:
         _param = self._update_serialize(
             file_file_alternate_content_source_href=file_file_alternate_content_source_href,
             file_file_alternate_content_source=file_file_alternate_content_source,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3327,6 +3495,7 @@ class AcsFileApi:
         self,
         file_file_alternate_content_source_href: StrictStr,
         file_file_alternate_content_source: FileFileAlternateContentSource,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3348,6 +3517,8 @@ class AcsFileApi:
         :type file_file_alternate_content_source_href: str
         :param file_file_alternate_content_source: (required)
         :type file_file_alternate_content_source: FileFileAlternateContentSource
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3373,6 +3544,7 @@ class AcsFileApi:
         _param = self._update_serialize(
             file_file_alternate_content_source_href=file_file_alternate_content_source_href,
             file_file_alternate_content_source=file_file_alternate_content_source,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3393,6 +3565,7 @@ class AcsFileApi:
         self,
         file_file_alternate_content_source_href,
         file_file_alternate_content_source,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -3402,6 +3575,7 @@ class AcsFileApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -3418,6 +3592,8 @@ class AcsFileApi:
             _path_params['file_file_alternate_content_source_href'] = file_file_alternate_content_source_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if file_file_alternate_content_source is not None:

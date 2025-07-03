@@ -57,26 +57,30 @@ class SubscriptVisitor(base.BaseNodeVisitor):
         if not isinstance(node.slice, ast.Slice):
             return
 
+        indexes: list[ast.expr | None] = []
         lower_ok = node.slice.lower is None or (
             not self._is_zero(node.slice.lower)
             and not self._is_none(node.slice.lower)
         )
-
         upper_ok = node.slice.upper is None or not self._is_none(
             node.slice.upper,
         )
-
         step_ok = node.slice.step is None or (
             not self._is_one(node.slice.step)
             and not self._is_none(node.slice.step)
         )
 
-        if not (lower_ok and upper_ok and step_ok):
-            self.add_violation(
-                consistency.RedundantSubscriptViolation(
-                    node,
-                ),
-            )
+        if not lower_ok:
+            indexes.append(node.slice.lower)
+
+        if not upper_ok:
+            indexes.append(node.slice.upper)
+
+        if not step_ok:
+            indexes.append(node.slice.step)
+
+        for index in indexes:
+            self.add_violation(consistency.RedundantSubscriptViolation(index))
 
     def _check_slice_assignment(self, node: ast.Subscript) -> None:
         if not isinstance(node.ctx, ast.Store):
@@ -182,3 +186,69 @@ class CorrectKeyVisitor(base.BaseNodeVisitor):
         return isinstance(real_node, ast.Constant) and isinstance(
             real_node.value, float
         )
+
+
+@final
+class StrictSliceOperations(base.BaseNodeVisitor):
+    """Check for stricter operation with slices."""
+
+    def visit_Slice(self, node: ast.Slice) -> None:
+        """Visit slice."""
+        self._check_reverse(node)
+        self._check_copy(node)
+        self.generic_visit(node)
+
+    def _check_reverse(self, node: ast.Slice) -> None:
+        if not (
+            self._is_node_or_none(node.lower)
+            or self._is_node_have_value(node.lower, value_to_check=-1)
+        ):
+            return
+
+        if not (
+            self._is_node_or_none(node.upper)
+            and self._is_node_have_value(node.step, value_to_check=-1)
+        ):
+            return
+
+        self.add_violation(
+            best_practices.NonStrictSliceOperationsViolation(node)
+        )
+
+    def _check_copy(self, node: ast.Slice) -> None:
+        if not (
+            self._is_node_or_none(node.lower)
+            or self._is_node_have_value(node.lower, value_to_check=0)
+        ):
+            return
+
+        if not self._is_node_or_none(node.upper):
+            return
+
+        if not (
+            self._is_node_or_none(node.step)
+            or self._is_node_have_value(node.step, value_to_check=1)
+        ):
+            return
+
+        self.add_violation(
+            best_practices.NonStrictSliceOperationsViolation(node)
+        )
+
+    def _is_node_or_none(self, node: ast.AST | None) -> bool:
+        return node is None or (
+            isinstance(node, ast.Constant) and node.value is None
+        )
+
+    def _is_node_have_value(
+        self, node: ast.AST | None, value_to_check: int
+    ) -> bool:
+        if value_to_check < 0:
+            return (
+                isinstance(node, ast.UnaryOp)
+                and isinstance(node.op, ast.USub)
+                and isinstance(node.operand, ast.Constant)
+                and node.operand.value == abs(value_to_check)
+            )
+
+        return isinstance(node, ast.Constant) and node.value == value_to_check

@@ -30,9 +30,9 @@ def check_type(argname: str, value: object, expected_type: typing.Any) -> typing
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
     "@aws-cdk/cloud-assembly-schema",
-    "44.9.0",
+    "45.0.0",
     __name__[0:-6],
-    "cloud-assembly-schema@44.9.0.jsii.tgz",
+    "cloud-assembly-schema@45.0.0.jsii.tgz",
 )
 
 __all__ = [

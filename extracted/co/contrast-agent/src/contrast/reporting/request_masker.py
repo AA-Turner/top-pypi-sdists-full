@@ -1,17 +1,19 @@
 # Copyright © 2025 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
-from copy import copy
+from dataclasses import dataclass, replace
 from typing import TypedDict
-from urllib.parse import parse_qs, urlencode, unquote
+from urllib.parse import parse_qs, unquote, urlencode
 from collections.abc import Mapping
 
 from contrast.api.attack import ProtectResponse
+from contrast.api.user_input import UserInput
 from contrast_vendor import structlog as logging
 from contrast_vendor.webob.multidict import MultiDict
 
 logger = logging.getLogger("contrast")
 
 MASK = "contrast-redacted-{}"
+VECTOR_MASK = MASK.format("vector")
 BODY_MASK = b"contrast-redacted-body"
 SEMICOLON_URL_ENCODE_VAL = "%25"
 
@@ -21,7 +23,8 @@ class SensitiveDataRule(TypedDict):
     keywords: list[str]
 
 
-class SensitiveDataPolicy(TypedDict):
+@dataclass(frozen=True)
+class SensitiveDataPolicy:
     mask_attack_vector: bool
     mask_http_body: bool
     rules: list[SensitiveDataRule]
@@ -29,22 +32,54 @@ class SensitiveDataPolicy(TypedDict):
 
 class RequestMasker:
     def __init__(self, config: Mapping):
-        self.request = None
-        self.attacks = None
-        self.mask_rules: SensitiveDataPolicy = config.get(
-            "application.sensitive_data_masking_policy", None
+        self.mask_rules = SensitiveDataPolicy(
+            mask_attack_vector=config[
+                "application.sensitive_data_masking_policy.mask_attack_vector"
+            ],
+            mask_http_body=config[
+                "application.sensitive_data_masking_policy.mask_http_body"
+            ],
+            rules=config["application.sensitive_data_masking_policy.rules"],
         )
 
     @classmethod
     def new_request_masker(cls, config: SensitiveDataPolicy):
-        return cls({"application.sensitive_data_masking_policy": config})
+        return cls(
+            {
+                "application.sensitive_data_masking_policy.mask_attack_vector": config.mask_attack_vector,
+                "application.sensitive_data_masking_policy.mask_http_body": config.mask_http_body,
+                "application.sensitive_data_masking_policy.rules": config.rules,
+            }
+        )
 
-    def mask_sensitive_data(self, request, attacks=None):
+    def mask_attack_input(self, input: UserInput):
+        """
+        Mask the attack input based on the masking rules.
+        """
+        masked_name = (
+            self.mask_attack_vector(input.name)
+            if input.is_name_based and input.name
+            else input.name
+        )
+
+        return replace(
+            input,
+            value=self.mask_attack_vector(input.value),
+            name=masked_name,
+        )
+
+    def mask_attack_vector(self, vector: str):
+        """
+        Mask the provided vector if "mask_attack_vector" is set to True in the mask rules.
+        """
+        return vector if not self.mask_rules.mask_attack_vector else VECTOR_MASK
+
+    def mask_sensitive_data(self, request, attack=None):
         if not request or not self.mask_rules:
             return
 
         self.request = request
-        self.attacks = attacks or []
+        self.attack = attack
 
         logger.debug("Masker: masking sensitive data")
 
@@ -57,13 +92,19 @@ class RequestMasker:
         request._masked = True
 
     def _mask_body(self):
-        # Check if mask_http_body is set to False or is None and skip if true
-        if not self.mask_rules.get("mask_http_body"):
+        if not self.request.body:
             return
 
-        # Checks if body is not empty or null
-        if self.request.body:
+        if self.mask_rules.mask_http_body:
             self.request._masked_body = BODY_MASK
+            return
+        if self.mask_rules.mask_attack_vector and any(
+            sample.user_input.type.is_body_based for sample in self.attack.samples
+        ):
+            # NOTE: is_body_based is loose when it comes to querystring parameters.
+            # This could cause extra redaction, but that's an acceptable trade-off
+            # in the short term.
+            self.request._masked_body = VECTOR_MASK
 
     def _mask_query_string(self):
         if self.request.query_string:
@@ -104,44 +145,34 @@ class RequestMasker:
         if isinstance(d, MultiDict):
             d = d.mixed()
 
-        d_copy = {k: copy(v) for k, v in d.items()}
+        return {
+            self._mask_key_vector(k, self.attack): self._mask_value(k, v, self.attack)
+            for k, v in d.items()
+        }
 
-        for k, v in d_copy.items():
-            if k is None or self._find_value_index_in_rules(k.lower()) == -1:
-                continue
+    def _mask_key_vector(self, k, attack):
+        return (
+            VECTOR_MASK
+            if self.mask_rules.mask_attack_vector and self._is_value_vector(attack, k)
+            else k
+        )
 
-            if isinstance(v, list):
-                self._mask_values(k, v, d_copy, self.attacks)
-            else:
-                self._mask_hash(k, v, d_copy, self.attacks)
-        return d_copy
+    def _mask_value(self, k, v, attack):
+        if isinstance(v, list):
+            return [self._mask_value(k, item, attack) for item in v]
 
-    def _mask_values(self, k, v, d, attacks):
-        for idx, item in enumerate(v):
-            if self.mask_rules.get("mask_attack_vector") and self._is_value_vector(
-                attacks, item
-            ):
-                d[k][idx] = MASK.format(k.lower())
-            if not self._is_value_vector(attacks, item):
-                d[k][idx] = MASK.format(k.lower())
+        if not self._is_value_vector(attack, v):
+            if k is not None and self._find_value_index_in_rules(k.lower()) != -1:
+                return MASK.format(k.lower())
+        elif self.mask_rules.mask_attack_vector:
+            return VECTOR_MASK
+        return v
 
-    def _mask_hash(self, k, v, d, attacks):
-        if self.mask_rules.get("mask_attack_vector") and self._is_value_vector(
-            attacks, v
-        ):
-            d[k] = MASK.format(k.lower())
-        if not self._is_value_vector(attacks, v):
-            d[k] = MASK.format(k.lower())
-
-    def _is_value_vector(self, attacks, value):
-        if not attacks or not value:
+    def _is_value_vector(self, attack, value):
+        if not attack or attack.response == ProtectResponse.NO_ACTION or not value:
             return False
 
-        for attack in attacks:
-            if self._is_value_in_sample(attack.samples, value):
-                return attack.response != ProtectResponse.NO_ACTION
-
-        return False
+        return self._is_value_in_sample(attack.samples, value)
 
     def _is_value_in_sample(self, samples, value):
         if not samples:
@@ -160,7 +191,7 @@ class RequestMasker:
         # When looking for header it replaces '_' with '-' and I don't want to risk not
         # properly matching to the rules
         s = s.replace("-", "_")
-        for rule in self.mask_rules.get("rules"):
+        for rule in self.mask_rules.rules:
             try:
                 index = rule.get("keywords").index(s)
                 break

@@ -12,7 +12,7 @@ LONG_DESCRIPTION = (Path(__file__).parent / "README.md").read_text()
 
 setup(
     name="types-boto3-full",
-    version="1.39.1",
+    version="1.39.2",
     packages=[
         "types_boto3_accessanalyzer",
         "types_boto3_account",
@@ -428,7 +428,7 @@ setup(
     license="MIT License",
     author="Vlad Emelianov",
     author_email="vlad.emelianov.nz@gmail.com",
-    description="All-in-one type annotations for boto3 1.39.1 generated with mypy-boto3-builder 8.11.0",
+    description="All-in-one type annotations for boto3 1.39.2 generated with mypy-boto3-builder 8.11.0",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",

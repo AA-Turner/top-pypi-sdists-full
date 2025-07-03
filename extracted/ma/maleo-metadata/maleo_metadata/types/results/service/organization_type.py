@@ -3,13 +3,13 @@ from maleo_metadata.models.transfers.results.service.organization_type import Ma
 
 class MaleoMetadataOrganizationTypeServiceResultsTypes:
     GetMultiple = Union[
-        MaleoMetadataOrganizationTypeServiceResultsTransfers.Fail,
+        MaleoMetadataOrganizationTypeServiceResultsTransfers.MultipleData,
         MaleoMetadataOrganizationTypeServiceResultsTransfers.NoData,
-        MaleoMetadataOrganizationTypeServiceResultsTransfers.MultipleData
+        MaleoMetadataOrganizationTypeServiceResultsTransfers.Fail
     ]
 
     GetSingle = Union[
-        MaleoMetadataOrganizationTypeServiceResultsTransfers.Fail,
+        MaleoMetadataOrganizationTypeServiceResultsTransfers.SingleData,
         MaleoMetadataOrganizationTypeServiceResultsTransfers.NoData,
-        MaleoMetadataOrganizationTypeServiceResultsTransfers.SingleData
+        MaleoMetadataOrganizationTypeServiceResultsTransfers.Fail
     ]

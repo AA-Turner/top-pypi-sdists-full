@@ -79,6 +79,7 @@ def push(session: Session, metadata, workbook_context: WorkbookContext, datasour
         'Display',
         'Display Template',
         'Asset',
+        'Datafile',
         'Relationship',
         'Overall',
         'Time'
@@ -280,8 +281,7 @@ def push(session: Session, metadata, workbook_context: WorkbookContext, datasour
         if len(state_file_folder) != 0:
             util.safe_makedirs(state_file_folder, exist_ok=True)
 
-        # Specifically use protocol 4 so that the file is portable back to Python 3.4
-        results_df.to_pickle(state_file, protocol=4)
+        results_df.to_pickle(state_file, protocol=_common.DEFAULT_PICKLE_PROTOCOL)
 
     results_df_properties = types.SimpleNamespace(
         func='spy.push(metadata)',
@@ -413,6 +413,8 @@ def _process_push_row(session: Session, status: Status, push_context: PushContex
             _process_condition(index, push_context, row_dict, scoped_data_id, session, status, _set_properties_by_id)
         elif row_dict['Type'] == 'Asset':
             _process_asset(index, push_context, row_dict, scoped_data_id, session, status, _set_properties_by_id)
+        elif row_dict['Type'] == 'Datafile':
+            _process_datafile(index, push_context, row_dict, scoped_data_id, session, status, _set_properties_by_id)
         elif 'Chart' in row_dict['Type']:
             _process_chart(index, push_context, row_dict, session, status)
         elif 'Metric' in row_dict['Type']:
@@ -640,6 +642,20 @@ def _process_asset(index, push_context, row_dict, scoped_data_id, session, statu
         if session.options.include_push_method:
             push_context.push_results[index]['Push Method'] = PushMethod.BATCH
     push_context.reified_assets.add(scoped_data_id)
+
+
+def _process_datafile(index, push_context, row_dict, scoped_data_id, session, status, _set_properties_by_id):
+    _maybe_skip_item(session, push_context, scoped_data_id, row_dict)
+    if _common.present(row_dict, 'ID'):
+        status.df['Datafile'] += 1
+        safely(_set_properties_by_id,
+               action_description=f'set common properties for Datafile {row_dict["ID"]}',
+               additional_errors=[400],
+               status=status)
+    else:
+        # We can't recreate a Datafile due to limitations of the REST API, so we just push an Asset as
+        # the parent of the CSV-derived StoredSignal items
+        _process_asset(index, push_context, row_dict, scoped_data_id, session, status, _set_properties_by_id)
 
 
 def _process_capsule_property_units(row_dict: dict, condition_update_input: ConditionUpdateInputV1):
@@ -918,26 +934,28 @@ def _maybe_skip_item(session: Session, push_context: PushContext, scoped_data_id
                 push_result = 'Success: Unchanged'
                 skip_it = True
 
-    if skip_it:
-        if item_id is not None:
-            row_dict['ID'] = item_id
+    if not skip_it:
+        return False
 
-        if previous_push_item is not None:
-            row_dict.update(previous_push_item)
+    if item_id is not None:
+        row_dict['ID'] = item_id
 
-        if push_result is not None:
-            row_dict['Push Result'] = push_result
+    if previous_push_item is not None:
+        row_dict.update(previous_push_item)
 
-        if push_context.planning_to_archive:
-            # We have to set the sync token so it doesn't get archived
-            items_api.set_property(id=row_dict['ID'],
-                                   property_name=SeeqNames.Properties.sync_token,
-                                   body=PropertyInputV1(value=push_context.sync_token))
+    if push_result is not None:
+        row_dict['Push Result'] = push_result
 
-        if raise_exception:
-            raise SkippedPush()
-        else:
-            return True
+    if push_context.planning_to_archive:
+        # We have to set the sync token so it doesn't get archived
+        items_api.set_property(id=row_dict['ID'],
+                               property_name=SeeqNames.Properties.sync_token,
+                               body=PropertyInputV1(value=push_context.sync_token))
+
+    if raise_exception:
+        raise SkippedPush()
+
+    return True
 
 
 def _push_special_properties(session: Session, input_object, item):
@@ -1837,7 +1855,8 @@ def _is_handled_type(type_value):
                 or 'Metric' in type_value
                 or 'Template' in type_value
                 or type_value == 'Display'
-                or type_value == 'Asset')
+                or type_value == 'Asset'
+                or type_value == 'Datafile')
     except TypeError:
         return False
 

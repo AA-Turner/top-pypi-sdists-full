@@ -24,12 +24,13 @@
 import logging
 import re
 from itertools import product
-from math_verify.errors import TimeoutException
 
+from latex2sympy2_extended import is_expr_of_only_symbols
+from latex2sympy2_extended.logic import And
 from latex2sympy2_extended.sets import FiniteSet
 from sympy import (
-    E,
     Basic,
+    E,
     Eq,
     Float,
     GreaterThan,
@@ -46,20 +47,22 @@ from sympy import (
     Symbol,
     Tuple,
     default_sort_key,
+    nan,
     ordered,
     simplify,
-    nan,
     solve,
     zoo,
 )
-from latex2sympy2_extended.logic import And
-from sympy.core.relational import Relational
-from sympy.core.function import UndefinedFunction
 from sympy import FiniteSet as SympyFiniteSet
+from sympy.core.function import UndefinedFunction
+from sympy.core.relational import Relational
+
+from math_verify.errors import TimeoutException
 from math_verify.utils import timeout
-from latex2sympy2_extended import is_expr_of_only_symbols
 
 logger = logging.getLogger(__name__)
+
+TIMEOUT_WARNING_SHOWN = False
 
 
 INVERSE_RELATIONS = {
@@ -76,8 +79,7 @@ def safe_sympy_doit(a: Basic | MatrixBase):
       Doit in sympy will evaluate expressions it will pass the expression tree and evluate nodes.
       For example for 1+1+1 it will evaluate the additions and return 3. One issue with it is that it maybe
       evaluates too much as integrals will also be evaluated.
-
-      As we are using latex2sympy2_extended, evaluates are
+      As we are using latex2sympy2_extended, evaluates are lazy and only evaluated when needed.
 
     Args:
         a: A sympy Basic or MatrixBase expression to evaluate
@@ -144,18 +146,19 @@ def sympy_numeric_eq(
         ):
             return all(
                 sympy_numeric_eq(a_elem, b_elem, float_rounding, numeric_precision)
-                for a_elem, b_elem in zip(a.flat(), b.flat())
+                for a_elem, b_elem in zip(a.flat(), b.flat(), strict=True)
             )
 
     # Ensure this also works for percentage numbers so that 0.333333% = 0.33333333333 with precision 4
     elif is_atomic_or_pct_atomic(a, Number) or is_atomic_or_pct_atomic(b, Number):
-        # If one of them is a float or a negative atomic number, we can try to use precision
+        # If one of them is a float or a percentage number, we can try to use float precision
         if is_atomic_or_pct_atomic(a, Float) or is_atomic_or_pct_atomic(b, Float):
             a = safe_sympy_doit(a)
             b = safe_sympy_doit(b)
-            # Now if both are numbers, we can use precision
-            if isinstance(a, (Number)) and isinstance(b, (Number)):
+            try:
                 return a.round(float_rounding) == b.round(float_rounding)
+            except Exception:
+                pass
         else:
             return safe_sympy_doit(a) == safe_sympy_doit(b)
 
@@ -190,6 +193,17 @@ def sympy_symbolic_eq(a: Basic | MatrixBase, b: Basic | MatrixBase) -> bool:
     return False
 
 
+def unwrap_eq(s):
+    if is_assignment_relation(s):
+        return take_last_relation(s).rhs
+    return s
+
+def sort_key(x):
+    try:
+        return default_sort_key(unwrap_eq(x).evalf())
+    except Exception:
+        return default_sort_key(unwrap_eq(x))
+
 def sympy_deep_compare_set_and_tuple(
     gold: SympyFiniteSet | Tuple,
     pred: SympyFiniteSet | Tuple,
@@ -209,17 +223,6 @@ def sympy_deep_compare_set_and_tuple(
     Note: in order to fully support finite sets, we should ideally do kartesian product comparison
     but this is not implemented yet. We kinda hope sympy will order the elements.
     """
-
-    def unwrap_eq(s):
-        if is_assignment_relation(s):
-            return take_last_relation(s).rhs
-        return s
-
-    def sort_key(x):
-        try:
-            return default_sort_key(unwrap_eq(x).evalf())
-        except Exception:
-            return default_sort_key(unwrap_eq(x))
 
     # This ensures it works for {1/3} and {0.333333}
     if len(gold) == len(pred):
@@ -241,7 +244,7 @@ def sympy_deep_compare_set_and_tuple(
 
         return all(
             sympy_expr_eq(a, b, float_rounding, numeric_precision)
-            for a, b in zip(gold_args, pred_args)
+            for a, b in zip(gold_args, pred_args, strict=True)
         )
 
     return False
@@ -279,9 +282,11 @@ def sympy_solve_and_compare(
             all(
                 g_k == p_k
                 and sympy_expr_eq(g_v, p_v, float_rounding, numeric_precision)
-                for (g_k, g_v), (p_k, p_v) in zip(sorted(g.items()), sorted(p.items()))
+                for (g_k, g_v), (p_k, p_v) in zip(
+                    sorted(g.items()), sorted(p.items()), strict=True
+                )
             )
-            for g, p in zip(sorted(solved_gold), sorted(solved_pred))
+            for g, p in zip(ordered(solved_gold, keys=sort_key, default=False), ordered(solved_pred, keys=sort_key, default=False), strict=True)
         )
     else:
         return sympy_expr_eq(
@@ -309,7 +314,7 @@ def sympy_compare_relational(
     if isinstance(gold, And) and isinstance(pred, And):
         return all(
             sympy_compare_relational(g, p, float_rounding, numeric_precision)
-            for g, p in zip(gold._unsorted_args, pred._unsorted_args)
+            for g, p in zip(gold._unsorted_args, pred._unsorted_args, strict=True)
         )
 
     elif not isinstance(gold, Relational) or not isinstance(pred, Relational):
@@ -326,7 +331,6 @@ def sympy_compare_relational(
         return False
 
     # Same type of relation (e.g. both <= or both >=)
-
     try:
         if type(gold) is type(pred) and sympy_expr_eq(
             gold.lhs - gold.rhs, pred.lhs - pred.rhs, float_rounding, numeric_precision
@@ -341,8 +345,11 @@ def sympy_compare_relational(
     ):
         return True
 
-    if sympy_solve_and_compare(gold, pred, float_rounding, numeric_precision):
-        return True
+    try:
+        if sympy_solve_and_compare(gold, pred, float_rounding, numeric_precision):
+            return True
+    except Exception:
+        pass
 
     return False
 
@@ -484,7 +491,7 @@ def sympy_compare_symbols(gold: Basic | MatrixBase, pred: Basic | MatrixBase) ->
             g_name = g_name.lower()
         return g_name == p_name
 
-    return False
+    return str(gold) == str(pred)
 
 
 def is_relation(expr: Basic | MatrixBase) -> bool:
@@ -594,6 +601,7 @@ def sympy_expr_eq(
     pred: Basic | MatrixBase,
     float_rounding: int,
     numeric_precision: int,
+    allow_set_relation_comp: bool = False,
     strict: bool = True,
 ) -> bool:
     """Compare two sympy expressions for equality using multiple methods.
@@ -602,6 +610,9 @@ def sympy_expr_eq(
         gold: First sympy expression (expected)
         pred: Second sympy expression (predicted)
         precision: Number of decimal places to compare
+        allow_set_relation_comp: Whether to allow set - relation comparison. Defaults to False.
+            - If True, set - relation comparison will be allowed in all cases.
+            - If False, set - relation comparison will be allowed only if the prediction is a set.
         strict: If true, variables do matter otherwise they don't
 
     Returns:
@@ -614,7 +625,9 @@ def sympy_expr_eq(
             gold_variables = gold.free_symbols
             pred_variables = pred.free_symbols
             if len(gold_variables) == len(pred_variables):
-                pred = pred.subs(list(zip(pred_variables, gold_variables)))
+                pred = pred.subs(
+                    list(zip(pred_variables, gold_variables, strict=True))
+                )
         except Exception:
             pass
 
@@ -654,6 +667,12 @@ def sympy_expr_eq(
         # We also unwrap the functions because othewise it creates some conditional set based on the function name
         try:
             gold = unwrap_fcs(gold).as_set()
+        except Exception:
+            pass
+
+    if allow_set_relation_comp and is_relation(pred) and isinstance(gold, Set):
+        try:
+            pred = unwrap_fcs(pred).as_set()
         except Exception:
             pass
 
@@ -727,7 +746,9 @@ def verify(
     float_rounding: int = 6,
     numeric_precision: int = 15,
     strict: bool = True,
-    timeout_seconds: int = 5,
+    allow_set_relation_comp: bool = False,
+    timeout_seconds: int | None = 5,
+    raise_on_error: bool = False,
 ) -> bool:
     """Verifies if the target expression matches the gold expression using multiple comparison strategies.
 
@@ -752,7 +773,11 @@ def verify(
             - In strict mode: Variables matter and sets are not comparable with tuples
             - In non-strict mode: Variables are matched by position and sets can be compared with tuples
         timeout_seconds: Maximum time in seconds to spend on any single comparison operation.
-            Defaults to 5 seconds.
+            Defaults to 5 seconds. Any timeout seconds > 0 or not None will result in the function to raise a ValueError if it's called in a threaded environment.
+        allow_set_relation_comp: Whether to allow set - relation (e.g 1 < x < 2 and (1, 2)) comparison. Defaults to False.
+            - If True, set - relation comparison will be allowed in all cases.
+            - If False, set - relation comparison will be allowed only if the prediction is a set.
+        raise_on_error: Whether to raise an exception if an error occurs during comparison or return False. Defaults to False.
 
     Returns:
         bool: True if target matches gold according to any of the comparison strategies,
@@ -778,6 +803,14 @@ def verify(
         True
     """
 
+    global TIMEOUT_WARNING_SHOWN
+    if not TIMEOUT_WARNING_SHOWN and (timeout_seconds is None or timeout_seconds <= 0):
+        logger.warning(
+            "Timeout is disabled as timeout_seconds is None or <= 0, you must provide \
+                        the logic for timeout interuption yourself to prevent code getting stuck."
+        )
+        TIMEOUT_WARNING_SHOWN = True
+
     @timeout(timeout_seconds=timeout_seconds)
     def compare_single_extraction(
         gold: Basic | MatrixBase | str, target: Basic | MatrixBase | str
@@ -787,7 +820,7 @@ def verify(
             target, (Basic, MatrixBase)
         ):
             return sympy_expr_eq(
-                gold, target, float_rounding, numeric_precision, strict
+                gold, target, float_rounding, numeric_precision, allow_set_relation_comp, strict
             )
 
         # We don't support str / sympy.Expr comparison. Imo there is no point in doing this, as chances
@@ -807,13 +840,31 @@ def verify(
     def compare_single_extraction_wrapper(g, t):
         try:
             return compare_single_extraction(g, t)
-        except Exception:
+
+        except ValueError as e:
+            if str(e) == "signal only works in main thread of the main interpreter":
+                raise ValueError(
+                    "Math-Verify doesn't support threaded environment due to usage of signal.alarm() in timeout mechanism. If you need to run in multithreaded environment it's recommended to set the parsing_timeout=None, which will run without timeout (and signal handling). In this case you need to handle the timeouting yourself."
+                ) from e
+            else:
+                if raise_on_error:
+                    raise e from e
+                else:
+                    logger.debug("Error during comparison", exc_info=True)
+                return False
+        except Exception as e:
             #! Do not attempt to print out the g and t during handling of exception
             # Because a) it can throw an exception itself and b) it can cause it to be stuck forever during str conversion
-            logger.exception("Error during comparison")
+            if raise_on_error:
+                raise e from e
+            else:
+                logger.debug("Error during comparison", exc_info=True)
             return False
-        except TimeoutException:
-            logger.error("Timeout during comparison")
+        except TimeoutException as e:
+            if raise_on_error:
+                raise TimeoutException("Timeout during comparison") from e
+            else:
+                logger.warning("Timeout during comparison")
             return False
 
     if not isinstance(gold, list):

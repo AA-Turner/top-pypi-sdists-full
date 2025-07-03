@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: azure-mgmt-core
-Version: 1.5.0
+Version: 1.6.0
 Summary: Microsoft Azure Management Core Library for Python
 Home-page: https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/core/azure-mgmt-core
 Author: Microsoft Corporation
@@ -11,17 +11,17 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: LICENSE.md
-Requires-Dist: azure-core>=1.31.0
+Requires-Dist: azure-core>=1.32.0
 
 
 # Azure Management Core Library
@@ -55,6 +55,13 @@ additional questions or comments.
 [package]: https://pypi.org/project/azure-mgmt-core/
 
 # Release History
+
+## 1.6.0 (2025-07-02)
+
+### Other Changes
+
+- `ARMChallengeAuthenticationPolicy` adopt `on_challenge` in `BearerTokenCredentialPolicy` of `azure-core` to support complete CAE challenges.
+- Python 3.8 is no longer supported. Please use Python version 3.9 or later.
 
 ## 1.5.0 (2024-10-31)
 

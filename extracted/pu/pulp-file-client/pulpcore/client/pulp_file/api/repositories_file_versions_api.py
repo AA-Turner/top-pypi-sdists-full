@@ -48,6 +48,7 @@ class RepositoriesFileVersionsApi:
     def delete(
         self,
         file_file_repository_version_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -67,6 +68,8 @@ class RepositoriesFileVersionsApi:
 
         :param file_file_repository_version_href: (required)
         :type file_file_repository_version_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -91,6 +94,7 @@ class RepositoriesFileVersionsApi:
 
         _param = self._delete_serialize(
             file_file_repository_version_href=file_file_repository_version_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -115,6 +119,7 @@ class RepositoriesFileVersionsApi:
     def delete_with_http_info(
         self,
         file_file_repository_version_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -134,6 +139,8 @@ class RepositoriesFileVersionsApi:
 
         :param file_file_repository_version_href: (required)
         :type file_file_repository_version_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -158,6 +165,7 @@ class RepositoriesFileVersionsApi:
 
         _param = self._delete_serialize(
             file_file_repository_version_href=file_file_repository_version_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -182,6 +190,7 @@ class RepositoriesFileVersionsApi:
     def delete_without_preload_content(
         self,
         file_file_repository_version_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -201,6 +210,8 @@ class RepositoriesFileVersionsApi:
 
         :param file_file_repository_version_href: (required)
         :type file_file_repository_version_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -225,6 +236,7 @@ class RepositoriesFileVersionsApi:
 
         _param = self._delete_serialize(
             file_file_repository_version_href=file_file_repository_version_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -244,6 +256,7 @@ class RepositoriesFileVersionsApi:
     def _delete_serialize(
         self,
         file_file_repository_version_href,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -253,6 +266,7 @@ class RepositoriesFileVersionsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -269,6 +283,8 @@ class RepositoriesFileVersionsApi:
             _path_params['file_file_repository_version_href'] = file_file_repository_version_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -310,6 +326,7 @@ class RepositoriesFileVersionsApi:
     def list(
         self,
         file_file_repository_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         content: Annotated[Optional[StrictStr], Field(description="Content Unit referenced by HREF/PRN")] = None,
         content__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
@@ -352,6 +369,8 @@ class RepositoriesFileVersionsApi:
 
         :param file_file_repository_href: (required)
         :type file_file_repository_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param content: Content Unit referenced by HREF/PRN
         :type content: str
         :param content__in: Multiple values may be separated by commas.
@@ -422,6 +441,7 @@ class RepositoriesFileVersionsApi:
 
         _param = self._list_serialize(
             file_file_repository_href=file_file_repository_href,
+            x_task_diagnostics=x_task_diagnostics,
             content=content,
             content__in=content__in,
             limit=limit,
@@ -469,6 +489,7 @@ class RepositoriesFileVersionsApi:
     def list_with_http_info(
         self,
         file_file_repository_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         content: Annotated[Optional[StrictStr], Field(description="Content Unit referenced by HREF/PRN")] = None,
         content__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
@@ -511,6 +532,8 @@ class RepositoriesFileVersionsApi:
 
         :param file_file_repository_href: (required)
         :type file_file_repository_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param content: Content Unit referenced by HREF/PRN
         :type content: str
         :param content__in: Multiple values may be separated by commas.
@@ -581,6 +604,7 @@ class RepositoriesFileVersionsApi:
 
         _param = self._list_serialize(
             file_file_repository_href=file_file_repository_href,
+            x_task_diagnostics=x_task_diagnostics,
             content=content,
             content__in=content__in,
             limit=limit,
@@ -628,6 +652,7 @@ class RepositoriesFileVersionsApi:
     def list_without_preload_content(
         self,
         file_file_repository_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         content: Annotated[Optional[StrictStr], Field(description="Content Unit referenced by HREF/PRN")] = None,
         content__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
@@ -670,6 +695,8 @@ class RepositoriesFileVersionsApi:
 
         :param file_file_repository_href: (required)
         :type file_file_repository_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param content: Content Unit referenced by HREF/PRN
         :type content: str
         :param content__in: Multiple values may be separated by commas.
@@ -740,6 +767,7 @@ class RepositoriesFileVersionsApi:
 
         _param = self._list_serialize(
             file_file_repository_href=file_file_repository_href,
+            x_task_diagnostics=x_task_diagnostics,
             content=content,
             content__in=content__in,
             limit=limit,
@@ -782,6 +810,7 @@ class RepositoriesFileVersionsApi:
     def _list_serialize(
         self,
         file_file_repository_href,
+        x_task_diagnostics,
         content,
         content__in,
         limit,
@@ -814,6 +843,7 @@ class RepositoriesFileVersionsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'content__in': 'csv',
             'number__range': 'csv',
             'ordering': 'csv',
@@ -975,6 +1005,8 @@ class RepositoriesFileVersionsApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -1016,6 +1048,7 @@ class RepositoriesFileVersionsApi:
     def read(
         self,
         file_file_repository_version_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1037,6 +1070,8 @@ class RepositoriesFileVersionsApi:
 
         :param file_file_repository_version_href: (required)
         :type file_file_repository_version_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1065,6 +1100,7 @@ class RepositoriesFileVersionsApi:
 
         _param = self._read_serialize(
             file_file_repository_version_href=file_file_repository_version_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1091,6 +1127,7 @@ class RepositoriesFileVersionsApi:
     def read_with_http_info(
         self,
         file_file_repository_version_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1112,6 +1149,8 @@ class RepositoriesFileVersionsApi:
 
         :param file_file_repository_version_href: (required)
         :type file_file_repository_version_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1140,6 +1179,7 @@ class RepositoriesFileVersionsApi:
 
         _param = self._read_serialize(
             file_file_repository_version_href=file_file_repository_version_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1166,6 +1206,7 @@ class RepositoriesFileVersionsApi:
     def read_without_preload_content(
         self,
         file_file_repository_version_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1187,6 +1228,8 @@ class RepositoriesFileVersionsApi:
 
         :param file_file_repository_version_href: (required)
         :type file_file_repository_version_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1215,6 +1258,7 @@ class RepositoriesFileVersionsApi:
 
         _param = self._read_serialize(
             file_file_repository_version_href=file_file_repository_version_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1236,6 +1280,7 @@ class RepositoriesFileVersionsApi:
     def _read_serialize(
         self,
         file_file_repository_version_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -1247,6 +1292,7 @@ class RepositoriesFileVersionsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -1273,6 +1319,8 @@ class RepositoriesFileVersionsApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -1315,6 +1363,7 @@ class RepositoriesFileVersionsApi:
         self,
         file_file_repository_version_href: StrictStr,
         repair: Repair,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1336,6 +1385,8 @@ class RepositoriesFileVersionsApi:
         :type file_file_repository_version_href: str
         :param repair: (required)
         :type repair: Repair
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1361,6 +1412,7 @@ class RepositoriesFileVersionsApi:
         _param = self._repair_serialize(
             file_file_repository_version_href=file_file_repository_version_href,
             repair=repair,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1386,6 +1438,7 @@ class RepositoriesFileVersionsApi:
         self,
         file_file_repository_version_href: StrictStr,
         repair: Repair,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1407,6 +1460,8 @@ class RepositoriesFileVersionsApi:
         :type file_file_repository_version_href: str
         :param repair: (required)
         :type repair: Repair
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1432,6 +1487,7 @@ class RepositoriesFileVersionsApi:
         _param = self._repair_serialize(
             file_file_repository_version_href=file_file_repository_version_href,
             repair=repair,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1457,6 +1513,7 @@ class RepositoriesFileVersionsApi:
         self,
         file_file_repository_version_href: StrictStr,
         repair: Repair,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1478,6 +1535,8 @@ class RepositoriesFileVersionsApi:
         :type file_file_repository_version_href: str
         :param repair: (required)
         :type repair: Repair
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1503,6 +1562,7 @@ class RepositoriesFileVersionsApi:
         _param = self._repair_serialize(
             file_file_repository_version_href=file_file_repository_version_href,
             repair=repair,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1523,6 +1583,7 @@ class RepositoriesFileVersionsApi:
         self,
         file_file_repository_version_href,
         repair,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -1532,6 +1593,7 @@ class RepositoriesFileVersionsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -1548,6 +1610,8 @@ class RepositoriesFileVersionsApi:
             _path_params['file_file_repository_version_href'] = file_file_repository_version_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if repair is not None:

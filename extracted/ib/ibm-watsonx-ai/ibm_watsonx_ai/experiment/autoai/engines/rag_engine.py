@@ -62,8 +62,8 @@ class RAGEngine(WMLResource):
         self,
         *,
         input_data_references: list[DataConnection],
-        test_data_references: list[DataConnection],
         results_reference: DataConnection,
+        test_data_references: list[DataConnection] | None = None,
         vector_store_references: list[DataConnection] | None = None,
         background_mode: bool = True,
     ) -> dict:
@@ -72,11 +72,11 @@ class RAGEngine(WMLResource):
         :param input_data_references: Data storage connection details to inform where training data is stored
         :type input_data_references: list[DataConnection]
 
-        :param test_data_references: A set of test data references
-        :type test_data_references: list[DataConnection]
-
         :param results_reference: The training results
         :type results_reference: DataConnection
+
+        :param test_data_references: A set of test data references
+        :type test_data_references: list[DataConnection], optional
 
         :param vector_store_references: A set of vector store references
         :type vector_store_references: list[DataConnection], optional
@@ -96,15 +96,16 @@ class RAGEngine(WMLResource):
                 input_conn.location.userfs = "true"  # type: ignore[union-attr]
             input_conn.set_client(self.workspace.api_client)
 
-        for test_conn in test_data_references:
-            if self.workspace.api_client.project_type == "local_git_storage":
-                input_conn.location.userfs = "true"  # type: ignore[union-attr]
-            test_conn.set_client(self.workspace.api_client)
+        if test_data_references is not None:
+            for test_conn in test_data_references:
+                if self.workspace.api_client.project_type == "local_git_storage":
+                    input_conn.location.userfs = "true"  # type: ignore[union-attr]
+                test_conn.set_client(self.workspace.api_client)
 
         self._initialize_training_metadata(
             input_data_references=input_data_references,
-            test_data_references=test_data_references,
             results_reference=results_reference,
+            test_data_references=test_data_references,
             vector_store_references=vector_store_references,
         )
 
@@ -157,9 +158,20 @@ class RAGEngine(WMLResource):
                     .get("message", {})
                     .get("text")
                 )
+
+                if error_msg is not None:
+                    prepared_error_message = "Error message: '{}'".format(error_msg)
+                else:
+                    prepared_error_message = (
+                        "No error message was returned from the service."
+                    )
+
+                    if status == "canceled":
+                        prepared_error_message += " Please verify if your instance has enough resources to run AutoAI."
+
                 print(
-                    "\nTraining of '{}' failed with status: '{}'. Error message: '{}'".format(
-                        self._current_run_id, str(status), error_msg
+                    "\nTraining of '{}' failed with status: '{}'. {}".format(
+                        self._current_run_id, str(status), prepared_error_message
                     )
                 )
 
@@ -1091,8 +1103,8 @@ class RAGEngine(WMLResource):
     def _initialize_training_metadata(
         self,
         input_data_references: list[DataConnection],
-        test_data_references: list[DataConnection],
         results_reference: DataConnection,
+        test_data_references: list[DataConnection] | None = None,
         vector_store_references: list[DataConnection] | None = None,
     ) -> None:
         """Initialization of training metadata.
@@ -1100,11 +1112,11 @@ class RAGEngine(WMLResource):
         :param input_data_references: Data storage connection details to inform where training data is stored
         :type input_data_references: list[DataConnection]
 
-        :param test_data_references: A set of test data references
-        :type test_data_references: list[DataConnection]
-
         :param results_reference: The training results
         :type results_reference: DataConnection
+
+        :param test_data_references: A set of test data references
+        :type test_data_references: list[DataConnection], optional
 
         :param vector_store_references: A set of vector store references
         :type vector_store_references: list[DataConnection], optional
@@ -1115,13 +1127,14 @@ class RAGEngine(WMLResource):
             connection._to_dict() for connection in input_data_references
         ]
 
-        self._training_metadata[self.ConfigurationMetaNames.TEST_DATA_REFERENCES] = [
-            connection._to_dict() for connection in test_data_references
-        ]
-
         self._training_metadata[self.ConfigurationMetaNames.RESULTS_REFERENCE] = (
             results_reference._to_dict()
         )
+
+        if test_data_references is not None:
+            self._training_metadata[
+                self.ConfigurationMetaNames.TEST_DATA_REFERENCES
+            ] = [connection._to_dict() for connection in test_data_references]
 
         hardware_specifications_name = "L"  # Added as a default
         hardware_specifications_id = (
@@ -1135,7 +1148,7 @@ class RAGEngine(WMLResource):
             "name": hardware_specifications_name,
         }
 
-        if vector_store_references:
+        if vector_store_references is not None:
             self._training_metadata[
                 self.ConfigurationMetaNames.VECTOR_STORE_REFERENCES
             ] = [connection._to_dict() for connection in vector_store_references]

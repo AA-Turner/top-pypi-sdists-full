@@ -1,12 +1,12 @@
 Metadata-Version: 2.1
 Name: cppcheck-codequality
-Version: 1.4.2
+Version: 1.5.0
 Summary: Convert a CppCheck XML report to a GitLab-compatible Code Quality JSON report.
 Home-page: https://gitlab.com/ahogen/cppcheck-codequality
 License: MIT
 Author: Alex Hogen
 Author-email: code.ahogen@outlook.com
-Requires-Python: >=3.7,<3.13
+Requires-Python: >=3.7,<3.14
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -16,9 +16,11 @@ Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Quality Assurance
 Classifier: Topic :: Utilities
-Requires-Dist: xmltodict (>=0.13.0,<0.14.0)
+Requires-Dist: xmltodict (>=0.14.0,<0.15.0)
 Project-URL: Bug Tracker, https://gitlab.com/ahogen/cppcheck-codequality/-/issues
 Project-URL: Changelog, https://gitlab.com/ahogen/cppcheck-codequality/-/blob/main/CHANGELOG.md
 Project-URL: Repository, https://gitlab.com/ahogen/cppcheck-codequality
@@ -94,9 +96,35 @@ my-code-quality:
 
 ### Contributing
 
-* Sign the contributor agreement (coming soon)
 * Format with [black](https://pypi.org/project/black/)
 * Check with [pylint](https://pypi.org/project/pylint/)
+* Run tests
+* Signoff commits (`git commit -s`) to indicate you agree to Developer Certificate of Origin (DCO) Version 1.1 https://developercertificate.org/
+* Create a GitLab merge request and I'll take a look!
+
+#### Details
+
+Setup development environment.
+
+```bash
+sudo apt install pipx
+pipx install poetry
+poetry install
+source ./venv/bin/activate
+```
+
+Format
+
+```bash
+black ./
+```
+
+Use Tox to run tests in all python environments available on your system.
+
+```bash
+poetry run tox -e clean
+poetry run tox
+```
 
 ### Credits & Trademarks
 

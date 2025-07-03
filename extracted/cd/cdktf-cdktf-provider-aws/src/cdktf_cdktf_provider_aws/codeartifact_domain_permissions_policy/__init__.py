@@ -1,7 +1,7 @@
 r'''
 # `aws_codeartifact_domain_permissions_policy`
 
-Refer to the Terraform Registry for docs: [`aws_codeartifact_domain_permissions_policy`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_domain_permissions_policy).
+Refer to the Terraform Registry for docs: [`aws_codeartifact_domain_permissions_policy`](https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codeartifact_domain_permissions_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CodeartifactDomainPermissionsPolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.codeartifactDomainPermissionsPolicy.CodeartifactDomainPermissionsPolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_domain_permissions_policy aws_codeartifact_domain_permissions_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codeartifact_domain_permissions_policy aws_codeartifact_domain_permissions_policy}.'''
 
     def __init__(
         self,
@@ -52,9 +52,9 @@ class CodeartifactDomainPermissionsPolicy(
         id_: builtins.str,
         *,
         domain: builtins.str,
-        policy_document: builtins.str,
         domain_owner: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
+        policy_document: typing.Optional[builtins.str] = None,
         policy_revision: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -65,16 +65,16 @@ class CodeartifactDomainPermissionsPolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_domain_permissions_policy aws_codeartifact_domain_permissions_policy} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codeartifact_domain_permissions_policy aws_codeartifact_domain_permissions_policy} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_domain_permissions_policy#domain CodeartifactDomainPermissionsPolicy#domain}.
-        :param policy_document: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_domain_permissions_policy#policy_document CodeartifactDomainPermissionsPolicy#policy_document}.
-        :param domain_owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_domain_permissions_policy#domain_owner CodeartifactDomainPermissionsPolicy#domain_owner}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_domain_permissions_policy#id CodeartifactDomainPermissionsPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param policy_revision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_domain_permissions_policy#policy_revision CodeartifactDomainPermissionsPolicy#policy_revision}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_domain_permissions_policy#region CodeartifactDomainPermissionsPolicy#region}
+        :param domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codeartifact_domain_permissions_policy#domain CodeartifactDomainPermissionsPolicy#domain}.
+        :param domain_owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codeartifact_domain_permissions_policy#domain_owner CodeartifactDomainPermissionsPolicy#domain_owner}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codeartifact_domain_permissions_policy#id CodeartifactDomainPermissionsPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param policy_document: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codeartifact_domain_permissions_policy#policy_document CodeartifactDomainPermissionsPolicy#policy_document}.
+        :param policy_revision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codeartifact_domain_permissions_policy#policy_revision CodeartifactDomainPermissionsPolicy#policy_revision}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codeartifact_domain_permissions_policy#region CodeartifactDomainPermissionsPolicy#region}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -89,9 +89,9 @@ class CodeartifactDomainPermissionsPolicy(
             check_type(argname="argument id_", value=id_, expected_type=type_hints["id_"])
         config = CodeartifactDomainPermissionsPolicyConfig(
             domain=domain,
-            policy_document=policy_document,
             domain_owner=domain_owner,
             id=id,
+            policy_document=policy_document,
             policy_revision=policy_revision,
             region=region,
             connection=connection,
@@ -118,7 +118,7 @@ class CodeartifactDomainPermissionsPolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CodeartifactDomainPermissionsPolicy to import.
-        :param import_from_id: The id of the existing CodeartifactDomainPermissionsPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_domain_permissions_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CodeartifactDomainPermissionsPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codeartifact_domain_permissions_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CodeartifactDomainPermissionsPolicy to import is found.
         '''
         if __debug__:
@@ -136,6 +136,10 @@ class CodeartifactDomainPermissionsPolicy(
     @jsii.member(jsii_name="resetId")
     def reset_id(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetId", []))
+
+    @jsii.member(jsii_name="resetPolicyDocument")
+    def reset_policy_document(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetPolicyDocument", []))
 
     @jsii.member(jsii_name="resetPolicyRevision")
     def reset_policy_revision(self) -> None:
@@ -278,9 +282,9 @@ class CodeartifactDomainPermissionsPolicy(
         "provider": "provider",
         "provisioners": "provisioners",
         "domain": "domain",
-        "policy_document": "policyDocument",
         "domain_owner": "domainOwner",
         "id": "id",
+        "policy_document": "policyDocument",
         "policy_revision": "policyRevision",
         "region": "region",
     },
@@ -297,9 +301,9 @@ class CodeartifactDomainPermissionsPolicyConfig(_cdktf_9a9027ec.TerraformMetaArg
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
         domain: builtins.str,
-        policy_document: builtins.str,
         domain_owner: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
+        policy_document: typing.Optional[builtins.str] = None,
         policy_revision: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -311,12 +315,12 @@ class CodeartifactDomainPermissionsPolicyConfig(_cdktf_9a9027ec.TerraformMetaArg
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_domain_permissions_policy#domain CodeartifactDomainPermissionsPolicy#domain}.
-        :param policy_document: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_domain_permissions_policy#policy_document CodeartifactDomainPermissionsPolicy#policy_document}.
-        :param domain_owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_domain_permissions_policy#domain_owner CodeartifactDomainPermissionsPolicy#domain_owner}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_domain_permissions_policy#id CodeartifactDomainPermissionsPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param policy_revision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_domain_permissions_policy#policy_revision CodeartifactDomainPermissionsPolicy#policy_revision}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_domain_permissions_policy#region CodeartifactDomainPermissionsPolicy#region}
+        :param domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codeartifact_domain_permissions_policy#domain CodeartifactDomainPermissionsPolicy#domain}.
+        :param domain_owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codeartifact_domain_permissions_policy#domain_owner CodeartifactDomainPermissionsPolicy#domain_owner}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codeartifact_domain_permissions_policy#id CodeartifactDomainPermissionsPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param policy_document: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codeartifact_domain_permissions_policy#policy_document CodeartifactDomainPermissionsPolicy#policy_document}.
+        :param policy_revision: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codeartifact_domain_permissions_policy#policy_revision CodeartifactDomainPermissionsPolicy#policy_revision}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codeartifact_domain_permissions_policy#region CodeartifactDomainPermissionsPolicy#region}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -330,14 +334,13 @@ class CodeartifactDomainPermissionsPolicyConfig(_cdktf_9a9027ec.TerraformMetaArg
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
             check_type(argname="argument provisioners", value=provisioners, expected_type=type_hints["provisioners"])
             check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
-            check_type(argname="argument policy_document", value=policy_document, expected_type=type_hints["policy_document"])
             check_type(argname="argument domain_owner", value=domain_owner, expected_type=type_hints["domain_owner"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument policy_document", value=policy_document, expected_type=type_hints["policy_document"])
             check_type(argname="argument policy_revision", value=policy_revision, expected_type=type_hints["policy_revision"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "domain": domain,
-            "policy_document": policy_document,
         }
         if connection is not None:
             self._values["connection"] = connection
@@ -357,6 +360,8 @@ class CodeartifactDomainPermissionsPolicyConfig(_cdktf_9a9027ec.TerraformMetaArg
             self._values["domain_owner"] = domain_owner
         if id is not None:
             self._values["id"] = id
+        if policy_document is not None:
+            self._values["policy_document"] = policy_document
         if policy_revision is not None:
             self._values["policy_revision"] = policy_revision
         if region is not None:
@@ -428,27 +433,20 @@ class CodeartifactDomainPermissionsPolicyConfig(_cdktf_9a9027ec.TerraformMetaArg
 
     @builtins.property
     def domain(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_domain_permissions_policy#domain CodeartifactDomainPermissionsPolicy#domain}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codeartifact_domain_permissions_policy#domain CodeartifactDomainPermissionsPolicy#domain}.'''
         result = self._values.get("domain")
         assert result is not None, "Required property 'domain' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def policy_document(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_domain_permissions_policy#policy_document CodeartifactDomainPermissionsPolicy#policy_document}.'''
-        result = self._values.get("policy_document")
-        assert result is not None, "Required property 'policy_document' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
     def domain_owner(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_domain_permissions_policy#domain_owner CodeartifactDomainPermissionsPolicy#domain_owner}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codeartifact_domain_permissions_policy#domain_owner CodeartifactDomainPermissionsPolicy#domain_owner}.'''
         result = self._values.get("domain_owner")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_domain_permissions_policy#id CodeartifactDomainPermissionsPolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codeartifact_domain_permissions_policy#id CodeartifactDomainPermissionsPolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -457,8 +455,14 @@ class CodeartifactDomainPermissionsPolicyConfig(_cdktf_9a9027ec.TerraformMetaArg
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def policy_document(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codeartifact_domain_permissions_policy#policy_document CodeartifactDomainPermissionsPolicy#policy_document}.'''
+        result = self._values.get("policy_document")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def policy_revision(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_domain_permissions_policy#policy_revision CodeartifactDomainPermissionsPolicy#policy_revision}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codeartifact_domain_permissions_policy#policy_revision CodeartifactDomainPermissionsPolicy#policy_revision}.'''
         result = self._values.get("policy_revision")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -466,7 +470,7 @@ class CodeartifactDomainPermissionsPolicyConfig(_cdktf_9a9027ec.TerraformMetaArg
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/codeartifact_domain_permissions_policy#region CodeartifactDomainPermissionsPolicy#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/codeartifact_domain_permissions_policy#region CodeartifactDomainPermissionsPolicy#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -495,9 +499,9 @@ def _typecheckingstub__ad753f1b3d554bc7672538b53e4632204a97f7e8e86a04cb1496155b8
     id_: builtins.str,
     *,
     domain: builtins.str,
-    policy_document: builtins.str,
     domain_owner: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
+    policy_document: typing.Optional[builtins.str] = None,
     policy_revision: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -566,9 +570,9 @@ def _typecheckingstub__7c3ccc17d1295cd3609b71b1e7245a73f6b13184aa9d6cc146cf1d0a0
     provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
     provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     domain: builtins.str,
-    policy_document: builtins.str,
     domain_owner: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
+    policy_document: typing.Optional[builtins.str] = None,
     policy_revision: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
 ) -> None:

@@ -21830,15 +21830,17 @@ class scout_catalog_AddFileToDataset(ConjureBeanType):
         return {
             'handle': ConjureFieldDefinition('handle', scout_catalog_Handle),
             'timestamp_metadata': ConjureFieldDefinition('timestampMetadata', OptionalTypeWrapper[scout_catalog_TimestampMetadata]),
+            'ingest_tag_metadata': ConjureFieldDefinition('ingestTagMetadata', OptionalTypeWrapper[scout_catalog_IngestTagMetadata]),
             'origin_file_handles': ConjureFieldDefinition('originFileHandles', OptionalTypeWrapper[List[scout_catalog_S3Handle]]),
             'ingest_job_rid': ConjureFieldDefinition('ingestJobRid', OptionalTypeWrapper[ingest_api_IngestJobRid])
         }
 
-    __slots__: List[str] = ['_handle', '_timestamp_metadata', '_origin_file_handles', '_ingest_job_rid']
+    __slots__: List[str] = ['_handle', '_timestamp_metadata', '_ingest_tag_metadata', '_origin_file_handles', '_ingest_job_rid']
 
-    def __init__(self, handle: "scout_catalog_Handle", ingest_job_rid: Optional[str] = None, origin_file_handles: Optional[List["scout_catalog_S3Handle"]] = None, timestamp_metadata: Optional["scout_catalog_TimestampMetadata"] = None) -> None:
+    def __init__(self, handle: "scout_catalog_Handle", ingest_job_rid: Optional[str] = None, ingest_tag_metadata: Optional["scout_catalog_IngestTagMetadata"] = None, origin_file_handles: Optional[List["scout_catalog_S3Handle"]] = None, timestamp_metadata: Optional["scout_catalog_TimestampMetadata"] = None) -> None:
         self._handle = handle
         self._timestamp_metadata = timestamp_metadata
+        self._ingest_tag_metadata = ingest_tag_metadata
         self._origin_file_handles = origin_file_handles
         self._ingest_job_rid = ingest_job_rid
 
@@ -21849,6 +21851,10 @@ class scout_catalog_AddFileToDataset(ConjureBeanType):
     @builtins.property
     def timestamp_metadata(self) -> Optional["scout_catalog_TimestampMetadata"]:
         return self._timestamp_metadata
+
+    @builtins.property
+    def ingest_tag_metadata(self) -> Optional["scout_catalog_IngestTagMetadata"]:
+        return self._ingest_tag_metadata
 
     @builtins.property
     def origin_file_handles(self) -> Optional[List["scout_catalog_S3Handle"]]:
@@ -23020,14 +23026,15 @@ class scout_catalog_DatasetFile(ConjureBeanType):
             'ingested_at': ConjureFieldDefinition('ingestedAt', OptionalTypeWrapper[str]),
             'ingest_status': ConjureFieldDefinition('ingestStatus', api_IngestStatusV2),
             'timestamp_metadata': ConjureFieldDefinition('timestampMetadata', OptionalTypeWrapper[scout_catalog_TimestampMetadata]),
+            'ingest_tag_metadata': ConjureFieldDefinition('ingestTagMetadata', OptionalTypeWrapper[scout_catalog_IngestTagMetadata]),
             'origin_file_paths': ConjureFieldDefinition('originFilePaths', OptionalTypeWrapper[List[str]]),
             'ingest_job_rid': ConjureFieldDefinition('ingestJobRid', OptionalTypeWrapper[ingest_api_IngestJobRid]),
             'deleted_at': ConjureFieldDefinition('deletedAt', OptionalTypeWrapper[str])
         }
 
-    __slots__: List[str] = ['_id', '_dataset_rid', '_name', '_handle', '_bounds', '_uploaded_at', '_ingested_at', '_ingest_status', '_timestamp_metadata', '_origin_file_paths', '_ingest_job_rid', '_deleted_at']
+    __slots__: List[str] = ['_id', '_dataset_rid', '_name', '_handle', '_bounds', '_uploaded_at', '_ingested_at', '_ingest_status', '_timestamp_metadata', '_ingest_tag_metadata', '_origin_file_paths', '_ingest_job_rid', '_deleted_at']
 
-    def __init__(self, dataset_rid: str, handle: "scout_catalog_Handle", id: str, ingest_status: "api_IngestStatusV2", name: str, uploaded_at: str, bounds: Optional["scout_catalog_Bounds"] = None, deleted_at: Optional[str] = None, ingest_job_rid: Optional[str] = None, ingested_at: Optional[str] = None, origin_file_paths: Optional[List[str]] = None, timestamp_metadata: Optional["scout_catalog_TimestampMetadata"] = None) -> None:
+    def __init__(self, dataset_rid: str, handle: "scout_catalog_Handle", id: str, ingest_status: "api_IngestStatusV2", name: str, uploaded_at: str, bounds: Optional["scout_catalog_Bounds"] = None, deleted_at: Optional[str] = None, ingest_job_rid: Optional[str] = None, ingest_tag_metadata: Optional["scout_catalog_IngestTagMetadata"] = None, ingested_at: Optional[str] = None, origin_file_paths: Optional[List[str]] = None, timestamp_metadata: Optional["scout_catalog_TimestampMetadata"] = None) -> None:
         self._id = id
         self._dataset_rid = dataset_rid
         self._name = name
@@ -23037,6 +23044,7 @@ class scout_catalog_DatasetFile(ConjureBeanType):
         self._ingested_at = ingested_at
         self._ingest_status = ingest_status
         self._timestamp_metadata = timestamp_metadata
+        self._ingest_tag_metadata = ingest_tag_metadata
         self._origin_file_paths = origin_file_paths
         self._ingest_job_rid = ingest_job_rid
         self._deleted_at = deleted_at
@@ -23081,6 +23089,10 @@ ingested for any reason or is still being processed, then this value will be emp
     @builtins.property
     def timestamp_metadata(self) -> Optional["scout_catalog_TimestampMetadata"]:
         return self._timestamp_metadata
+
+    @builtins.property
+    def ingest_tag_metadata(self) -> Optional["scout_catalog_IngestTagMetadata"]:
+        return self._ingest_tag_metadata
 
     @builtins.property
     def origin_file_paths(self) -> Optional[List[str]]:
@@ -23597,6 +23609,39 @@ class scout_catalog_IngestStatus(ConjureEnumType):
 scout_catalog_IngestStatus.__name__ = "IngestStatus"
 scout_catalog_IngestStatus.__qualname__ = "IngestStatus"
 scout_catalog_IngestStatus.__module__ = "nominal_api.scout_catalog"
+
+
+class scout_catalog_IngestTagMetadata(ConjureBeanType):
+    """The tags used when ingesting the dataset file.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'tag_columns': ConjureFieldDefinition('tagColumns', Dict[api_TagName, api_ColumnName]),
+            'additional_file_tags': ConjureFieldDefinition('additionalFileTags', Dict[api_TagName, api_TagValue])
+        }
+
+    __slots__: List[str] = ['_tag_columns', '_additional_file_tags']
+
+    def __init__(self, additional_file_tags: Dict[str, str], tag_columns: Dict[str, str]) -> None:
+        self._tag_columns = tag_columns
+        self._additional_file_tags = additional_file_tags
+
+    @builtins.property
+    def tag_columns(self) -> Dict[str, str]:
+        """A map of tag names to column names to derive the tag values from.
+        """
+        return self._tag_columns
+
+    @builtins.property
+    def additional_file_tags(self) -> Dict[str, str]:
+        return self._additional_file_tags
+
+
+scout_catalog_IngestTagMetadata.__name__ = "IngestTagMetadata"
+scout_catalog_IngestTagMetadata.__qualname__ = "IngestTagMetadata"
+scout_catalog_IngestTagMetadata.__module__ = "nominal_api.scout_catalog"
 
 
 class scout_catalog_Iso8601Timestamp(ConjureBeanType):
@@ -37166,17 +37211,19 @@ class scout_compute_api_AssetChannel(ConjureBeanType):
             'data_scope_name': ConjureFieldDefinition('dataScopeName', scout_compute_api_StringConstant),
             'channel': ConjureFieldDefinition('channel', scout_compute_api_StringConstant),
             'additional_tags': ConjureFieldDefinition('additionalTags', Dict[str, scout_compute_api_StringConstant]),
-            'tags_to_group_by': ConjureFieldDefinition('tagsToGroupBy', List[str])
+            'tags_to_group_by': ConjureFieldDefinition('tagsToGroupBy', List[str]),
+            'group_by_tags': ConjureFieldDefinition('groupByTags', OptionalTypeWrapper[scout_compute_api_StringSetConstant])
         }
 
-    __slots__: List[str] = ['_asset_rid', '_data_scope_name', '_channel', '_additional_tags', '_tags_to_group_by']
+    __slots__: List[str] = ['_asset_rid', '_data_scope_name', '_channel', '_additional_tags', '_tags_to_group_by', '_group_by_tags']
 
-    def __init__(self, additional_tags: Dict[str, "scout_compute_api_StringConstant"], asset_rid: "scout_compute_api_StringConstant", channel: "scout_compute_api_StringConstant", data_scope_name: "scout_compute_api_StringConstant", tags_to_group_by: List[str]) -> None:
+    def __init__(self, additional_tags: Dict[str, "scout_compute_api_StringConstant"], asset_rid: "scout_compute_api_StringConstant", channel: "scout_compute_api_StringConstant", data_scope_name: "scout_compute_api_StringConstant", tags_to_group_by: List[str], group_by_tags: Optional["scout_compute_api_StringSetConstant"] = None) -> None:
         self._asset_rid = asset_rid
         self._data_scope_name = data_scope_name
         self._channel = channel
         self._additional_tags = additional_tags
         self._tags_to_group_by = tags_to_group_by
+        self._group_by_tags = group_by_tags
 
     @builtins.property
     def asset_rid(self) -> "scout_compute_api_StringConstant":
@@ -37202,10 +37249,14 @@ both sets of tag filters. For log series, include arg filters here in addition t
 
     @builtins.property
     def tags_to_group_by(self) -> List[str]:
-        """Tags that the channel should be grouped by. If this is non-empty a grouped result will be returned
-with an entry for each grouping.
-        """
         return self._tags_to_group_by
+
+    @builtins.property
+    def group_by_tags(self) -> Optional["scout_compute_api_StringSetConstant"]:
+        """Tags that the channel should be grouped by. If this is non-empty a grouped result will be returned
+with an entry for each grouping. Only one of tagsToGroupBy and groupByTags should be specified.
+        """
+        return self._group_by_tags
 
 
 scout_compute_api_AssetChannel.__name__ = "AssetChannel"
@@ -40499,16 +40550,18 @@ class scout_compute_api_DataSourceChannel(ConjureBeanType):
             'data_source_rid': ConjureFieldDefinition('dataSourceRid', scout_compute_api_StringConstant),
             'channel': ConjureFieldDefinition('channel', scout_compute_api_StringConstant),
             'tags': ConjureFieldDefinition('tags', Dict[str, scout_compute_api_StringConstant]),
-            'tags_to_group_by': ConjureFieldDefinition('tagsToGroupBy', List[str])
+            'tags_to_group_by': ConjureFieldDefinition('tagsToGroupBy', List[str]),
+            'group_by_tags': ConjureFieldDefinition('groupByTags', OptionalTypeWrapper[scout_compute_api_StringSetConstant])
         }
 
-    __slots__: List[str] = ['_data_source_rid', '_channel', '_tags', '_tags_to_group_by']
+    __slots__: List[str] = ['_data_source_rid', '_channel', '_tags', '_tags_to_group_by', '_group_by_tags']
 
-    def __init__(self, channel: "scout_compute_api_StringConstant", data_source_rid: "scout_compute_api_StringConstant", tags: Dict[str, "scout_compute_api_StringConstant"], tags_to_group_by: List[str]) -> None:
+    def __init__(self, channel: "scout_compute_api_StringConstant", data_source_rid: "scout_compute_api_StringConstant", tags: Dict[str, "scout_compute_api_StringConstant"], tags_to_group_by: List[str], group_by_tags: Optional["scout_compute_api_StringSetConstant"] = None) -> None:
         self._data_source_rid = data_source_rid
         self._channel = channel
         self._tags = tags
         self._tags_to_group_by = tags_to_group_by
+        self._group_by_tags = group_by_tags
 
     @builtins.property
     def data_source_rid(self) -> "scout_compute_api_StringConstant":
@@ -40527,10 +40580,14 @@ provided tag keys. For log series, include arg filters here in addition to tag f
 
     @builtins.property
     def tags_to_group_by(self) -> List[str]:
-        """Tags that the channel should be grouped by. If this is non-empty a grouped result will be returned
-with an entry for each grouping.
-        """
         return self._tags_to_group_by
+
+    @builtins.property
+    def group_by_tags(self) -> Optional["scout_compute_api_StringSetConstant"]:
+        """Tags that the channel should be grouped by. If this is non-empty a grouped result will be returned
+with an entry for each grouping. Only one of tagsToGroupBy and groupByTags should be specified.
+        """
+        return self._group_by_tags
 
 
 scout_compute_api_DataSourceChannel.__name__ = "DataSourceChannel"
@@ -47499,17 +47556,19 @@ class scout_compute_api_RunChannel(ConjureBeanType):
             'data_scope_name': ConjureFieldDefinition('dataScopeName', scout_compute_api_StringConstant),
             'channel': ConjureFieldDefinition('channel', scout_compute_api_StringConstant),
             'additional_tags': ConjureFieldDefinition('additionalTags', Dict[str, scout_compute_api_StringConstant]),
-            'tags_to_group_by': ConjureFieldDefinition('tagsToGroupBy', List[str])
+            'tags_to_group_by': ConjureFieldDefinition('tagsToGroupBy', List[str]),
+            'group_by_tags': ConjureFieldDefinition('groupByTags', OptionalTypeWrapper[scout_compute_api_StringSetConstant])
         }
 
-    __slots__: List[str] = ['_run_rid', '_data_scope_name', '_channel', '_additional_tags', '_tags_to_group_by']
+    __slots__: List[str] = ['_run_rid', '_data_scope_name', '_channel', '_additional_tags', '_tags_to_group_by', '_group_by_tags']
 
-    def __init__(self, additional_tags: Dict[str, "scout_compute_api_StringConstant"], channel: "scout_compute_api_StringConstant", data_scope_name: "scout_compute_api_StringConstant", run_rid: "scout_compute_api_StringConstant", tags_to_group_by: List[str]) -> None:
+    def __init__(self, additional_tags: Dict[str, "scout_compute_api_StringConstant"], channel: "scout_compute_api_StringConstant", data_scope_name: "scout_compute_api_StringConstant", run_rid: "scout_compute_api_StringConstant", tags_to_group_by: List[str], group_by_tags: Optional["scout_compute_api_StringSetConstant"] = None) -> None:
         self._run_rid = run_rid
         self._data_scope_name = data_scope_name
         self._channel = channel
         self._additional_tags = additional_tags
         self._tags_to_group_by = tags_to_group_by
+        self._group_by_tags = group_by_tags
 
     @builtins.property
     def run_rid(self) -> "scout_compute_api_StringConstant":
@@ -47535,10 +47594,14 @@ both sets of tag filters. For log series, include arg filters here in addition t
 
     @builtins.property
     def tags_to_group_by(self) -> List[str]:
-        """Tags that the channel should be grouped by. If this is non-empty a grouped result will be returned
-with an entry for each grouping.
-        """
         return self._tags_to_group_by
+
+    @builtins.property
+    def group_by_tags(self) -> Optional["scout_compute_api_StringSetConstant"]:
+        """Tags that the channel should be grouped by. If this is non-empty a grouped result will be returned
+with an entry for each grouping. Only one of tagsToGroupBy and groupByTags should be specified.
+        """
+        return self._group_by_tags
 
 
 scout_compute_api_RunChannel.__name__ = "RunChannel"

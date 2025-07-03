@@ -94,7 +94,7 @@ def push(job_folder, *, resume: bool = True, replace: Optional[dict] = None,
 
     data_results.loc[data_results['Result'] == 'Success', 'Result'] = 'Success: Already pushed'
 
-    to_push = list()
+    to_push = dict()
     all_ids = set()
     for data_usage in all_usages.values():
         item_dict = data_usage['Definition']
@@ -113,12 +113,18 @@ def push(job_folder, *, resume: bool = True, replace: Optional[dict] = None,
             continue
 
         dummy_dict = dummy_row.iloc[0].to_dict()
-        to_push.append(dummy_dict)
 
-    metadata = pd.DataFrame(to_push)
+        # Parents/paths will not be pushed as part of this operation, they whould have already
+        # been pushed (and relationships established) by spy.workbooks.job.push()
+        dummy_dict.pop('Path', None)
+        dummy_dict.pop('Asset', None)
+        dummy_dict.pop('Parent ID', None)
+        dummy_dict.pop('Parent Data ID', None)
 
-    if len(metadata) > 0:
-        metadata.set_index('Original ID', drop=False, inplace=True)
+        if not pd.isna(dummy_dict.get('Original ID', None)):
+            to_push[dummy_dict['Original ID']] = dummy_dict
+
+    metadata = pd.DataFrame.from_dict(to_push, orient='index')
 
     if 'ID' in metadata.columns:
         # Remove the ID column so that metadata is pushed via batch endpoints. (cleanse_data_ids=False is
@@ -172,7 +178,7 @@ def load_data_results(job_folder: str, prefix: str) -> pd.DataFrame:
 
 
 def save_data_results(job_folder: str, data_results: pd.DataFrame, prefix: str):
-    data_results.to_pickle(get_data_results_filename(job_folder, prefix), protocol=4)
+    data_results.to_pickle(get_data_results_filename(job_folder, prefix), protocol=_common.DEFAULT_PICKLE_PROTOCOL)
 
 
 def redo(job_folder: str, status: Status):

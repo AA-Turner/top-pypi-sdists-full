@@ -13,8 +13,6 @@ class DocumentType(Enum):
     XML = auto()
 
 
-# This is an exact representation of TS InputType. Not all are currently used, since we
-# have to map from agent-lib's own input type to this enum.
 class InputType(Enum):
     COOKIE_NAME = auto()
     COOKIE_VALUE = auto()
@@ -32,6 +30,22 @@ class InputType(Enum):
     def cef_string(self, key: str):
         fmt = _CEF_FMT_FROM_INPUT_TYPE.get(self, "untrusted input")
         return fmt.format(key) if fmt.endswith("{}") else fmt
+
+    @property
+    def is_body_based(self) -> bool:
+        """
+        Indicates if the input can be found in the body of a request.
+
+        This doesn't guarntee that the input is actually from the body,
+        for example, a querystring parameter will return True because we
+        don't distinguish between querystring and body form parameters.
+        """
+        return self in (
+            InputType.PARAMETER_VALUE,
+            InputType.MULTIPART_NAME,
+            InputType.JSON_VALUE,
+            InputType.XML_VALUE,
+        )
 
     @property
     def agent_lib_type(self) -> int:
@@ -91,3 +105,14 @@ class UserInput:
         elif self.type == InputType.XML_VALUE:
             self.document_type = DocumentType.XML
             self.path = self.name
+
+    @property
+    def is_name_based(self) -> bool:
+        """
+        Indicates if the input is based on a name (e.g., parameter name, cookie name).
+        """
+        return self.type in (
+            InputType.COOKIE_NAME,
+            InputType.PARAMETER_NAME,
+            InputType.MULTIPART_NAME,
+        )

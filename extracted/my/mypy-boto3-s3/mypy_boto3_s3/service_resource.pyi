@@ -554,6 +554,7 @@ class Bucket(ServiceResource):
     objects: BucketObjectsCollection
     creation_date: datetime
     bucket_region: str
+    bucket_arn: str
     meta: S3ResourceMeta  # type: ignore[override]
 
     def get_available_subresources(self) -> Sequence[str]:

@@ -80,6 +80,19 @@ def get_openapi_spec() -> str:
                 "API documentation will not show authentication requirements. "
                 "Add 'openapi' section to auth section of your `langgraph.json` file to specify security schemes."
             )
+
+    # Remove webhook parameters if webhooks are disabled
+    if HTTP_CONFIG and HTTP_CONFIG.get("disable_webhooks"):
+        webhook_schemas = ["CronCreate", "RunCreateStateful", "RunCreateStateless"]
+        for schema_name in webhook_schemas:
+            if schema_name in openapi["components"]["schemas"]:
+                schema = openapi["components"]["schemas"][schema_name]
+                if "properties" in schema and "webhook" in schema["properties"]:
+                    del schema["properties"]["webhook"]
+                    logger.info(
+                        f"Removed webhook parameter from {schema_name} schema due to disable_webhooks setting"
+                    )
+
     final = openapi
     if CUSTOM_OPENAPI_SPEC:
         final = merge_openapi_specs(openapi, CUSTOM_OPENAPI_SPEC)
@@ -100,11 +113,11 @@ def merge_openapi_specs(spec_a: dict, spec_b: dict) -> dict:
     Merge two OpenAPI specifications with spec_b taking precedence on conflicts.
 
     This function handles merging of the following keys:
-      - "openapi": Uses spec_b’s version.
+      - "openapi": Uses spec_b's version.
       - "info": Merges dictionaries with spec_b taking precedence.
       - "servers": Merges lists with deduplication (by URL and description).
       - "paths": For shared paths, merges HTTP methods:
-           - If a method exists in both, spec_b’s definition wins.
+           - If a method exists in both, spec_b's definition wins.
            - Otherwise, methods from both are preserved.
          Additionally, merges path-level "parameters" by (name, in).
       - "components": Merges per component type (schemas, responses, etc.).
@@ -217,7 +230,7 @@ def _merge_paths(paths_a: dict, paths_b: dict) -> dict:
 
     For each path:
       - If the path exists in both specs, merge HTTP methods:
-          - If a method exists in both, use spec_b’s definition.
+          - If a method exists in both, use spec_b's definition.
           - Otherwise, preserve both.
       - Additionally, merge path-level "parameters" if present.
 

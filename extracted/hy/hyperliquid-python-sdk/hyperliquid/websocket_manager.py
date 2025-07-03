@@ -33,6 +33,10 @@ def subscription_to_identifier(subscription: Subscription) -> str:
         return f'webData2:{subscription["user"].lower()}'
     elif subscription["type"] == "bbo":
         return f'bbo:{subscription["coin"].lower()}'
+    elif subscription["type"] == "activeAssetCtx":
+        return f'activeAssetCtx:{subscription["coin"].lower()}'
+    elif subscription["type"] == "activeAssetData":
+        return f'activeAssetData:{subscription["coin"].lower()},{subscription["user"].lower()}'
 
 
 def ws_msg_to_identifier(ws_msg: WsMsg) -> Optional[str]:
@@ -64,6 +68,10 @@ def ws_msg_to_identifier(ws_msg: WsMsg) -> Optional[str]:
         return f'webData2:{ws_msg["data"]["user"].lower()}'
     elif ws_msg["channel"] == "bbo":
         return f'bbo:{ws_msg["data"]["coin"].lower()}'
+    elif ws_msg["channel"] == "activeAssetCtx" or ws_msg["channel"] == "activeSpotAssetCtx":
+        return f'activeAssetCtx:{ws_msg["data"]["coin"].lower()}'
+    elif ws_msg["channel"] == "activeAssetData":
+        return f'activeAssetData:{ws_msg["data"]["coin"].lower()},{ws_msg["data"]["user"].lower()}'
 
 
 class WebsocketManager(threading.Thread):

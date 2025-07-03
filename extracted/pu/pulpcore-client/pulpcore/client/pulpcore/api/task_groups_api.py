@@ -45,6 +45,7 @@ class TaskGroupsApi:
     @validate_call
     def list(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
@@ -65,6 +66,8 @@ class TaskGroupsApi:
         """List task groups
 
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param limit: Number of results to return per page.
         :type limit: int
         :param offset: The initial index from which to return the results.
@@ -96,6 +99,7 @@ class TaskGroupsApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             offset=offset,
             fields=fields,
@@ -123,6 +127,7 @@ class TaskGroupsApi:
     @validate_call
     def list_with_http_info(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
@@ -143,6 +148,8 @@ class TaskGroupsApi:
         """List task groups
 
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param limit: Number of results to return per page.
         :type limit: int
         :param offset: The initial index from which to return the results.
@@ -174,6 +181,7 @@ class TaskGroupsApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             offset=offset,
             fields=fields,
@@ -201,6 +209,7 @@ class TaskGroupsApi:
     @validate_call
     def list_without_preload_content(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
@@ -221,6 +230,8 @@ class TaskGroupsApi:
         """List task groups
 
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param limit: Number of results to return per page.
         :type limit: int
         :param offset: The initial index from which to return the results.
@@ -252,6 +263,7 @@ class TaskGroupsApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             offset=offset,
             fields=fields,
@@ -274,6 +286,7 @@ class TaskGroupsApi:
 
     def _list_serialize(
         self,
+        x_task_diagnostics,
         limit,
         offset,
         fields,
@@ -287,6 +300,7 @@ class TaskGroupsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -319,6 +333,8 @@ class TaskGroupsApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -360,6 +376,7 @@ class TaskGroupsApi:
     def read(
         self,
         task_group_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -380,6 +397,8 @@ class TaskGroupsApi:
 
         :param task_group_href: (required)
         :type task_group_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -408,6 +427,7 @@ class TaskGroupsApi:
 
         _param = self._read_serialize(
             task_group_href=task_group_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -434,6 +454,7 @@ class TaskGroupsApi:
     def read_with_http_info(
         self,
         task_group_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -454,6 +475,8 @@ class TaskGroupsApi:
 
         :param task_group_href: (required)
         :type task_group_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -482,6 +505,7 @@ class TaskGroupsApi:
 
         _param = self._read_serialize(
             task_group_href=task_group_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -508,6 +532,7 @@ class TaskGroupsApi:
     def read_without_preload_content(
         self,
         task_group_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -528,6 +553,8 @@ class TaskGroupsApi:
 
         :param task_group_href: (required)
         :type task_group_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -556,6 +583,7 @@ class TaskGroupsApi:
 
         _param = self._read_serialize(
             task_group_href=task_group_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -577,6 +605,7 @@ class TaskGroupsApi:
     def _read_serialize(
         self,
         task_group_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -588,6 +617,7 @@ class TaskGroupsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -614,6 +644,8 @@ class TaskGroupsApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -656,6 +688,7 @@ class TaskGroupsApi:
         self,
         task_group_href: StrictStr,
         patched_task_cancel: PatchedTaskCancel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -677,6 +710,8 @@ class TaskGroupsApi:
         :type task_group_href: str
         :param patched_task_cancel: (required)
         :type patched_task_cancel: PatchedTaskCancel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -702,6 +737,7 @@ class TaskGroupsApi:
         _param = self._task_groups_cancel_serialize(
             task_group_href=task_group_href,
             patched_task_cancel=patched_task_cancel,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -728,6 +764,7 @@ class TaskGroupsApi:
         self,
         task_group_href: StrictStr,
         patched_task_cancel: PatchedTaskCancel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -749,6 +786,8 @@ class TaskGroupsApi:
         :type task_group_href: str
         :param patched_task_cancel: (required)
         :type patched_task_cancel: PatchedTaskCancel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -774,6 +813,7 @@ class TaskGroupsApi:
         _param = self._task_groups_cancel_serialize(
             task_group_href=task_group_href,
             patched_task_cancel=patched_task_cancel,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -800,6 +840,7 @@ class TaskGroupsApi:
         self,
         task_group_href: StrictStr,
         patched_task_cancel: PatchedTaskCancel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -821,6 +862,8 @@ class TaskGroupsApi:
         :type task_group_href: str
         :param patched_task_cancel: (required)
         :type patched_task_cancel: PatchedTaskCancel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -846,6 +889,7 @@ class TaskGroupsApi:
         _param = self._task_groups_cancel_serialize(
             task_group_href=task_group_href,
             patched_task_cancel=patched_task_cancel,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -867,6 +911,7 @@ class TaskGroupsApi:
         self,
         task_group_href,
         patched_task_cancel,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -876,6 +921,7 @@ class TaskGroupsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -892,6 +938,8 @@ class TaskGroupsApi:
             _path_params['task_group_href'] = task_group_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if patched_task_cancel is not None:

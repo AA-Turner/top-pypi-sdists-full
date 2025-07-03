@@ -173,6 +173,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "pulpcore.middleware.DomainMiddleware",
     "pulpcore.middleware.APIRootRewriteMiddleware",
+    "pulpcore.middleware.TaskProfilerMiddleware",
 ]
 
 AUTHENTICATION_BACKENDS = [
@@ -436,6 +437,7 @@ storage_validator = (
     Validator("REDIRECT_TO_OBJECT_STORAGE", eq=False)
     | Validator(*storage_keys, eq="pulpcore.app.models.storage.FileSystem")
     | Validator(*storage_keys, eq="storages.backends.azure_storage.AzureStorage")
+    | Validator(*storage_keys, eq="storages.backends.s3.S3Storage")
     | Validator(*storage_keys, eq="storages.backends.s3boto3.S3Boto3Storage")
     | Validator(*storage_keys, eq="storages.backends.gcloud.GoogleCloudStorage")
 )

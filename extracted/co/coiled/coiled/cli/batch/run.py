@@ -207,6 +207,19 @@ def get_kwargs_from_header(f: dict, click_params: list):
     ),
 )
 @click.option(
+    "--env-file",
+    default=None,
+    help="Path to .env file; all variables set in the file will be transmitted to run command environment.",
+)
+@click.option(
+    "--secret-env-file",
+    default=None,
+    help=(
+        "Path to .env file; all variables set in the file will be transmitted to run command environment. "
+        "These environment variables will only be stored in our database temporarily."
+    ),
+)
+@click.option(
     "--tag",
     "-t",
     default=[],
@@ -461,6 +474,24 @@ def _batch_run(default_kwargs, logger=None, from_cli=False, **kwargs) -> dict:
 
     job_env_vars = dict_from_key_val_list(kwargs["env"])
     job_secret_vars = dict_from_key_val_list(kwargs["secret_env"])
+
+    if kwargs.get("env_file"):
+        try:
+            import dotenv
+
+            env_file_values = dotenv.dotenv_values(kwargs["env_file"])
+            job_env_vars = {**env_file_values, **job_env_vars}
+        except ImportError:
+            ValueError("--env-file option requires `python-dotenv` to be installed locally")
+
+    if kwargs.get("secret_env_file"):
+        try:
+            import dotenv
+
+            secret_env_file_values = dotenv.dotenv_values(kwargs["secret_env_file"])
+            job_secret_vars = {**secret_env_file_values, **job_secret_vars}
+        except ImportError:
+            ValueError("--secret-env-file option requires `python-dotenv` to be installed locally")
 
     extra_message = ""
 

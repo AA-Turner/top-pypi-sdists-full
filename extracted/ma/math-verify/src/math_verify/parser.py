@@ -20,28 +20,30 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+import logging
 import re
 from dataclasses import dataclass, field, replace
 from functools import lru_cache
 from itertools import groupby
 from typing import Literal, Sequence
-from math_verify.errors import TimeoutException
 
 import sympy
-from sympy import Basic, MatrixBase, Number
-from latex2sympy2_extended.sets import FiniteSet
-from sympy.parsing import parse_expr
-from math_verify.grader import should_treat_as_complex
 from latex2sympy2_extended.latex2sympy2 import (
     NormalizationConfig,
-    normalize_latex,
     latex2sympy,
+    normalize_latex,
 )
+from latex2sympy2_extended.sets import FiniteSet
+from sympy import Basic, MatrixBase, Number
+from sympy.parsing import parse_expr
+
+from math_verify.errors import TimeoutException
+from math_verify.grader import should_treat_as_complex
 from math_verify.utils import timeout
 
-import logging
-
 logger = logging.getLogger(__name__)
+
+TIMEOUT_WARNING_SHOWN = False
 
 
 @dataclass(frozen=True)
@@ -655,6 +657,7 @@ def parse(
     fallback_mode: Literal["no_fallback", "first_match"] = "first_match",
     extraction_mode: Literal["first_match", "any_match"] = "any_match",
     parsing_timeout: int = 5,
+    raise_on_error: bool = False,
 ):
     """Extracts and parses mathematical expressions from a prediction string.
 
@@ -671,7 +674,8 @@ def parse(
         extraction_mode (Literal["first_match", "any_match"], optional): Strategy for extracting matches. Defaults to "any_match".
             - "first_match": Stop after finding the first match
             - "any_match": Try to extract all possible matches, stops after first sucesful parsing attempt
-        parsing_timeout (int, optional): Maximum time in seconds to spend parsing each expression. Defaults to 3.
+        parsing_timeout (int, optional): Maximum time in seconds to spend parsing each expression. Defaults to 3. Any timeout seconds > 0 or not None will result in the function to raise a ValueError if it's called in a threaded environment.
+        raise_on_error (bool, optional): Whether to raise an exception if an error occurs during parsing or return an empty list. Defaults to False.
 
     Returns:
         list: List of extracted predictions. Each prediction can be:
@@ -687,6 +691,14 @@ def parse(
         >>> parse("The answer is A", extraction_config=[StringExtractionConfig()])
         ['a']
     """
+    global TIMEOUT_WARNING_SHOWN
+    if not TIMEOUT_WARNING_SHOWN and (parsing_timeout is None or parsing_timeout <= 0):
+        logger.warning(
+            "Timeout is disabled as parsing_timeout is None or <= 0, you must provide \
+                        the logic for timeout interuption yourself to prevent code getting stuck."
+        )
+        TIMEOUT_WARNING_SHOWN = True
+
     try:
         target_res = get_extraction_regexes(extraction_config)
         return timeout(timeout_seconds=parsing_timeout)(extract_target_from_pred)(
@@ -695,9 +707,26 @@ def parse(
             fallback_mode=fallback_mode,
             extraction_mode=extraction_mode,
         )
-    except Exception:
-        logger.exception(f"Error parsing: {pred}")
+    except ValueError as e:
+        # Check if it's the signal error
+        if str(e) == "signal only works in main thread of the main interpreter":
+            raise ValueError(
+                "Math-Verify 'parse' function doesn't support threaded environment due to usage of signal.alarm() in timeout mechanism. If you need to run in multithreaded environment it's recommended to set the parsing_timeout=None, which will run without timeout (and signal handling). In this case you need to handle the timeouting yourself."
+            ) from e
+        if raise_on_error:
+            raise e from e
+        else:
+            logger.debug(f"Error parsing: {pred}", exc_info=True)
+            return []
+    except Exception as e:
+        if raise_on_error:
+            raise e from e
+        else:
+            logger.debug(f"Error parsing: {pred}", exc_info=True)
         return []
-    except TimeoutException:
-        logger.error(f"Timeout during parsing: {pred}")
+    except TimeoutException as e:
+        if raise_on_error:
+            raise TimeoutException(f"Timeout during parsing: {pred}") from e
+        else:
+            logger.warning(f"Timeout during parsing: {pred}")
         return []

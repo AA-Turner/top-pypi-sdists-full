@@ -53,6 +53,9 @@ from .graph import split_context as split_context
 from .graph import MergeContext as MergeContext
 from .graph import merge_context as merge_context
 from .graph import variables as variables
+from .graph import freeze as freeze
+from .graph import mutable as mutable
+from .graph import pure as pure
 from .graph import cached_partial as cached_partial
 from .nn import initializers as initializers
 from .nn.activations import celu as celu
@@ -136,6 +139,7 @@ from .training import optimizer as optimizer
 from .training.metrics import Metric as Metric
 from .training.metrics import MultiMetric as MultiMetric
 from .training.optimizer import Optimizer as Optimizer
+from .training.optimizer import OptState as OptState
 from .transforms.autodiff import DiffState as DiffState
 from .transforms.autodiff import grad as grad
 from .transforms.autodiff import value_and_grad as value_and_grad
@@ -167,9 +171,16 @@ from .variablelib import with_metadata as with_metadata
 from .variablelib import variable_type_from_name as variable_type_from_name
 from .variablelib import variable_name_from_type as variable_name_from_type
 from .variablelib import register_variable_name as register_variable_name
+from .variablelib import mutable_array as mutable_array
+from .variablelib import MutableArray as MutableArray
+from .variablelib import is_mutable_array as is_mutable_array
 from .visualization import display as display
 from .extract import to_tree as to_tree
 from .extract import from_tree as from_tree
 from .extract import NodeStates as NodeStates
 from .summary import tabulate as tabulate
 from . import traversals as traversals
+from .dataclasses import dataclass as dataclass
+from .dataclasses import Static as Static
+from .dataclasses import field as field
+from .dataclasses import static as static

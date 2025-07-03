@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import dataclasses
+from functools import partial
 import typing as tp
 from typing import Any
 
@@ -30,9 +31,9 @@ from flax.nnx.rnglib import Rngs
 from flax.nnx.statelib import State
 import jax
 from jax import tree_util as jtu
+from flax import config
 
 M = tp.TypeVar('M', bound=Module)
-
 
 # Flax-like style is NNX
 @dataclasses.dataclass
@@ -87,6 +88,7 @@ def lazy_init(fn: Module | tp.Callable[..., tp.Any], *args, **kwargs):
     _set_initializing(module, False)
   return fn
 
+PYTREE_DEFAULT = 'auto' if config.flax_mutable_array else None
 
 class ToNNX(Module):
   """A wrapper to turn any Linen module into an NNX module.
@@ -117,6 +119,9 @@ class ToNNX(Module):
   Returns:
     A stateful NNX module that behaves the same as the wrapped Linen module.
   """
+
+  __data__ = 'auto'
+
   def __init__(
     self,
     module: linen.Module,
@@ -128,6 +133,16 @@ class ToNNX(Module):
   def lazy_init(self, *args, **kwargs):
     """A shortcut of calling `nnx.bridge.lazy_init()` upon this module."""
     return lazy_init(self, *args, **kwargs)
+
+  def __getattr__(self, name: str):
+    if hasattr(super(), name):
+      return super().__getattribute__(name)
+    maybe_method = getattr(self.module.__class__, name, None)
+    if callable(maybe_method):
+      method = partial(self.__call__, method=maybe_method)
+      method.__self__ = self
+      return method
+    return super().__getattribute__(name)
 
   def __call__(
     self, *args: Any, rngs: tp.Optional[Rngs] = None,

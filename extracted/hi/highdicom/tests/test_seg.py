@@ -13,11 +13,13 @@ from pydicom.multival import MultiValue
 import pytest
 from PIL import Image
 
+from pydicom import Dataset
 from pydicom.data import get_testdata_file, get_testdata_files
 from pydicom.datadict import tag_for_keyword
 from pydicom.filereader import dcmread
 from pydicom.sr.codedict import codes
 from pydicom.uid import (
+    EnhancedCTImageStorage,
     ExplicitVRLittleEndian,
     ImplicitVRLittleEndian,
     RLELossless,
@@ -29,6 +31,7 @@ from highdicom import (
     PaletteColorLUT,
     PaletteColorLUTTransformation,
 )
+from highdicom.base_content import ContributingEquipment
 from highdicom.color import CIELabColor
 from highdicom.content import (
     AlgorithmIdentificationSequence,
@@ -41,6 +44,7 @@ from highdicom.enum import (
     DimensionOrganizationTypeValues,
     PatientOrientationValuesBiped,
 )
+from highdicom.image import get_volume_from_series
 from highdicom.seg import (
     create_segmentation_pyramid,
     segread,
@@ -1109,6 +1113,11 @@ class TestSegmentation:
         assert not hasattr(instance, 'PixelPaddingValue')
 
     def test_construction_2(self):
+        equipment = ContributingEquipment(
+            manufacturer='Other Manufacturer',
+            purpose_of_reference=codes.DCM.ProcessingEquipment,
+            device_serial_number='1.2.3.4'
+        )
         instance = Segmentation(
             [self._sm_image],
             self._sm_pixel_array,
@@ -1121,7 +1130,8 @@ class TestSegmentation:
             self._manufacturer,
             self._manufacturer_model_name,
             self._software_versions,
-            self._device_serial_number
+            self._device_serial_number,
+            contributing_equipment=[equipment],
         )
         assert instance.SOPClassUID == '1.2.840.10008.5.1.4.1.1.66.4'
         assert instance.PatientID == self._sm_image.PatientID
@@ -1188,6 +1198,12 @@ class TestSegmentation:
         assert not hasattr(instance, 'BluePaletteColorLookupTableDescriptor')
         assert not hasattr(instance, 'BluePaletteColorLookupTableData')
         assert not hasattr(instance, 'PixelPaddingValue')
+
+        equip_seq = instance.ContributingEquipmentSequence
+        assert len(equip_seq) == 3
+        assert equip_seq[0].Manufacturer == self._sm_image.Manufacturer
+        assert equip_seq[1].Manufacturer == 'Other Manufacturer'
+        assert equip_seq[2].ManufacturerModelName == 'highdicom'
 
     def test_construction_3(self):
         # Segmentation instance from a series of single-frame CT images
@@ -1680,7 +1696,8 @@ class TestSegmentation:
             self._manufacturer_model_name,
             self._software_versions,
             self._device_serial_number,
-            content_label=self._content_label
+            content_label=self._content_label,
+            transfer_syntax_uid=RLELossless,
         )
         assert instance.SOPClassUID == '1.2.840.10008.5.1.4.1.1.66.7'
         assert (
@@ -1704,6 +1721,8 @@ class TestSegmentation:
         assert not hasattr(instance, 'BluePaletteColorLookupTableData')
         assert instance.PixelPaddingValue == 0
         self.check_dimension_index_vals(instance)
+        assert not hasattr(instance, 'ExtendedOffsetTable')
+        assert not hasattr(instance, 'ExtendedOffsetTableLengths')
 
     def test_construction_9(self):
         # A label with a palette color LUT
@@ -1751,6 +1770,8 @@ class TestSegmentation:
             self._device_serial_number,
             palette_color_lut_transformation=self._lut_transformation,
             icc_profile=self._icc_profile,
+            transfer_syntax_uid=JPEGLSLossless,
+            use_extended_offset_table=True,
         )
         assert instance.SOPClassUID == '1.2.840.10008.5.1.4.1.1.66.7'
         assert instance.PhotometricInterpretation == 'PALETTE COLOR'
@@ -1763,6 +1784,8 @@ class TestSegmentation:
         assert hasattr(instance, 'BluePaletteColorLookupTableData')
         assert instance.PixelPaddingValue == 0
         self.check_dimension_index_vals(instance)
+        assert hasattr(instance, 'ExtendedOffsetTable')
+        assert hasattr(instance, 'ExtendedOffsetTableLengths')
 
     def test_construction_no_coordinate_system(self):
         # This image does have a frame of reference, but no spatial information
@@ -1952,6 +1975,330 @@ class TestSegmentation:
                 plane_item.PlanePositionSequence[0].ImagePositionPatient ==
                 pp[0].ImagePositionPatient
             )
+
+    def test_construction_volume_references(self):
+        # Test that per-frame references are established correctly from a
+        # volume
+        ct_volume = get_volume_from_series(
+            self._ct_series[:3],
+        )
+        seg_volume = ct_volume.with_array(
+            ct_volume.array > ct_volume.array.mean()
+        )
+
+        instance = Segmentation(
+            self._ct_series,
+            seg_volume,
+            SegmentationTypeValues.BINARY.value,
+            self._segment_descriptions,
+            self._series_instance_uid,
+            self._series_number,
+            self._sop_instance_uid,
+            self._instance_number,
+            self._manufacturer,
+            self._manufacturer_model_name,
+            self._software_versions,
+            self._device_serial_number,
+            omit_empty_frames=False
+        )
+        self.check_dimension_index_vals(instance)
+        for plane_item, im in zip(
+            instance.PerFrameFunctionalGroupsSequence,
+            self._ct_series,
+        ):
+            src_im_seq = (
+                plane_item
+                .DerivationImageSequence[0]
+                .SourceImageSequence[0]
+            )
+            assert (
+                src_im_seq.ReferencedSOPInstanceUID ==
+                im.SOPInstanceUID
+            )
+            assert src_im_seq.SpatialLocationsPreserved == 'YES'
+            assert (
+                plane_item.PlanePositionSequence[0].ImagePositionPatient ==
+                im.ImagePositionPatient
+            )
+
+        out_volume = instance.get_volume(combine_segments=True)
+        assert out_volume.geometry_equal(seg_volume)
+
+    def test_construction_volume_references_flipped(self):
+        # Repeat test above but with the volume flipped and the series jumbled
+        shuffled_series = [self._ct_series[i] for i in [1, 2, 0]]
+        ct_volume = get_volume_from_series(shuffled_series)
+        seg_volume = ct_volume.with_array(
+            ct_volume.array > ct_volume.array.mean()
+        )
+
+        input_volume = seg_volume.flip_spatial(0)
+
+        instance = Segmentation(
+            shuffled_series,
+            input_volume,
+            SegmentationTypeValues.BINARY.value,
+            self._segment_descriptions,
+            self._series_instance_uid,
+            self._series_number,
+            self._sop_instance_uid,
+            self._instance_number,
+            self._manufacturer,
+            self._manufacturer_model_name,
+            self._software_versions,
+            self._device_serial_number,
+            omit_empty_frames=False
+        )
+        self.check_dimension_index_vals(instance)
+        for plane_item, im in zip(
+            instance.PerFrameFunctionalGroupsSequence,
+            self._ct_series,
+        ):
+            src_im_seq = (
+                plane_item
+                .DerivationImageSequence[0]
+                .SourceImageSequence[0]
+            )
+            assert (
+                src_im_seq.ReferencedSOPInstanceUID ==
+                im.SOPInstanceUID
+            )
+            assert src_im_seq.SpatialLocationsPreserved == 'YES'
+            assert (
+                plane_item.PlanePositionSequence[0].ImagePositionPatient ==
+                im.ImagePositionPatient
+            )
+
+        out_volume = instance.get_volume(combine_segments=True)
+        assert out_volume.geometry_equal(seg_volume)
+
+    def test_construction_volume_references_two_segments(self):
+        # Test that per-frame references are established correctly from a
+        # volume with multiple segments
+        ct_volume = get_volume_from_series(
+            self._ct_series[:3],
+        )
+        seg_volume = ct_volume.with_array(
+            (ct_volume.array > ct_volume.array.mean()).astype(np.uint8)
+        )
+
+        seg_volume.array[:] += 1  # hack to create extra class
+
+        instance = Segmentation(
+            self._ct_series,
+            seg_volume,
+            SegmentationTypeValues.BINARY.value,
+            self._both_segment_descriptions,
+            self._series_instance_uid,
+            self._series_number,
+            self._sop_instance_uid,
+            self._instance_number,
+            self._manufacturer,
+            self._manufacturer_model_name,
+            self._software_versions,
+            self._device_serial_number,
+            omit_empty_frames=False
+        )
+        self.check_dimension_index_vals(instance)
+        assert instance.number_of_frames == 6
+        for plane_item, im in zip(
+            instance.PerFrameFunctionalGroupsSequence,
+            # Frame references repeat
+            self._ct_series[:3] + self._ct_series[:3],
+        ):
+            src_im_seq = (
+                plane_item
+                .DerivationImageSequence[0]
+                .SourceImageSequence[0]
+            )
+            assert (
+                src_im_seq.ReferencedSOPInstanceUID ==
+                im.SOPInstanceUID
+            )
+            assert src_im_seq.SpatialLocationsPreserved == 'YES'
+            assert (
+                plane_item.PlanePositionSequence[0].ImagePositionPatient ==
+                im.ImagePositionPatient
+            )
+
+        out_volume = instance.get_volume(combine_segments=True)
+        assert out_volume.geometry_equal(seg_volume)
+
+    def test_construction_volume_references_rotated(self):
+        # Create a segmentation from a volume with an in-plane rotation wrt the
+        # source image. Per-frame references should be established but spatial
+        # locations are not preserved
+        ct_volume = get_volume_from_series(self._ct_series[:3])
+        seg_volume = (
+            ct_volume
+            .with_array(ct_volume.array > ct_volume.array.mean())
+            .permute_spatial_axes([0, 2, 1])
+        )
+
+        instance = Segmentation(
+            self._ct_series,
+            seg_volume,
+            SegmentationTypeValues.BINARY.value,
+            self._segment_descriptions,
+            self._series_instance_uid,
+            self._series_number,
+            self._sop_instance_uid,
+            self._instance_number,
+            self._manufacturer,
+            self._manufacturer_model_name,
+            self._software_versions,
+            self._device_serial_number,
+            omit_empty_frames=False
+        )
+        self.check_dimension_index_vals(instance)
+        for plane_item, im in zip(
+            instance.PerFrameFunctionalGroupsSequence,
+            self._ct_series[2::-1],  # inverted due to different handedness
+        ):
+            src_im_seq = (
+                plane_item
+                .DerivationImageSequence[0]
+                .SourceImageSequence[0]
+            )
+            assert (
+                src_im_seq.ReferencedSOPInstanceUID ==
+                im.SOPInstanceUID
+            )
+            assert src_im_seq.SpatialLocationsPreserved == 'NO'
+
+        out_volume = instance.get_volume(combine_segments=True)
+
+        # Output is flipped relative to input due to handedness
+        assert out_volume.geometry_equal(seg_volume.flip_spatial(0))
+
+    def test_construction_volume_references_cropped(self):
+        # Create a segmentation from a volume with an in-plane crop wrt the
+        # source image. Per-frame references should be established but spatial
+        # locations are not preserved
+        ct_volume = get_volume_from_series(self._ct_series[:3])
+        seg_volume = (
+            ct_volume
+            .with_array(ct_volume.array > ct_volume.array.mean())
+            .crop_to_spatial_shape((3, 10, 10))
+        )
+
+        instance = Segmentation(
+            self._ct_series,
+            seg_volume,
+            SegmentationTypeValues.BINARY.value,
+            self._segment_descriptions,
+            self._series_instance_uid,
+            self._series_number,
+            self._sop_instance_uid,
+            self._instance_number,
+            self._manufacturer,
+            self._manufacturer_model_name,
+            self._software_versions,
+            self._device_serial_number,
+            omit_empty_frames=False
+        )
+        self.check_dimension_index_vals(instance)
+        for plane_item, im in zip(
+            instance.PerFrameFunctionalGroupsSequence,
+            self._ct_series[:3],
+        ):
+            src_im_seq = (
+                plane_item
+                .DerivationImageSequence[0]
+                .SourceImageSequence[0]
+            )
+            assert (
+                src_im_seq.ReferencedSOPInstanceUID ==
+                im.SOPInstanceUID
+            )
+            assert src_im_seq.SpatialLocationsPreserved == 'NO'
+
+        out_volume = instance.get_volume(combine_segments=True)
+
+        # Output is flipped relative to input due to handedness
+        assert out_volume.geometry_equal(seg_volume)
+
+    def test_construction_volume_references_subsampled(self):
+        # Create a segmentation from a volume with an in-plane subsample wrt the
+        # source image. Per-frame references should be established but spatial
+        # locations are not preserved
+        ct_volume = get_volume_from_series(self._ct_series[:3])
+        seg_volume = (
+            ct_volume
+            .with_array(ct_volume.array > ct_volume.array.mean())
+            [:, ::2, ::2]  # double the spacing in the in-plane directions
+        )
+
+        instance = Segmentation(
+            self._ct_series,
+            seg_volume,
+            SegmentationTypeValues.BINARY.value,
+            self._segment_descriptions,
+            self._series_instance_uid,
+            self._series_number,
+            self._sop_instance_uid,
+            self._instance_number,
+            self._manufacturer,
+            self._manufacturer_model_name,
+            self._software_versions,
+            self._device_serial_number,
+            omit_empty_frames=False
+        )
+        self.check_dimension_index_vals(instance)
+        for plane_item, im in zip(
+            instance.PerFrameFunctionalGroupsSequence,
+            self._ct_series[:3],
+        ):
+            src_im_seq = (
+                plane_item
+                .DerivationImageSequence[0]
+                .SourceImageSequence[0]
+            )
+            assert (
+                src_im_seq.ReferencedSOPInstanceUID ==
+                im.SOPInstanceUID
+            )
+            assert src_im_seq.SpatialLocationsPreserved == 'NO'
+
+        out_volume = instance.get_volume(combine_segments=True)
+
+        # Output is flipped relative to input due to handedness
+        assert out_volume.geometry_equal(seg_volume)
+
+    def test_construction_volume_references_permuted(self):
+        # Create a segmentation from a volume with an out-of-plane permutation
+        # wrt the source image. Per-frame references should not be established
+        # in this case
+        ct_volume = get_volume_from_series(self._ct_series[:3])
+        seg_volume = (
+            ct_volume
+            .with_array(ct_volume.array > ct_volume.array.mean())
+            .permute_spatial_axes([1, 2, 0])
+        )
+
+        instance = Segmentation(
+            self._ct_series,
+            seg_volume,
+            SegmentationTypeValues.BINARY.value,
+            self._segment_descriptions,
+            self._series_instance_uid,
+            self._series_number,
+            self._sop_instance_uid,
+            self._instance_number,
+            self._manufacturer,
+            self._manufacturer_model_name,
+            self._software_versions,
+            self._device_serial_number,
+            omit_empty_frames=False
+        )
+        self.check_dimension_index_vals(instance)
+        for plane_item in instance.PerFrameFunctionalGroupsSequence:
+            assert len(plane_item.DerivationImageSequence) == 0
+
+        out_volume = instance.get_volume(combine_segments=True)
+
+        # Output is flipped relative to input due to handedness
+        assert out_volume.geometry_equal(seg_volume)
 
     def test_construction_volume_multiframe(self):
         # Construction with a multiiframe source image and non-spatially
@@ -2480,14 +2827,15 @@ class TestSegmentation:
         assert not hasattr(instance, "PerFrameFunctionalGroupsSequence")
 
     def test_construction_further_source_images(self):
-        further_source_image = deepcopy(self._ct_image)
+        # Further source images that are aligned
+        further_source_image = deepcopy(self._ct_multiframe)
         series_uid = UID()
         sop_uid = UID()
         further_source_image.SeriesInstanceUID = series_uid
         further_source_image.SOPInstanceUID = sop_uid
         instance = Segmentation(
-            [self._ct_image],
-            self._ct_pixel_array,
+            [self._ct_multiframe],
+            self._ct_multiframe_mask_array,
             SegmentationTypeValues.FRACTIONAL.value,
             self._segment_descriptions,
             self._series_instance_uid,
@@ -2508,6 +2856,143 @@ class TestSegmentation:
         assert len(instance.ReferencedSeriesSequence) == 2
         further_item = instance.ReferencedSeriesSequence[1]
         assert further_item.SeriesInstanceUID == series_uid
+        for i, pffg in enumerate(instance.PerFrameFunctionalGroupsSequence):
+            drv_seq = pffg.DerivationImageSequence
+            src_seq = drv_seq[0].SourceImageSequence
+            assert len(src_seq) == 2
+            assert (
+                src_seq[0].ReferencedSOPInstanceUID ==
+                self._ct_multiframe.SOPInstanceUID
+            )
+            assert src_seq[0].ReferencedFrameNumber == i + 1
+            assert src_seq[0].SpatialLocationsPreserved == 'YES'
+            assert (
+                src_seq[1].ReferencedSOPInstanceUID ==
+                sop_uid
+            )
+            assert src_seq[1].ReferencedFrameNumber == i + 1
+            assert src_seq[1].SpatialLocationsPreserved == 'YES'
+        self.check_dimension_index_vals(instance)
+
+    def test_construction_further_source_images_legacy(self):
+        # Further source images that are aligned
+        series_uid = UID()
+        further_source_images = []
+        orientation = (
+            self._ct_multiframe
+            .SharedFunctionalGroupsSequence[0]
+            .PlaneOrientationSequence[0]
+            .ImageOrientationPatient
+        )
+        for pffg in self._ct_multiframe.PerFrameFunctionalGroupsSequence:
+            im = deepcopy(self._ct_image)
+            im.ImageOrientationPatient = orientation
+            im.ImagePositionPatient = (
+                pffg
+                .PlanePositionSequence[0]
+                .ImagePositionPatient
+            )
+            im.SOPInstanceUID = UID()
+            im.SeriesInstanceUID = series_uid
+            im.StudyInstanceUID = self._ct_multiframe.StudyInstanceUID
+            im.FrameOfReferenceUID = self._ct_multiframe.FrameOfReferenceUID
+            further_source_images.append(im)
+
+        instance = Segmentation(
+            [self._ct_multiframe],
+            self._ct_multiframe_mask_array,
+            SegmentationTypeValues.FRACTIONAL.value,
+            self._segment_descriptions,
+            self._series_instance_uid,
+            self._series_number,
+            self._sop_instance_uid,
+            self._instance_number,
+            self._manufacturer,
+            self._manufacturer_model_name,
+            self._software_versions,
+            self._device_serial_number,
+            content_label=self._content_label,
+            further_source_images=further_source_images,
+        )
+        assert len(instance.SourceImageSequence) == 3
+        for item, im in zip(
+            instance.SourceImageSequence[1:],
+            further_source_images
+        ):
+            assert (
+                item.ReferencedSOPInstanceUID ==
+                im.SOPInstanceUID
+            )
+
+        assert len(instance.ReferencedSeriesSequence) == 2
+        further_item = instance.ReferencedSeriesSequence[1]
+        assert further_item.SeriesInstanceUID == series_uid
+        for i, pffg in enumerate(instance.PerFrameFunctionalGroupsSequence):
+            drv_seq = pffg.DerivationImageSequence
+            src_seq = drv_seq[0].SourceImageSequence
+            assert len(src_seq) == 2
+            assert (
+                src_seq[0].ReferencedSOPInstanceUID ==
+                self._ct_multiframe.SOPInstanceUID
+            )
+            assert src_seq[0].ReferencedFrameNumber == i + 1
+            assert src_seq[0].SpatialLocationsPreserved == 'YES'
+            assert (
+                src_seq[1].ReferencedSOPInstanceUID ==
+                further_source_images[i].SOPInstanceUID
+            )
+            # Frame sizes and spacing do not match so spatial locations are not
+            # preserved
+            assert src_seq[1].SpatialLocationsPreserved == 'NO'
+        self.check_dimension_index_vals(instance)
+
+    def test_construction_further_source_images_nonaligned(self):
+        # Further source images that are not aligned
+        further_source_image = deepcopy(self._ct_multiframe)
+        series_uid = UID()
+        sop_uid = UID()
+        further_source_image.SeriesInstanceUID = series_uid
+        further_source_image.SOPInstanceUID = sop_uid
+
+        # Set orientation to be out of plane wrt source images
+        (
+            further_source_image
+            .SharedFunctionalGroupsSequence[0]
+            .PlaneOrientationSequence[0]
+            .ImageOrientationPatient
+
+        ) = [0.0, 0.0, 1.0, 0.0, 1.0, 0.0]
+        instance = Segmentation(
+            [self._ct_multiframe],
+            self._ct_multiframe_mask_array,
+            SegmentationTypeValues.FRACTIONAL.value,
+            self._segment_descriptions,
+            self._series_instance_uid,
+            self._series_number,
+            self._sop_instance_uid,
+            self._instance_number,
+            self._manufacturer,
+            self._manufacturer_model_name,
+            self._software_versions,
+            self._device_serial_number,
+            content_label=self._content_label,
+            further_source_images=[further_source_image],
+        )
+        assert len(instance.SourceImageSequence) == 2
+        further_item = instance.SourceImageSequence[1]
+        assert further_item.ReferencedSOPInstanceUID == sop_uid
+
+        assert len(instance.ReferencedSeriesSequence) == 2
+        further_item = instance.ReferencedSeriesSequence[1]
+        assert further_item.SeriesInstanceUID == series_uid
+        for pffg in instance.PerFrameFunctionalGroupsSequence:
+            drv_seq = pffg.DerivationImageSequence
+            src_seq = drv_seq[0].SourceImageSequence
+            assert len(src_seq) == 1
+            assert (
+                src_seq[0].ReferencedSOPInstanceUID ==
+                self._ct_multiframe.SOPInstanceUID
+            )
         self.check_dimension_index_vals(instance)
 
     @staticmethod
@@ -4079,6 +4564,65 @@ class TestSegmentationParsing:
             self._ct_binary_seg_ds
         )
 
+        # Create a version of the segmentation file with spatial locations not
+        # preserved
+        ct_binary_not_preserved = deepcopy(self._ct_binary_seg_ds)
+        for pffg in ct_binary_not_preserved.PerFrameFunctionalGroupsSequence:
+            (
+                pffg
+                .DerivationImageSequence[0]
+                .SourceImageSequence[0]
+                .SpatialLocationsPreserved
+            ) = 'NO'
+        self._ct_binary_seg_not_preserved = Segmentation.from_dataset(
+            ct_binary_not_preserved,
+        )
+
+        # Create a version of the segmentation file with spatial locations
+        # preserved information missing
+        ct_binary_preserved_missing = deepcopy(self._ct_binary_seg_ds)
+        for pffg in (
+            ct_binary_preserved_missing
+            .PerFrameFunctionalGroupsSequence
+        ):
+            del (
+                pffg
+                .DerivationImageSequence[0]
+                .SourceImageSequence[0]
+                .SpatialLocationsPreserved
+            )
+        self._ct_binary_seg_preserved_missing = Segmentation.from_dataset(
+            ct_binary_preserved_missing,
+        )
+
+        # Create a version of the segmentation file with multiple
+        # source frames
+        self._extra_ref_sop_uid = UID()
+        ct_binary_multiple_source = deepcopy(self._ct_binary_seg_ds)
+        for f, pffg in enumerate(
+            ct_binary_multiple_source.PerFrameFunctionalGroupsSequence,
+            1
+        ):
+            new_src_img = Dataset()
+            new_src_img.ReferencedSOPClassUID = EnhancedCTImageStorage
+            new_src_img.ReferencedSOPInstanceUID = self._extra_ref_sop_uid
+            new_src_img.ReferencedFrameNumber = f
+            new_src_img.SpatialLocationsPreserved = 'YES'
+            pffg.DerivationImageSequence[0].SourceImageSequence.append(
+                new_src_img
+            )
+        new_ref_item = Dataset()
+        new_ref_item.SeriesInstanceUID = UID()
+        new_ref_instance = Dataset()
+        new_ref_instance.ReferencedSOPClassUID = EnhancedCTImageStorage
+        new_ref_instance.ReferencedSOPInstanceUID = self._extra_ref_sop_uid
+        new_ref_item.ReferencedInstanceSequence = [new_ref_instance]
+        ct_binary_multiple_source.ReferencedSeriesSequence.append(new_ref_item)
+
+        self._ct_binary_multiple_source = Segmentation.from_dataset(
+            ct_binary_multiple_source,
+        )
+
         self._ct_binary_overlap_seg_ds = dcmread(
             'data/test_files/seg_image_ct_binary_overlap.dcm'
         )
@@ -4570,6 +5114,54 @@ class TestSegmentationParsing:
                 print(seg_attr_name)
             assert np.array_equal(np.unique(volume.array), expected_vals)
 
+    def test_tiled_full_no_dimension_index(self):
+        # The dimension index sequence is optional with TILED_FULL images Check
+        # that the image is read correctly and the same total pixel matrix is
+        # returned in both cases
+        file_path = Path(__file__)
+        data_dir = file_path.parent.parent.joinpath('data')
+        f = data_dir / 'test_files/seg_image_sm_dots_tiled_full.dcm'
+        seg = segread(f)
+
+        dcm = dcmread(f)
+        del dcm.DimensionIndexSequence
+        seg_no_dim_ind = Segmentation.from_dataset(dcm, copy=False)
+
+        tpm1 = seg.get_total_pixel_matrix()
+        tpm2 = seg_no_dim_ind.get_total_pixel_matrix()
+        assert np.array_equal(tpm1, tpm2)
+
+    def test_shared_referenced_segment(self):
+        # Test parsing when the referenced segment is in the shared functional
+        # groups
+        file_path = Path(__file__)
+        data_dir = file_path.parent.parent.joinpath('data')
+        f = data_dir / 'test_files/seg_image_ct_binary.dcm'
+        seg = segread(f)
+        dcm = dcmread(f)
+
+        dcm.SharedFunctionalGroupsSequence[0].SegmentIdentificationSequence = [
+            deepcopy(
+                dcm
+                .PerFrameFunctionalGroupsSequence[0]
+                .SegmentIdentificationSequence[0]
+            )
+        ]
+
+        for grp in dcm.PerFrameFunctionalGroupsSequence:
+            del grp.SegmentIdentificationSequence
+
+        assert (
+            'SegmentIdentificationSequence' not in
+            dcm.PerFrameFunctionalGroupsSequence[0]
+        )
+
+        seg_shared_seg_id = Segmentation.from_dataset(dcm, copy=False)
+
+        vol1 = seg.get_volume()
+        vol2 = seg_shared_seg_id.get_volume()
+        assert np.array_equal(vol1.array, vol2.array)
+
     def test_get_default_dimension_index_pointers(self):
         ptrs = self._sm_control_seg.get_default_dimension_index_pointers()
         assert len(ptrs) == 5
@@ -4763,6 +5355,134 @@ class TestSegmentationParsing:
             self._ct_binary_seg.Columns,
         )
         assert pixels.shape == out_shape
+
+    def test_get_pixels_by_source_instances_not_preserved(self):
+        # Test get_pixels_by_source_instance when the spatial locations are not
+        # preserved according to the DerivationImageSequence
+        all_source_sop_uids = [
+            tup[-1] for tup in self._ct_binary_seg.get_source_image_uids()
+        ]
+        source_sop_uids = all_source_sop_uids[1:3]
+
+        # Should fail without ignore_spatial_locations
+        msg = "locations are not preserved "
+        with pytest.raises(RuntimeError, match=msg):
+            (
+                self
+                ._ct_binary_seg_not_preserved
+                .get_pixels_by_source_instance(
+                    source_sop_instance_uids=source_sop_uids,
+                )
+            )
+
+        # Should pass with ignore_spatial_locations
+        pixels = (
+            self
+            ._ct_binary_seg_not_preserved
+            .get_pixels_by_source_instance(
+                source_sop_instance_uids=source_sop_uids,
+                ignore_spatial_locations=True,
+            )
+        )
+
+        out_shape = (
+            len(source_sop_uids),
+            self._ct_binary_seg_not_preserved.Rows,
+            self._ct_binary_seg_not_preserved.Columns,
+            self._ct_binary_seg_not_preserved.number_of_segments
+        )
+        assert pixels.shape == out_shape
+
+    def test_get_pixels_by_source_instances_preserved_missing(self):
+        # Test get_pixels_by_source_instance when the spatial locations
+        # preserved information is not present
+        all_source_sop_uids = [
+            tup[-1] for tup in self._ct_binary_seg.get_source_image_uids()
+        ]
+        source_sop_uids = all_source_sop_uids[1:3]
+
+        # Should fail without ignore_spatial_locations
+        msg = "does not specify that spatial locations are preserved "
+        with pytest.raises(RuntimeError, match=msg):
+            (
+                self
+                ._ct_binary_seg_preserved_missing
+                .get_pixels_by_source_instance(
+                    source_sop_instance_uids=source_sop_uids,
+                )
+            )
+
+        # Should pass with ignore_spatial_locations
+        pixels = (
+            self
+            ._ct_binary_seg_preserved_missing
+            .get_pixels_by_source_instance(
+                source_sop_instance_uids=source_sop_uids,
+                ignore_spatial_locations=True,
+            )
+        )
+
+        out_shape = (
+            len(source_sop_uids),
+            self._ct_binary_seg_preserved_missing.Rows,
+            self._ct_binary_seg_preserved_missing.Columns,
+            self._ct_binary_seg_preserved_missing.number_of_segments
+        )
+        assert pixels.shape == out_shape
+
+    def test_get_pixels_by_source_instance_multiple_source(self):
+        # Test get_pixels_by_source_instance when the spatial locations
+        # preserved information is not present
+        all_source_sop_uids = [
+            tup[-1] for tup in self._ct_binary_seg.get_source_image_uids()
+            if tup[-1] != self._extra_ref_sop_uid
+        ]
+        source_sop_uids = all_source_sop_uids[1:3]
+
+        # Use the original UIDs
+        pixels = (
+            self
+            ._ct_binary_multiple_source
+            .get_pixels_by_source_instance(
+                source_sop_instance_uids=source_sop_uids,
+            )
+        )
+
+        out_shape = (
+            len(source_sop_uids),
+            self._ct_binary_multiple_source.Rows,
+            self._ct_binary_multiple_source.Columns,
+            self._ct_binary_multiple_source.number_of_segments
+        )
+        assert pixels.shape == out_shape
+
+        # Use the added multiframe images
+        pixels = (
+            self
+            ._ct_binary_multiple_source
+            .get_pixels_by_source_frame(
+                source_sop_instance_uid=self._extra_ref_sop_uid,
+                source_frame_numbers=[2],
+            )
+        )
+
+        out_shape = (
+            1,
+            self._ct_binary_multiple_source.Rows,
+            self._ct_binary_multiple_source.Columns,
+            self._ct_binary_multiple_source.number_of_segments
+        )
+        assert pixels.shape == out_shape
+
+        # Should fail when trying to index by the extra multiframe UID alone
+        with pytest.raises(RuntimeError):
+            (
+                self
+                ._ct_binary_multiple_source
+                .get_pixels_by_source_instance(
+                    source_sop_instance_uids=[self._extra_ref_sop_uid],
+                )
+            )
 
     def test_get_pixels_by_source_instances_missing_instance(self):
         # Tests where there is an instance passed that has no recorded
@@ -5728,8 +6448,9 @@ class TestSegUtilities(unittest.TestCase):
         assert item_segment_2[2].SegmentNumber == 2
 
 
-class TestPyramid(unittest.TestCase):
+class TestPyramid:
 
+    @pytest.fixture(autouse=True)
     def setUp(self):
         file_path = Path(__file__)
         data_dir = file_path.parent.parent.joinpath('data')
@@ -5859,40 +6580,24 @@ class TestPyramid(unittest.TestCase):
             for i in range(1, 4)
         ]
 
-    def test_pyramid_factors(self):
-        downsample_factors = [2.0, 5.0]
-        segs = create_segmentation_pyramid(
-            source_images=[self._sm_image],
-            pixel_arrays=[self._seg_pix],
-            segmentation_type=SegmentationTypeValues.BINARY,
-            segment_descriptions=self._segment_descriptions,
-            series_instance_uid=UID(),
-            series_number=1,
-            manufacturer='Foo',
-            manufacturer_model_name='Bar',
-            software_versions='1',
-            device_serial_number='123',
-            downsample_factors=downsample_factors,
-        )
+    @staticmethod
+    @pytest.fixture(params=[False, True])
+    def pass_with_frame_dim(request):
+        return request.param
 
-        assert len(segs) == len(downsample_factors) + 1
-        tol = 0.01
-        for f, seg in zip([1.0, *downsample_factors], segs):
-            assert hasattr(seg, 'PyramidUID')
-            assert abs(
-                seg.TotalPixelMatrixRows - int(self._seg_pix.shape[0] / f)
-            ) < tol
-            assert abs(
-                seg.TotalPixelMatrixColumns - int(self._seg_pix.shape[1] / f)
-            ) < tol
-
-    def test_pyramid_downsample_factors(self):
+    def test_pyramid_downsample_factors(self, pass_with_frame_dim):
         # Test construction when given a single source image, single
         # segmentation mask, and specified downsample factors
+
+        if pass_with_frame_dim:
+            pixel_array = self._seg_pix[None]
+        else:
+            pixel_array = self._seg_pix
+
         downsample_factors = [2.0, 5.0]
         segs = create_segmentation_pyramid(
             source_images=[self._sm_image],
-            pixel_arrays=[self._seg_pix],
+            pixel_arrays=[pixel_array],
             segmentation_type=SegmentationTypeValues.BINARY,
             segment_descriptions=self._segment_descriptions,
             series_instance_uid=UID(),
@@ -5906,6 +6611,12 @@ class TestPyramid(unittest.TestCase):
 
         assert len(segs) == len(downsample_factors) + 1
         tol = 0.01
+        sm_pixel_spacing = (
+            self._sm_image
+            .SharedFunctionalGroupsSequence[0]
+            .PixelMeasuresSequence[0]
+            .PixelSpacing
+        )
         for f, seg in zip([1.0, *downsample_factors], segs):
             assert hasattr(seg, 'PyramidUID')
             assert abs(
@@ -5914,13 +6625,27 @@ class TestPyramid(unittest.TestCase):
             assert abs(
                 seg.TotalPixelMatrixColumns - int(self._seg_pix.shape[1] / f)
             ) < tol
+            segment_pixel_spacing = (
+                seg
+                .SharedFunctionalGroupsSequence[0]
+                .PixelMeasuresSequence[0]
+                .PixelSpacing
+            )
+            assert abs(segment_pixel_spacing[0] - sm_pixel_spacing[0] * f) < tol
+            assert abs(segment_pixel_spacing[1] - sm_pixel_spacing[1] * f) < tol
 
-    def test_single_source_multiple_pixel_arrays(self):
+    def test_single_source_multiple_pixel_arrays(self, pass_with_frame_dim):
         # Test construction when given a single source image and multiple
         # segmentation images
+
+        if pass_with_frame_dim:
+            pixel_arrays = [arr[None] for arr in self._downsampled_pix_arrays]
+        else:
+            pixel_arrays = self._downsampled_pix_arrays
+
         segs = create_segmentation_pyramid(
             source_images=[self._sm_image],
-            pixel_arrays=self._downsampled_pix_arrays,
+            pixel_arrays=pixel_arrays,
             segmentation_type=SegmentationTypeValues.BINARY,
             segment_descriptions=self._segment_descriptions,
             series_instance_uid=UID(),
@@ -5932,19 +6657,44 @@ class TestPyramid(unittest.TestCase):
         )
 
         assert len(segs) == len(self._downsampled_pix_arrays)
+        sm_spacing = (
+            self._sm_image
+            .SharedFunctionalGroupsSequence[0]
+            .PixelMeasuresSequence[0]
+            .PixelSpacing
+        )
+        sm_height = sm_spacing[0] * self._sm_image.TotalPixelMatrixRows
+        sm_width = sm_spacing[1] * self._sm_image.TotalPixelMatrixColumns
+        tol = 1e-7
         for pix, seg in zip(self._downsampled_pix_arrays, segs):
             assert hasattr(seg, 'PyramidUID')
             assert np.array_equal(
                 seg.get_total_pixel_matrix(combine_segments=True),
                 pix
             )
+            seg_spacing = (
+                seg
+                .SharedFunctionalGroupsSequence[0]
+                .PixelMeasuresSequence[0]
+                .PixelSpacing
+            )
+            seg_height = seg_spacing[0] * seg.TotalPixelMatrixRows
+            seg_width = seg_spacing[1] * seg.TotalPixelMatrixColumns
+            assert abs(seg_height - sm_height) < tol
+            assert abs(seg_width - sm_width) < tol
 
-    def test_multiple_source_single_pixel_array(self):
+    def test_multiple_source_single_pixel_array(self, pass_with_frame_dim):
         # Test construction when given multiple source images and a single
         # segmentation image
+
+        if pass_with_frame_dim:
+            pixel_array = self._seg_pix[None]
+        else:
+            pixel_array = self._seg_pix
+
         segs = create_segmentation_pyramid(
             source_images=self._source_pyramid,
-            pixel_arrays=[self._seg_pix],
+            pixel_arrays=[pixel_array],
             segmentation_type=SegmentationTypeValues.BINARY,
             segment_descriptions=self._segment_descriptions,
             series_instance_uid=UID(),
@@ -5956,12 +6706,29 @@ class TestPyramid(unittest.TestCase):
         )
 
         assert len(segs) == len(self._source_pyramid)
-        for pix, seg in zip(self._downsampled_pix_arrays, segs):
+        for pix, seg, src in zip(
+            self._downsampled_pix_arrays,
+            segs,
+            self._source_pyramid,
+        ):
             assert hasattr(seg, 'PyramidUID')
             assert np.array_equal(
                 seg.get_total_pixel_matrix(combine_segments=True),
                 pix
             )
+            src_spacing = (
+                src
+                .SharedFunctionalGroupsSequence[0]
+                .PixelMeasuresSequence[0]
+                .PixelSpacing
+            )
+            seg_spacing = (
+                seg
+                .SharedFunctionalGroupsSequence[0]
+                .PixelMeasuresSequence[0]
+                .PixelSpacing
+            )
+            assert src_spacing == seg_spacing
 
     def test_multiple_source_single_pixel_array_multisegment(self):
         # Test construction when given multiple source images and a single
@@ -5980,20 +6747,46 @@ class TestPyramid(unittest.TestCase):
         )
 
         assert len(segs) == len(self._source_pyramid)
-        for pix, seg in zip(self._downsampled_pix_arrays_multisegment, segs):
+        for pix, seg, src in zip(
+            self._downsampled_pix_arrays_multisegment,
+            segs,
+            self._source_pyramid
+        ):
             assert hasattr(seg, 'PyramidUID')
             seg_pix = seg.get_total_pixel_matrix()
             assert np.array_equal(
                 seg_pix,
                 pix[0]
             )
+            src_spacing = (
+                src
+                .SharedFunctionalGroupsSequence[0]
+                .PixelMeasuresSequence[0]
+                .PixelSpacing
+            )
+            seg_spacing = (
+                seg
+                .SharedFunctionalGroupsSequence[0]
+                .PixelMeasuresSequence[0]
+                .PixelSpacing
+            )
+            assert src_spacing == seg_spacing
 
-    def test_multiple_source_single_pixel_array_float(self):
+    def test_multiple_source_single_pixel_array_float(
+        self,
+        pass_with_frame_dim,
+    ):
         # Test construction when given multiple source images and a single
         # segmentation image
+
+        if pass_with_frame_dim:
+            pixel_array = self._seg_pix[None]
+        else:
+            pixel_array = self._seg_pix
+
         segs = create_segmentation_pyramid(
             source_images=self._source_pyramid,
-            pixel_arrays=[self._seg_pix.astype(np.float32)],
+            pixel_arrays=[pixel_array.astype(np.float32)],
             segmentation_type=SegmentationTypeValues.BINARY,
             segment_descriptions=self._segment_descriptions,
             series_instance_uid=UID(),
@@ -6005,19 +6798,45 @@ class TestPyramid(unittest.TestCase):
         )
 
         assert len(segs) == len(self._source_pyramid)
-        for pix, seg in zip(self._downsampled_pix_arrays, segs):
+        for pix, seg, src in zip(
+            self._downsampled_pix_arrays,
+            segs,
+            self._source_pyramid
+        ):
             assert hasattr(seg, 'PyramidUID')
             assert np.array_equal(
                 seg.get_total_pixel_matrix(combine_segments=True),
                 pix
             )
+            src_spacing = (
+                src
+                .SharedFunctionalGroupsSequence[0]
+                .PixelMeasuresSequence[0]
+                .PixelSpacing
+            )
+            seg_spacing = (
+                seg
+                .SharedFunctionalGroupsSequence[0]
+                .PixelMeasuresSequence[0]
+                .PixelSpacing
+            )
+            assert src_spacing == seg_spacing
 
-    def test_multiple_source_single_pixel_array_fractional(self):
+    def test_multiple_source_single_pixel_array_fractional(
+        self,
+        pass_with_frame_dim
+    ):
         # Test construction when given multiple source images and a single
         # segmentation image
+
+        if pass_with_frame_dim:
+            pixel_array = self._seg_pix_fractional[None]
+        else:
+            pixel_array = self._seg_pix_fractional
+
         segs = create_segmentation_pyramid(
             source_images=self._source_pyramid,
-            pixel_arrays=[self._seg_pix_fractional],
+            pixel_arrays=[pixel_array],
             segmentation_type=SegmentationTypeValues.FRACTIONAL,
             segment_descriptions=self._segment_descriptions,
             series_instance_uid=UID(),
@@ -6030,20 +6849,43 @@ class TestPyramid(unittest.TestCase):
         )
 
         assert len(segs) == len(self._source_pyramid)
-        for pix, seg in zip(self._downsampled_pix_arrays_fractional, segs):
+        for pix, seg, src in zip(
+            self._downsampled_pix_arrays_fractional,
+            segs,
+            self._source_pyramid
+        ):
             assert hasattr(seg, 'PyramidUID')
             assert np.allclose(
                 seg.get_total_pixel_matrix(combine_segments=False)[:, :, 0],
                 pix,
                 atol=0.005,  # 1/200
             )
+            src_spacing = (
+                src
+                .SharedFunctionalGroupsSequence[0]
+                .PixelMeasuresSequence[0]
+                .PixelSpacing
+            )
+            seg_spacing = (
+                seg
+                .SharedFunctionalGroupsSequence[0]
+                .PixelMeasuresSequence[0]
+                .PixelSpacing
+            )
+            assert src_spacing == seg_spacing
 
-    def test_multiple_source_multiple_pixel_arrays(self):
+    def test_multiple_source_multiple_pixel_arrays(self, pass_with_frame_dim):
         # Test construction when given multiple source images and multiple
         # segmentation images
+
+        if pass_with_frame_dim:
+            pixel_arrays = [arr[None] for arr in self._downsampled_pix_arrays]
+        else:
+            pixel_arrays = self._downsampled_pix_arrays
+
         segs = create_segmentation_pyramid(
             source_images=self._source_pyramid,
-            pixel_arrays=self._downsampled_pix_arrays,
+            pixel_arrays=pixel_arrays,
             segmentation_type=SegmentationTypeValues.BINARY,
             segment_descriptions=self._segment_descriptions,
             series_instance_uid=UID(),
@@ -6055,12 +6897,29 @@ class TestPyramid(unittest.TestCase):
         )
 
         assert len(segs) == len(self._source_pyramid)
-        for pix, seg in zip(self._downsampled_pix_arrays, segs):
+        for pix, seg, src in zip(
+            self._downsampled_pix_arrays,
+            segs,
+            self._source_pyramid
+        ):
             assert hasattr(seg, 'PyramidUID')
             assert np.array_equal(
                 seg.get_total_pixel_matrix(combine_segments=True),
                 pix
             )
+            src_spacing = (
+                src
+                .SharedFunctionalGroupsSequence[0]
+                .PixelMeasuresSequence[0]
+                .PixelSpacing
+            )
+            seg_spacing = (
+                seg
+                .SharedFunctionalGroupsSequence[0]
+                .PixelMeasuresSequence[0]
+                .PixelSpacing
+            )
+            assert src_spacing == seg_spacing
 
     def test_multiple_source_multiple_pixel_arrays_multisegment(self):
         # Test construction when given multiple source images and multiple
@@ -6079,22 +6938,44 @@ class TestPyramid(unittest.TestCase):
         )
 
         assert len(segs) == len(self._source_pyramid)
-        for pix, seg in zip(self._downsampled_pix_arrays_multisegment, segs):
+        for pix, seg, src in zip(
+            self._downsampled_pix_arrays_multisegment,
+            segs,
+            self._source_pyramid
+        ):
             assert hasattr(seg, 'PyramidUID')
             assert np.array_equal(
                 seg.get_total_pixel_matrix(),
                 pix[0]
             )
+            src_spacing = (
+                src
+                .SharedFunctionalGroupsSequence[0]
+                .PixelMeasuresSequence[0]
+                .PixelSpacing
+            )
+            seg_spacing = (
+                seg
+                .SharedFunctionalGroupsSequence[0]
+                .PixelMeasuresSequence[0]
+                .PixelSpacing
+            )
+            assert src_spacing == seg_spacing
 
     def test_multiple_source_multiple_pixel_arrays_multisegment_from_labelmap(
-        self
+        self,
+        pass_with_frame_dim,
     ):
         # Test construction when given multiple source images and multiple
         # segmentation images
         mask = np.argmax(self._seg_pix_multisegment, axis=3).astype(np.uint8)
+
+        if not pass_with_frame_dim:
+            mask = mask[0]
+
         segs = create_segmentation_pyramid(
             source_images=self._source_pyramid,
-            pixel_arrays=mask,
+            pixel_arrays=[mask],
             segmentation_type=SegmentationTypeValues.BINARY,
             segment_descriptions=self._segment_descriptions_multi,
             series_instance_uid=UID(),
@@ -6106,21 +6987,45 @@ class TestPyramid(unittest.TestCase):
         )
 
         assert len(segs) == len(self._source_pyramid)
-        for pix, seg in zip(self._downsampled_pix_arrays_multisegment, segs):
+        for pix, seg, src in zip(
+            self._downsampled_pix_arrays_multisegment,
+            segs,
+            self._source_pyramid
+        ):
             mask = np.argmax(pix, axis=3).astype(np.uint8)
             assert hasattr(seg, 'PyramidUID')
             assert np.array_equal(
                 seg.get_total_pixel_matrix(combine_segments=True),
                 mask[0]
             )
+            src_spacing = (
+                src
+                .SharedFunctionalGroupsSequence[0]
+                .PixelMeasuresSequence[0]
+                .PixelSpacing
+            )
+            seg_spacing = (
+                seg
+                .SharedFunctionalGroupsSequence[0]
+                .PixelMeasuresSequence[0]
+                .PixelSpacing
+            )
+            assert src_spacing == seg_spacing
 
-    def test_multiple_source_multiple_pixel_arrays_multisegment_labelmap(self):
+    def test_multiple_source_multiple_pixel_arrays_multisegment_labelmap(
+        self,
+        pass_with_frame_dim,
+    ):
         # Test construction when given multiple source images and multiple
         # segmentation images
         mask = np.argmax(self._seg_pix_multisegment, axis=3).astype(np.uint8)
+
+        if not pass_with_frame_dim:
+            mask = mask[0]
+
         segs = create_segmentation_pyramid(
             source_images=self._source_pyramid,
-            pixel_arrays=mask,
+            pixel_arrays=[mask],
             segmentation_type=SegmentationTypeValues.LABELMAP,
             segment_descriptions=self._segment_descriptions_multi,
             series_instance_uid=UID(),
@@ -6132,10 +7037,27 @@ class TestPyramid(unittest.TestCase):
         )
 
         assert len(segs) == len(self._source_pyramid)
-        for pix, seg in zip(self._downsampled_pix_arrays_multisegment, segs):
+        for pix, seg, src in zip(
+            self._downsampled_pix_arrays_multisegment,
+            segs,
+            self._source_pyramid
+        ):
             mask = np.argmax(pix, axis=3).astype(np.uint8)
             assert hasattr(seg, 'PyramidUID')
             assert np.array_equal(
                 seg.get_total_pixel_matrix(combine_segments=True),
                 mask[0]
             )
+            src_spacing = (
+                src
+                .SharedFunctionalGroupsSequence[0]
+                .PixelMeasuresSequence[0]
+                .PixelSpacing
+            )
+            seg_spacing = (
+                seg
+                .SharedFunctionalGroupsSequence[0]
+                .PixelMeasuresSequence[0]
+                .PixelSpacing
+            )
+            assert src_spacing == seg_spacing

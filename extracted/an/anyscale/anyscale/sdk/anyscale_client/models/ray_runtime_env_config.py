@@ -39,7 +39,8 @@ class RayRuntimeEnvConfig(object):
         'pip': 'list[str]',
         'conda': 'object',
         'env_vars': 'dict(str, str)',
-        'config': 'object'
+        'config': 'object',
+        'image_uri': 'str'
     }
 
     attribute_map = {
@@ -49,10 +50,11 @@ class RayRuntimeEnvConfig(object):
         'pip': 'pip',
         'conda': 'conda',
         'env_vars': 'env_vars',
-        'config': 'config'
+        'config': 'config',
+        'image_uri': 'image_uri'
     }
 
-    def __init__(self, working_dir=None, py_modules=None, py_executable=None, pip=None, conda=None, env_vars=None, config=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, working_dir=None, py_modules=None, py_executable=None, pip=None, conda=None, env_vars=None, config=None, image_uri=None, local_vars_configuration=None):  # noqa: E501
         """RayRuntimeEnvConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -65,6 +67,7 @@ class RayRuntimeEnvConfig(object):
         self._conda = None
         self._env_vars = None
         self._config = None
+        self._image_uri = None
         self.discriminator = None
 
         if working_dir is not None:
@@ -81,6 +84,8 @@ class RayRuntimeEnvConfig(object):
             self.env_vars = env_vars
         if config is not None:
             self.config = config
+        if image_uri is not None:
+            self.image_uri = image_uri
 
     @property
     def working_dir(self):
@@ -242,6 +247,29 @@ class RayRuntimeEnvConfig(object):
         """
 
         self._config = config
+
+    @property
+    def image_uri(self):
+        """Gets the image_uri of this RayRuntimeEnvConfig.  # noqa: E501
+
+        Specifies the image URI of the container in which the job will run.  # noqa: E501
+
+        :return: The image_uri of this RayRuntimeEnvConfig.  # noqa: E501
+        :rtype: str
+        """
+        return self._image_uri
+
+    @image_uri.setter
+    def image_uri(self, image_uri):
+        """Sets the image_uri of this RayRuntimeEnvConfig.
+
+        Specifies the image URI of the container in which the job will run.  # noqa: E501
+
+        :param image_uri: The image_uri of this RayRuntimeEnvConfig.  # noqa: E501
+        :type: str
+        """
+
+        self._image_uri = image_uri
 
     def to_dict(self):
         """Returns the model properties as a dict"""

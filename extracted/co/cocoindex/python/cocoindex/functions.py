@@ -1,16 +1,21 @@
 """All builtin functions."""
 
-from typing import Annotated, Any, TYPE_CHECKING, Literal
+import dataclasses
+from typing import Annotated, Any, Literal
+
 import numpy as np
 from numpy.typing import NDArray
-import dataclasses
 
-from .typing import Float32, Vector, TypeAttr
-from . import op, llm
+from . import llm, op
+from .typing import TypeAttr, Vector
 
-# Libraries that are heavy to import. Lazily import them later.
-if TYPE_CHECKING:
-    import sentence_transformers
+# Check if sentence_transformers is available
+try:
+    import sentence_transformers  # type: ignore
+
+    _SENTENCE_TRANSFORMERS_AVAILABLE = True
+except ImportError:
+    _SENTENCE_TRANSFORMERS_AVAILABLE = False
 
 
 class ParseJson(op.FunctionSpec):
@@ -58,6 +63,10 @@ class SentenceTransformerEmbed(op.FunctionSpec):
 
         model: The name of the SentenceTransformer model to use.
         args: Additional arguments to pass to the SentenceTransformer constructor. e.g. {"trust_remote_code": True}
+
+    Note:
+        This function requires the optional sentence-transformers dependency.
+        Install it with: pip install 'cocoindex[embeddings]'
     """
 
     model: str
@@ -72,6 +81,14 @@ class SentenceTransformerEmbedExecutor:
     _model: "sentence_transformers.SentenceTransformer"
 
     def analyze(self, text: Any) -> type:
+        if not _SENTENCE_TRANSFORMERS_AVAILABLE:
+            raise ImportError(
+                "sentence_transformers is required for SentenceTransformerEmbed function. "
+                "Install it with one of these commands:\n"
+                "  pip install 'cocoindex[embeddings]'\n"
+                "  pip install sentence-transformers"
+            )
+
         import sentence_transformers  # pylint: disable=import-outside-toplevel
 
         args = self.spec.args or {}

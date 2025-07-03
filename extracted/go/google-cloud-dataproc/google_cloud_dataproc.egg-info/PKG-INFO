@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-cloud-dataproc
-Version: 5.20.0
+Version: 5.21.0
 Summary: Google Cloud Dataproc API client library
 Home-page: https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-dataproc
 Author: Google LLC

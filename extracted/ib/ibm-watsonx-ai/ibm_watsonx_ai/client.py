@@ -20,6 +20,7 @@ import base64
 import httpx
 
 import ibm_watsonx_ai.utils
+from ibm_watsonx_ai.folder_assets import FolderAssets
 from ibm_watsonx_ai.projects import Projects
 from ibm_watsonx_ai.trashed_assets import TrashedAssets
 from ibm_watsonx_ai._wrappers.requests import (
@@ -519,6 +520,7 @@ class APIClient:
             self.training: Training = Training(self)
 
             self.data_assets = Assets(self)
+            self.folder_assets = FolderAssets(self)
 
             self.deployments = Deployments(self)
 

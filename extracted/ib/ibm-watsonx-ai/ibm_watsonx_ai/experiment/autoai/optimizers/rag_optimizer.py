@@ -195,7 +195,7 @@ class RAGOptimizer:
     def run(
         self,
         input_data_references: list[DataConnection],
-        test_data_references: list[DataConnection],
+        test_data_references: list[DataConnection] | None = None,
         results_reference: DataConnection | None = None,
         vector_store_references: list[DataConnection] | None = None,
         background_mode: bool = True,
@@ -206,7 +206,7 @@ class RAGOptimizer:
         :type input_data_references: list[DataConnection]
 
         :param test_data_references: A set of test data references
-        :type test_data_references: list[DataConnection]
+        :type test_data_references: list[DataConnection], optional
 
         :param results_reference: The training results
         :type results_reference: DataConnection, optional
@@ -258,8 +258,8 @@ class RAGOptimizer:
 
         return self._engine.run(
             input_data_references=input_data_references,
-            test_data_references=test_data_references,
             results_reference=results_reference,
+            test_data_references=test_data_references,
             vector_store_references=vector_store_references,
             background_mode=background_mode,
         )

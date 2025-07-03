@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: chromadb
-Version: 1.0.13
+Version: 1.0.15
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
@@ -9,7 +9,7 @@ Requires-Dist: pydantic>=1.9
 Requires-Dist: pybase64>=1.4.1
 Requires-Dist: uvicorn[standard]>=0.18.3
 Requires-Dist: numpy>=1.22.5
-Requires-Dist: posthog>=2.4.0
+Requires-Dist: posthog>=2.4.0,<6.0.0
 Requires-Dist: typing-extensions>=4.5.0
 Requires-Dist: onnxruntime>=1.14.1
 Requires-Dist: opentelemetry-api>=1.2.0

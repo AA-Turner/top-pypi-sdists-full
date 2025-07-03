@@ -1,10 +1,9 @@
 import copy
 import importlib
+import json
 import os
 import textwrap
-import threading
 import unittest.mock
-from time import sleep
 
 import pytest
 from pydantic import BaseModel
@@ -123,10 +122,8 @@ def tool_imported(tmp_path, monkeypatch):
 
 @pytest.fixture
 def tool(tool_decorated, tool_registry):
-    function_tool = strands.tools.tools.FunctionTool(tool_decorated, tool_name="tool_decorated")
-    tool_registry.register_tool(function_tool)
-
-    return function_tool
+    tool_registry.register_tool(tool_decorated)
+    return tool_decorated
 
 
 @pytest.fixture
@@ -157,8 +154,7 @@ def agent(
     # Only register the tool directly if tools wasn't parameterized
     if not hasattr(request, "param") or request.param is None:
         # Create a new function tool directly from the decorated function
-        function_tool = strands.tools.tools.FunctionTool(tool_decorated, tool_name="tool_decorated")
-        agent.tool_registry.register_tool(function_tool)
+        agent.tool_registry.register_tool(tool_decorated)
 
     return agent
 
@@ -348,21 +344,21 @@ def test_agent__call__passes_kwargs(mock_model, system_prompt, callback_handler,
     override_messages = [{"role": "user", "content": [{"text": "override msg"}]}]
     override_tool_config = {"test": "config"}
 
-    def check_kwargs(some_value, **kwargs):
-        assert some_value == "a_value"
-        assert kwargs is not None
-        assert kwargs["system_prompt"] == override_system_prompt
-        assert kwargs["model"] == override_model
-        assert kwargs["tool_execution_handler"] == override_tool_execution_handler
-        assert kwargs["event_loop_metrics"] == override_event_loop_metrics
-        assert kwargs["callback_handler"] == override_callback_handler
-        assert kwargs["tool_handler"] == override_tool_handler
-        assert kwargs["messages"] == override_messages
-        assert kwargs["tool_config"] == override_tool_config
-        assert kwargs["agent"] == agent
+    def check_kwargs(**kwargs):
+        kwargs_kwargs = kwargs["kwargs"]
+        assert kwargs_kwargs["some_value"] == "a_value"
+        assert kwargs_kwargs["system_prompt"] == override_system_prompt
+        assert kwargs_kwargs["model"] == override_model
+        assert kwargs_kwargs["tool_execution_handler"] == override_tool_execution_handler
+        assert kwargs_kwargs["event_loop_metrics"] == override_event_loop_metrics
+        assert kwargs_kwargs["callback_handler"] == override_callback_handler
+        assert kwargs_kwargs["tool_handler"] == override_tool_handler
+        assert kwargs_kwargs["messages"] == override_messages
+        assert kwargs_kwargs["tool_config"] == override_tool_config
+        assert kwargs_kwargs["agent"] == agent
 
         # Return expected values from event_loop_cycle
-        return "stop", {"role": "assistant", "content": [{"text": "Response"}]}, {}, {}
+        yield {"stop": ("stop", {"role": "assistant", "content": [{"text": "Response"}]}, {}, {})}
 
     mock_event_loop_cycle.side_effect = check_kwargs
 
@@ -602,6 +598,91 @@ def test_agent__call__invalid_tool_use_event_loop_exception(mock_model, agent, t
         agent("test message")
 
 
+def test_agent__call__callback(mock_model, agent, callback_handler):
+    mock_model.mock_converse.return_value = [
+        {"contentBlockStart": {"start": {"toolUse": {"toolUseId": "123", "name": "test"}}}},
+        {"contentBlockDelta": {"delta": {"toolUse": {"input": '{"value"}'}}}},
+        {"contentBlockStop": {}},
+        {"contentBlockStart": {"start": {}}},
+        {"contentBlockDelta": {"delta": {"reasoningContent": {"text": "value"}}}},
+        {"contentBlockDelta": {"delta": {"reasoningContent": {"signature": "value"}}}},
+        {"contentBlockStop": {}},
+        {"contentBlockStart": {"start": {}}},
+        {"contentBlockDelta": {"delta": {"text": "value"}}},
+        {"contentBlockStop": {}},
+    ]
+
+    agent("test")
+
+    callback_handler.assert_has_calls(
+        [
+            unittest.mock.call(init_event_loop=True),
+            unittest.mock.call(start=True),
+            unittest.mock.call(start_event_loop=True),
+            unittest.mock.call(
+                event={"contentBlockStart": {"start": {"toolUse": {"toolUseId": "123", "name": "test"}}}}
+            ),
+            unittest.mock.call(event={"contentBlockDelta": {"delta": {"toolUse": {"input": '{"value"}'}}}}),
+            unittest.mock.call(
+                agent=agent,
+                current_tool_use={"toolUseId": "123", "name": "test", "input": {}},
+                delta={"toolUse": {"input": '{"value"}'}},
+                event_loop_cycle_id=unittest.mock.ANY,
+                event_loop_cycle_span=unittest.mock.ANY,
+                event_loop_cycle_trace=unittest.mock.ANY,
+                request_state={},
+            ),
+            unittest.mock.call(event={"contentBlockStop": {}}),
+            unittest.mock.call(event={"contentBlockStart": {"start": {}}}),
+            unittest.mock.call(event={"contentBlockDelta": {"delta": {"reasoningContent": {"text": "value"}}}}),
+            unittest.mock.call(
+                agent=agent,
+                delta={"reasoningContent": {"text": "value"}},
+                event_loop_cycle_id=unittest.mock.ANY,
+                event_loop_cycle_span=unittest.mock.ANY,
+                event_loop_cycle_trace=unittest.mock.ANY,
+                reasoning=True,
+                reasoningText="value",
+                request_state={},
+            ),
+            unittest.mock.call(event={"contentBlockDelta": {"delta": {"reasoningContent": {"signature": "value"}}}}),
+            unittest.mock.call(
+                agent=agent,
+                delta={"reasoningContent": {"signature": "value"}},
+                event_loop_cycle_id=unittest.mock.ANY,
+                event_loop_cycle_span=unittest.mock.ANY,
+                event_loop_cycle_trace=unittest.mock.ANY,
+                reasoning=True,
+                reasoning_signature="value",
+                request_state={},
+            ),
+            unittest.mock.call(event={"contentBlockStop": {}}),
+            unittest.mock.call(event={"contentBlockStart": {"start": {}}}),
+            unittest.mock.call(event={"contentBlockDelta": {"delta": {"text": "value"}}}),
+            unittest.mock.call(
+                agent=agent,
+                data="value",
+                delta={"text": "value"},
+                event_loop_cycle_id=unittest.mock.ANY,
+                event_loop_cycle_span=unittest.mock.ANY,
+                event_loop_cycle_trace=unittest.mock.ANY,
+                request_state={},
+            ),
+            unittest.mock.call(event={"contentBlockStop": {}}),
+            unittest.mock.call(
+                message={
+                    "role": "assistant",
+                    "content": [
+                        {"toolUse": {"toolUseId": "123", "name": "test", "input": {}}},
+                        {"reasoningContent": {"reasoningText": {"text": "value", "signature": "value"}}},
+                        {"text": "value"},
+                    ],
+                },
+            ),
+        ],
+    )
+
+
 def test_agent_tool(mock_randint, agent):
     conversation_manager_spy = unittest.mock.Mock(wraps=agent.conversation_manager)
     agent.conversation_manager = conversation_manager_spy
@@ -634,9 +715,7 @@ def test_agent_tool_user_message_override(agent):
             },
             {
                 "text": (
-                    "agent.tool.tool_decorated direct tool call.\n"
-                    "Input parameters: "
-                    '{"random_string": "abcdEfghI123", "user_message_override": "test override"}\n'
+                    'agent.tool.tool_decorated direct tool call.\nInput parameters: {"random_string": "abcdEfghI123"}\n'
                 ),
             },
         ],
@@ -647,6 +726,17 @@ def test_agent_tool_user_message_override(agent):
 
 
 def test_agent_tool_do_not_record_tool(agent):
+    agent.record_direct_tool_call = False
+    agent.tool.tool_decorated(random_string="abcdEfghI123", user_message_override="test override")
+
+    tru_messages = agent.messages
+    exp_messages = []
+
+    assert tru_messages == exp_messages
+
+
+def test_agent_tool_do_not_record_tool_with_method_override(agent):
+    agent.record_direct_tool_call = True
     agent.tool.tool_decorated(
         random_string="abcdEfghI123", user_message_override="test override", record_direct_tool_call=False
     )
@@ -703,10 +793,7 @@ def test_agent_tool_no_parameter_conflict(agent, tool_registry, mock_randint):
         system_prompt="You are a helpful assistant.",
         messages=unittest.mock.ANY,
         tool_config=unittest.mock.ANY,
-        callback_handler=unittest.mock.ANY,
-        tool_execution_handler=unittest.mock.ANY,
-        event_loop_metrics=unittest.mock.ANY,
-        agent=agent,
+        kwargs={"system_prompt": "tool prompt"},
     )
 
 
@@ -719,8 +806,7 @@ def test_agent_tool_with_name_normalization(agent, tool_registry, mock_randint):
     def function(system_prompt: str) -> str:
         return system_prompt
 
-    tool = strands.tools.tools.FunctionTool(function)
-    agent.tool_registry.register_tool(tool)
+    agent.tool_registry.register_tool(function)
 
     mock_randint.return_value = 1
 
@@ -805,7 +891,7 @@ class User(BaseModel):
 def test_agent_method_structured_output(agent):
     # Mock the structured_output method on the model
     expected_user = User(name="Jane Doe", age=30, email="jane@doe.com")
-    agent.model.structured_output = unittest.mock.Mock(return_value=expected_user)
+    agent.model.structured_output = unittest.mock.Mock(return_value=[{"output": expected_user}])
 
     prompt = "Jane Doe is 30 years old and her email is jane@doe.com"
 
@@ -813,9 +899,7 @@ def test_agent_method_structured_output(agent):
     assert result == expected_user
 
     # Verify the model's structured_output was called with correct arguments
-    agent.model.structured_output.assert_called_once_with(
-        User, [{"role": "user", "content": [{"text": prompt}]}], agent.callback_handler
-    )
+    agent.model.structured_output.assert_called_once_with(User, [{"role": "user", "content": [{"text": prompt}]}])
 
 
 @pytest.mark.asyncio
@@ -823,27 +907,30 @@ async def test_stream_async_returns_all_events(mock_event_loop_cycle):
     agent = Agent()
 
     # Define the side effect to simulate callback handler being called multiple times
-    def call_callback_handler(*args, **kwargs):
-        # Extract the callback handler from kwargs
-        callback_handler = kwargs.get("callback_handler")
-        # Call the callback handler with different data values
-        callback_handler(data="First chunk")
-        callback_handler(data="Second chunk")
-        callback_handler(data="Final chunk", complete=True)
+    def test_event_loop(*args, **kwargs):
+        yield {"callback": {"data": "First chunk"}}
+        yield {"callback": {"data": "Second chunk"}}
+        yield {"callback": {"data": "Final chunk", "complete": True}}
+
         # Return expected values from event_loop_cycle
-        return "stop", {"role": "assistant", "content": [{"text": "Response"}]}, {}, {}
+        yield {"stop": ("stop", {"role": "assistant", "content": [{"text": "Response"}]}, {}, {})}
 
-    mock_event_loop_cycle.side_effect = call_callback_handler
+    mock_event_loop_cycle.side_effect = test_event_loop
+    mock_callback = unittest.mock.Mock()
 
-    iterator = agent.stream_async("test message")
-    actual_events = [e async for e in iterator]
+    iterator = agent.stream_async("test message", callback_handler=mock_callback)
 
-    assert actual_events == [
-        {"init_event_loop": True},
+    tru_events = [e async for e in iterator]
+    exp_events = [
+        {"init_event_loop": True, "callback_handler": mock_callback},
         {"data": "First chunk"},
         {"data": "Second chunk"},
         {"complete": True, "data": "Final chunk"},
     ]
+    assert tru_events == exp_events
+
+    exp_calls = [unittest.mock.call(**event) for event in exp_events]
+    mock_callback.assert_has_calls(exp_calls)
 
 
 @pytest.mark.asyncio
@@ -864,11 +951,11 @@ async def test_stream_async_passes_kwargs(agent, mock_model, mock_event_loop_cyc
         ],
     ]
 
-    def check_kwargs(some_value, **kwargs):
-        assert some_value == "a_value"
-        assert kwargs is not None
+    def check_kwargs(**kwargs):
+        kwargs_kwargs = kwargs["kwargs"]
+        assert kwargs_kwargs["some_value"] == "a_value"
         # Return expected values from event_loop_cycle
-        return "stop", {"role": "assistant", "content": [{"text": "Response"}]}, {}, {}
+        yield {"stop": ("stop", {"role": "assistant", "content": [{"text": "Response"}]}, {}, {})}
 
     mock_event_loop_cycle.side_effect = check_kwargs
 
@@ -889,115 +976,6 @@ async def test_stream_async_raises_exceptions(mock_event_loop_cycle):
     await anext(iterator)
     with pytest.raises(ValueError, match="Test exception"):
         await anext(iterator)
-
-
-@pytest.mark.asyncio
-async def test_stream_async_can_be_invoked_twice(mock_event_loop_cycle):
-    """Test that run can be invoked twice with different agents."""
-    # Define different responses for the first and second invocations
-    exp_call_1 = [{"data": "First call - event 1"}, {"data": "First call - event 2", "complete": True}]
-    exp_call_2 = [{"data": "Second call - event 1"}, {"data": "Second call - event 2", "complete": True}]
-
-    # Set up the mock to handle two different calls
-    call_count = 0
-
-    def mock_event_loop_call(**kwargs):
-        nonlocal call_count
-        # Extract the callback handler from kwargs
-        callback_handler = kwargs.get("callback_handler")
-        events_to_use = exp_call_1 if call_count == 0 else exp_call_2
-        call_count += 1
-
-        for event in events_to_use:
-            callback_handler(**event)
-
-        # Return expected values from event_loop_cycle
-        return "stop", {"role": "assistant", "content": [{"text": "Response"}]}, {}, {}
-
-    mock_event_loop_cycle.side_effect = mock_event_loop_call
-
-    agent1 = Agent()
-
-    iter_1 = agent1.stream_async("First prompt")
-    act_call_1 = [e async for e in iter_1]
-    assert act_call_1 == [{"init_event_loop": True}, *exp_call_1]
-
-    iter_2 = agent1.stream_async("Second prompt")
-    act_call_2 = [e async for e in iter_2]
-    assert act_call_2 == [{"init_event_loop": True}, *exp_call_2]
-
-    # Verify the mock was called twice
-    assert call_count == 2
-    assert mock_event_loop_cycle.call_count == 2
-
-    # Verify the correct arguments were passed to event_loop_cycle
-    # First call
-    args1, kwargs1 = mock_event_loop_cycle.call_args_list[0]
-    assert kwargs1.get("model") == agent1.model
-    assert kwargs1.get("system_prompt") == agent1.system_prompt
-    assert kwargs1.get("messages") == agent1.messages
-    assert kwargs1.get("tool_config") == agent1.tool_config
-    assert "callback_handler" in kwargs1
-
-    # Second call
-    args2, kwargs2 = mock_event_loop_cycle.call_args_list[1]
-    assert kwargs2.get("model") == agent1.model
-    assert kwargs2.get("system_prompt") == agent1.system_prompt
-    assert kwargs2.get("messages") == agent1.messages
-    assert kwargs2.get("tool_config") == agent1.tool_config
-    assert "callback_handler" in kwargs2
-
-
-@pytest.mark.asyncio
-async def test_run_non_blocking_behavior(mock_event_loop_cycle):
-    """Test that when one thread is blocked in run, other threads can continue execution."""
-
-    # This event will be used to signal when the first thread has started
-    unblock_background_thread = threading.Event()
-    is_blocked = False
-
-    # Define a side effect that blocks until explicitly allowed to continue
-    def blocking_call(**kwargs):
-        nonlocal is_blocked
-        # Extract the callback handler from kwargs
-        callback_handler = kwargs.get("callback_handler")
-        callback_handler(data="First event")
-        is_blocked = True
-        unblock_background_thread.wait(timeout=5.0)
-        is_blocked = False
-        callback_handler(data="Last event", complete=True)
-        # Return expected values from event_loop_cycle
-        return "stop", {"role": "assistant", "content": [{"text": "Response"}]}, {}, {}
-
-    mock_event_loop_cycle.side_effect = blocking_call
-
-    # Create and start the background thread
-    agent = Agent()
-    iterator = agent.stream_async("This will block")
-
-    # Ensure it emits the first event
-    assert await anext(iterator) == {"init_event_loop": True}
-    assert await anext(iterator) == {"data": "First event"}
-
-    retry_count = 0
-    while not is_blocked and retry_count < 10:
-        sleep(1)
-        retry_count += 1
-    assert is_blocked
-
-    # Ensure it emits the next event
-    unblock_background_thread.set()
-    assert await anext(iterator) == {"data": "Last event", "complete": True}
-
-    retry_count = 0
-    while is_blocked and retry_count < 10:
-        sleep(1)
-        retry_count += 1
-    assert not is_blocked
-
-    # Ensure the iterator is exhausted
-    remaining = [it async for it in iterator]
-    assert len(remaining) == 0
 
 
 def test_agent_init_with_trace_attributes():
@@ -1093,18 +1071,10 @@ async def test_agent_stream_async_creates_and_ends_span_on_success(mock_get_trac
     mock_tracer.start_agent_span.return_value = mock_span
     mock_get_tracer.return_value = mock_tracer
 
-    # Define the side effect to simulate callback handler being called multiple times
-    def call_callback_handler(*args, **kwargs):
-        # Extract the callback handler from kwargs
-        callback_handler = kwargs.get("callback_handler")
-        # Call the callback handler with different data values
-        callback_handler(data="First chunk")
-        callback_handler(data="Second chunk")
-        callback_handler(data="Final chunk", complete=True)
-        # Return expected values from event_loop_cycle
-        return "stop", {"role": "assistant", "content": [{"text": "Agent Response"}]}, {}, {}
+    def test_event_loop(*args, **kwargs):
+        yield {"stop": ("stop", {"role": "assistant", "content": [{"text": "Agent Response"}]}, {}, {})}
 
-    mock_event_loop_cycle.side_effect = call_callback_handler
+    mock_event_loop_cycle.side_effect = test_event_loop
 
     # Create agent and make a call
     agent = Agent(model=mock_model)
@@ -1208,7 +1178,9 @@ def test_event_loop_cycle_includes_parent_span(mock_get_tracer, mock_event_loop_
     mock_get_tracer.return_value = mock_tracer
 
     # Setup mock for event_loop_cycle
-    mock_event_loop_cycle.return_value = ("stop", {"role": "assistant", "content": [{"text": "Response"}]}, {}, {})
+    mock_event_loop_cycle.return_value = [
+        {"stop": ("stop", {"role": "assistant", "content": [{"text": "Response"}]}, {}, {})}
+    ]
 
     # Create agent and make a call
     agent = Agent(model=mock_model)
@@ -1219,3 +1191,58 @@ def test_event_loop_cycle_includes_parent_span(mock_get_tracer, mock_event_loop_
     kwargs = mock_event_loop_cycle.call_args[1]
     assert "event_loop_parent_span" in kwargs
     assert kwargs["event_loop_parent_span"] == mock_span
+
+
+def test_non_dict_throws_error():
+    with pytest.raises(ValueError, match="state must be an AgentState object or a dict"):
+        agent = Agent(state={"object", object()})
+        print(agent.state)
+
+
+def test_non_json_serializable_state_throws_error():
+    with pytest.raises(ValueError, match="Value is not JSON serializable"):
+        agent = Agent(state={"object": object()})
+        print(agent.state)
+
+
+def test_agent_state_breaks_dict_reference():
+    ref_dict = {"hello": "world"}
+    agent = Agent(state=ref_dict)
+
+    # Make sure shallow object references do not affect state maintained by AgentState
+    ref_dict["hello"] = object()
+
+    # This will fail if AgentState reflects the updated reference
+    json.dumps(agent.state.get())
+
+
+def test_agent_state_breaks_deep_dict_reference():
+    ref_dict = {"world": "!"}
+    init_dict = {"hello": ref_dict}
+    agent = Agent(state=init_dict)
+    # Make sure deep reference changes do not affect state mained by AgentState
+    ref_dict["world"] = object()
+
+    # This will fail if AgentState reflects the updated reference
+    json.dumps(agent.state.get())
+
+
+def test_agent_state_set_breaks_dict_reference():
+    agent = Agent()
+    ref_dict = {"hello": "world"}
+    # Set should copy the input, and not maintain the reference to the original object
+    agent.state.set("hello", ref_dict)
+    ref_dict["hello"] = object()
+
+    # This will fail if AgentState reflects the updated reference
+    json.dumps(agent.state.get())
+
+
+def test_agent_state_get_breaks_deep_dict_reference():
+    agent = Agent(state={"hello": {"world": "!"}})
+    # Get should not return a reference to the internal state
+    ref_state = agent.state.get()
+    ref_state["hello"]["world"] = object()
+
+    # This will fail if AgentState reflects the updated reference
+    json.dumps(agent.state.get())

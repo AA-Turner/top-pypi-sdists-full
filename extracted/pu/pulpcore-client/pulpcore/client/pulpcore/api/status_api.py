@@ -17,6 +17,9 @@ from pydantic import validate_call, Field, StrictFloat, StrictStr, StrictInt
 from typing import Any, Dict, List, Optional, Tuple, Union
 from typing_extensions import Annotated
 
+from pydantic import Field, StrictStr
+from typing import List, Optional
+from typing_extensions import Annotated
 from pulpcore.client.pulpcore.models.status_response import StatusResponse
 
 from pulpcore.client.pulpcore.api_client import ApiClient, RequestSerialized
@@ -40,6 +43,9 @@ class StatusApi:
     @validate_call
     def status_read(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
+        fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
+        exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -57,6 +63,12 @@ class StatusApi:
 
         Returns status and app information about Pulp.  Information includes:  * version of pulpcore and loaded pulp plugins  * known workers  * known content apps  * database connection status  * redis connection status  * disk usage information
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
+        :param fields: A list of fields to include in the response.
+        :type fields: List[str]
+        :param exclude_fields: A list of fields to exclude from the response.
+        :type exclude_fields: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -80,6 +92,9 @@ class StatusApi:
         """ # noqa: E501
 
         _param = self._status_read_serialize(
+            x_task_diagnostics=x_task_diagnostics,
+            fields=fields,
+            exclude_fields=exclude_fields,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -103,6 +118,9 @@ class StatusApi:
     @validate_call
     def status_read_with_http_info(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
+        fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
+        exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -120,6 +138,12 @@ class StatusApi:
 
         Returns status and app information about Pulp.  Information includes:  * version of pulpcore and loaded pulp plugins  * known workers  * known content apps  * database connection status  * redis connection status  * disk usage information
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
+        :param fields: A list of fields to include in the response.
+        :type fields: List[str]
+        :param exclude_fields: A list of fields to exclude from the response.
+        :type exclude_fields: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -143,6 +167,9 @@ class StatusApi:
         """ # noqa: E501
 
         _param = self._status_read_serialize(
+            x_task_diagnostics=x_task_diagnostics,
+            fields=fields,
+            exclude_fields=exclude_fields,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -166,6 +193,9 @@ class StatusApi:
     @validate_call
     def status_read_without_preload_content(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
+        fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
+        exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -183,6 +213,12 @@ class StatusApi:
 
         Returns status and app information about Pulp.  Information includes:  * version of pulpcore and loaded pulp plugins  * known workers  * known content apps  * database connection status  * redis connection status  * disk usage information
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
+        :param fields: A list of fields to include in the response.
+        :type fields: List[str]
+        :param exclude_fields: A list of fields to exclude from the response.
+        :type exclude_fields: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -206,6 +242,9 @@ class StatusApi:
         """ # noqa: E501
 
         _param = self._status_read_serialize(
+            x_task_diagnostics=x_task_diagnostics,
+            fields=fields,
+            exclude_fields=exclude_fields,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -224,6 +263,9 @@ class StatusApi:
 
     def _status_read_serialize(
         self,
+        x_task_diagnostics,
+        fields,
+        exclude_fields,
         _request_auth,
         _content_type,
         _headers,
@@ -233,6 +275,9 @@ class StatusApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
+            'fields': 'multi',
+            'exclude_fields': 'multi',
         }
 
         _path_params: Dict[str, str] = {}
@@ -246,7 +291,17 @@ class StatusApi:
 
         # process the path parameters
         # process the query parameters
+        if fields is not None:
+            
+            _query_params.append(('fields', fields))
+            
+        if exclude_fields is not None:
+            
+            _query_params.append(('exclude_fields', exclude_fields))
+            
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 

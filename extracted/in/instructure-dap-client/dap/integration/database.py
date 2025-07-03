@@ -4,7 +4,7 @@ from typing import Optional
 from pysqlsync.base import (
     BaseConnection,
     BaseEngine,
-    GeneratorOptions,
+    GeneratorOptions, BaseContext,
 )
 from pysqlsync.connection import ConnectionParameters, ConnectionSSLMode
 from pysqlsync.factory import get_dialect, get_parameters
@@ -62,7 +62,9 @@ class DatabaseConnection:
         if connection_string is None:
             connection_string = os.getenv("DAP_CONNECTION_STRING")
             if not connection_string:
-                raise DatabaseConnectionError("missing database connection string")
+                raise DatabaseConnectionError(
+                    "Missing database connection string. Please provide a valid connection string."
+                )
         self.dialect, self._params = get_parameters(connection_string)
         self._create_connection()
 
@@ -98,3 +100,22 @@ class DatabaseConnection:
                 ),
             ),
         )
+
+    @staticmethod
+    async def get_version(dialect: str, conn_ctx: BaseContext) -> str:
+        """
+        Get the version number in short format, e.g. "8.0.23 xxx".
+        """
+        version_sql = None
+        if dialect == "postgresql":
+            version_sql = "SHOW server_version"
+        elif dialect == "mysql":
+            version_sql = "SELECT VERSION()"
+        elif dialect == "mssql":
+            version_sql = "SELECT SERVERPROPERTY('productversion')"
+        if version_sql:
+            return await conn_ctx.query_one(
+                signature=str, statement=version_sql
+            )
+        else:
+            return "unknown"

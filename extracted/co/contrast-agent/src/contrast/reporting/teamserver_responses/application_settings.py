@@ -47,7 +47,15 @@ class ApplicationSettings:
     def common_config(self):
         ts_exclusions = self.application_settings_json.get("exclusions", {})
         return {
-            "application.sensitive_data_masking_policy": self.sensitive_data_masking_policy,
+            "application.sensitive_data_masking_policy.mask_attack_vector": self.sensitive_data_masking_policy.get(
+                "mask_attack_vector"
+            ),
+            "application.sensitive_data_masking_policy.mask_http_body": self.sensitive_data_masking_policy.get(
+                "mask_http_body"
+            ),
+            "application.sensitive_data_masking_policy.rules": self.sensitive_data_masking_policy.get(
+                "rules", []
+            ),
             "application.url_exclusions": ts_exclusions.get("url", []),
             "application.input_exclusions": [
                 {

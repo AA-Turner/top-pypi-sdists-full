@@ -17,6 +17,9 @@ from pydantic import validate_call, Field, StrictFloat, StrictStr, StrictInt
 from typing import Any, Dict, List, Optional, Tuple, Union
 from typing_extensions import Annotated
 
+from pydantic import Field, StrictStr
+from typing import List, Optional
+from typing_extensions import Annotated
 from pulpcore.client.pulpcore.models.pulp_import_check import PulpImportCheck
 from pulpcore.client.pulpcore.models.pulp_import_check_response import PulpImportCheckResponse
 
@@ -42,6 +45,7 @@ class ImportersPulpImportCheckApi:
     def pulp_import_check_post(
         self,
         pulp_import_check: PulpImportCheck,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -61,6 +65,8 @@ class ImportersPulpImportCheckApi:
 
         :param pulp_import_check: (required)
         :type pulp_import_check: PulpImportCheck
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -85,6 +91,7 @@ class ImportersPulpImportCheckApi:
 
         _param = self._pulp_import_check_post_serialize(
             pulp_import_check=pulp_import_check,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -109,6 +116,7 @@ class ImportersPulpImportCheckApi:
     def pulp_import_check_post_with_http_info(
         self,
         pulp_import_check: PulpImportCheck,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -128,6 +136,8 @@ class ImportersPulpImportCheckApi:
 
         :param pulp_import_check: (required)
         :type pulp_import_check: PulpImportCheck
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -152,6 +162,7 @@ class ImportersPulpImportCheckApi:
 
         _param = self._pulp_import_check_post_serialize(
             pulp_import_check=pulp_import_check,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -176,6 +187,7 @@ class ImportersPulpImportCheckApi:
     def pulp_import_check_post_without_preload_content(
         self,
         pulp_import_check: PulpImportCheck,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -195,6 +207,8 @@ class ImportersPulpImportCheckApi:
 
         :param pulp_import_check: (required)
         :type pulp_import_check: PulpImportCheck
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -219,6 +233,7 @@ class ImportersPulpImportCheckApi:
 
         _param = self._pulp_import_check_post_serialize(
             pulp_import_check=pulp_import_check,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -238,6 +253,7 @@ class ImportersPulpImportCheckApi:
     def _pulp_import_check_post_serialize(
         self,
         pulp_import_check,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -247,6 +263,7 @@ class ImportersPulpImportCheckApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -261,6 +278,8 @@ class ImportersPulpImportCheckApi:
         # process the path parameters
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if pulp_import_check is not None:

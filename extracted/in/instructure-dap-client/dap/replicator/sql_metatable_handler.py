@@ -88,7 +88,7 @@ async def sync_upsert_table_metadata(
 ) -> None:
     logger.debug(f"update meta-data about table {table_name} that has been replicated")
     if table_meta is None:
-        raise AssertionError("table_meta should not be null")
+        raise AssertionError("Internal error: ‘table_meta’ must not be null. Please report this issue.")
 
     await conn.upsert_data(
         meta_schema.table_sync,

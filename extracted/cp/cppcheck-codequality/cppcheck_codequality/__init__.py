@@ -33,7 +33,7 @@ from copy import deepcopy
 # third-party
 import xmltodict
 
-__version__ = "1.4.2"
+__version__ = "1.5.0"
 
 log = logging.getLogger(__name__)
 

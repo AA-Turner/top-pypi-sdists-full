@@ -44,6 +44,7 @@ class RepositoryVersionsApi:
     @validate_call
     def list(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         content: Annotated[Optional[StrictStr], Field(description="Content Unit referenced by HREF/PRN")] = None,
         content__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
@@ -84,6 +85,8 @@ class RepositoryVersionsApi:
 
         A mixin to hold the shared get_queryset logic used by RepositoryVersionViewSets.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param content: Content Unit referenced by HREF/PRN
         :type content: str
         :param content__in: Multiple values may be separated by commas.
@@ -153,6 +156,7 @@ class RepositoryVersionsApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             content=content,
             content__in=content__in,
             limit=limit,
@@ -199,6 +203,7 @@ class RepositoryVersionsApi:
     @validate_call
     def list_with_http_info(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         content: Annotated[Optional[StrictStr], Field(description="Content Unit referenced by HREF/PRN")] = None,
         content__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
@@ -239,6 +244,8 @@ class RepositoryVersionsApi:
 
         A mixin to hold the shared get_queryset logic used by RepositoryVersionViewSets.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param content: Content Unit referenced by HREF/PRN
         :type content: str
         :param content__in: Multiple values may be separated by commas.
@@ -308,6 +315,7 @@ class RepositoryVersionsApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             content=content,
             content__in=content__in,
             limit=limit,
@@ -354,6 +362,7 @@ class RepositoryVersionsApi:
     @validate_call
     def list_without_preload_content(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         content: Annotated[Optional[StrictStr], Field(description="Content Unit referenced by HREF/PRN")] = None,
         content__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
@@ -394,6 +403,8 @@ class RepositoryVersionsApi:
 
         A mixin to hold the shared get_queryset logic used by RepositoryVersionViewSets.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param content: Content Unit referenced by HREF/PRN
         :type content: str
         :param content__in: Multiple values may be separated by commas.
@@ -463,6 +474,7 @@ class RepositoryVersionsApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             content=content,
             content__in=content__in,
             limit=limit,
@@ -504,6 +516,7 @@ class RepositoryVersionsApi:
 
     def _list_serialize(
         self,
+        x_task_diagnostics,
         content,
         content__in,
         limit,
@@ -536,6 +549,7 @@ class RepositoryVersionsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'content__in': 'csv',
             'number__range': 'csv',
             'ordering': 'csv',
@@ -695,6 +709,8 @@ class RepositoryVersionsApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 

@@ -2,7 +2,7 @@
 """
 @Author: HuangJianYi
 @Date: 2021-08-30 09:22:51
-@LastEditTime: 2025-07-01 14:11:47
+@LastEditTime: 2025-07-01 15:42:45
 @LastEditors: HuangJianYi
 @Description: 排队系统帮助类
 """
@@ -835,7 +835,6 @@ class QueueUpHelper:
             return invoke_result_data
         finally:
             SevenHelper.redis_release_lock(acquire_lock_name, identifier)
-
 
     @classmethod
     def add_log(self, app_id, queue_name, user_id, operate_type, remain_time, info_json={}):

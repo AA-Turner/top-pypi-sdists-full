@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pandas-stubs
-Version: 2.2.3.250527
+Version: 2.3.0.250703
 Summary: Type annotations for pandas
 Home-page: https://pandas.pydata.org
 License: BSD-3-Clause
@@ -75,7 +75,7 @@ mypy round.py
 we get the following error message:
 
 ```text
-round.py:6: error: Argument "decimals" to "round" of "DataFrame" has incompatible type "DataFrame"; expected "Union[int, Dict[Any, Any], Series[Any]]"  [arg-type]
+round.py:6: error: Argument "decimals" to "round" of "DataFrame" has incompatible type "DataFrame"; expected "Union[int, Dict[Any, Any], Series]"  [arg-type]
 Found 1 error in 1 file (checked 1 source file)
 ```
 

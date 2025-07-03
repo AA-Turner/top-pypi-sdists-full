@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openapi-python-client
-Version: 0.25.1
+Version: 0.25.2
 Summary: Generate modern Python clients from OpenAPI
 Project-URL: repository, https://github.com/openapi-generators/openapi-python-client
 Author-email: Dylan Anthony <contact@dylananthony.com>

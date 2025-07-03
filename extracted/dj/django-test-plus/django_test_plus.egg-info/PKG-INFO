@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: django-test-plus
-Version: 2.2.4
+Version: 2.3.0
 Summary: "django-test-plus provides useful additions to Django's default TestCase"
 Home-page: https://github.com/revsys/django-test-plus/
 Author: Frank Wiles
@@ -8,22 +8,20 @@ Author-email: frank@revsys.com
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 3.2
-Classifier: Framework :: Django :: 4.0
-Classifier: Framework :: Django :: 4.1
 Classifier: Framework :: Django :: 4.2
-Classifier: Framework :: Django :: 5.0
+Classifier: Framework :: Django :: 5.1
+Classifier: Framework :: Django :: 5.2
 Classifier: Framework :: Pytest
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.8
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: <3.14,>=3.9
 Description-Content-Type: text/markdown
 Provides-Extra: test
 License-File: LICENSE
@@ -50,9 +48,9 @@ to help your team dramatically improve your productivity.
 
 ## Support
 
-Supports: Python 3.8, 3.9, 3.10, 3.11, and 3.12.
+- Python 3.9, 3.10, 3.11, 3.12, and 3.13.
 
-Supports Django Versions: 3.2, 4.2, and 5.0.
+- Django 4.2 LTS, 5.1, and 5.2 LTS.
 
 ## Documentation
 

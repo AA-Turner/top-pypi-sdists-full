@@ -49,6 +49,7 @@ class ContentOpenpgpPublickeyApi:
     @validate_call
     def create(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         repository: Annotated[Optional[StrictStr], Field(description="A URI of a repository the new content unit should be associated with.")] = None,
         pulp_labels: Annotated[Optional[Dict[str, Optional[StrictStr]]], Field(description="A dictionary of arbitrary key/value pairs used to describe a specific Content instance.")] = None,
         file: Annotated[Optional[Union[StrictBytes, StrictStr, Tuple[StrictStr, StrictBytes]]], Field(description="An uploaded file that may be turned into the content unit.")] = None,
@@ -71,6 +72,8 @@ class ContentOpenpgpPublickeyApi:
 
         Trigger an asynchronous task to create content,optionally create new repository version.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param repository: A URI of a repository the new content unit should be associated with.
         :type repository: str
         :param pulp_labels: A dictionary of arbitrary key/value pairs used to describe a specific Content instance.
@@ -104,6 +107,7 @@ class ContentOpenpgpPublickeyApi:
         """ # noqa: E501
 
         _param = self._create_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             repository=repository,
             pulp_labels=pulp_labels,
             file=file,
@@ -132,6 +136,7 @@ class ContentOpenpgpPublickeyApi:
     @validate_call
     def create_with_http_info(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         repository: Annotated[Optional[StrictStr], Field(description="A URI of a repository the new content unit should be associated with.")] = None,
         pulp_labels: Annotated[Optional[Dict[str, Optional[StrictStr]]], Field(description="A dictionary of arbitrary key/value pairs used to describe a specific Content instance.")] = None,
         file: Annotated[Optional[Union[StrictBytes, StrictStr, Tuple[StrictStr, StrictBytes]]], Field(description="An uploaded file that may be turned into the content unit.")] = None,
@@ -154,6 +159,8 @@ class ContentOpenpgpPublickeyApi:
 
         Trigger an asynchronous task to create content,optionally create new repository version.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param repository: A URI of a repository the new content unit should be associated with.
         :type repository: str
         :param pulp_labels: A dictionary of arbitrary key/value pairs used to describe a specific Content instance.
@@ -187,6 +194,7 @@ class ContentOpenpgpPublickeyApi:
         """ # noqa: E501
 
         _param = self._create_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             repository=repository,
             pulp_labels=pulp_labels,
             file=file,
@@ -215,6 +223,7 @@ class ContentOpenpgpPublickeyApi:
     @validate_call
     def create_without_preload_content(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         repository: Annotated[Optional[StrictStr], Field(description="A URI of a repository the new content unit should be associated with.")] = None,
         pulp_labels: Annotated[Optional[Dict[str, Optional[StrictStr]]], Field(description="A dictionary of arbitrary key/value pairs used to describe a specific Content instance.")] = None,
         file: Annotated[Optional[Union[StrictBytes, StrictStr, Tuple[StrictStr, StrictBytes]]], Field(description="An uploaded file that may be turned into the content unit.")] = None,
@@ -237,6 +246,8 @@ class ContentOpenpgpPublickeyApi:
 
         Trigger an asynchronous task to create content,optionally create new repository version.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param repository: A URI of a repository the new content unit should be associated with.
         :type repository: str
         :param pulp_labels: A dictionary of arbitrary key/value pairs used to describe a specific Content instance.
@@ -270,6 +281,7 @@ class ContentOpenpgpPublickeyApi:
         """ # noqa: E501
 
         _param = self._create_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             repository=repository,
             pulp_labels=pulp_labels,
             file=file,
@@ -293,6 +305,7 @@ class ContentOpenpgpPublickeyApi:
 
     def _create_serialize(
         self,
+        x_task_diagnostics,
         repository,
         pulp_labels,
         file,
@@ -307,6 +320,7 @@ class ContentOpenpgpPublickeyApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -321,6 +335,8 @@ class ContentOpenpgpPublickeyApi:
         # process the path parameters
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         if repository is not None:
             _form_params.append(('repository', repository))
@@ -385,6 +401,7 @@ class ContentOpenpgpPublickeyApi:
     @validate_call
     def list(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fingerprint: Annotated[Optional[StrictStr], Field(description="Filter results where fingerprint matches value")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
@@ -417,6 +434,8 @@ class ContentOpenpgpPublickeyApi:
 
         A ViewSet for uploads that do not require to store an uploaded content as an Artifact.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fingerprint: Filter results where fingerprint matches value
         :type fingerprint: str
         :param limit: Number of results to return per page.
@@ -470,6 +489,7 @@ class ContentOpenpgpPublickeyApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             fingerprint=fingerprint,
             limit=limit,
             offset=offset,
@@ -508,6 +528,7 @@ class ContentOpenpgpPublickeyApi:
     @validate_call
     def list_with_http_info(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fingerprint: Annotated[Optional[StrictStr], Field(description="Filter results where fingerprint matches value")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
@@ -540,6 +561,8 @@ class ContentOpenpgpPublickeyApi:
 
         A ViewSet for uploads that do not require to store an uploaded content as an Artifact.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fingerprint: Filter results where fingerprint matches value
         :type fingerprint: str
         :param limit: Number of results to return per page.
@@ -593,6 +616,7 @@ class ContentOpenpgpPublickeyApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             fingerprint=fingerprint,
             limit=limit,
             offset=offset,
@@ -631,6 +655,7 @@ class ContentOpenpgpPublickeyApi:
     @validate_call
     def list_without_preload_content(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fingerprint: Annotated[Optional[StrictStr], Field(description="Filter results where fingerprint matches value")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
@@ -663,6 +688,8 @@ class ContentOpenpgpPublickeyApi:
 
         A ViewSet for uploads that do not require to store an uploaded content as an Artifact.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fingerprint: Filter results where fingerprint matches value
         :type fingerprint: str
         :param limit: Number of results to return per page.
@@ -716,6 +743,7 @@ class ContentOpenpgpPublickeyApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             fingerprint=fingerprint,
             limit=limit,
             offset=offset,
@@ -749,6 +777,7 @@ class ContentOpenpgpPublickeyApi:
 
     def _list_serialize(
         self,
+        x_task_diagnostics,
         fingerprint,
         limit,
         offset,
@@ -773,6 +802,7 @@ class ContentOpenpgpPublickeyApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'ordering': 'csv',
             'prn__in': 'csv',
             'pulp_href__in': 'csv',
@@ -853,6 +883,8 @@ class ContentOpenpgpPublickeyApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -894,6 +926,7 @@ class ContentOpenpgpPublickeyApi:
     def read(
         self,
         open_p_g_p_public_key_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -915,6 +948,8 @@ class ContentOpenpgpPublickeyApi:
 
         :param open_p_g_p_public_key_href: (required)
         :type open_p_g_p_public_key_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -943,6 +978,7 @@ class ContentOpenpgpPublickeyApi:
 
         _param = self._read_serialize(
             open_p_g_p_public_key_href=open_p_g_p_public_key_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -969,6 +1005,7 @@ class ContentOpenpgpPublickeyApi:
     def read_with_http_info(
         self,
         open_p_g_p_public_key_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -990,6 +1027,8 @@ class ContentOpenpgpPublickeyApi:
 
         :param open_p_g_p_public_key_href: (required)
         :type open_p_g_p_public_key_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1018,6 +1057,7 @@ class ContentOpenpgpPublickeyApi:
 
         _param = self._read_serialize(
             open_p_g_p_public_key_href=open_p_g_p_public_key_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1044,6 +1084,7 @@ class ContentOpenpgpPublickeyApi:
     def read_without_preload_content(
         self,
         open_p_g_p_public_key_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1065,6 +1106,8 @@ class ContentOpenpgpPublickeyApi:
 
         :param open_p_g_p_public_key_href: (required)
         :type open_p_g_p_public_key_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1093,6 +1136,7 @@ class ContentOpenpgpPublickeyApi:
 
         _param = self._read_serialize(
             open_p_g_p_public_key_href=open_p_g_p_public_key_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1114,6 +1158,7 @@ class ContentOpenpgpPublickeyApi:
     def _read_serialize(
         self,
         open_p_g_p_public_key_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -1125,6 +1170,7 @@ class ContentOpenpgpPublickeyApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -1151,6 +1197,8 @@ class ContentOpenpgpPublickeyApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -1193,6 +1241,7 @@ class ContentOpenpgpPublickeyApi:
         self,
         open_p_g_p_public_key_href: StrictStr,
         set_label: SetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1214,6 +1263,8 @@ class ContentOpenpgpPublickeyApi:
         :type open_p_g_p_public_key_href: str
         :param set_label: (required)
         :type set_label: SetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1239,6 +1290,7 @@ class ContentOpenpgpPublickeyApi:
         _param = self._set_label_serialize(
             open_p_g_p_public_key_href=open_p_g_p_public_key_href,
             set_label=set_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1264,6 +1316,7 @@ class ContentOpenpgpPublickeyApi:
         self,
         open_p_g_p_public_key_href: StrictStr,
         set_label: SetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1285,6 +1338,8 @@ class ContentOpenpgpPublickeyApi:
         :type open_p_g_p_public_key_href: str
         :param set_label: (required)
         :type set_label: SetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1310,6 +1365,7 @@ class ContentOpenpgpPublickeyApi:
         _param = self._set_label_serialize(
             open_p_g_p_public_key_href=open_p_g_p_public_key_href,
             set_label=set_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1335,6 +1391,7 @@ class ContentOpenpgpPublickeyApi:
         self,
         open_p_g_p_public_key_href: StrictStr,
         set_label: SetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1356,6 +1413,8 @@ class ContentOpenpgpPublickeyApi:
         :type open_p_g_p_public_key_href: str
         :param set_label: (required)
         :type set_label: SetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1381,6 +1440,7 @@ class ContentOpenpgpPublickeyApi:
         _param = self._set_label_serialize(
             open_p_g_p_public_key_href=open_p_g_p_public_key_href,
             set_label=set_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1401,6 +1461,7 @@ class ContentOpenpgpPublickeyApi:
         self,
         open_p_g_p_public_key_href,
         set_label,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -1410,6 +1471,7 @@ class ContentOpenpgpPublickeyApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -1426,6 +1488,8 @@ class ContentOpenpgpPublickeyApi:
             _path_params['open_p_g_p_public_key_href'] = open_p_g_p_public_key_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if set_label is not None:
@@ -1485,6 +1549,7 @@ class ContentOpenpgpPublickeyApi:
         self,
         open_p_g_p_public_key_href: StrictStr,
         unset_label: UnsetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1506,6 +1571,8 @@ class ContentOpenpgpPublickeyApi:
         :type open_p_g_p_public_key_href: str
         :param unset_label: (required)
         :type unset_label: UnsetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1531,6 +1598,7 @@ class ContentOpenpgpPublickeyApi:
         _param = self._unset_label_serialize(
             open_p_g_p_public_key_href=open_p_g_p_public_key_href,
             unset_label=unset_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1556,6 +1624,7 @@ class ContentOpenpgpPublickeyApi:
         self,
         open_p_g_p_public_key_href: StrictStr,
         unset_label: UnsetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1577,6 +1646,8 @@ class ContentOpenpgpPublickeyApi:
         :type open_p_g_p_public_key_href: str
         :param unset_label: (required)
         :type unset_label: UnsetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1602,6 +1673,7 @@ class ContentOpenpgpPublickeyApi:
         _param = self._unset_label_serialize(
             open_p_g_p_public_key_href=open_p_g_p_public_key_href,
             unset_label=unset_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1627,6 +1699,7 @@ class ContentOpenpgpPublickeyApi:
         self,
         open_p_g_p_public_key_href: StrictStr,
         unset_label: UnsetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1648,6 +1721,8 @@ class ContentOpenpgpPublickeyApi:
         :type open_p_g_p_public_key_href: str
         :param unset_label: (required)
         :type unset_label: UnsetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1673,6 +1748,7 @@ class ContentOpenpgpPublickeyApi:
         _param = self._unset_label_serialize(
             open_p_g_p_public_key_href=open_p_g_p_public_key_href,
             unset_label=unset_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1693,6 +1769,7 @@ class ContentOpenpgpPublickeyApi:
         self,
         open_p_g_p_public_key_href,
         unset_label,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -1702,6 +1779,7 @@ class ContentOpenpgpPublickeyApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -1718,6 +1796,8 @@ class ContentOpenpgpPublickeyApi:
             _path_params['open_p_g_p_public_key_href'] = open_p_g_p_public_key_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if unset_label is not None:

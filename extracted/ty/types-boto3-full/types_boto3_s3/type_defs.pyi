@@ -608,6 +608,7 @@ class BucketTypeDef(TypedDict):
     Name: NotRequired[str]
     CreationDate: NotRequired[datetime]
     BucketRegion: NotRequired[str]
+    BucketArn: NotRequired[str]
 
 class BucketUploadFileRequestTypeDef(TypedDict):
     Filename: str
@@ -1401,6 +1402,7 @@ class CompleteMultipartUploadOutputTypeDef(TypedDict):
 
 class CreateBucketOutputTypeDef(TypedDict):
     Location: str
+    BucketArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateMultipartUploadOutputTypeDef(TypedDict):
@@ -1502,6 +1504,7 @@ class GetObjectTorrentOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class HeadBucketOutputTypeDef(TypedDict):
+    BucketArn: str
     BucketLocationType: LocationTypeType
     BucketLocationName: str
     BucketRegion: str
@@ -2350,6 +2353,7 @@ class CreateBucketConfigurationTypeDef(TypedDict):
     LocationConstraint: NotRequired[BucketLocationConstraintType]
     Location: NotRequired[LocationInfoTypeDef]
     Bucket: NotRequired[BucketInfoTypeDef]
+    Tags: NotRequired[Sequence[TagTypeDef]]
 
 class CreateSessionOutputTypeDef(TypedDict):
     ServerSideEncryption: ServerSideEncryptionType

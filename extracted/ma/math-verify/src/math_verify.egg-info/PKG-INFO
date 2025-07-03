@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: math-verify
-Version: 0.7.0
+Version: 0.8.0
 Summary: HuggingFace library for verifying mathematical answers
 Author-email: Hynek Kydlíček <hynek.kydlicek@huggingface.co>
 License: Apache 2.0
@@ -18,7 +18,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.10
 License-File: LICENCE
-Requires-Dist: latex2sympy2_extended==1.10.1
+Requires-Dist: latex2sympy2_extended==1.10.2
 Provides-Extra: inference
 Requires-Dist: lighteval[math]; extra == "inference"
 Provides-Extra: test
@@ -34,3 +34,4 @@ Provides-Extra: antlr4-11-0
 Requires-Dist: latex2sympy2_extended[antlr4_11_0]; extra == "antlr4-11-0"
 Provides-Extra: antlr4-13-2
 Requires-Dist: latex2sympy2_extended[antlr4_13_2]; extra == "antlr4-13-2"
+Dynamic: license-file

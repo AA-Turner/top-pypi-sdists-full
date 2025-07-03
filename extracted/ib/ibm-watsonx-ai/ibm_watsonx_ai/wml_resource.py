@@ -25,6 +25,7 @@ from ibm_watsonx_ai.utils import (
     get_type_of_details,
     next_resource_generator,
 )
+from ibm_watsonx_ai.utils.utils import _get_id_from_deprecated_uid
 from ibm_watsonx_ai.wml_client_error import (
     MissingValue,
     WMLClientError,
@@ -208,7 +209,7 @@ class WMLResource:
 
         if asset_id:
             response = requests.get(
-                self._client._href_definitions.get_data_asset_href(asset_id),
+                self._client._href_definitions.get_asset_href(asset_id),
                 params=self._client._params(),
                 headers=self._client._get_headers(),
             )
@@ -248,6 +249,68 @@ class WMLResource:
                     result.extend(res)
 
             return {"resources": result if limit is None else result[:limit]}
+
+    def _list_asset_based_resource(
+        self, url: str, column_names: list[str], limit: int | None = None
+    ) -> pd.DataFrame:
+        """Lists stored assets in a table format."""
+
+        self._validate_type(url, "url", str, True)
+        self._validate_type(column_names, "column_names", list, True)
+        self._validate_type(limit, "limit", int, False)
+
+        data: dict[str, Any] = {"query": "*:*"}
+        if limit is not None:
+            data.update({"limit": limit})
+
+        response = requests.post(
+            url,
+            params=self._client._params(),
+            headers=self._client._get_headers(),
+            json=data,
+        )
+        self._handle_response(200, "list assets", response)
+        asset_details = self._handle_response(200, "list assets", response)["results"]
+        space_values = [
+            [m["metadata"][col.lower()] for col in column_names] for m in asset_details
+        ]
+
+        table = self._list(
+            space_values,
+            column_names,
+            limit,
+        )
+        return table
+
+    def _delete_asset_based_resource(
+        self,
+        asset_id: str,
+        get_required_element_from_response: Callable,
+        purge_on_delete: bool | None = None,
+        **kwargs: Any,
+    ) -> dict | str:
+        """Soft delete the stored asset. The asset will be moved to trashed assets
+        and will not be visible in asset list. To permanently delete assets set `purge_on_delete` parameter to True.
+        """
+
+        asset_id = _get_id_from_deprecated_uid(kwargs, asset_id, "asset")
+
+        self._validate_type(asset_id, "asset_id", str, True)
+
+        params = self._client._params()
+
+        if purge_on_delete:
+            params["purge_on_delete"] = True
+
+        response = requests.delete(
+            self._client._href_definitions.get_asset_href(asset_id),
+            params=params,
+            headers=self._client._get_headers(),
+        )
+        if response.status_code == 200:
+            return get_required_element_from_response(response.json())
+        else:
+            return self._handle_response(204, "delete assets", response)
 
     @staticmethod
     def _validate_type(
@@ -511,7 +574,14 @@ class WMLResource:
         url_2 = "/".join(url.split("/")[:3])
 
         resource_generator = next_resource_generator(
-            self._client, url_2, href, params, _all, _filter_func, use_httpx
+            self._client,
+            url_2,
+            href,
+            params,
+            _all,
+            _filter_func,
+            use_httpx,
+            _silent_response_logging=_silent_response_logging,
         )
 
         if _async:

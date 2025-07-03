@@ -3,6 +3,7 @@ from collections.abc import (
     Callable,
     Hashable,
     Iterator,
+    KeysView,
     Mapping,
     MutableSequence,
     Sequence,
@@ -18,7 +19,7 @@ from typing import (
     Protocol,
     SupportsIndex,
     TypedDict,
-    TypeVar,
+    Union,
     overload,
 )
 
@@ -35,6 +36,7 @@ from pandas.core.tools.datetimes import FulldatetimeDict
 from typing_extensions import (
     ParamSpec,
     TypeAlias,
+    TypeVar,
 )
 
 from pandas._libs.interval import Interval
@@ -65,7 +67,7 @@ HashableT5 = TypeVar("HashableT5", bound=Hashable)
 # array-like
 
 ArrayLike: TypeAlias = ExtensionArray | np.ndarray
-AnyArrayLike: TypeAlias = ArrayLike | Index[Any] | Series[Any]
+AnyArrayLike: TypeAlias = ArrayLike | Index | Series
 
 # list-like
 
@@ -463,6 +465,10 @@ VoidDtypeArg: TypeAlias = (
     | Literal["V", "void", "void0"]
 )
 
+# DtypeArg specifies all allowable dtypes in a functions its dtype argument
+DtypeArg: TypeAlias = Dtype | Mapping[Hashable, Dtype]
+DtypeObj: TypeAlias = np.dtype[np.generic] | ExtensionDtype
+
 AstypeArg: TypeAlias = (
     BooleanDtypeArg
     | IntDtypeArg
@@ -478,10 +484,6 @@ AstypeArg: TypeAlias = (
     | VoidDtypeArg
     | DtypeObj
 )
-
-# DtypeArg specifies all allowable dtypes in a functions its dtype argument
-DtypeArg: TypeAlias = Dtype | Mapping[Hashable, Dtype]
-DtypeObj: TypeAlias = np.dtype[np.generic] | ExtensionDtype
 
 # converters
 ConvertersArg: TypeAlias = Mapping[Hashable, Callable[[Dtype], Dtype]]
@@ -513,7 +515,8 @@ IndexKeyFunc: TypeAlias = Callable[[Index], Index | AnyArrayLike] | None
 
 # types of `func` kwarg for DataFrame.aggregate and Series.aggregate
 # More specific than what is in pandas
-AggFuncTypeBase: TypeAlias = Callable | str | np.ufunc
+# following Union is here to make it ty compliant https://github.com/astral-sh/ty/issues/591
+AggFuncTypeBase: TypeAlias = Union[Callable, str, np.ufunc]  # noqa: UP007
 AggFuncTypeDictSeries: TypeAlias = Mapping[HashableT, AggFuncTypeBase]
 AggFuncTypeDictFrame: TypeAlias = Mapping[
     HashableT, AggFuncTypeBase | list[AggFuncTypeBase]
@@ -794,14 +797,11 @@ SliceType: TypeAlias = Hashable | None
 
 num: TypeAlias = complex
 
-# AxesData is used for data for Index
-AxesData: TypeAlias = Axes | dict
-
 DtypeNp = TypeVar("DtypeNp", bound=np.dtype[np.generic])
 KeysArgType: TypeAlias = Any
 ListLikeT = TypeVar("ListLikeT", bound=ListLike)
 ListLikeExceptSeriesAndStr: TypeAlias = (
-    MutableSequence[Any] | np.ndarray | tuple[Any, ...] | Index[Any]
+    MutableSequence[Any] | np.ndarray | tuple[Any, ...] | Index
 )
 ListLikeU: TypeAlias = Sequence | np.ndarray | Series | Index
 ListLikeHashable: TypeAlias = (
@@ -824,9 +824,8 @@ MaskType: TypeAlias = Series[bool] | np_ndarray_bool | list[bool]
 
 # Scratch types for generics
 
-S1 = TypeVar(
-    "S1",
-    bound=str
+SeriesDType: TypeAlias = (
+    str
     | bytes
     | datetime.date
     | datetime.time
@@ -841,32 +840,19 @@ S1 = TypeVar(
     | Interval
     | CategoricalDtype
     | BaseOffset
-    | list[str],
+    | list[str]
 )
-
-S2 = TypeVar(
-    "S2",
-    bound=str
-    | bytes
-    | datetime.date
-    | datetime.time
-    | bool
-    | int
-    | float
-    | complex
-    | Dtype
-    | datetime.datetime  # includes pd.Timestamp
-    | datetime.timedelta  # includes pd.Timedelta
-    | Period
-    | Interval
-    | CategoricalDtype
-    | BaseOffset
-    | list[str],
-)
+S1 = TypeVar("S1", bound=SeriesDType, default=Any)
+# Like S1, but without `default=Any`.
+S2 = TypeVar("S2", bound=SeriesDType)
+S3 = TypeVar("S3", bound=SeriesDType)
 
 IndexingInt: TypeAlias = (
     int | np.int_ | np.integer | np.unsignedinteger | np.signedinteger | np.int8
 )
+
+# AxesData is used for data for Index
+AxesData: TypeAlias = Mapping[S3, Any] | Axes | KeysView
 
 # Any plain Python or numpy function
 Function: TypeAlias = np.ufunc | Callable[..., Any]
@@ -949,7 +935,7 @@ ReplaceValue: TypeAlias = (
     | NAType
     | Sequence[Scalar | Pattern]
     | Mapping[HashableT, ScalarT]
-    | Series[Any]
+    | Series
     | None
 )
 
@@ -1011,7 +997,12 @@ TimeZones: TypeAlias = str | tzinfo | None | int
 
 # Evaluates to a DataFrame column in DataFrame.assign context.
 IntoColumn: TypeAlias = (
-    AnyArrayLike | Scalar | Callable[[DataFrame], AnyArrayLike | Scalar]
+    AnyArrayLike
+    | Scalar
+    | Callable[[DataFrame], AnyArrayLike | Scalar | Sequence[Scalar] | range]
+    | Sequence[Scalar]
+    | range
+    | None
 )
 
 DatetimeLike: TypeAlias = datetime.datetime | np.datetime64 | Timestamp

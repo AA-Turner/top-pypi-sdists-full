@@ -10,10 +10,13 @@ from civis.response import Response
 class _Admin:
     def list_organizations(
         self,
+        *,
         status: List[str] | None = ...,
         org_type: List[str] | None = ...,
-    ) -> _ResponseAdminListOrganizations:
+    ) -> List[_ResponseAdminListOrganizations]:
         """List organizations
+
+        API URL: ``GET /admin/organizations``
 
         Parameters
         ----------
@@ -24,7 +27,7 @@ class _Admin:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID of this organization.
             - name : str
@@ -76,8 +79,10 @@ class _Aliases:
     def list_shares(
         self,
         id: int,
-    ) -> _ResponseAliasesListShares:
+    ) -> List[_ResponseAliasesListShares]:
         """List users and groups permissioned on this object
+
+        API URL: ``GET /aliases/{id}/shares``
 
         Parameters
         ----------
@@ -86,7 +91,7 @@ class _Aliases:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - readers : :class:`civis.Response`
                 - users : List[:class:`civis.Response`]
                     - id : int
@@ -122,10 +127,13 @@ class _Aliases:
         id: int,
         user_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseAliasesPutSharesUsers:
         """Set the permissions users have on this object
+
+        API URL: ``PUT /aliases/{id}/shares/users``
 
         Parameters
         ----------
@@ -180,6 +188,8 @@ class _Aliases:
     ) -> Response:
         """Revoke the permissions a user has on this object
 
+        API URL: ``DELETE /aliases/{id}/shares/users/{user_id}``
+
         Parameters
         ----------
         id : int
@@ -199,10 +209,13 @@ class _Aliases:
         id: int,
         group_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseAliasesPutSharesGroups:
         """Set the permissions groups has on this object
+
+        API URL: ``PUT /aliases/{id}/shares/groups``
 
         Parameters
         ----------
@@ -257,6 +270,8 @@ class _Aliases:
     ) -> Response:
         """Revoke the permissions a group has on this object
 
+        API URL: ``DELETE /aliases/{id}/shares/groups/{group_id}``
+
         Parameters
         ----------
         id : int
@@ -274,9 +289,12 @@ class _Aliases:
     def list_dependencies(
         self,
         id: int,
+        *,
         user_id: int | None = ...,
-    ) -> _ResponseAliasesListDependencies:
+    ) -> List[_ResponseAliasesListDependencies]:
         """List dependent objects for this object
+
+        API URL: ``GET /aliases/{id}/dependencies``
 
         Parameters
         ----------
@@ -287,7 +305,7 @@ class _Aliases:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - object_type : str
                 Dependent object type
             - fco_type : str
@@ -313,10 +331,13 @@ class _Aliases:
         id: int,
         user_id: int,
         include_dependencies: bool,
+        *,
         email_body: str | None = ...,
         send_email: bool | None = ...,
     ) -> _ResponseAliasesPutTransfer:
         """Transfer ownership of this object to another user
+
+        API URL: ``PUT /aliases/{id}/transfer``
 
         Parameters
         ----------
@@ -359,6 +380,7 @@ class _Aliases:
 
     def list(
         self,
+        *,
         object_type: str | None = ...,
         limit: int | None = ...,
         page_num: int | None = ...,
@@ -367,6 +389,8 @@ class _Aliases:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseAliasesList]:
         """List Aliases
+
+        API URL: ``GET /aliases``
 
         Parameters
         ----------
@@ -392,12 +416,13 @@ class _Aliases:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
                 The id of the Alias object.
             - object_id : int
@@ -423,9 +448,12 @@ class _Aliases:
         object_id: int,
         object_type: str,
         alias: str,
+        *,
         display_name: str | None = ...,
     ) -> _ResponseAliasesPost:
         """Create an Alias
+
+        API URL: ``POST /aliases``
 
         Parameters
         ----------
@@ -472,6 +500,8 @@ class _Aliases:
     ) -> _ResponseAliasesGet:
         """Get an Alias
 
+        API URL: ``GET /aliases/{id}``
+
         Parameters
         ----------
         id : int
@@ -505,9 +535,12 @@ class _Aliases:
         object_id: int,
         object_type: str,
         alias: str,
+        *,
         display_name: str | None = ...,
     ) -> _ResponseAliasesPut:
         """Replace all attributes of this Alias
+
+        API URL: ``PUT /aliases/{id}``
 
         Parameters
         ----------
@@ -553,12 +586,15 @@ class _Aliases:
     def patch(
         self,
         id: int,
+        *,
         object_id: int | None = ...,
         object_type: str | None = ...,
         alias: str | None = ...,
         display_name: str | None = ...,
     ) -> _ResponseAliasesPatch:
         """Update some attributes of this Alias
+
+        API URL: ``PATCH /aliases/{id}``
 
         Parameters
         ----------
@@ -607,6 +643,8 @@ class _Aliases:
     ) -> Response:
         """Delete an alias
 
+        API URL: ``DELETE /aliases/{id}``
+
         Parameters
         ----------
         id : int
@@ -625,6 +663,8 @@ class _Aliases:
         alias: str,
     ) -> _ResponseAliasesGetObjectType:
         """Get details about an alias within an FCO type
+
+        API URL: ``GET /aliases/{object_type}/{alias}``
 
         Parameters
         ----------
@@ -663,6 +703,7 @@ class _Aliases:
 class _Announcements:
     def list(
         self,
+        *,
         limit: int | None = ...,
         page_num: int | None = ...,
         order: str | None = ...,
@@ -670,6 +711,8 @@ class _Announcements:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseAnnouncementsList]:
         """List announcements
+
+        API URL: ``GET /announcements``
 
         Parameters
         ----------
@@ -688,12 +731,13 @@ class _Announcements:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
                 The ID of this announcement
             - subject : str
@@ -710,6 +754,7 @@ class _Announcements:
 class _Clusters:
     def list_kubernetes(
         self,
+        *,
         organization_id: int | None = ...,
         organization_slug: str | None = ...,
         raw_cluster_slug: str | None = ...,
@@ -721,6 +766,8 @@ class _Clusters:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseClustersListKubernetes]:
         """List Kubernetes Clusters
+
+        API URL: ``GET /clusters/kubernetes``
 
         Parameters
         ----------
@@ -750,12 +797,13 @@ class _Clusters:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
                 The ID of this cluster.
             - organization_id : str
@@ -827,9 +875,12 @@ class _Clusters:
     def get_kubernetes(
         self,
         id: int,
+        *,
         include_usage_stats: bool | None = ...,
     ) -> _ResponseClustersGetKubernetes:
         """Describe a Kubernetes Cluster
+
+        API URL: ``GET /clusters/kubernetes/{id}``
 
         Parameters
         ----------
@@ -914,9 +965,12 @@ class _Clusters:
     def list_kubernetes_compute_hours(
         self,
         id: int,
+        *,
         include_usage_stats: bool | None = ...,
-    ) -> _ResponseClustersListKubernetesComputeHours:
+    ) -> List[_ResponseClustersListKubernetesComputeHours]:
         """List compute hours for a Kubernetes Cluster
+
+        API URL: ``GET /clusters/kubernetes/{id}/compute_hours``
 
         Parameters
         ----------
@@ -927,7 +981,7 @@ class _Clusters:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - total_normalized_hours : int
                 The total number of normalized hours used by this cluster.
             - normalized_hours_by_instance_type : str
@@ -941,6 +995,7 @@ class _Clusters:
     def list_kubernetes_deployments(
         self,
         id: int,
+        *,
         base_type: str | None = ...,
         state: str | None = ...,
         limit: int | None = ...,
@@ -950,6 +1005,8 @@ class _Clusters:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseClustersListKubernetesDeployments]:
         """List the deployments associated with a Kubernetes Cluster
+
+        API URL: ``GET /clusters/kubernetes/{id}/deployments``
 
         Parameters
         ----------
@@ -976,12 +1033,13 @@ class _Clusters:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
                 The id of this deployment.
             - name : str
@@ -1025,8 +1083,10 @@ class _Clusters:
     def list_kubernetes_deployment_stats(
         self,
         id: int,
-    ) -> _ResponseClustersListKubernetesDeploymentStats:
+    ) -> List[_ResponseClustersListKubernetesDeploymentStats]:
         """Get stats about deployments associated with a Kubernetes Cluster
+
+        API URL: ``GET /clusters/kubernetes/{id}/deployment_stats``
 
         Parameters
         ----------
@@ -1035,7 +1095,7 @@ class _Clusters:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - base_type : str
                 The base type of this deployment
             - state : str
@@ -1054,9 +1114,12 @@ class _Clusters:
     def list_kubernetes_partitions(
         self,
         id: int,
+        *,
         include_usage_stats: bool | None = ...,
-    ) -> _ResponseClustersListKubernetesPartitions:
+    ) -> List[_ResponseClustersListKubernetesPartitions]:
         """List Cluster Partitions for given cluster
+
+        API URL: ``GET /clusters/kubernetes/{id}/partitions``
 
         Parameters
         ----------
@@ -1067,7 +1130,7 @@ class _Clusters:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - cluster_partition_id : int
                 The ID of this cluster partition.
             - name : str
@@ -1125,6 +1188,8 @@ class _Clusters:
         labels: List[str],
     ) -> _ResponseClustersPostKubernetesPartitions:
         """Create a Cluster Partition for given cluster
+
+        API URL: ``POST /clusters/kubernetes/{id}/partitions``
 
         Parameters
         ----------
@@ -1201,11 +1266,14 @@ class _Clusters:
         self,
         id: int,
         cluster_partition_id: int,
+        *,
         instance_configs: List[dict] | None = ...,
         name: str | None = ...,
         labels: List[str] | None = ...,
     ) -> _ResponseClustersPatchKubernetesPartitions:
         """Update a Cluster Partition
+
+        API URL: ``PATCH /clusters/kubernetes/{id}/partitions/{cluster_partition_id}``
 
         Parameters
         ----------
@@ -1287,6 +1355,8 @@ class _Clusters:
     ) -> Response:
         """Delete a Cluster Partition
 
+        API URL: ``DELETE /clusters/kubernetes/{id}/partitions/{cluster_partition_id}``
+
         Parameters
         ----------
         id : int
@@ -1305,9 +1375,12 @@ class _Clusters:
         self,
         id: int,
         cluster_partition_id: int,
+        *,
         include_usage_stats: bool | None = ...,
     ) -> _ResponseClustersGetKubernetesPartitions:
         """Describe a Cluster Partition
+
+        API URL: ``GET /clusters/kubernetes/{id}/partitions/{cluster_partition_id}``
 
         Parameters
         ----------
@@ -1374,9 +1447,12 @@ class _Clusters:
     def get_kubernetes_instance_configs(
         self,
         instance_config_id: int,
+        *,
         include_usage_stats: bool | None = ...,
     ) -> _ResponseClustersGetKubernetesInstanceConfigs:
         """Describe an Instance Config
+
+        API URL: ``GET /clusters/kubernetes/instance_configs/{instance_config_id}``
 
         Parameters
         ----------
@@ -1434,9 +1510,12 @@ class _Clusters:
     def list_kubernetes_instance_configs_active_workloads(
         self,
         id: int,
+        *,
         state: str | None = ...,
-    ) -> _ResponseClustersListKubernetesInstanceConfigsActiveWorkloads:
+    ) -> List[_ResponseClustersListKubernetesInstanceConfigsActiveWorkloads]:
         """List active workloads in an Instance Config
+
+        API URL: ``GET /clusters/kubernetes/instance_configs/{id}/active_workloads``
 
         Parameters
         ----------
@@ -1448,7 +1527,7 @@ class _Clusters:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The id of this deployment.
             - base_type : str
@@ -1497,10 +1576,13 @@ class _Clusters:
     def list_kubernetes_instance_configs_user_statistics(
         self,
         instance_config_id: int,
+        *,
         order: str | None = ...,
         order_dir: str | None = ...,
-    ) -> _ResponseClustersListKubernetesInstanceConfigsUserStatistics:
+    ) -> List[_ResponseClustersListKubernetesInstanceConfigsUserStatistics]:
         """Get statistics about the current users of an Instance Config
+
+        API URL: ``GET /clusters/kubernetes/instance_configs/{instance_config_id}/user_statistics``
 
         Parameters
         ----------
@@ -1517,7 +1599,7 @@ class _Clusters:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - user_id : str
                 The owning user's ID
             - user_name : str
@@ -1546,9 +1628,12 @@ class _Clusters:
     def list_kubernetes_instance_configs_historical_graphs(
         self,
         instance_config_id: int,
+        *,
         timeframe: str | None = ...,
-    ) -> _ResponseClustersListKubernetesInstanceConfigsHistoricalGraphs:
+    ) -> List[_ResponseClustersListKubernetesInstanceConfigsHistoricalGraphs]:
         """Get graphs of historical resource usage in an Instance Config
+
+        API URL: ``GET /clusters/kubernetes/instance_configs/{instance_config_id}/historical_graphs``
 
         Parameters
         ----------
@@ -1559,7 +1644,7 @@ class _Clusters:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - cpu_graph_url : str
                 URL for the graph of historical CPU usage in this instance config.
             - mem_graph_url : str
@@ -1567,15 +1652,67 @@ class _Clusters:
         """
         ...
 
-class _Credentials:
-    def list_types(
+    def list_kubernetes_instance_configs_historical_metrics(
         self,
-    ) -> _ResponseCredentialsListTypes:
-        """Get list of Credential Types
+        instance_config_id: int,
+        *,
+        timeframe: str | None = ...,
+        metric: str | None = ...,
+    ) -> List[_ResponseClustersListKubernetesInstanceConfigsHistoricalMetrics]:
+        """Get graphs of historical resource usage in an Instance Config
+
+        API URL: ``GET /clusters/kubernetes/instance_configs/{instance_config_id}/historical_metrics``
+
+        Parameters
+        ----------
+        instance_config_id : int
+            The ID of this instance config.
+        timeframe : str, optional
+            The span of time that the graphs cover. Must be one of 1_day, 1_week.
+        metric : str, optional
+            The metric to retrieve. Must be one of cpu, memory.
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
+            - instance_config_id : int
+                The ID of this instance config.
+            - metric : str
+                URL for the graph of historical CPU usage in this instance config.
+            - timeframe : str
+                The span of time that the graphs cover. Must be one of 1_day, 1_week.
+            - unit : str
+                The unit of the values.
+            - metrics : :class:`civis.Response`
+                - used : :class:`civis.Response`
+                    - times : List[int]
+                        The times associated with data points, in seconds since epoch.
+                    - values : List[float]
+                        The values of the data points.
+                - requested : :class:`civis.Response`
+                    - times : List[int]
+                        The times associated with data points, in seconds since epoch.
+                    - values : List[float]
+                        The values of the data points.
+                - capacity : :class:`civis.Response`
+                    - times : List[int]
+                        The times associated with data points, in seconds since epoch.
+                    - values : List[float]
+                        The values of the data points.
+        """
+        ...
+
+class _Credentials:
+    def list_types(
+        self,
+    ) -> List[_ResponseCredentialsListTypes]:
+        """Get list of Credential Types
+
+        API URL: ``GET /credentials/types``
+
+        Returns
+        -------
+        :class:`civis.ListResponse`
             - types : List[str]
                 list of acceptable credential types
         """
@@ -1583,6 +1720,7 @@ class _Credentials:
 
     def list(
         self,
+        *,
         type: str | None = ...,
         remote_host_id: int | None = ...,
         default: bool | None = ...,
@@ -1596,6 +1734,8 @@ class _Credentials:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseCredentialsList]:
         """List credentials
+
+        API URL: ``GET /credentials``
 
         Parameters
         ----------
@@ -1635,12 +1775,13 @@ class _Credentials:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
                 The ID of the credential.
             - name : str
@@ -1688,6 +1829,7 @@ class _Credentials:
         type: str,
         username: str,
         password: str,
+        *,
         name: str | None = ...,
         description: str | None = ...,
         remote_host_id: int | None = ...,
@@ -1698,6 +1840,8 @@ class _Credentials:
         oauth: bool | None = ...,
     ) -> _ResponseCredentialsPost:
         """Create a credential
+
+        API URL: ``POST /credentials``
 
         Parameters
         ----------
@@ -1781,6 +1925,7 @@ class _Credentials:
         type: str,
         username: str,
         password: str,
+        *,
         name: str | None = ...,
         description: str | None = ...,
         remote_host_id: int | None = ...,
@@ -1791,6 +1936,8 @@ class _Credentials:
         oauth: bool | None = ...,
     ) -> _ResponseCredentialsPut:
         """Update an existing credential
+
+        API URL: ``PUT /credentials/{id}``
 
         Parameters
         ----------
@@ -1873,6 +2020,7 @@ class _Credentials:
     def patch(
         self,
         id: int,
+        *,
         name: str | None = ...,
         type: str | None = ...,
         description: str | None = ...,
@@ -1886,6 +2034,8 @@ class _Credentials:
         oauth: bool | None = ...,
     ) -> _ResponseCredentialsPatch:
         """Update some attributes of a credential
+
+        API URL: ``PATCH /credentials/{id}``
 
         Parameters
         ----------
@@ -1971,6 +2121,8 @@ class _Credentials:
     ) -> _ResponseCredentialsGet:
         """Get a credential
 
+        API URL: ``GET /credentials/{id}``
+
         Parameters
         ----------
         id : int
@@ -2027,6 +2179,8 @@ class _Credentials:
     ) -> Response:
         """Delete a credential
 
+        API URL: ``DELETE /credentials/{id}``
+
         Parameters
         ----------
         id : int
@@ -2047,6 +2201,8 @@ class _Credentials:
         password: str,
     ) -> _ResponseCredentialsPostAuthenticate:
         """Authenticate against a remote host
+
+        API URL: ``POST /credentials/authenticate``
 
         Parameters
         ----------
@@ -2111,9 +2267,12 @@ class _Credentials:
     def post_temporary(
         self,
         id: int,
+        *,
         duration: int | None = ...,
     ) -> _ResponseCredentialsPostTemporary:
         """Generate a temporary credential for accessing S3
+
+        API URL: ``POST /credentials/{id}/temporary``
 
         Parameters
         ----------
@@ -2138,8 +2297,10 @@ class _Credentials:
     def list_shares(
         self,
         id: int,
-    ) -> _ResponseCredentialsListShares:
+    ) -> List[_ResponseCredentialsListShares]:
         """List users and groups permissioned on this object
+
+        API URL: ``GET /credentials/{id}/shares``
 
         Parameters
         ----------
@@ -2148,7 +2309,7 @@ class _Credentials:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - readers : :class:`civis.Response`
                 - users : List[:class:`civis.Response`]
                     - id : int
@@ -2184,10 +2345,13 @@ class _Credentials:
         id: int,
         user_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseCredentialsPutSharesUsers:
         """Set the permissions users have on this object
+
+        API URL: ``PUT /credentials/{id}/shares/users``
 
         Parameters
         ----------
@@ -2242,6 +2406,8 @@ class _Credentials:
     ) -> Response:
         """Revoke the permissions a user has on this object
 
+        API URL: ``DELETE /credentials/{id}/shares/users/{user_id}``
+
         Parameters
         ----------
         id : int
@@ -2261,10 +2427,13 @@ class _Credentials:
         id: int,
         group_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseCredentialsPutSharesGroups:
         """Set the permissions groups has on this object
+
+        API URL: ``PUT /credentials/{id}/shares/groups``
 
         Parameters
         ----------
@@ -2319,6 +2488,8 @@ class _Credentials:
     ) -> Response:
         """Revoke the permissions a group has on this object
 
+        API URL: ``DELETE /credentials/{id}/shares/groups/{group_id}``
+
         Parameters
         ----------
         id : int
@@ -2336,9 +2507,12 @@ class _Credentials:
     def list_dependencies(
         self,
         id: int,
+        *,
         user_id: int | None = ...,
-    ) -> _ResponseCredentialsListDependencies:
+    ) -> List[_ResponseCredentialsListDependencies]:
         """List dependent objects for this object
+
+        API URL: ``GET /credentials/{id}/dependencies``
 
         Parameters
         ----------
@@ -2349,7 +2523,7 @@ class _Credentials:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - object_type : str
                 Dependent object type
             - fco_type : str
@@ -2375,10 +2549,13 @@ class _Credentials:
         id: int,
         user_id: int,
         include_dependencies: bool,
+        *,
         email_body: str | None = ...,
         send_email: bool | None = ...,
     ) -> _ResponseCredentialsPutTransfer:
         """Transfer ownership of this object to another user
+
+        API URL: ``PUT /credentials/{id}/transfer``
 
         Parameters
         ----------
@@ -2422,12 +2599,14 @@ class _Credentials:
 class _Databases:
     def list(
         self,
-    ) -> _ResponseDatabasesList:
+    ) -> List[_ResponseDatabasesList]:
         """List databases
+
+        API URL: ``GET /databases``
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID for the database.
             - name : str
@@ -2452,6 +2631,8 @@ class _Databases:
         id: int,
     ) -> _ResponseDatabasesGet:
         """Show database information
+
+        API URL: ``GET /databases/{id}``
 
         Parameters
         ----------
@@ -2483,10 +2664,13 @@ class _Databases:
     def list_schemas(
         self,
         id: int,
+        *,
         name: str | None = ...,
         credential_id: int | None = ...,
-    ) -> _ResponseDatabasesListSchemas:
+    ) -> List[_ResponseDatabasesListSchemas]:
         """List schemas in this database
+
+        API URL: ``GET /databases/{id}/schemas``
 
         Parameters
         ----------
@@ -2501,7 +2685,7 @@ class _Databases:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - schema : str
                 The name of a schema.
         """
@@ -2511,9 +2695,12 @@ class _Databases:
         self,
         id: int,
         schema_name: str,
+        *,
         credential_id: int | None = ...,
-    ) -> _ResponseDatabasesListSchemasTables:
+    ) -> List[_ResponseDatabasesListSchemasTables]:
         """List tables in this schema
+
+        API URL: ``GET /databases/{id}/schemas/{schema_name}/tables``
 
         Parameters
         ----------
@@ -2526,7 +2713,7 @@ class _Databases:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - name : str
                 The name of the table.
             - schema : str
@@ -2544,9 +2731,12 @@ class _Databases:
         id: int,
         schema_name: str,
         table_name: str,
+        *,
         credential_id: int | None = ...,
     ) -> _ResponseDatabasesGetSchemasTables:
         """Show basic table info
+
+        API URL: ``GET /databases/{id}/schemas/{schema_name}/tables/{table_name}``
 
         Parameters
         ----------
@@ -2750,10 +2940,13 @@ class _Databases:
         id: int,
         schema_name: str,
         table_name: str,
+        *,
         credential_id: int | None = ...,
         description: str | None = ...,
     ) -> _ResponseDatabasesPatchSchemasTables:
         """Update a table
+
+        API URL: ``PATCH /databases/{id}/schemas/{schema_name}/tables/{table_name}``
 
         Parameters
         ----------
@@ -2959,9 +3152,12 @@ class _Databases:
         id: int,
         schema_name: str,
         table_name: str,
+        *,
         hidden: bool | None = ...,
-    ) -> _ResponseDatabasesListSchemasTablesProjects:
+    ) -> List[_ResponseDatabasesListSchemasTablesProjects]:
         """List the projects a Table belongs to
+
+        API URL: ``GET /databases/{id}/schemas/{schema_name}/tables/{table_name}/projects``
 
         Parameters
         ----------
@@ -2977,7 +3173,7 @@ class _Databases:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID for this project.
             - author : :class:`civis.Response`
@@ -3025,6 +3221,8 @@ class _Databases:
     ) -> Response:
         """Add a Table to a project
 
+        API URL: ``PUT /databases/{id}/schemas/{schema_name}/tables/{table_name}/projects/{project_id}``
+
         Parameters
         ----------
         id : int
@@ -3052,6 +3250,8 @@ class _Databases:
     ) -> Response:
         """Remove a Table from a project
 
+        API URL: ``DELETE /databases/{id}/schemas/{schema_name}/tables/{table_name}/projects/{project_id}``
+
         Parameters
         ----------
         id : int
@@ -3074,9 +3274,12 @@ class _Databases:
         self,
         id: int,
         schema: str,
+        *,
         stats_priority: str | None = ...,
     ) -> _ResponseDatabasesPostSchemasScan:
         """Creates and enqueues a schema scanner job
+
+        API URL: ``POST /databases/{id}/schemas/scan``
 
         Parameters
         ----------
@@ -3107,9 +3310,12 @@ class _Databases:
         id: int,
         schema_name: str,
         table_name: str,
+        *,
         credential_id: int | None = ...,
     ) -> _ResponseDatabasesGetTablePrivilegesSchemaName:
         """Show table privileges
+
+        API URL: ``GET /databases/{id}/table_privileges/{schema_name}/{table_name}``
 
         Parameters
         ----------
@@ -3140,9 +3346,12 @@ class _Databases:
         self,
         id: int,
         schema_name: str,
+        *,
         credential_id: int | None = ...,
     ) -> _ResponseDatabasesGetSchemaPrivileges:
         """Show schema privileges
+
+        API URL: ``GET /databases/{id}/schema_privileges/{schema_name}``
 
         Parameters
         ----------
@@ -3170,9 +3379,12 @@ class _Databases:
     def list_users(
         self,
         id: int,
+        *,
         active: bool | None = ...,
-    ) -> _ResponseDatabasesListUsers:
+    ) -> List[_ResponseDatabasesListUsers]:
         """Show list of database users
+
+        API URL: ``GET /databases/{id}/users``
 
         Parameters
         ----------
@@ -3184,7 +3396,7 @@ class _Databases:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - username : str
                 Username
             - active : bool
@@ -3195,8 +3407,10 @@ class _Databases:
     def list_groups(
         self,
         id: int,
-    ) -> _ResponseDatabasesListGroups:
+    ) -> List[_ResponseDatabasesListGroups]:
         """List groups in the specified database
+
+        API URL: ``GET /databases/{id}/groups``
 
         Parameters
         ----------
@@ -3205,7 +3419,7 @@ class _Databases:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - group_name : str
                 The name of the group.
             - members : List[str]
@@ -3216,8 +3430,10 @@ class _Databases:
     def list_whitelist_ips(
         self,
         id: int,
-    ) -> _ResponseDatabasesListWhitelistIps:
+    ) -> List[_ResponseDatabasesListWhitelistIps]:
         """List whitelisted IPs for the specified database
+
+        API URL: ``GET /databases/{id}/whitelist-ips``
 
         Parameters
         ----------
@@ -3226,7 +3442,7 @@ class _Databases:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID of this whitelisted IP address.
             - remote_host_id : int
@@ -3248,6 +3464,8 @@ class _Databases:
         whitelisted_ip_id: int,
     ) -> _ResponseDatabasesGetWhitelistIps:
         """View details about a whitelisted IP
+
+        API URL: ``GET /databases/{id}/whitelist-ips/{whitelisted_ip_id}``
 
         Parameters
         ----------
@@ -3281,8 +3499,10 @@ class _Databases:
     def list_advanced_settings(
         self,
         id: int,
-    ) -> _ResponseDatabasesListAdvancedSettings:
+    ) -> List[_ResponseDatabasesListAdvancedSettings]:
         """Get the advanced settings for this database
+
+        API URL: ``GET /databases/{id}/advanced-settings``
 
         Parameters
         ----------
@@ -3291,7 +3511,7 @@ class _Databases:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - export_caching_enabled : bool
                 Whether or not caching is enabled for export jobs run on this database
                 server.
@@ -3301,9 +3521,12 @@ class _Databases:
     def patch_advanced_settings(
         self,
         id: int,
+        *,
         export_caching_enabled: bool | None = ...,
     ) -> _ResponseDatabasesPatchAdvancedSettings:
         """Update the advanced settings for this database
+
+        API URL: ``PATCH /databases/{id}/advanced-settings``
 
         Parameters
         ----------
@@ -3329,6 +3552,8 @@ class _Databases:
     ) -> _ResponseDatabasesPutAdvancedSettings:
         """Edit the advanced settings for this database
 
+        API URL: ``PUT /databases/{id}/advanced-settings``
+
         Parameters
         ----------
         id : int
@@ -3352,6 +3577,8 @@ class _Databases:
         timeframe: str,
     ) -> _ResponseDatabasesGetStatusGraphsTimeframe:
         """Get the status graphs for this database
+
+        API URL: ``GET /databases/{id}/status_graphs/timeframe/{timeframe}``
 
         Parameters
         ----------
@@ -3382,8 +3609,10 @@ class _Databases:
 class _Endpoints:
     def list(
         self,
-    ) -> Response:
+    ) -> List[Response]:
         """List API endpoints
+
+        API URL: ``GET /endpoints``
 
         Returns
         -------
@@ -3400,6 +3629,7 @@ class _Enhancements:
         input_table: dict,
         match_target_id: int,
         output_table: dict,
+        *,
         schedule: dict | None = ...,
         notifications: dict | None = ...,
         max_matches: int | None = ...,
@@ -3408,6 +3638,8 @@ class _Enhancements:
         parent_id: int | None = ...,
     ) -> _ResponseEnhancementsPostCivisDataMatch:
         """Create a Civis Data Match Enhancement
+
+        API URL: ``POST /enhancements/civis-data-match``
 
         Parameters
         ----------
@@ -3617,6 +3849,8 @@ class _Enhancements:
     ) -> _ResponseEnhancementsGetCivisDataMatch:
         """Get a Civis Data Match Enhancement
 
+        API URL: ``GET /enhancements/civis-data-match/{id}``
+
         Parameters
         ----------
         id : int
@@ -3756,6 +3990,7 @@ class _Enhancements:
         input_table: dict,
         match_target_id: int,
         output_table: dict,
+        *,
         schedule: dict | None = ...,
         notifications: dict | None = ...,
         max_matches: int | None = ...,
@@ -3764,6 +3999,8 @@ class _Enhancements:
         parent_id: int | None = ...,
     ) -> _ResponseEnhancementsPutCivisDataMatch:
         """Replace all attributes of this Civis Data Match Enhancement
+
+        API URL: ``PUT /enhancements/civis-data-match/{id}``
 
         Parameters
         ----------
@@ -3972,6 +4209,7 @@ class _Enhancements:
     def patch_civis_data_match(
         self,
         id: int,
+        *,
         name: str | None = ...,
         schedule: dict | None = ...,
         notifications: dict | None = ...,
@@ -3985,6 +4223,8 @@ class _Enhancements:
         parent_id: int | None = ...,
     ) -> _ResponseEnhancementsPatchCivisDataMatch:
         """Update some attributes of this Civis Data Match Enhancement
+
+        API URL: ``PATCH /enhancements/civis-data-match/{id}``
 
         Parameters
         ----------
@@ -4193,11 +4433,14 @@ class _Enhancements:
     def post_civis_data_match_clone(
         self,
         id: int,
+        *,
         clone_schedule: bool | None = ...,
         clone_triggers: bool | None = ...,
         clone_notifications: bool | None = ...,
     ) -> _ResponseEnhancementsPostCivisDataMatchClone:
         """Clone this Civis Data Match Enhancement
+
+        API URL: ``POST /enhancements/civis-data-match/{id}/clone``
 
         Parameters
         ----------
@@ -4343,6 +4586,8 @@ class _Enhancements:
     ) -> _ResponseEnhancementsPostCivisDataMatchRuns:
         """Start a run
 
+        API URL: ``POST /enhancements/civis-data-match/{id}/runs``
+
         Parameters
         ----------
         id : int
@@ -4374,6 +4619,7 @@ class _Enhancements:
     def list_civis_data_match_runs(
         self,
         id: int,
+        *,
         limit: int | None = ...,
         page_num: int | None = ...,
         order: str | None = ...,
@@ -4381,6 +4627,8 @@ class _Enhancements:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseEnhancementsListCivisDataMatchRuns]:
         """List runs for the given Civis Data Match job
+
+        API URL: ``GET /enhancements/civis-data-match/{id}/runs``
 
         Parameters
         ----------
@@ -4401,12 +4649,13 @@ class _Enhancements:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
                 The ID of the run.
             - civis_data_match_id : int
@@ -4433,6 +4682,8 @@ class _Enhancements:
         run_id: int,
     ) -> _ResponseEnhancementsGetCivisDataMatchRuns:
         """Check status of a run
+
+        API URL: ``GET /enhancements/civis-data-match/{id}/runs/{run_id}``
 
         Parameters
         ----------
@@ -4471,6 +4722,8 @@ class _Enhancements:
     ) -> Response:
         """Cancel a run
 
+        API URL: ``DELETE /enhancements/civis-data-match/{id}/runs/{run_id}``
+
         Parameters
         ----------
         id : int
@@ -4489,10 +4742,13 @@ class _Enhancements:
         self,
         id: int,
         run_id: int,
+        *,
         last_id: int | None = ...,
         limit: int | None = ...,
-    ) -> _ResponseEnhancementsListCivisDataMatchRunsLogs:
+    ) -> List[_ResponseEnhancementsListCivisDataMatchRunsLogs]:
         """Get the logs for a run
+
+        API URL: ``GET /enhancements/civis-data-match/{id}/runs/{run_id}/logs``
 
         Parameters
         ----------
@@ -4509,7 +4765,7 @@ class _Enhancements:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID of the log.
             - created_at : str (date-time)
@@ -4526,6 +4782,8 @@ class _Enhancements:
         id: int,
     ) -> _ResponseEnhancementsPostCivisDataMatchCancel:
         """Cancel a run
+
+        API URL: ``POST /enhancements/civis-data-match/{id}/cancel``
 
         Parameters
         ----------
@@ -4548,6 +4806,7 @@ class _Enhancements:
         self,
         id: int,
         run_id: int,
+        *,
         limit: int | None = ...,
         page_num: int | None = ...,
         order: str | None = ...,
@@ -4555,6 +4814,8 @@ class _Enhancements:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseEnhancementsListCivisDataMatchRunsOutputs]:
         """List the outputs for a run
+
+        API URL: ``GET /enhancements/civis-data-match/{id}/runs/{run_id}/outputs``
 
         Parameters
         ----------
@@ -4577,12 +4838,13 @@ class _Enhancements:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - object_type : str
                 The type of the output. Valid values are File, Table, Report, Project,
                 Credential, or JSONValue
@@ -4599,8 +4861,10 @@ class _Enhancements:
     def list_civis_data_match_shares(
         self,
         id: int,
-    ) -> _ResponseEnhancementsListCivisDataMatchShares:
+    ) -> List[_ResponseEnhancementsListCivisDataMatchShares]:
         """List users and groups permissioned on this object
+
+        API URL: ``GET /enhancements/civis-data-match/{id}/shares``
 
         Parameters
         ----------
@@ -4609,7 +4873,7 @@ class _Enhancements:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - readers : :class:`civis.Response`
                 - users : List[:class:`civis.Response`]
                     - id : int
@@ -4645,10 +4909,13 @@ class _Enhancements:
         id: int,
         user_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseEnhancementsPutCivisDataMatchSharesUsers:
         """Set the permissions users have on this object
+
+        API URL: ``PUT /enhancements/civis-data-match/{id}/shares/users``
 
         Parameters
         ----------
@@ -4703,6 +4970,8 @@ class _Enhancements:
     ) -> Response:
         """Revoke the permissions a user has on this object
 
+        API URL: ``DELETE /enhancements/civis-data-match/{id}/shares/users/{user_id}``
+
         Parameters
         ----------
         id : int
@@ -4722,10 +4991,13 @@ class _Enhancements:
         id: int,
         group_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseEnhancementsPutCivisDataMatchSharesGroups:
         """Set the permissions groups has on this object
+
+        API URL: ``PUT /enhancements/civis-data-match/{id}/shares/groups``
 
         Parameters
         ----------
@@ -4780,6 +5052,8 @@ class _Enhancements:
     ) -> Response:
         """Revoke the permissions a group has on this object
 
+        API URL: ``DELETE /enhancements/civis-data-match/{id}/shares/groups/{group_id}``
+
         Parameters
         ----------
         id : int
@@ -4797,9 +5071,12 @@ class _Enhancements:
     def list_civis_data_match_dependencies(
         self,
         id: int,
+        *,
         user_id: int | None = ...,
-    ) -> _ResponseEnhancementsListCivisDataMatchDependencies:
+    ) -> List[_ResponseEnhancementsListCivisDataMatchDependencies]:
         """List dependent objects for this object
+
+        API URL: ``GET /enhancements/civis-data-match/{id}/dependencies``
 
         Parameters
         ----------
@@ -4810,7 +5087,7 @@ class _Enhancements:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - object_type : str
                 Dependent object type
             - fco_type : str
@@ -4836,10 +5113,13 @@ class _Enhancements:
         id: int,
         user_id: int,
         include_dependencies: bool,
+        *,
         email_body: str | None = ...,
         send_email: bool | None = ...,
     ) -> _ResponseEnhancementsPutCivisDataMatchTransfer:
         """Transfer ownership of this object to another user
+
+        API URL: ``PUT /enhancements/civis-data-match/{id}/transfer``
 
         Parameters
         ----------
@@ -4886,6 +5166,8 @@ class _Enhancements:
         status: bool,
     ) -> _ResponseEnhancementsPutCivisDataMatchArchive:
         """Update the archive status of this object
+
+        API URL: ``PUT /enhancements/civis-data-match/{id}/archive``
 
         Parameters
         ----------
@@ -5024,9 +5306,12 @@ class _Enhancements:
     def list_civis_data_match_projects(
         self,
         id: int,
+        *,
         hidden: bool | None = ...,
-    ) -> _ResponseEnhancementsListCivisDataMatchProjects:
+    ) -> List[_ResponseEnhancementsListCivisDataMatchProjects]:
         """List the projects a Civis Data Match Enhancement belongs to
+
+        API URL: ``GET /enhancements/civis-data-match/{id}/projects``
 
         Parameters
         ----------
@@ -5038,7 +5323,7 @@ class _Enhancements:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID for this project.
             - author : :class:`civis.Response`
@@ -5084,6 +5369,8 @@ class _Enhancements:
     ) -> Response:
         """Add a Civis Data Match Enhancement to a project
 
+        API URL: ``PUT /enhancements/civis-data-match/{id}/projects/{project_id}``
+
         Parameters
         ----------
         id : int
@@ -5105,6 +5392,8 @@ class _Enhancements:
     ) -> Response:
         """Remove a Civis Data Match Enhancement from a project
 
+        API URL: ``DELETE /enhancements/civis-data-match/{id}/projects/{project_id}``
+
         Parameters
         ----------
         id : int
@@ -5121,6 +5410,7 @@ class _Enhancements:
 
     def list_identity_resolution(
         self,
+        *,
         archived: str | None = ...,
         status: str | None = ...,
         limit: int | None = ...,
@@ -5130,6 +5420,8 @@ class _Enhancements:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseEnhancementsListIdentityResolution]:
         """List Identity Resolution Enhancements
+
+        API URL: ``GET /enhancements/identity-resolution``
 
         Parameters
         ----------
@@ -5154,12 +5446,13 @@ class _Enhancements:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
                 The ID for the enhancement.
             - name : str
@@ -5230,6 +5523,7 @@ class _Enhancements:
         self,
         name: str,
         sources: List[dict],
+        *,
         schedule: dict | None = ...,
         notifications: dict | None = ...,
         threshold: float | None = ...,
@@ -5241,6 +5535,8 @@ class _Enhancements:
         legacy_id: int | None = ...,
     ) -> _ResponseEnhancementsPostIdentityResolution:
         """Create an Identity Resolution Enhancement
+
+        API URL: ``POST /enhancements/identity-resolution``
 
         Parameters
         ----------
@@ -5582,6 +5878,7 @@ class _Enhancements:
         id: int,
         name: str,
         sources: List[dict],
+        *,
         schedule: dict | None = ...,
         notifications: dict | None = ...,
         threshold: float | None = ...,
@@ -5592,6 +5889,8 @@ class _Enhancements:
         link_scores: dict | None = ...,
     ) -> _ResponseEnhancementsPutIdentityResolution:
         """Replace all attributes of this Identity Resolution Enhancement
+
+        API URL: ``PUT /enhancements/identity-resolution/{id}``
 
         Parameters
         ----------
@@ -5931,6 +6230,7 @@ class _Enhancements:
     def patch_identity_resolution(
         self,
         id: int,
+        *,
         name: str | None = ...,
         schedule: dict | None = ...,
         notifications: dict | None = ...,
@@ -5943,6 +6243,8 @@ class _Enhancements:
         link_scores: dict | None = ...,
     ) -> _ResponseEnhancementsPatchIdentityResolution:
         """Update some attributes of this Identity Resolution Enhancement
+
+        API URL: ``PATCH /enhancements/identity-resolution/{id}``
 
         Parameters
         ----------
@@ -6282,9 +6584,12 @@ class _Enhancements:
     def get_identity_resolution(
         self,
         id: int,
+        *,
         is_legacy_id: bool | None = ...,
     ) -> _ResponseEnhancementsGetIdentityResolution:
         """Get an Identity Resolution Enhancement
+
+        API URL: ``GET /enhancements/identity-resolution/{id}``
 
         Parameters
         ----------
@@ -6506,11 +6811,14 @@ class _Enhancements:
     def post_identity_resolution_clone(
         self,
         id: int,
+        *,
         clone_schedule: bool | None = ...,
         clone_triggers: bool | None = ...,
         clone_notifications: bool | None = ...,
     ) -> _ResponseEnhancementsPostIdentityResolutionClone:
         """Clone this Identity Resolution Enhancement
+
+        API URL: ``POST /enhancements/identity-resolution/{id}/clone``
 
         Parameters
         ----------
@@ -6738,6 +7046,8 @@ class _Enhancements:
     ) -> _ResponseEnhancementsPostIdentityResolutionRuns:
         """Start a run
 
+        API URL: ``POST /enhancements/identity-resolution/{id}/runs``
+
         Parameters
         ----------
         id : int
@@ -6797,6 +7107,7 @@ class _Enhancements:
     def list_identity_resolution_runs(
         self,
         id: int,
+        *,
         limit: int | None = ...,
         page_num: int | None = ...,
         order: str | None = ...,
@@ -6804,6 +7115,8 @@ class _Enhancements:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseEnhancementsListIdentityResolutionRuns]:
         """List runs for the given Identity Resolution job
+
+        API URL: ``GET /enhancements/identity-resolution/{id}/runs``
 
         Parameters
         ----------
@@ -6824,12 +7137,13 @@ class _Enhancements:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
                 The ID of the run.
             - identity_resolution_id : int
@@ -6878,6 +7192,8 @@ class _Enhancements:
         run_id: int,
     ) -> _ResponseEnhancementsGetIdentityResolutionRuns:
         """Check status of a run
+
+        API URL: ``GET /enhancements/identity-resolution/{id}/runs/{run_id}``
 
         Parameters
         ----------
@@ -6944,6 +7260,8 @@ class _Enhancements:
     ) -> Response:
         """Cancel a run
 
+        API URL: ``DELETE /enhancements/identity-resolution/{id}/runs/{run_id}``
+
         Parameters
         ----------
         id : int
@@ -6962,10 +7280,13 @@ class _Enhancements:
         self,
         id: int,
         run_id: int,
+        *,
         last_id: int | None = ...,
         limit: int | None = ...,
-    ) -> _ResponseEnhancementsListIdentityResolutionRunsLogs:
+    ) -> List[_ResponseEnhancementsListIdentityResolutionRunsLogs]:
         """Get the logs for a run
+
+        API URL: ``GET /enhancements/identity-resolution/{id}/runs/{run_id}/logs``
 
         Parameters
         ----------
@@ -6982,7 +7303,7 @@ class _Enhancements:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID of the log.
             - created_at : str (date-time)
@@ -6999,6 +7320,8 @@ class _Enhancements:
         id: int,
     ) -> _ResponseEnhancementsPostIdentityResolutionCancel:
         """Cancel a run
+
+        API URL: ``POST /enhancements/identity-resolution/{id}/cancel``
 
         Parameters
         ----------
@@ -7019,12 +7342,14 @@ class _Enhancements:
 
     def list_types(
         self,
-    ) -> _ResponseEnhancementsListTypes:
+    ) -> List[_ResponseEnhancementsListTypes]:
         """List available enhancement types
+
+        API URL: ``GET /enhancements/types``
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - name : str
                 The name of the type.
         """
@@ -7032,13 +7357,15 @@ class _Enhancements:
 
     def list_field_mapping(
         self,
-    ) -> _ResponseEnhancementsListFieldMapping:
+    ) -> List[_ResponseEnhancementsListFieldMapping]:
         """List the fields in a field mapping for Civis Data Match, Data Unification, and
         Table Deduplication jobs
 
+        API URL: ``GET /enhancements/field-mapping``
+
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - field : str
                 The name of the field.
             - description : str
@@ -7048,6 +7375,7 @@ class _Enhancements:
 
     def list(
         self,
+        *,
         type: str | None = ...,
         author: str | None = ...,
         status: str | None = ...,
@@ -7059,6 +7387,8 @@ class _Enhancements:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseEnhancementsList]:
         """List Enhancements
+
+        API URL: ``GET /enhancements``
 
         Parameters
         ----------
@@ -7088,12 +7418,13 @@ class _Enhancements:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
                 The ID for the enhancement.
             - name : str
@@ -7126,6 +7457,7 @@ class _Enhancements:
         self,
         name: str,
         source: dict,
+        *,
         schedule: dict | None = ...,
         notifications: dict | None = ...,
         destination: dict | None = ...,
@@ -7139,6 +7471,8 @@ class _Enhancements:
         parent_id: int | None = ...,
     ) -> _ResponseEnhancementsPostCassNcoa:
         """Create a CASS/NCOA Enhancement
+
+        API URL: ``POST /enhancements/cass-ncoa``
 
         Parameters
         ----------
@@ -7385,6 +7719,8 @@ class _Enhancements:
     ) -> _ResponseEnhancementsGetCassNcoa:
         """Get a CASS/NCOA Enhancement
 
+        API URL: ``GET /enhancements/cass-ncoa/{id}``
+
         Parameters
         ----------
         id : int
@@ -7535,6 +7871,7 @@ class _Enhancements:
         id: int,
         name: str,
         source: dict,
+        *,
         schedule: dict | None = ...,
         notifications: dict | None = ...,
         destination: dict | None = ...,
@@ -7548,6 +7885,8 @@ class _Enhancements:
         parent_id: int | None = ...,
     ) -> _ResponseEnhancementsPutCassNcoa:
         """Replace all attributes of this CASS/NCOA Enhancement
+
+        API URL: ``PUT /enhancements/cass-ncoa/{id}``
 
         Parameters
         ----------
@@ -7793,6 +8132,7 @@ class _Enhancements:
     def patch_cass_ncoa(
         self,
         id: int,
+        *,
         name: str | None = ...,
         schedule: dict | None = ...,
         notifications: dict | None = ...,
@@ -7808,6 +8148,8 @@ class _Enhancements:
         parent_id: int | None = ...,
     ) -> _ResponseEnhancementsPatchCassNcoa:
         """Update some attributes of this CASS/NCOA Enhancement
+
+        API URL: ``PATCH /enhancements/cass-ncoa/{id}``
 
         Parameters
         ----------
@@ -8056,6 +8398,8 @@ class _Enhancements:
     ) -> _ResponseEnhancementsPostCassNcoaRuns:
         """Start a run
 
+        API URL: ``POST /enhancements/cass-ncoa/{id}/runs``
+
         Parameters
         ----------
         id : int
@@ -8087,6 +8431,7 @@ class _Enhancements:
     def list_cass_ncoa_runs(
         self,
         id: int,
+        *,
         limit: int | None = ...,
         page_num: int | None = ...,
         order: str | None = ...,
@@ -8094,6 +8439,8 @@ class _Enhancements:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseEnhancementsListCassNcoaRuns]:
         """List runs for the given CASS NCOA job
+
+        API URL: ``GET /enhancements/cass-ncoa/{id}/runs``
 
         Parameters
         ----------
@@ -8114,12 +8461,13 @@ class _Enhancements:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
                 The ID of the run.
             - cass_ncoa_id : int
@@ -8146,6 +8494,8 @@ class _Enhancements:
         run_id: int,
     ) -> _ResponseEnhancementsGetCassNcoaRuns:
         """Check status of a run
+
+        API URL: ``GET /enhancements/cass-ncoa/{id}/runs/{run_id}``
 
         Parameters
         ----------
@@ -8184,6 +8534,8 @@ class _Enhancements:
     ) -> Response:
         """Cancel a run
 
+        API URL: ``DELETE /enhancements/cass-ncoa/{id}/runs/{run_id}``
+
         Parameters
         ----------
         id : int
@@ -8202,10 +8554,13 @@ class _Enhancements:
         self,
         id: int,
         run_id: int,
+        *,
         last_id: int | None = ...,
         limit: int | None = ...,
-    ) -> _ResponseEnhancementsListCassNcoaRunsLogs:
+    ) -> List[_ResponseEnhancementsListCassNcoaRunsLogs]:
         """Get the logs for a run
+
+        API URL: ``GET /enhancements/cass-ncoa/{id}/runs/{run_id}/logs``
 
         Parameters
         ----------
@@ -8222,7 +8577,7 @@ class _Enhancements:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID of the log.
             - created_at : str (date-time)
@@ -8239,6 +8594,8 @@ class _Enhancements:
         id: int,
     ) -> _ResponseEnhancementsPostCassNcoaCancel:
         """Cancel a run
+
+        API URL: ``POST /enhancements/cass-ncoa/{id}/cancel``
 
         Parameters
         ----------
@@ -8261,6 +8618,7 @@ class _Enhancements:
         self,
         id: int,
         run_id: int,
+        *,
         limit: int | None = ...,
         page_num: int | None = ...,
         order: str | None = ...,
@@ -8268,6 +8626,8 @@ class _Enhancements:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseEnhancementsListCassNcoaRunsOutputs]:
         """List the outputs for a run
+
+        API URL: ``GET /enhancements/cass-ncoa/{id}/runs/{run_id}/outputs``
 
         Parameters
         ----------
@@ -8290,12 +8650,13 @@ class _Enhancements:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - object_type : str
                 The type of the output. Valid values are File, Table, Report, Project,
                 Credential, or JSONValue
@@ -8315,6 +8676,7 @@ class _Enhancements:
         remote_host_id: int,
         credential_id: int,
         source_schema_and_table: str,
+        *,
         schedule: dict | None = ...,
         notifications: dict | None = ...,
         multipart_key: List[str] | None = ...,
@@ -8327,6 +8689,8 @@ class _Enhancements:
         parent_id: int | None = ...,
     ) -> _ResponseEnhancementsPostGeocode:
         """Create a Geocode Enhancement
+
+        API URL: ``POST /enhancements/geocode``
 
         Parameters
         ----------
@@ -8508,6 +8872,8 @@ class _Enhancements:
     ) -> _ResponseEnhancementsGetGeocode:
         """Get a Geocode Enhancement
 
+        API URL: ``GET /enhancements/geocode/{id}``
+
         Parameters
         ----------
         id : int
@@ -8627,6 +8993,7 @@ class _Enhancements:
         remote_host_id: int,
         credential_id: int,
         source_schema_and_table: str,
+        *,
         schedule: dict | None = ...,
         notifications: dict | None = ...,
         multipart_key: List[str] | None = ...,
@@ -8639,6 +9006,8 @@ class _Enhancements:
         parent_id: int | None = ...,
     ) -> _ResponseEnhancementsPutGeocode:
         """Replace all attributes of this Geocode Enhancement
+
+        API URL: ``PUT /enhancements/geocode/{id}``
 
         Parameters
         ----------
@@ -8819,6 +9188,7 @@ class _Enhancements:
     def patch_geocode(
         self,
         id: int,
+        *,
         name: str | None = ...,
         schedule: dict | None = ...,
         notifications: dict | None = ...,
@@ -8835,6 +9205,8 @@ class _Enhancements:
         parent_id: int | None = ...,
     ) -> _ResponseEnhancementsPatchGeocode:
         """Update some attributes of this Geocode Enhancement
+
+        API URL: ``PATCH /enhancements/geocode/{id}``
 
         Parameters
         ----------
@@ -9018,6 +9390,8 @@ class _Enhancements:
     ) -> _ResponseEnhancementsPostGeocodeRuns:
         """Start a run
 
+        API URL: ``POST /enhancements/geocode/{id}/runs``
+
         Parameters
         ----------
         id : int
@@ -9049,6 +9423,7 @@ class _Enhancements:
     def list_geocode_runs(
         self,
         id: int,
+        *,
         limit: int | None = ...,
         page_num: int | None = ...,
         order: str | None = ...,
@@ -9056,6 +9431,8 @@ class _Enhancements:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseEnhancementsListGeocodeRuns]:
         """List runs for the given Geocode job
+
+        API URL: ``GET /enhancements/geocode/{id}/runs``
 
         Parameters
         ----------
@@ -9076,12 +9453,13 @@ class _Enhancements:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
                 The ID of the run.
             - geocode_id : int
@@ -9108,6 +9486,8 @@ class _Enhancements:
         run_id: int,
     ) -> _ResponseEnhancementsGetGeocodeRuns:
         """Check status of a run
+
+        API URL: ``GET /enhancements/geocode/{id}/runs/{run_id}``
 
         Parameters
         ----------
@@ -9146,6 +9526,8 @@ class _Enhancements:
     ) -> Response:
         """Cancel a run
 
+        API URL: ``DELETE /enhancements/geocode/{id}/runs/{run_id}``
+
         Parameters
         ----------
         id : int
@@ -9164,10 +9546,13 @@ class _Enhancements:
         self,
         id: int,
         run_id: int,
+        *,
         last_id: int | None = ...,
         limit: int | None = ...,
-    ) -> _ResponseEnhancementsListGeocodeRunsLogs:
+    ) -> List[_ResponseEnhancementsListGeocodeRunsLogs]:
         """Get the logs for a run
+
+        API URL: ``GET /enhancements/geocode/{id}/runs/{run_id}/logs``
 
         Parameters
         ----------
@@ -9184,7 +9569,7 @@ class _Enhancements:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID of the log.
             - created_at : str (date-time)
@@ -9201,6 +9586,8 @@ class _Enhancements:
         id: int,
     ) -> _ResponseEnhancementsPostGeocodeCancel:
         """Cancel a run
+
+        API URL: ``POST /enhancements/geocode/{id}/cancel``
 
         Parameters
         ----------
@@ -9223,6 +9610,7 @@ class _Enhancements:
         self,
         id: int,
         run_id: int,
+        *,
         limit: int | None = ...,
         page_num: int | None = ...,
         order: str | None = ...,
@@ -9230,6 +9618,8 @@ class _Enhancements:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseEnhancementsListGeocodeRunsOutputs]:
         """List the outputs for a run
+
+        API URL: ``GET /enhancements/geocode/{id}/runs/{run_id}/outputs``
 
         Parameters
         ----------
@@ -9252,12 +9642,13 @@ class _Enhancements:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - object_type : str
                 The type of the output. Valid values are File, Table, Report, Project,
                 Credential, or JSONValue
@@ -9274,8 +9665,10 @@ class _Enhancements:
     def list_cass_ncoa_shares(
         self,
         id: int,
-    ) -> _ResponseEnhancementsListCassNcoaShares:
+    ) -> List[_ResponseEnhancementsListCassNcoaShares]:
         """List users and groups permissioned on this object
+
+        API URL: ``GET /enhancements/cass-ncoa/{id}/shares``
 
         Parameters
         ----------
@@ -9284,7 +9677,7 @@ class _Enhancements:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - readers : :class:`civis.Response`
                 - users : List[:class:`civis.Response`]
                     - id : int
@@ -9320,10 +9713,13 @@ class _Enhancements:
         id: int,
         user_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseEnhancementsPutCassNcoaSharesUsers:
         """Set the permissions users have on this object
+
+        API URL: ``PUT /enhancements/cass-ncoa/{id}/shares/users``
 
         Parameters
         ----------
@@ -9378,6 +9774,8 @@ class _Enhancements:
     ) -> Response:
         """Revoke the permissions a user has on this object
 
+        API URL: ``DELETE /enhancements/cass-ncoa/{id}/shares/users/{user_id}``
+
         Parameters
         ----------
         id : int
@@ -9397,10 +9795,13 @@ class _Enhancements:
         id: int,
         group_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseEnhancementsPutCassNcoaSharesGroups:
         """Set the permissions groups has on this object
+
+        API URL: ``PUT /enhancements/cass-ncoa/{id}/shares/groups``
 
         Parameters
         ----------
@@ -9455,6 +9856,8 @@ class _Enhancements:
     ) -> Response:
         """Revoke the permissions a group has on this object
 
+        API URL: ``DELETE /enhancements/cass-ncoa/{id}/shares/groups/{group_id}``
+
         Parameters
         ----------
         id : int
@@ -9472,9 +9875,12 @@ class _Enhancements:
     def list_cass_ncoa_dependencies(
         self,
         id: int,
+        *,
         user_id: int | None = ...,
-    ) -> _ResponseEnhancementsListCassNcoaDependencies:
+    ) -> List[_ResponseEnhancementsListCassNcoaDependencies]:
         """List dependent objects for this object
+
+        API URL: ``GET /enhancements/cass-ncoa/{id}/dependencies``
 
         Parameters
         ----------
@@ -9485,7 +9891,7 @@ class _Enhancements:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - object_type : str
                 Dependent object type
             - fco_type : str
@@ -9511,10 +9917,13 @@ class _Enhancements:
         id: int,
         user_id: int,
         include_dependencies: bool,
+        *,
         email_body: str | None = ...,
         send_email: bool | None = ...,
     ) -> _ResponseEnhancementsPutCassNcoaTransfer:
         """Transfer ownership of this object to another user
+
+        API URL: ``PUT /enhancements/cass-ncoa/{id}/transfer``
 
         Parameters
         ----------
@@ -9558,9 +9967,12 @@ class _Enhancements:
     def list_cass_ncoa_projects(
         self,
         id: int,
+        *,
         hidden: bool | None = ...,
-    ) -> _ResponseEnhancementsListCassNcoaProjects:
+    ) -> List[_ResponseEnhancementsListCassNcoaProjects]:
         """List the projects a CASS/NCOA Enhancement belongs to
+
+        API URL: ``GET /enhancements/cass-ncoa/{id}/projects``
 
         Parameters
         ----------
@@ -9572,7 +9984,7 @@ class _Enhancements:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID for this project.
             - author : :class:`civis.Response`
@@ -9618,6 +10030,8 @@ class _Enhancements:
     ) -> Response:
         """Add a CASS/NCOA Enhancement to a project
 
+        API URL: ``PUT /enhancements/cass-ncoa/{id}/projects/{project_id}``
+
         Parameters
         ----------
         id : int
@@ -9639,6 +10053,8 @@ class _Enhancements:
     ) -> Response:
         """Remove a CASS/NCOA Enhancement from a project
 
+        API URL: ``DELETE /enhancements/cass-ncoa/{id}/projects/{project_id}``
+
         Parameters
         ----------
         id : int
@@ -9659,6 +10075,8 @@ class _Enhancements:
         status: bool,
     ) -> _ResponseEnhancementsPutCassNcoaArchive:
         """Update the archive status of this object
+
+        API URL: ``PUT /enhancements/cass-ncoa/{id}/archive``
 
         Parameters
         ----------
@@ -9811,8 +10229,10 @@ class _Enhancements:
     def list_geocode_shares(
         self,
         id: int,
-    ) -> _ResponseEnhancementsListGeocodeShares:
+    ) -> List[_ResponseEnhancementsListGeocodeShares]:
         """List users and groups permissioned on this object
+
+        API URL: ``GET /enhancements/geocode/{id}/shares``
 
         Parameters
         ----------
@@ -9821,7 +10241,7 @@ class _Enhancements:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - readers : :class:`civis.Response`
                 - users : List[:class:`civis.Response`]
                     - id : int
@@ -9857,10 +10277,13 @@ class _Enhancements:
         id: int,
         user_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseEnhancementsPutGeocodeSharesUsers:
         """Set the permissions users have on this object
+
+        API URL: ``PUT /enhancements/geocode/{id}/shares/users``
 
         Parameters
         ----------
@@ -9915,6 +10338,8 @@ class _Enhancements:
     ) -> Response:
         """Revoke the permissions a user has on this object
 
+        API URL: ``DELETE /enhancements/geocode/{id}/shares/users/{user_id}``
+
         Parameters
         ----------
         id : int
@@ -9934,10 +10359,13 @@ class _Enhancements:
         id: int,
         group_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseEnhancementsPutGeocodeSharesGroups:
         """Set the permissions groups has on this object
+
+        API URL: ``PUT /enhancements/geocode/{id}/shares/groups``
 
         Parameters
         ----------
@@ -9992,6 +10420,8 @@ class _Enhancements:
     ) -> Response:
         """Revoke the permissions a group has on this object
 
+        API URL: ``DELETE /enhancements/geocode/{id}/shares/groups/{group_id}``
+
         Parameters
         ----------
         id : int
@@ -10009,9 +10439,12 @@ class _Enhancements:
     def list_geocode_dependencies(
         self,
         id: int,
+        *,
         user_id: int | None = ...,
-    ) -> _ResponseEnhancementsListGeocodeDependencies:
+    ) -> List[_ResponseEnhancementsListGeocodeDependencies]:
         """List dependent objects for this object
+
+        API URL: ``GET /enhancements/geocode/{id}/dependencies``
 
         Parameters
         ----------
@@ -10022,7 +10455,7 @@ class _Enhancements:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - object_type : str
                 Dependent object type
             - fco_type : str
@@ -10048,10 +10481,13 @@ class _Enhancements:
         id: int,
         user_id: int,
         include_dependencies: bool,
+        *,
         email_body: str | None = ...,
         send_email: bool | None = ...,
     ) -> _ResponseEnhancementsPutGeocodeTransfer:
         """Transfer ownership of this object to another user
+
+        API URL: ``PUT /enhancements/geocode/{id}/transfer``
 
         Parameters
         ----------
@@ -10095,9 +10531,12 @@ class _Enhancements:
     def list_geocode_projects(
         self,
         id: int,
+        *,
         hidden: bool | None = ...,
-    ) -> _ResponseEnhancementsListGeocodeProjects:
+    ) -> List[_ResponseEnhancementsListGeocodeProjects]:
         """List the projects a Geocode Enhancement belongs to
+
+        API URL: ``GET /enhancements/geocode/{id}/projects``
 
         Parameters
         ----------
@@ -10109,7 +10548,7 @@ class _Enhancements:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID for this project.
             - author : :class:`civis.Response`
@@ -10155,6 +10594,8 @@ class _Enhancements:
     ) -> Response:
         """Add a Geocode Enhancement to a project
 
+        API URL: ``PUT /enhancements/geocode/{id}/projects/{project_id}``
+
         Parameters
         ----------
         id : int
@@ -10176,6 +10617,8 @@ class _Enhancements:
     ) -> Response:
         """Remove a Geocode Enhancement from a project
 
+        API URL: ``DELETE /enhancements/geocode/{id}/projects/{project_id}``
+
         Parameters
         ----------
         id : int
@@ -10196,6 +10639,8 @@ class _Enhancements:
         status: bool,
     ) -> _ResponseEnhancementsPutGeocodeArchive:
         """Update the archive status of this object
+
+        API URL: ``PUT /enhancements/geocode/{id}/archive``
 
         Parameters
         ----------
@@ -10315,8 +10760,10 @@ class _Enhancements:
     def list_identity_resolution_shares(
         self,
         id: int,
-    ) -> _ResponseEnhancementsListIdentityResolutionShares:
+    ) -> List[_ResponseEnhancementsListIdentityResolutionShares]:
         """List users and groups permissioned on this object
+
+        API URL: ``GET /enhancements/identity-resolution/{id}/shares``
 
         Parameters
         ----------
@@ -10325,7 +10772,7 @@ class _Enhancements:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - readers : :class:`civis.Response`
                 - users : List[:class:`civis.Response`]
                     - id : int
@@ -10361,10 +10808,13 @@ class _Enhancements:
         id: int,
         user_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseEnhancementsPutIdentityResolutionSharesUsers:
         """Set the permissions users have on this object
+
+        API URL: ``PUT /enhancements/identity-resolution/{id}/shares/users``
 
         Parameters
         ----------
@@ -10419,6 +10869,8 @@ class _Enhancements:
     ) -> Response:
         """Revoke the permissions a user has on this object
 
+        API URL: ``DELETE /enhancements/identity-resolution/{id}/shares/users/{user_id}``
+
         Parameters
         ----------
         id : int
@@ -10438,10 +10890,13 @@ class _Enhancements:
         id: int,
         group_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseEnhancementsPutIdentityResolutionSharesGroups:
         """Set the permissions groups has on this object
+
+        API URL: ``PUT /enhancements/identity-resolution/{id}/shares/groups``
 
         Parameters
         ----------
@@ -10496,6 +10951,8 @@ class _Enhancements:
     ) -> Response:
         """Revoke the permissions a group has on this object
 
+        API URL: ``DELETE /enhancements/identity-resolution/{id}/shares/groups/{group_id}``
+
         Parameters
         ----------
         id : int
@@ -10513,9 +10970,12 @@ class _Enhancements:
     def list_identity_resolution_dependencies(
         self,
         id: int,
+        *,
         user_id: int | None = ...,
-    ) -> _ResponseEnhancementsListIdentityResolutionDependencies:
+    ) -> List[_ResponseEnhancementsListIdentityResolutionDependencies]:
         """List dependent objects for this object
+
+        API URL: ``GET /enhancements/identity-resolution/{id}/dependencies``
 
         Parameters
         ----------
@@ -10526,7 +10986,7 @@ class _Enhancements:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - object_type : str
                 Dependent object type
             - fco_type : str
@@ -10552,10 +11012,13 @@ class _Enhancements:
         id: int,
         user_id: int,
         include_dependencies: bool,
+        *,
         email_body: str | None = ...,
         send_email: bool | None = ...,
     ) -> _ResponseEnhancementsPutIdentityResolutionTransfer:
         """Transfer ownership of this object to another user
+
+        API URL: ``PUT /enhancements/identity-resolution/{id}/transfer``
 
         Parameters
         ----------
@@ -10599,9 +11062,12 @@ class _Enhancements:
     def list_identity_resolution_projects(
         self,
         id: int,
+        *,
         hidden: bool | None = ...,
-    ) -> _ResponseEnhancementsListIdentityResolutionProjects:
+    ) -> List[_ResponseEnhancementsListIdentityResolutionProjects]:
         """List the projects an Identity Resolution Enhancement belongs to
+
+        API URL: ``GET /enhancements/identity-resolution/{id}/projects``
 
         Parameters
         ----------
@@ -10613,7 +11079,7 @@ class _Enhancements:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID for this project.
             - author : :class:`civis.Response`
@@ -10659,6 +11125,8 @@ class _Enhancements:
     ) -> Response:
         """Add an Identity Resolution Enhancement to a project
 
+        API URL: ``PUT /enhancements/identity-resolution/{id}/projects/{project_id}``
+
         Parameters
         ----------
         id : int
@@ -10680,6 +11148,8 @@ class _Enhancements:
     ) -> Response:
         """Remove an Identity Resolution Enhancement from a project
 
+        API URL: ``DELETE /enhancements/identity-resolution/{id}/projects/{project_id}``
+
         Parameters
         ----------
         id : int
@@ -10700,6 +11170,8 @@ class _Enhancements:
         status: bool,
     ) -> _ResponseEnhancementsPutIdentityResolutionArchive:
         """Update the archive status of this object
+
+        API URL: ``PUT /enhancements/identity-resolution/{id}/archive``
 
         Parameters
         ----------
@@ -10920,6 +11392,7 @@ class _Enhancements:
 class _Exports:
     def list(
         self,
+        *,
         type: str | None = ...,
         status: str | None = ...,
         author: str | None = ...,
@@ -10932,6 +11405,8 @@ class _Exports:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseExportsList]:
         """List
+
+        API URL: ``GET /exports``
 
         Parameters
         ----------
@@ -10965,12 +11440,13 @@ class _Exports:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
                 The ID for this export.
             - name : str
@@ -11013,6 +11489,8 @@ class _Exports:
     ) -> _ResponseExportsPostFilesCsvRuns:
         """Start a run
 
+        API URL: ``POST /exports/files/csv/{id}/runs``
+
         Parameters
         ----------
         id : int
@@ -11040,6 +11518,7 @@ class _Exports:
     def list_files_csv_runs(
         self,
         id: int,
+        *,
         limit: int | None = ...,
         page_num: int | None = ...,
         order: str | None = ...,
@@ -11047,6 +11526,8 @@ class _Exports:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseExportsListFilesCsvRuns]:
         """List runs for the given CSV Export job
+
+        API URL: ``GET /exports/files/csv/{id}/runs``
 
         Parameters
         ----------
@@ -11067,12 +11548,13 @@ class _Exports:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
             - state : str
             - created_at : str (time)
@@ -11092,6 +11574,8 @@ class _Exports:
         run_id: int,
     ) -> _ResponseExportsGetFilesCsvRuns:
         """Check status of a run
+
+        API URL: ``GET /exports/files/csv/{id}/runs/{run_id}``
 
         Parameters
         ----------
@@ -11126,6 +11610,8 @@ class _Exports:
     ) -> Response:
         """Cancel a run
 
+        API URL: ``DELETE /exports/files/csv/{id}/runs/{run_id}``
+
         Parameters
         ----------
         id : int
@@ -11144,10 +11630,13 @@ class _Exports:
         self,
         id: int,
         run_id: int,
+        *,
         last_id: int | None = ...,
         limit: int | None = ...,
-    ) -> _ResponseExportsListFilesCsvRunsLogs:
+    ) -> List[_ResponseExportsListFilesCsvRunsLogs]:
         """Get the logs for a run
+
+        API URL: ``GET /exports/files/csv/{id}/runs/{run_id}/logs``
 
         Parameters
         ----------
@@ -11164,7 +11653,7 @@ class _Exports:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID of the log.
             - created_at : str (date-time)
@@ -11180,6 +11669,7 @@ class _Exports:
         self,
         id: int,
         run_id: int,
+        *,
         limit: int | None = ...,
         page_num: int | None = ...,
         order: str | None = ...,
@@ -11187,6 +11677,8 @@ class _Exports:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseExportsListFilesCsvRunsOutputs]:
         """List the outputs for a run
+
+        API URL: ``GET /exports/files/csv/{id}/runs/{run_id}/outputs``
 
         Parameters
         ----------
@@ -11209,12 +11701,13 @@ class _Exports:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - object_type : str
                 The type of the output. Valid values are File, Table, Report, Project,
                 Credential, or JSONValue
@@ -11232,6 +11725,7 @@ class _Exports:
         self,
         source: dict,
         destination: dict,
+        *,
         name: str | None = ...,
         include_header: bool | None = ...,
         compression: str | None = ...,
@@ -11241,6 +11735,8 @@ class _Exports:
         max_file_size: int | None = ...,
     ) -> _ResponseExportsPostFilesCsv:
         """Create a CSV Export
+
+        API URL: ``POST /exports/files/csv``
 
         Parameters
         ----------
@@ -11357,6 +11853,8 @@ class _Exports:
     ) -> _ResponseExportsGetFilesCsv:
         """Get a CSV Export
 
+        API URL: ``GET /exports/files/csv/{id}``
+
         Parameters
         ----------
         id : int
@@ -11425,6 +11923,7 @@ class _Exports:
         id: int,
         source: dict,
         destination: dict,
+        *,
         name: str | None = ...,
         include_header: bool | None = ...,
         compression: str | None = ...,
@@ -11434,6 +11933,8 @@ class _Exports:
         max_file_size: int | None = ...,
     ) -> _ResponseExportsPutFilesCsv:
         """Replace all attributes of this CSV Export
+
+        API URL: ``PUT /exports/files/csv/{id}``
 
         Parameters
         ----------
@@ -11549,6 +12050,7 @@ class _Exports:
     def patch_files_csv(
         self,
         id: int,
+        *,
         name: str | None = ...,
         source: dict | None = ...,
         destination: dict | None = ...,
@@ -11560,6 +12062,8 @@ class _Exports:
         max_file_size: int | None = ...,
     ) -> _ResponseExportsPatchFilesCsv:
         """Update some attributes of this CSV Export
+
+        API URL: ``PATCH /exports/files/csv/{id}``
 
         Parameters
         ----------
@@ -11679,6 +12183,8 @@ class _Exports:
     ) -> _ResponseExportsPutFilesCsvArchive:
         """Update the archive status of this object
 
+        API URL: ``PUT /exports/files/csv/{id}/archive``
+
         Parameters
         ----------
         id : int
@@ -11749,9 +12255,12 @@ class _Files:
     def list_projects(
         self,
         id: int,
+        *,
         hidden: bool | None = ...,
-    ) -> _ResponseFilesListProjects:
+    ) -> List[_ResponseFilesListProjects]:
         """List the projects a File belongs to
+
+        API URL: ``GET /files/{id}/projects``
 
         Parameters
         ----------
@@ -11763,7 +12272,7 @@ class _Files:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID for this project.
             - author : :class:`civis.Response`
@@ -11809,6 +12318,8 @@ class _Files:
     ) -> Response:
         """Add a File to a project
 
+        API URL: ``PUT /files/{id}/projects/{project_id}``
+
         Parameters
         ----------
         id : int
@@ -11830,6 +12341,8 @@ class _Files:
     ) -> Response:
         """Remove a File from a project
 
+        API URL: ``DELETE /files/{id}/projects/{project_id}``
+
         Parameters
         ----------
         id : int
@@ -11847,8 +12360,10 @@ class _Files:
     def list_shares(
         self,
         id: int,
-    ) -> _ResponseFilesListShares:
+    ) -> List[_ResponseFilesListShares]:
         """List users and groups permissioned on this object
+
+        API URL: ``GET /files/{id}/shares``
 
         Parameters
         ----------
@@ -11857,7 +12372,7 @@ class _Files:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - readers : :class:`civis.Response`
                 - users : List[:class:`civis.Response`]
                     - id : int
@@ -11893,10 +12408,13 @@ class _Files:
         id: int,
         user_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseFilesPutSharesUsers:
         """Set the permissions users have on this object
+
+        API URL: ``PUT /files/{id}/shares/users``
 
         Parameters
         ----------
@@ -11951,6 +12469,8 @@ class _Files:
     ) -> Response:
         """Revoke the permissions a user has on this object
 
+        API URL: ``DELETE /files/{id}/shares/users/{user_id}``
+
         Parameters
         ----------
         id : int
@@ -11970,10 +12490,13 @@ class _Files:
         id: int,
         group_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseFilesPutSharesGroups:
         """Set the permissions groups has on this object
+
+        API URL: ``PUT /files/{id}/shares/groups``
 
         Parameters
         ----------
@@ -12028,6 +12551,8 @@ class _Files:
     ) -> Response:
         """Revoke the permissions a group has on this object
 
+        API URL: ``DELETE /files/{id}/shares/groups/{group_id}``
+
         Parameters
         ----------
         id : int
@@ -12045,9 +12570,12 @@ class _Files:
     def list_dependencies(
         self,
         id: int,
+        *,
         user_id: int | None = ...,
-    ) -> _ResponseFilesListDependencies:
+    ) -> List[_ResponseFilesListDependencies]:
         """List dependent objects for this object
+
+        API URL: ``GET /files/{id}/dependencies``
 
         Parameters
         ----------
@@ -12058,7 +12586,7 @@ class _Files:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - object_type : str
                 Dependent object type
             - fco_type : str
@@ -12084,10 +12612,13 @@ class _Files:
         id: int,
         user_id: int,
         include_dependencies: bool,
+        *,
         email_body: str | None = ...,
         send_email: bool | None = ...,
     ) -> _ResponseFilesPutTransfer:
         """Transfer ownership of this object to another user
+
+        API URL: ``PUT /files/{id}/transfer``
 
         Parameters
         ----------
@@ -12131,10 +12662,13 @@ class _Files:
     def post(
         self,
         name: str,
+        *,
         expires_at: str | None = ...,
         description: str | None = ...,
     ) -> _ResponseFilesPost:
         """Initiate an upload of a file into the platform
+
+        API URL: ``POST /files``
 
         Parameters
         ----------
@@ -12178,10 +12712,13 @@ class _Files:
         self,
         name: str,
         num_parts: int,
+        *,
         expires_at: str | None = ...,
         description: str | None = ...,
     ) -> _ResponseFilesPostMultipart:
         """Initiate a multipart upload
+
+        API URL: ``POST /files/multipart``
 
         Parameters
         ----------
@@ -12224,6 +12761,8 @@ class _Files:
     ) -> Response:
         """Complete a multipart upload
 
+        API URL: ``POST /files/multipart/{id}/complete``
+
         Parameters
         ----------
         id : int
@@ -12239,10 +12778,13 @@ class _Files:
     def get(
         self,
         id: int,
+        *,
         link_expires_at: str | None = ...,
         inline: bool | None = ...,
     ) -> _ResponseFilesGet:
         """Get details about a file
+
+        API URL: ``GET /files/{id}``
 
         Parameters
         ----------
@@ -12313,9 +12855,12 @@ class _Files:
         id: int,
         name: str,
         expires_at: str,
+        *,
         description: str | None = ...,
     ) -> _ResponseFilesPut:
         """Update details about a file
+
+        API URL: ``PUT /files/{id}``
 
         Parameters
         ----------
@@ -12385,11 +12930,14 @@ class _Files:
     def patch(
         self,
         id: int,
+        *,
         name: str | None = ...,
         expires_at: str | None = ...,
         description: str | None = ...,
     ) -> _ResponseFilesPatch:
         """Update details about a file
+
+        API URL: ``PATCH /files/{id}``
 
         Parameters
         ----------
@@ -12459,6 +13007,7 @@ class _Files:
     def post_preprocess_csv(
         self,
         file_id: int,
+        *,
         in_place: bool | None = ...,
         detect_table_columns: bool | None = ...,
         force_character_set_conversion: bool | None = ...,
@@ -12467,6 +13016,8 @@ class _Files:
         hidden: bool | None = ...,
     ) -> _ResponseFilesPostPreprocessCsv:
         """Create a Preprocess CSV
+
+        API URL: ``POST /files/preprocess/csv``
 
         Parameters
         ----------
@@ -12529,6 +13080,8 @@ class _Files:
     ) -> _ResponseFilesGetPreprocessCsv:
         """Get a Preprocess CSV
 
+        API URL: ``GET /files/preprocess/csv/{id}``
+
         Parameters
         ----------
         id : int
@@ -12567,6 +13120,7 @@ class _Files:
         self,
         id: int,
         file_id: int,
+        *,
         in_place: bool | None = ...,
         detect_table_columns: bool | None = ...,
         force_character_set_conversion: bool | None = ...,
@@ -12574,6 +13128,8 @@ class _Files:
         column_delimiter: str | None = ...,
     ) -> _ResponseFilesPutPreprocessCsv:
         """Replace all attributes of this Preprocess CSV
+
+        API URL: ``PUT /files/preprocess/csv/{id}``
 
         Parameters
         ----------
@@ -12633,6 +13189,7 @@ class _Files:
     def patch_preprocess_csv(
         self,
         id: int,
+        *,
         file_id: int | None = ...,
         in_place: bool | None = ...,
         detect_table_columns: bool | None = ...,
@@ -12641,6 +13198,8 @@ class _Files:
         column_delimiter: str | None = ...,
     ) -> _ResponseFilesPatchPreprocessCsv:
         """Update some attributes of this Preprocess CSV
+
+        API URL: ``PATCH /files/preprocess/csv/{id}``
 
         Parameters
         ----------
@@ -12704,6 +13263,8 @@ class _Files:
     ) -> _ResponseFilesPutPreprocessCsvArchive:
         """Update the archive status of this object
 
+        API URL: ``PUT /files/preprocess/csv/{id}/archive``
+
         Parameters
         ----------
         id : int
@@ -12744,6 +13305,7 @@ class _Files:
 class _Git_Repos:
     def list(
         self,
+        *,
         limit: int | None = ...,
         page_num: int | None = ...,
         order: str | None = ...,
@@ -12751,6 +13313,8 @@ class _Git_Repos:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseGitReposList]:
         """List bookmarked git repositories
+
+        API URL: ``GET /git_repos``
 
         Parameters
         ----------
@@ -12769,12 +13333,13 @@ class _Git_Repos:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
                 The ID for this git repository.
             - repo_url : str
@@ -12789,6 +13354,8 @@ class _Git_Repos:
         repo_url: str,
     ) -> _ResponseGitReposPost:
         """Bookmark a git repository
+
+        API URL: ``POST /git_repos``
 
         Parameters
         ----------
@@ -12813,6 +13380,8 @@ class _Git_Repos:
     ) -> _ResponseGitReposGet:
         """Get a bookmarked git repository
 
+        API URL: ``GET /git_repos/{id}``
+
         Parameters
         ----------
         id : int
@@ -12836,6 +13405,8 @@ class _Git_Repos:
     ) -> Response:
         """Remove the bookmark on a git repository
 
+        API URL: ``DELETE /git_repos/{id}``
+
         Parameters
         ----------
         id : int
@@ -12851,8 +13422,10 @@ class _Git_Repos:
     def list_refs(
         self,
         id: int,
-    ) -> _ResponseGitReposListRefs:
+    ) -> List[_ResponseGitReposListRefs]:
         """Get all branches and tags of a bookmarked git repository
+
+        API URL: ``GET /git_repos/{id}/refs``
 
         Parameters
         ----------
@@ -12861,7 +13434,7 @@ class _Git_Repos:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - branches : List[str]
                 List of branch names of this git repository.
             - tags : List[str]
@@ -12872,6 +13445,7 @@ class _Git_Repos:
 class _Groups:
     def list(
         self,
+        *,
         query: str | None = ...,
         permission: str | None = ...,
         include_members: bool | None = ...,
@@ -12884,6 +13458,8 @@ class _Groups:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseGroupsList]:
         """List Groups
+
+        API URL: ``GET /groups``
 
         Parameters
         ----------
@@ -12914,12 +13490,13 @@ class _Groups:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
                 The ID of this group.
             - name : str
@@ -12963,6 +13540,7 @@ class _Groups:
     def post(
         self,
         name: str,
+        *,
         description: str | None = ...,
         slug: str | None = ...,
         organization_id: int | None = ...,
@@ -12974,6 +13552,8 @@ class _Groups:
         default_services_label: str | None = ...,
     ) -> _ResponseGroupsPost:
         """Create a Group
+
+        API URL: ``POST /groups``
 
         Parameters
         ----------
@@ -13065,6 +13645,8 @@ class _Groups:
     ) -> _ResponseGroupsGet:
         """Get a Group
 
+        API URL: ``GET /groups/{id}``
+
         Parameters
         ----------
         id : int
@@ -13134,6 +13716,7 @@ class _Groups:
         self,
         id: int,
         name: str,
+        *,
         description: str | None = ...,
         slug: str | None = ...,
         organization_id: int | None = ...,
@@ -13145,6 +13728,8 @@ class _Groups:
         default_services_label: str | None = ...,
     ) -> _ResponseGroupsPut:
         """Replace all attributes of this Group
+
+        API URL: ``PUT /groups/{id}``
 
         Parameters
         ----------
@@ -13235,6 +13820,7 @@ class _Groups:
     def patch(
         self,
         id: int,
+        *,
         name: str | None = ...,
         description: str | None = ...,
         slug: str | None = ...,
@@ -13247,6 +13833,8 @@ class _Groups:
         default_services_label: str | None = ...,
     ) -> _ResponseGroupsPatch:
         """Update some attributes of this Group
+
+        API URL: ``PATCH /groups/{id}``
 
         Parameters
         ----------
@@ -13337,8 +13925,10 @@ class _Groups:
     def list_shares(
         self,
         id: int,
-    ) -> _ResponseGroupsListShares:
+    ) -> List[_ResponseGroupsListShares]:
         """List users and groups permissioned on this object
+
+        API URL: ``GET /groups/{id}/shares``
 
         Parameters
         ----------
@@ -13347,7 +13937,7 @@ class _Groups:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - readers : :class:`civis.Response`
                 - users : List[:class:`civis.Response`]
                     - id : int
@@ -13383,10 +13973,13 @@ class _Groups:
         id: int,
         user_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseGroupsPutSharesUsers:
         """Set the permissions users have on this object
+
+        API URL: ``PUT /groups/{id}/shares/users``
 
         Parameters
         ----------
@@ -13441,6 +14034,8 @@ class _Groups:
     ) -> Response:
         """Revoke the permissions a user has on this object
 
+        API URL: ``DELETE /groups/{id}/shares/users/{user_id}``
+
         Parameters
         ----------
         id : int
@@ -13460,10 +14055,13 @@ class _Groups:
         id: int,
         group_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseGroupsPutSharesGroups:
         """Set the permissions groups has on this object
+
+        API URL: ``PUT /groups/{id}/shares/groups``
 
         Parameters
         ----------
@@ -13518,6 +14116,8 @@ class _Groups:
     ) -> Response:
         """Revoke the permissions a group has on this object
 
+        API URL: ``DELETE /groups/{id}/shares/groups/{group_id}``
+
         Parameters
         ----------
         id : int
@@ -13538,6 +14138,8 @@ class _Groups:
         user_id: int,
     ) -> _ResponseGroupsPutMembers:
         """Add a user to a group
+
+        API URL: ``PUT /groups/{id}/members/{user_id}``
 
         Parameters
         ----------
@@ -13614,6 +14216,8 @@ class _Groups:
     ) -> Response:
         """Remove a user from a group
 
+        API URL: ``DELETE /groups/{id}/members/{user_id}``
+
         Parameters
         ----------
         id : int
@@ -13631,8 +14235,10 @@ class _Groups:
     def list_child_groups(
         self,
         id: int,
-    ) -> _ResponseGroupsListChildGroups:
+    ) -> List[_ResponseGroupsListChildGroups]:
         """Get child groups of this group
+
+        API URL: ``GET /groups/{id}/child_groups``
 
         Parameters
         ----------
@@ -13641,7 +14247,7 @@ class _Groups:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - manageable : List[:class:`civis.Response`]
                 - id : int
                 - name : str
@@ -13658,8 +14264,10 @@ class _Imports:
     def list_shares(
         self,
         id: int,
-    ) -> _ResponseImportsListShares:
+    ) -> List[_ResponseImportsListShares]:
         """List users and groups permissioned on this object
+
+        API URL: ``GET /imports/{id}/shares``
 
         Parameters
         ----------
@@ -13668,7 +14276,7 @@ class _Imports:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - readers : :class:`civis.Response`
                 - users : List[:class:`civis.Response`]
                     - id : int
@@ -13704,10 +14312,13 @@ class _Imports:
         id: int,
         user_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseImportsPutSharesUsers:
         """Set the permissions users have on this object
+
+        API URL: ``PUT /imports/{id}/shares/users``
 
         Parameters
         ----------
@@ -13762,6 +14373,8 @@ class _Imports:
     ) -> Response:
         """Revoke the permissions a user has on this object
 
+        API URL: ``DELETE /imports/{id}/shares/users/{user_id}``
+
         Parameters
         ----------
         id : int
@@ -13781,10 +14394,13 @@ class _Imports:
         id: int,
         group_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseImportsPutSharesGroups:
         """Set the permissions groups has on this object
+
+        API URL: ``PUT /imports/{id}/shares/groups``
 
         Parameters
         ----------
@@ -13839,6 +14455,8 @@ class _Imports:
     ) -> Response:
         """Revoke the permissions a group has on this object
 
+        API URL: ``DELETE /imports/{id}/shares/groups/{group_id}``
+
         Parameters
         ----------
         id : int
@@ -13856,9 +14474,12 @@ class _Imports:
     def list_dependencies(
         self,
         id: int,
+        *,
         user_id: int | None = ...,
-    ) -> _ResponseImportsListDependencies:
+    ) -> List[_ResponseImportsListDependencies]:
         """List dependent objects for this object
+
+        API URL: ``GET /imports/{id}/dependencies``
 
         Parameters
         ----------
@@ -13869,7 +14490,7 @@ class _Imports:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - object_type : str
                 Dependent object type
             - fco_type : str
@@ -13895,10 +14516,13 @@ class _Imports:
         id: int,
         user_id: int,
         include_dependencies: bool,
+        *,
         email_body: str | None = ...,
         send_email: bool | None = ...,
     ) -> _ResponseImportsPutTransfer:
         """Transfer ownership of this object to another user
+
+        API URL: ``PUT /imports/{id}/transfer``
 
         Parameters
         ----------
@@ -13942,9 +14566,12 @@ class _Imports:
     def list_projects(
         self,
         id: int,
+        *,
         hidden: bool | None = ...,
-    ) -> _ResponseImportsListProjects:
+    ) -> List[_ResponseImportsListProjects]:
         """List the projects an Import belongs to
+
+        API URL: ``GET /imports/{id}/projects``
 
         Parameters
         ----------
@@ -13956,7 +14583,7 @@ class _Imports:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID for this project.
             - author : :class:`civis.Response`
@@ -14002,6 +14629,8 @@ class _Imports:
     ) -> Response:
         """Add an Import to a project
 
+        API URL: ``PUT /imports/{id}/projects/{project_id}``
+
         Parameters
         ----------
         id : int
@@ -14023,6 +14652,8 @@ class _Imports:
     ) -> Response:
         """Remove an Import from a project
 
+        API URL: ``DELETE /imports/{id}/projects/{project_id}``
+
         Parameters
         ----------
         id : int
@@ -14043,6 +14674,8 @@ class _Imports:
         status: bool,
     ) -> _ResponseImportsPutArchive:
         """Update the archive status of this object
+
+        API URL: ``PUT /imports/{id}/archive``
 
         Parameters
         ----------
@@ -14333,6 +14966,7 @@ class _Imports:
 
     def list(
         self,
+        *,
         type: str | None = ...,
         destination: str | None = ...,
         source: str | None = ...,
@@ -14347,6 +14981,8 @@ class _Imports:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseImportsList]:
         """List Imports
+
+        API URL: ``GET /imports``
 
         Parameters
         ----------
@@ -14387,12 +15023,13 @@ class _Imports:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - name : str
                 The name of the import.
             - sync_type : str
@@ -14473,6 +15110,7 @@ class _Imports:
         name: str,
         sync_type: str,
         is_outbound: bool,
+        *,
         source: dict | None = ...,
         destination: dict | None = ...,
         schedule: dict | None = ...,
@@ -14483,6 +15121,8 @@ class _Imports:
         hidden: bool | None = ...,
     ) -> _ResponseImportsPost:
         """Create a new import configuration
+
+        API URL: ``POST /imports``
 
         Parameters
         ----------
@@ -14838,6 +15478,7 @@ class _Imports:
         name: str,
         remote_host_id: int,
         credential_id: int,
+        *,
         max_errors: int | None = ...,
         existing_table_rows: str | None = ...,
         diststyle: str | None = ...,
@@ -14851,6 +15492,8 @@ class _Imports:
         hidden: bool | None = ...,
     ) -> _ResponseImportsPostFiles:
         """Initate an import of a tabular file into the platform
+
+        API URL: ``POST /imports/files``
 
         Parameters
         ----------
@@ -14918,6 +15561,8 @@ class _Imports:
     ) -> _ResponseImportsPostFilesRuns:
         """Start a run
 
+        API URL: ``POST /imports/files/{id}/runs``
+
         Parameters
         ----------
         id : int
@@ -14949,6 +15594,7 @@ class _Imports:
     def list_files_runs(
         self,
         id: int,
+        *,
         limit: int | None = ...,
         page_num: int | None = ...,
         order: str | None = ...,
@@ -14956,6 +15602,8 @@ class _Imports:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseImportsListFilesRuns]:
         """List runs for the given Import job
+
+        API URL: ``GET /imports/files/{id}/runs``
 
         Parameters
         ----------
@@ -14976,12 +15624,13 @@ class _Imports:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
                 The ID of the run.
             - import_id : int
@@ -15008,6 +15657,8 @@ class _Imports:
         run_id: int,
     ) -> _ResponseImportsGetFilesRuns:
         """Check status of a run
+
+        API URL: ``GET /imports/files/{id}/runs/{run_id}``
 
         Parameters
         ----------
@@ -15046,6 +15697,8 @@ class _Imports:
     ) -> Response:
         """Cancel a run
 
+        API URL: ``DELETE /imports/files/{id}/runs/{run_id}``
+
         Parameters
         ----------
         id : int
@@ -15064,10 +15717,13 @@ class _Imports:
         self,
         id: int,
         run_id: int,
+        *,
         last_id: int | None = ...,
         limit: int | None = ...,
-    ) -> _ResponseImportsListFilesRunsLogs:
+    ) -> List[_ResponseImportsListFilesRunsLogs]:
         """Get the logs for a run
+
+        API URL: ``GET /imports/files/{id}/runs/{run_id}/logs``
 
         Parameters
         ----------
@@ -15084,7 +15740,7 @@ class _Imports:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID of the log.
             - created_at : str (date-time)
@@ -15100,10 +15756,13 @@ class _Imports:
         self,
         id: int,
         run_id: int,
+        *,
         last_id: int | None = ...,
         limit: int | None = ...,
-    ) -> _ResponseImportsListRunsLogs:
+    ) -> List[_ResponseImportsListRunsLogs]:
         """Get the logs for a run
+
+        API URL: ``GET /imports/{id}/runs/{run_id}/logs``
 
         Parameters
         ----------
@@ -15120,7 +15779,7 @@ class _Imports:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID of the log.
             - created_at : str (date-time)
@@ -15137,6 +15796,7 @@ class _Imports:
         source: dict,
         destination: dict,
         first_row_is_header: bool,
+        *,
         name: str | None = ...,
         column_delimiter: str | None = ...,
         escaped: bool | None = ...,
@@ -15150,6 +15810,8 @@ class _Imports:
         hidden: bool | None = ...,
     ) -> _ResponseImportsPostFilesCsv:
         """Create a CSV Import
+
+        API URL: ``POST /imports/files/csv``
 
         Parameters
         ----------
@@ -15347,6 +16009,8 @@ class _Imports:
     ) -> _ResponseImportsGetFilesCsv:
         """Get a CSV Import
 
+        API URL: ``GET /imports/files/csv/{id}``
+
         Parameters
         ----------
         id : int
@@ -15457,6 +16121,7 @@ class _Imports:
         source: dict,
         destination: dict,
         first_row_is_header: bool,
+        *,
         name: str | None = ...,
         column_delimiter: str | None = ...,
         escaped: bool | None = ...,
@@ -15469,6 +16134,8 @@ class _Imports:
         redshift_destination_options: dict | None = ...,
     ) -> _ResponseImportsPutFilesCsv:
         """Replace all attributes of this CSV Import
+
+        API URL: ``PUT /imports/files/csv/{id}``
 
         Parameters
         ----------
@@ -15663,6 +16330,7 @@ class _Imports:
     def patch_files_csv(
         self,
         id: int,
+        *,
         name: str | None = ...,
         source: dict | None = ...,
         destination: dict | None = ...,
@@ -15678,6 +16346,8 @@ class _Imports:
         redshift_destination_options: dict | None = ...,
     ) -> _ResponseImportsPatchFilesCsv:
         """Update some attributes of this CSV Import
+
+        API URL: ``PATCH /imports/files/csv/{id}``
 
         Parameters
         ----------
@@ -15876,6 +16546,8 @@ class _Imports:
     ) -> _ResponseImportsPutFilesCsvArchive:
         """Update the archive status of this object
 
+        API URL: ``PUT /imports/files/csv/{id}/archive``
+
         Parameters
         ----------
         id : int
@@ -15989,6 +16661,8 @@ class _Imports:
     ) -> _ResponseImportsPostFilesCsvRuns:
         """Start a run
 
+        API URL: ``POST /imports/files/csv/{id}/runs``
+
         Parameters
         ----------
         id : int
@@ -16020,6 +16694,7 @@ class _Imports:
     def list_files_csv_runs(
         self,
         id: int,
+        *,
         limit: int | None = ...,
         page_num: int | None = ...,
         order: str | None = ...,
@@ -16027,6 +16702,8 @@ class _Imports:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseImportsListFilesCsvRuns]:
         """List runs for the given CSV Import job
+
+        API URL: ``GET /imports/files/csv/{id}/runs``
 
         Parameters
         ----------
@@ -16047,12 +16724,13 @@ class _Imports:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
                 The ID of the run.
             - csv_import_id : int
@@ -16079,6 +16757,8 @@ class _Imports:
         run_id: int,
     ) -> _ResponseImportsGetFilesCsvRuns:
         """Check status of a run
+
+        API URL: ``GET /imports/files/csv/{id}/runs/{run_id}``
 
         Parameters
         ----------
@@ -16117,6 +16797,8 @@ class _Imports:
     ) -> Response:
         """Cancel a run
 
+        API URL: ``DELETE /imports/files/csv/{id}/runs/{run_id}``
+
         Parameters
         ----------
         id : int
@@ -16135,10 +16817,13 @@ class _Imports:
         self,
         id: int,
         run_id: int,
+        *,
         last_id: int | None = ...,
         limit: int | None = ...,
-    ) -> _ResponseImportsListFilesCsvRunsLogs:
+    ) -> List[_ResponseImportsListFilesCsvRunsLogs]:
         """Get the logs for a run
+
+        API URL: ``GET /imports/files/csv/{id}/runs/{run_id}/logs``
 
         Parameters
         ----------
@@ -16155,7 +16840,7 @@ class _Imports:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID of the log.
             - created_at : str (date-time)
@@ -16169,6 +16854,7 @@ class _Imports:
 
     def list_batches(
         self,
+        *,
         hidden: bool | None = ...,
         limit: int | None = ...,
         page_num: int | None = ...,
@@ -16177,6 +16863,8 @@ class _Imports:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseImportsListBatches]:
         """List batch imports
+
+        API URL: ``GET /imports/batches``
 
         Parameters
         ----------
@@ -16198,12 +16886,13 @@ class _Imports:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
                 The ID for the import.
             - schema : str
@@ -16233,12 +16922,15 @@ class _Imports:
         table: str,
         remote_host_id: int,
         credential_id: int,
+        *,
         column_delimiter: str | None = ...,
         first_row_is_header: bool | None = ...,
         compression: str | None = ...,
         hidden: bool | None = ...,
     ) -> _ResponseImportsPostBatches:
         """Upload multiple files to Civis
+
+        API URL: ``POST /imports/batches``
 
         Parameters
         ----------
@@ -16298,6 +16990,8 @@ class _Imports:
     ) -> _ResponseImportsGetBatches:
         """Get details about a batch import
 
+        API URL: ``GET /imports/batches/{id}``
+
         Parameters
         ----------
         id : int
@@ -16335,6 +17029,8 @@ class _Imports:
         id: int,
     ) -> _ResponseImportsGet:
         """Get details about an import
+
+        API URL: ``GET /imports/{id}``
 
         Parameters
         ----------
@@ -16627,6 +17323,7 @@ class _Imports:
         name: str,
         sync_type: str,
         is_outbound: bool,
+        *,
         source: dict | None = ...,
         destination: dict | None = ...,
         schedule: dict | None = ...,
@@ -16636,6 +17333,8 @@ class _Imports:
         time_zone: str | None = ...,
     ) -> _ResponseImportsPut:
         """Update an import
+
+        API URL: ``PUT /imports/{id}``
 
         Parameters
         ----------
@@ -16988,8 +17687,10 @@ class _Imports:
     def list_runs(
         self,
         id: int,
-    ) -> _ResponseImportsListRuns:
+    ) -> List[_ResponseImportsListRuns]:
         """Get the run history of this import
+
+        API URL: ``GET /imports/{id}/runs``
 
         Parameters
         ----------
@@ -16997,7 +17698,7 @@ class _Imports:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
             - state : str
             - created_at : str (time)
@@ -17017,6 +17718,8 @@ class _Imports:
     ) -> _ResponseImportsPostRuns:
         """Run an import
 
+        API URL: ``POST /imports/{id}/runs``
+
         Parameters
         ----------
         id : int
@@ -17035,6 +17738,8 @@ class _Imports:
         id: int,
     ) -> _ResponseImportsPostCancel:
         """Cancel a run
+
+        API URL: ``POST /imports/{id}/cancel``
 
         Parameters
         ----------
@@ -17058,9 +17763,12 @@ class _Imports:
         id: int,
         source: dict,
         destination: dict,
+        *,
         advanced_options: dict | None = ...,
     ) -> _ResponseImportsPostSyncs:
         """Create a sync
+
+        API URL: ``POST /imports/{id}/syncs``
 
         Parameters
         ----------
@@ -17371,9 +18079,12 @@ class _Imports:
         sync_id: int,
         source: dict,
         destination: dict,
+        *,
         advanced_options: dict | None = ...,
     ) -> _ResponseImportsPutSyncs:
         """Update a sync
+
+        API URL: ``PUT /imports/{id}/syncs/{sync_id}``
 
         Parameters
         ----------
@@ -17685,9 +18396,12 @@ class _Imports:
         self,
         id: int,
         sync_id: int,
+        *,
         status: bool | None = ...,
     ) -> _ResponseImportsPutSyncsArchive:
         """Update the archive status of this sync
+
+        API URL: ``PUT /imports/{id}/syncs/{sync_id}/archive``
 
         Parameters
         ----------
@@ -17858,6 +18572,7 @@ class _Imports:
 class _Jobs:
     def list(
         self,
+        *,
         state: str | None = ...,
         type: str | None = ...,
         q: str | None = ...,
@@ -17873,6 +18588,8 @@ class _Jobs:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseJobsList]:
         """List Jobs
+
+        API URL: ``GET /jobs``
 
         Parameters
         ----------
@@ -17912,12 +18629,13 @@ class _Jobs:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
             - name : str
             - type : str
@@ -17973,6 +18691,8 @@ class _Jobs:
         id: int,
     ) -> _ResponseJobsGet:
         """Show basic job info
+
+        API URL: ``GET /jobs/{id}``
 
         Parameters
         ----------
@@ -18060,6 +18780,8 @@ class _Jobs:
     ) -> _ResponseJobsPostTriggerEmail:
         """Generate and retrieve trigger email address
 
+        API URL: ``POST /jobs/{id}/trigger_email``
+
         Parameters
         ----------
         id : int
@@ -18076,8 +18798,10 @@ class _Jobs:
     def list_parents(
         self,
         id: int,
-    ) -> _ResponseJobsListParents:
+    ) -> List[_ResponseJobsListParents]:
         """Show chain of parents as a list that this job triggers from
+
+        API URL: ``GET /jobs/{id}/parents``
 
         Parameters
         ----------
@@ -18086,7 +18810,7 @@ class _Jobs:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
             - name : str
             - type : str
@@ -18162,8 +18886,10 @@ class _Jobs:
     def list_children(
         self,
         id: int,
-    ) -> _ResponseJobsListChildren:
+    ) -> List[_ResponseJobsListChildren]:
         """Show nested tree of children that this job triggers
+
+        API URL: ``GET /jobs/{id}/children``
 
         Parameters
         ----------
@@ -18172,7 +18898,7 @@ class _Jobs:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
             - name : str
             - type : str
@@ -18209,6 +18935,7 @@ class _Jobs:
     def list_runs(
         self,
         id: int,
+        *,
         limit: int | None = ...,
         page_num: int | None = ...,
         order: str | None = ...,
@@ -18216,6 +18943,8 @@ class _Jobs:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseJobsListRuns]:
         """List runs for the given job
+
+        API URL: ``GET /jobs/{id}/runs``
 
         Parameters
         ----------
@@ -18236,12 +18965,13 @@ class _Jobs:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
             - state : str
             - created_at : str (time)
@@ -18260,6 +18990,8 @@ class _Jobs:
         id: int,
     ) -> _ResponseJobsPostRuns:
         """Run a job
+
+        API URL: ``POST /jobs/{id}/runs``
 
         Parameters
         ----------
@@ -18288,6 +19020,8 @@ class _Jobs:
         run_id: int,
     ) -> _ResponseJobsGetRuns:
         """Check status of a job
+
+        API URL: ``GET /jobs/{id}/runs/{run_id}``
 
         Parameters
         ----------
@@ -18319,6 +19053,8 @@ class _Jobs:
     ) -> Response:
         """Cancel a run
 
+        API URL: ``DELETE /jobs/{id}/runs/{run_id}``
+
         Parameters
         ----------
         id : int
@@ -18337,6 +19073,7 @@ class _Jobs:
         self,
         id: int,
         run_id: int,
+        *,
         limit: int | None = ...,
         page_num: int | None = ...,
         order: str | None = ...,
@@ -18344,6 +19081,8 @@ class _Jobs:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseJobsListRunsOutputs]:
         """List the outputs for a run
+
+        API URL: ``GET /jobs/{id}/runs/{run_id}/outputs``
 
         Parameters
         ----------
@@ -18366,12 +19105,13 @@ class _Jobs:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - object_type : str
                 The type of the output. Valid values are File, Table, Report, Project,
                 Credential, or JSONValue
@@ -18389,10 +19129,13 @@ class _Jobs:
         self,
         id: int,
         run_id: int,
+        *,
         last_id: int | None = ...,
         limit: int | None = ...,
-    ) -> _ResponseJobsListRunsLogs:
+    ) -> List[_ResponseJobsListRunsLogs]:
         """Get the logs for a run
+
+        API URL: ``GET /jobs/{id}/runs/{run_id}/logs``
 
         Parameters
         ----------
@@ -18409,7 +19152,7 @@ class _Jobs:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID of the log.
             - created_at : str (date-time)
@@ -18424,9 +19167,12 @@ class _Jobs:
     def list_workflows(
         self,
         id: int,
+        *,
         archived: str | None = ...,
-    ) -> _ResponseJobsListWorkflows:
+    ) -> List[_ResponseJobsListWorkflows]:
         """List the workflows a job belongs to
+
+        API URL: ``GET /jobs/{id}/workflows``
 
         Parameters
         ----------
@@ -18436,7 +19182,7 @@ class _Jobs:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID for this workflow.
             - name : str
@@ -18492,8 +19238,10 @@ class _Jobs:
     def list_shares(
         self,
         id: int,
-    ) -> _ResponseJobsListShares:
+    ) -> List[_ResponseJobsListShares]:
         """List users and groups permissioned on this object
+
+        API URL: ``GET /jobs/{id}/shares``
 
         Parameters
         ----------
@@ -18502,7 +19250,7 @@ class _Jobs:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - readers : :class:`civis.Response`
                 - users : List[:class:`civis.Response`]
                     - id : int
@@ -18538,10 +19286,13 @@ class _Jobs:
         id: int,
         user_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseJobsPutSharesUsers:
         """Set the permissions users have on this object
+
+        API URL: ``PUT /jobs/{id}/shares/users``
 
         Parameters
         ----------
@@ -18596,6 +19347,8 @@ class _Jobs:
     ) -> Response:
         """Revoke the permissions a user has on this object
 
+        API URL: ``DELETE /jobs/{id}/shares/users/{user_id}``
+
         Parameters
         ----------
         id : int
@@ -18615,10 +19368,13 @@ class _Jobs:
         id: int,
         group_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseJobsPutSharesGroups:
         """Set the permissions groups has on this object
+
+        API URL: ``PUT /jobs/{id}/shares/groups``
 
         Parameters
         ----------
@@ -18673,6 +19429,8 @@ class _Jobs:
     ) -> Response:
         """Revoke the permissions a group has on this object
 
+        API URL: ``DELETE /jobs/{id}/shares/groups/{group_id}``
+
         Parameters
         ----------
         id : int
@@ -18690,9 +19448,12 @@ class _Jobs:
     def list_dependencies(
         self,
         id: int,
+        *,
         user_id: int | None = ...,
-    ) -> _ResponseJobsListDependencies:
+    ) -> List[_ResponseJobsListDependencies]:
         """List dependent objects for this object
+
+        API URL: ``GET /jobs/{id}/dependencies``
 
         Parameters
         ----------
@@ -18703,7 +19464,7 @@ class _Jobs:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - object_type : str
                 Dependent object type
             - fco_type : str
@@ -18729,10 +19490,13 @@ class _Jobs:
         id: int,
         user_id: int,
         include_dependencies: bool,
+        *,
         email_body: str | None = ...,
         send_email: bool | None = ...,
     ) -> _ResponseJobsPutTransfer:
         """Transfer ownership of this object to another user
+
+        API URL: ``PUT /jobs/{id}/transfer``
 
         Parameters
         ----------
@@ -18776,9 +19540,12 @@ class _Jobs:
     def list_projects(
         self,
         id: int,
+        *,
         hidden: bool | None = ...,
-    ) -> _ResponseJobsListProjects:
+    ) -> List[_ResponseJobsListProjects]:
         """List the projects a Job belongs to
+
+        API URL: ``GET /jobs/{id}/projects``
 
         Parameters
         ----------
@@ -18790,7 +19557,7 @@ class _Jobs:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID for this project.
             - author : :class:`civis.Response`
@@ -18836,6 +19603,8 @@ class _Jobs:
     ) -> Response:
         """Add a Job to a project
 
+        API URL: ``PUT /jobs/{id}/projects/{project_id}``
+
         Parameters
         ----------
         id : int
@@ -18857,6 +19626,8 @@ class _Jobs:
     ) -> Response:
         """Remove a Job from a project
 
+        API URL: ``DELETE /jobs/{id}/projects/{project_id}``
+
         Parameters
         ----------
         id : int
@@ -18877,6 +19648,8 @@ class _Jobs:
         status: bool,
     ) -> _ResponseJobsPutArchive:
         """Update the archive status of this object
+
+        API URL: ``PUT /jobs/{id}/archive``
 
         Parameters
         ----------
@@ -18964,9 +19737,12 @@ class _Json_Values:
     def post(
         self,
         value_str: str,
+        *,
         name: str | None = ...,
     ) -> _ResponseJsonValuesPost:
         """Create a JSON Value
+
+        API URL: ``POST /json_values``
 
         Parameters
         ----------
@@ -18994,6 +19770,8 @@ class _Json_Values:
     ) -> _ResponseJsonValuesGet:
         """Get details about a JSON Value
 
+        API URL: ``GET /json_values/{id}``
+
         Parameters
         ----------
         id : int
@@ -19014,10 +19792,13 @@ class _Json_Values:
     def patch(
         self,
         id: int,
+        *,
         name: str | None = ...,
         value_str: str | None = ...,
     ) -> _ResponseJsonValuesPatch:
         """Update some attributes of this JSON Value
+
+        API URL: ``PATCH /json_values/{id}``
 
         Parameters
         ----------
@@ -19044,8 +19825,10 @@ class _Json_Values:
     def list_shares(
         self,
         id: int,
-    ) -> _ResponseJsonValuesListShares:
+    ) -> List[_ResponseJsonValuesListShares]:
         """List users and groups permissioned on this object
+
+        API URL: ``GET /json_values/{id}/shares``
 
         Parameters
         ----------
@@ -19054,7 +19837,7 @@ class _Json_Values:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - readers : :class:`civis.Response`
                 - users : List[:class:`civis.Response`]
                     - id : int
@@ -19090,10 +19873,13 @@ class _Json_Values:
         id: int,
         user_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseJsonValuesPutSharesUsers:
         """Set the permissions users have on this object
+
+        API URL: ``PUT /json_values/{id}/shares/users``
 
         Parameters
         ----------
@@ -19148,6 +19934,8 @@ class _Json_Values:
     ) -> Response:
         """Revoke the permissions a user has on this object
 
+        API URL: ``DELETE /json_values/{id}/shares/users/{user_id}``
+
         Parameters
         ----------
         id : int
@@ -19167,10 +19955,13 @@ class _Json_Values:
         id: int,
         group_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseJsonValuesPutSharesGroups:
         """Set the permissions groups has on this object
+
+        API URL: ``PUT /json_values/{id}/shares/groups``
 
         Parameters
         ----------
@@ -19225,6 +20016,8 @@ class _Json_Values:
     ) -> Response:
         """Revoke the permissions a group has on this object
 
+        API URL: ``DELETE /json_values/{id}/shares/groups/{group_id}``
+
         Parameters
         ----------
         id : int
@@ -19242,9 +20035,12 @@ class _Json_Values:
     def list_dependencies(
         self,
         id: int,
+        *,
         user_id: int | None = ...,
-    ) -> _ResponseJsonValuesListDependencies:
+    ) -> List[_ResponseJsonValuesListDependencies]:
         """List dependent objects for this object
+
+        API URL: ``GET /json_values/{id}/dependencies``
 
         Parameters
         ----------
@@ -19255,7 +20051,7 @@ class _Json_Values:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - object_type : str
                 Dependent object type
             - fco_type : str
@@ -19281,10 +20077,13 @@ class _Json_Values:
         id: int,
         user_id: int,
         include_dependencies: bool,
+        *,
         email_body: str | None = ...,
         send_email: bool | None = ...,
     ) -> _ResponseJsonValuesPutTransfer:
         """Transfer ownership of this object to another user
+
+        API URL: ``PUT /json_values/{id}/transfer``
 
         Parameters
         ----------
@@ -19329,8 +20128,10 @@ class _Match_Targets:
     def list_shares(
         self,
         id: int,
-    ) -> _ResponseMatchTargetsListShares:
+    ) -> List[_ResponseMatchTargetsListShares]:
         """List users and groups permissioned on this object
+
+        API URL: ``GET /match_targets/{id}/shares``
 
         Parameters
         ----------
@@ -19339,7 +20140,7 @@ class _Match_Targets:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - readers : :class:`civis.Response`
                 - users : List[:class:`civis.Response`]
                     - id : int
@@ -19375,10 +20176,13 @@ class _Match_Targets:
         id: int,
         user_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseMatchTargetsPutSharesUsers:
         """Set the permissions users have on this object
+
+        API URL: ``PUT /match_targets/{id}/shares/users``
 
         Parameters
         ----------
@@ -19433,6 +20237,8 @@ class _Match_Targets:
     ) -> Response:
         """Revoke the permissions a user has on this object
 
+        API URL: ``DELETE /match_targets/{id}/shares/users/{user_id}``
+
         Parameters
         ----------
         id : int
@@ -19452,10 +20258,13 @@ class _Match_Targets:
         id: int,
         group_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseMatchTargetsPutSharesGroups:
         """Set the permissions groups has on this object
+
+        API URL: ``PUT /match_targets/{id}/shares/groups``
 
         Parameters
         ----------
@@ -19510,6 +20319,8 @@ class _Match_Targets:
     ) -> Response:
         """Revoke the permissions a group has on this object
 
+        API URL: ``DELETE /match_targets/{id}/shares/groups/{group_id}``
+
         Parameters
         ----------
         id : int
@@ -19530,6 +20341,8 @@ class _Match_Targets:
         status: bool,
     ) -> _ResponseMatchTargetsPutArchive:
         """Update the archive status of this object
+
+        API URL: ``PUT /match_targets/{id}/archive``
 
         Parameters
         ----------
@@ -19556,12 +20369,14 @@ class _Match_Targets:
 
     def list(
         self,
-    ) -> _ResponseMatchTargetsList:
+    ) -> List[_ResponseMatchTargetsList]:
         """List match targets
+
+        API URL: ``GET /match_targets``
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID of the match target
             - name : str
@@ -19578,10 +20393,13 @@ class _Match_Targets:
     def post(
         self,
         name: str,
+        *,
         target_file_name: str | None = ...,
         archived: bool | None = ...,
     ) -> _ResponseMatchTargetsPost:
         """Create a new match target
+
+        API URL: ``POST /match_targets``
 
         Parameters
         ----------
@@ -19614,6 +20432,8 @@ class _Match_Targets:
     ) -> _ResponseMatchTargetsGet:
         """Show Match Target info
 
+        API URL: ``GET /match_targets/{id}``
+
         Parameters
         ----------
         id : int
@@ -19638,11 +20458,14 @@ class _Match_Targets:
     def patch(
         self,
         id: int,
+        *,
         name: str | None = ...,
         target_file_name: str | None = ...,
         archived: bool | None = ...,
     ) -> _ResponseMatchTargetsPatch:
         """Update a match target
+
+        API URL: ``PATCH /match_targets/{id}``
 
         Parameters
         ----------
@@ -19675,8 +20498,10 @@ class _Media:
     def list_spot_orders_shares(
         self,
         id: int,
-    ) -> _ResponseMediaListSpotOrdersShares:
+    ) -> List[_ResponseMediaListSpotOrdersShares]:
         """List users and groups permissioned on this object
+
+        API URL: ``GET /media/spot_orders/{id}/shares``
 
         Parameters
         ----------
@@ -19685,7 +20510,7 @@ class _Media:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - readers : :class:`civis.Response`
                 - users : List[:class:`civis.Response`]
                     - id : int
@@ -19721,10 +20546,13 @@ class _Media:
         id: int,
         user_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseMediaPutSpotOrdersSharesUsers:
         """Set the permissions users have on this object
+
+        API URL: ``PUT /media/spot_orders/{id}/shares/users``
 
         Parameters
         ----------
@@ -19779,6 +20607,8 @@ class _Media:
     ) -> Response:
         """Revoke the permissions a user has on this object
 
+        API URL: ``DELETE /media/spot_orders/{id}/shares/users/{user_id}``
+
         Parameters
         ----------
         id : int
@@ -19798,10 +20628,13 @@ class _Media:
         id: int,
         group_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseMediaPutSpotOrdersSharesGroups:
         """Set the permissions groups has on this object
+
+        API URL: ``PUT /media/spot_orders/{id}/shares/groups``
 
         Parameters
         ----------
@@ -19856,6 +20689,8 @@ class _Media:
     ) -> Response:
         """Revoke the permissions a group has on this object
 
+        API URL: ``DELETE /media/spot_orders/{id}/shares/groups/{group_id}``
+
         Parameters
         ----------
         id : int
@@ -19876,6 +20711,8 @@ class _Media:
         status: bool,
     ) -> _ResponseMediaPutSpotOrdersArchive:
         """Update the archive status of this object
+
+        API URL: ``PUT /media/spot_orders/{id}/archive``
 
         Parameters
         ----------
@@ -19905,8 +20742,10 @@ class _Media:
     def list_optimizations_shares(
         self,
         id: int,
-    ) -> _ResponseMediaListOptimizationsShares:
+    ) -> List[_ResponseMediaListOptimizationsShares]:
         """List users and groups permissioned on this object
+
+        API URL: ``GET /media/optimizations/{id}/shares``
 
         Parameters
         ----------
@@ -19915,7 +20754,7 @@ class _Media:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - readers : :class:`civis.Response`
                 - users : List[:class:`civis.Response`]
                     - id : int
@@ -19951,10 +20790,13 @@ class _Media:
         id: int,
         user_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseMediaPutOptimizationsSharesUsers:
         """Set the permissions users have on this object
+
+        API URL: ``PUT /media/optimizations/{id}/shares/users``
 
         Parameters
         ----------
@@ -20009,6 +20851,8 @@ class _Media:
     ) -> Response:
         """Revoke the permissions a user has on this object
 
+        API URL: ``DELETE /media/optimizations/{id}/shares/users/{user_id}``
+
         Parameters
         ----------
         id : int
@@ -20028,10 +20872,13 @@ class _Media:
         id: int,
         group_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseMediaPutOptimizationsSharesGroups:
         """Set the permissions groups has on this object
+
+        API URL: ``PUT /media/optimizations/{id}/shares/groups``
 
         Parameters
         ----------
@@ -20086,6 +20933,8 @@ class _Media:
     ) -> Response:
         """Revoke the permissions a group has on this object
 
+        API URL: ``DELETE /media/optimizations/{id}/shares/groups/{group_id}``
+
         Parameters
         ----------
         id : int
@@ -20106,6 +20955,8 @@ class _Media:
         status: bool,
     ) -> _ResponseMediaPutOptimizationsArchive:
         """Update the archive status of this object
+
+        API URL: ``PUT /media/optimizations/{id}/archive``
 
         Parameters
         ----------
@@ -20202,8 +21053,10 @@ class _Media:
     def list_ratecards_shares(
         self,
         id: int,
-    ) -> _ResponseMediaListRatecardsShares:
+    ) -> List[_ResponseMediaListRatecardsShares]:
         """List users and groups permissioned on this object
+
+        API URL: ``GET /media/ratecards/{id}/shares``
 
         Parameters
         ----------
@@ -20212,7 +21065,7 @@ class _Media:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - readers : :class:`civis.Response`
                 - users : List[:class:`civis.Response`]
                     - id : int
@@ -20248,10 +21101,13 @@ class _Media:
         id: int,
         user_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseMediaPutRatecardsSharesUsers:
         """Set the permissions users have on this object
+
+        API URL: ``PUT /media/ratecards/{id}/shares/users``
 
         Parameters
         ----------
@@ -20306,6 +21162,8 @@ class _Media:
     ) -> Response:
         """Revoke the permissions a user has on this object
 
+        API URL: ``DELETE /media/ratecards/{id}/shares/users/{user_id}``
+
         Parameters
         ----------
         id : int
@@ -20325,10 +21183,13 @@ class _Media:
         id: int,
         group_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseMediaPutRatecardsSharesGroups:
         """Set the permissions groups has on this object
+
+        API URL: ``PUT /media/ratecards/{id}/shares/groups``
 
         Parameters
         ----------
@@ -20383,6 +21244,8 @@ class _Media:
     ) -> Response:
         """Revoke the permissions a group has on this object
 
+        API URL: ``DELETE /media/ratecards/{id}/shares/groups/{group_id}``
+
         Parameters
         ----------
         id : int
@@ -20403,6 +21266,8 @@ class _Media:
         status: bool,
     ) -> _ResponseMediaPutRatecardsArchive:
         """Update the archive status of this object
+
+        API URL: ``PUT /media/ratecards/{id}/archive``
 
         Parameters
         ----------
@@ -20431,6 +21296,7 @@ class _Media:
 
     def list_optimizations(
         self,
+        *,
         archived: str | None = ...,
         limit: int | None = ...,
         page_num: int | None = ...,
@@ -20439,6 +21305,8 @@ class _Media:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseMediaListOptimizations]:
         """List all optimizations
+
+        API URL: ``GET /media/optimizations``
 
         Parameters
         ----------
@@ -20459,12 +21327,13 @@ class _Media:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
                 The optimization ID.
             - author : :class:`civis.Response`
@@ -20498,6 +21367,7 @@ class _Media:
     def post_optimizations(
         self,
         runs: List[dict],
+        *,
         name: str | None = ...,
         programs: List[str] | None = ...,
         networks: List[str] | None = ...,
@@ -20506,6 +21376,8 @@ class _Media:
         time_slot_percentages: dict | None = ...,
     ) -> _ResponseMediaPostOptimizations:
         """Create a new optimization
+
+        API URL: ``POST /media/optimizations``
 
         Parameters
         ----------
@@ -20649,6 +21521,8 @@ class _Media:
     ) -> _ResponseMediaGetOptimizations:
         """Show a single optimization
 
+        API URL: ``GET /media/optimizations/{id}``
+
         Parameters
         ----------
         id : int
@@ -20742,6 +21616,7 @@ class _Media:
     def patch_optimizations(
         self,
         id: int,
+        *,
         name: str | None = ...,
         runs: List[dict] | None = ...,
         programs: List[str] | None = ...,
@@ -20751,6 +21626,8 @@ class _Media:
         time_slot_percentages: dict | None = ...,
     ) -> _ResponseMediaPatchOptimizations:
         """Edit an existing optimization
+
+        API URL: ``PATCH /media/optimizations/{id}``
 
         Parameters
         ----------
@@ -20896,6 +21773,8 @@ class _Media:
     ) -> _ResponseMediaPostOptimizationsClone:
         """Clone an existing optimization
 
+        API URL: ``POST /media/optimizations/{id}/clone``
+
         Parameters
         ----------
         id : int
@@ -20992,6 +21871,8 @@ class _Media:
     ) -> _ResponseMediaPostOptimizationsRuns:
         """Start a run
 
+        API URL: ``POST /media/optimizations/{id}/runs``
+
         Parameters
         ----------
         id : int
@@ -21023,6 +21904,7 @@ class _Media:
     def list_optimizations_runs(
         self,
         id: int,
+        *,
         limit: int | None = ...,
         page_num: int | None = ...,
         order: str | None = ...,
@@ -21030,6 +21912,8 @@ class _Media:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseMediaListOptimizationsRuns]:
         """List runs for the given Optimization job
+
+        API URL: ``GET /media/optimizations/{id}/runs``
 
         Parameters
         ----------
@@ -21050,12 +21934,13 @@ class _Media:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
                 The ID of the run.
             - optimization_id : int
@@ -21082,6 +21967,8 @@ class _Media:
         run_id: int,
     ) -> _ResponseMediaGetOptimizationsRuns:
         """Check status of a run
+
+        API URL: ``GET /media/optimizations/{id}/runs/{run_id}``
 
         Parameters
         ----------
@@ -21120,6 +22007,8 @@ class _Media:
     ) -> Response:
         """Cancel a run
 
+        API URL: ``DELETE /media/optimizations/{id}/runs/{run_id}``
+
         Parameters
         ----------
         id : int
@@ -21138,10 +22027,13 @@ class _Media:
         self,
         id: int,
         run_id: int,
+        *,
         last_id: int | None = ...,
         limit: int | None = ...,
-    ) -> _ResponseMediaListOptimizationsRunsLogs:
+    ) -> List[_ResponseMediaListOptimizationsRunsLogs]:
         """Get the logs for a run
+
+        API URL: ``GET /media/optimizations/{id}/runs/{run_id}/logs``
 
         Parameters
         ----------
@@ -21158,7 +22050,7 @@ class _Media:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID of the log.
             - created_at : str (date-time)
@@ -21172,10 +22064,13 @@ class _Media:
 
     def list_spot_orders(
         self,
+        *,
         id: int | None = ...,
         archived: str | None = ...,
-    ) -> _ResponseMediaListSpotOrders:
+    ) -> List[_ResponseMediaListSpotOrders]:
         """List all spot orders
+
+        API URL: ``GET /media/spot_orders``
 
         Parameters
         ----------
@@ -21186,7 +22081,7 @@ class _Media:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID for the spot order.
             - archived : str
@@ -21196,9 +22091,12 @@ class _Media:
 
     def post_spot_orders(
         self,
+        *,
         body: str | None = ...,
     ) -> _ResponseMediaPostSpotOrders:
         """Create a spot order
+
+        API URL: ``POST /media/spot_orders``
 
         Parameters
         ----------
@@ -21229,6 +22127,8 @@ class _Media:
     ) -> _ResponseMediaGetSpotOrders:
         """Show a single spot order
 
+        API URL: ``GET /media/spot_orders/{id}``
+
         Parameters
         ----------
         id : int
@@ -21255,9 +22155,12 @@ class _Media:
     def put_spot_orders(
         self,
         id: int,
+        *,
         body: str | None = ...,
     ) -> _ResponseMediaPutSpotOrders:
         """Edit the specified spot order
+
+        API URL: ``PUT /media/spot_orders/{id}``
 
         Parameters
         ----------
@@ -21286,11 +22189,14 @@ class _Media:
 
     def list_ratecards(
         self,
+        *,
         archived: str | None = ...,
         filename: str | None = ...,
         dma_number: int | None = ...,
-    ) -> _ResponseMediaListRatecards:
+    ) -> List[_ResponseMediaListRatecards]:
         """List all ratecards
+
+        API URL: ``GET /media/ratecards``
 
         Parameters
         ----------
@@ -21305,7 +22211,7 @@ class _Media:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ratecard ID.
             - filename : str
@@ -21329,6 +22235,8 @@ class _Media:
         dma_number: int,
     ) -> _ResponseMediaPostRatecards:
         """Create a Ratecard
+
+        API URL: ``POST /media/ratecards``
 
         Parameters
         ----------
@@ -21365,6 +22273,8 @@ class _Media:
     ) -> _ResponseMediaGetRatecards:
         """Get a Ratecard
 
+        API URL: ``GET /media/ratecards/{id}``
+
         Parameters
         ----------
         id : int
@@ -21396,6 +22306,8 @@ class _Media:
         dma_number: int,
     ) -> _ResponseMediaPutRatecards:
         """Replace all attributes of this Ratecard
+
+        API URL: ``PUT /media/ratecards/{id}``
 
         Parameters
         ----------
@@ -21431,12 +22343,15 @@ class _Media:
     def patch_ratecards(
         self,
         id: int,
+        *,
         filename: str | None = ...,
         start_on: str | None = ...,
         end_on: str | None = ...,
         dma_number: int | None = ...,
     ) -> _ResponseMediaPatchRatecards:
         """Update some attributes of this Ratecard
+
+        API URL: ``PATCH /media/ratecards/{id}``
 
         Parameters
         ----------
@@ -21471,10 +22386,13 @@ class _Media:
 
     def list_dmas(
         self,
+        *,
         name: str | None = ...,
         number: int | None = ...,
-    ) -> _ResponseMediaListDmas:
+    ) -> List[_ResponseMediaListDmas]:
         """List all Designated Market Areas
+
+        API URL: ``GET /media/dmas``
 
         Parameters
         ----------
@@ -21487,7 +22405,7 @@ class _Media:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - name : str
                 Name for the DMA region.
             - number : int
@@ -21497,11 +22415,14 @@ class _Media:
 
     def list_targets(
         self,
+        *,
         name: str | None = ...,
         identifier: str | None = ...,
         data_source: str | None = ...,
-    ) -> _ResponseMediaListTargets:
+    ) -> List[_ResponseMediaListTargets]:
         """List all Media Targets
+
+        API URL: ``GET /media/targets``
 
         Parameters
         ----------
@@ -21514,7 +22435,7 @@ class _Media:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - name : str
                 The name of the target.
             - identifier : str
@@ -21527,12 +22448,14 @@ class _Media:
 class _Models:
     def list_types(
         self,
-    ) -> _ResponseModelsListTypes:
+    ) -> List[_ResponseModelsListTypes]:
         """List all available model types
+
+        API URL: ``GET /models/types``
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID of the model type.
             - algorithm : str
@@ -21546,6 +22469,7 @@ class _Models:
 
     def list(
         self,
+        *,
         model_name: str | None = ...,
         training_table_name: str | None = ...,
         dependent_variable: str | None = ...,
@@ -21560,6 +22484,8 @@ class _Models:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseModelsList]:
         """List
+
+        API URL: ``GET /models``
 
         Parameters
         ----------
@@ -21603,12 +22529,13 @@ class _Models:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
                 The ID of the model.
             - table_name : str
@@ -21747,6 +22674,8 @@ class _Models:
         id: int,
     ) -> _ResponseModelsGet:
         """Retrieve model configuration
+
+        API URL: ``GET /models/{id}``
 
         Parameters
         ----------
@@ -21951,6 +22880,8 @@ class _Models:
     ) -> _ResponseModelsGetBuilds:
         """Check status of a build
 
+        API URL: ``GET /models/{id}/builds/{build_id}``
+
         Parameters
         ----------
         id : int
@@ -22000,6 +22931,8 @@ class _Models:
     ) -> Response:
         """Cancel a build
 
+        API URL: ``DELETE /models/{id}/builds/{build_id}``
+
         Parameters
         ----------
         id : int
@@ -22017,6 +22950,7 @@ class _Models:
     def list_builds(
         self,
         id: int,
+        *,
         limit: int | None = ...,
         page_num: int | None = ...,
         order: str | None = ...,
@@ -22024,6 +22958,8 @@ class _Models:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseModelsListBuilds]:
         """List builds for the given Model job
+
+        API URL: ``GET /models/{id}/builds``
 
         Parameters
         ----------
@@ -22044,12 +22980,13 @@ class _Models:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
                 The ID of the model build.
             - state : str
@@ -22086,10 +23023,13 @@ class _Models:
         self,
         id: int,
         build_id: int,
+        *,
         last_id: int | None = ...,
         limit: int | None = ...,
-    ) -> _ResponseModelsListBuildsLogs:
+    ) -> List[_ResponseModelsListBuildsLogs]:
         """Get the logs for a build
+
+        API URL: ``GET /models/{id}/builds/{build_id}/logs``
 
         Parameters
         ----------
@@ -22106,7 +23046,7 @@ class _Models:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID of the log.
             - created_at : str (date-time)
@@ -22121,8 +23061,10 @@ class _Models:
     def list_shares(
         self,
         id: int,
-    ) -> _ResponseModelsListShares:
+    ) -> List[_ResponseModelsListShares]:
         """List users and groups permissioned on this object
+
+        API URL: ``GET /models/{id}/shares``
 
         Parameters
         ----------
@@ -22131,7 +23073,7 @@ class _Models:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - readers : :class:`civis.Response`
                 - users : List[:class:`civis.Response`]
                     - id : int
@@ -22167,10 +23109,13 @@ class _Models:
         id: int,
         user_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseModelsPutSharesUsers:
         """Set the permissions users have on this object
+
+        API URL: ``PUT /models/{id}/shares/users``
 
         Parameters
         ----------
@@ -22225,6 +23170,8 @@ class _Models:
     ) -> Response:
         """Revoke the permissions a user has on this object
 
+        API URL: ``DELETE /models/{id}/shares/users/{user_id}``
+
         Parameters
         ----------
         id : int
@@ -22244,10 +23191,13 @@ class _Models:
         id: int,
         group_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseModelsPutSharesGroups:
         """Set the permissions groups has on this object
+
+        API URL: ``PUT /models/{id}/shares/groups``
 
         Parameters
         ----------
@@ -22302,6 +23252,8 @@ class _Models:
     ) -> Response:
         """Revoke the permissions a group has on this object
 
+        API URL: ``DELETE /models/{id}/shares/groups/{group_id}``
+
         Parameters
         ----------
         id : int
@@ -22319,9 +23271,12 @@ class _Models:
     def list_dependencies(
         self,
         id: int,
+        *,
         user_id: int | None = ...,
-    ) -> _ResponseModelsListDependencies:
+    ) -> List[_ResponseModelsListDependencies]:
         """List dependent objects for this object
+
+        API URL: ``GET /models/{id}/dependencies``
 
         Parameters
         ----------
@@ -22332,7 +23287,7 @@ class _Models:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - object_type : str
                 Dependent object type
             - fco_type : str
@@ -22358,10 +23313,13 @@ class _Models:
         id: int,
         user_id: int,
         include_dependencies: bool,
+        *,
         email_body: str | None = ...,
         send_email: bool | None = ...,
     ) -> _ResponseModelsPutTransfer:
         """Transfer ownership of this object to another user
+
+        API URL: ``PUT /models/{id}/transfer``
 
         Parameters
         ----------
@@ -22405,9 +23363,12 @@ class _Models:
     def list_projects(
         self,
         id: int,
+        *,
         hidden: bool | None = ...,
-    ) -> _ResponseModelsListProjects:
+    ) -> List[_ResponseModelsListProjects]:
         """List the projects a Model belongs to
+
+        API URL: ``GET /models/{id}/projects``
 
         Parameters
         ----------
@@ -22419,7 +23380,7 @@ class _Models:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID for this project.
             - author : :class:`civis.Response`
@@ -22465,6 +23426,8 @@ class _Models:
     ) -> Response:
         """Add a Model to a project
 
+        API URL: ``PUT /models/{id}/projects/{project_id}``
+
         Parameters
         ----------
         id : int
@@ -22486,6 +23449,8 @@ class _Models:
     ) -> Response:
         """Remove a Model from a project
 
+        API URL: ``DELETE /models/{id}/projects/{project_id}``
+
         Parameters
         ----------
         id : int
@@ -22506,6 +23471,8 @@ class _Models:
         status: bool,
     ) -> _ResponseModelsPutArchive:
         """Update the archive status of this object
+
+        API URL: ``PUT /models/{id}/archive``
 
         Parameters
         ----------
@@ -22708,8 +23675,10 @@ class _Models:
     def list_schedules(
         self,
         id: int,
-    ) -> _ResponseModelsListSchedules:
+    ) -> List[_ResponseModelsListSchedules]:
         """Show the model build schedule
+
+        API URL: ``GET /models/{id}/schedules``
 
         Parameters
         ----------
@@ -22718,7 +23687,7 @@ class _Models:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID of the model associated with this schedule.
             - schedule : :class:`civis.Response`
@@ -22742,6 +23711,7 @@ class _Models:
 class _Notebooks:
     def list(
         self,
+        *,
         hidden: bool | None = ...,
         archived: str | None = ...,
         author: str | None = ...,
@@ -22753,6 +23723,8 @@ class _Notebooks:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseNotebooksList]:
         """List Notebooks
+
+        API URL: ``GET /notebooks``
 
         Parameters
         ----------
@@ -22782,12 +23754,13 @@ class _Notebooks:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
                 The ID for this notebook.
             - name : str
@@ -22843,7 +23816,7 @@ class _Notebooks:
                 - created_at : str (time)
                 - updated_at : str (time)
                 - notebook_id : int
-                    The ID of owning Notebook
+                    The ID of the owning Notebook
             - archived : str
                 The archival status of the requested item(s).
         """
@@ -22851,6 +23824,7 @@ class _Notebooks:
 
     def post(
         self,
+        *,
         name: str | None = ...,
         language: str | None = ...,
         description: str | None = ...,
@@ -22872,6 +23846,8 @@ class _Notebooks:
         hidden: bool | None = ...,
     ) -> _ResponseNotebooksPost:
         """Create a Notebook
+
+        API URL: ``POST /notebooks``
 
         Parameters
         ----------
@@ -22997,7 +23973,7 @@ class _Notebooks:
                 - created_at : str (time)
                 - updated_at : str (time)
                 - notebook_id : int
-                    The ID of owning Notebook
+                    The ID of the owning Notebook
             - credentials : List[int]
                 A list of credential IDs to pass to the notebook.
             - environment_variables : :class:`civis.Response`
@@ -23032,6 +24008,8 @@ class _Notebooks:
     ) -> _ResponseNotebooksGet:
         """Get a Notebook
 
+        API URL: ``GET /notebooks/{id}``
+
         Parameters
         ----------
         id : int
@@ -23116,7 +24094,7 @@ class _Notebooks:
                 - created_at : str (time)
                 - updated_at : str (time)
                 - notebook_id : int
-                    The ID of owning Notebook
+                    The ID of the owning Notebook
             - credentials : List[int]
                 A list of credential IDs to pass to the notebook.
             - environment_variables : :class:`civis.Response`
@@ -23148,6 +24126,7 @@ class _Notebooks:
     def put(
         self,
         id: int,
+        *,
         name: str | None = ...,
         language: str | None = ...,
         description: str | None = ...,
@@ -23168,6 +24147,8 @@ class _Notebooks:
         git_path: str | None = ...,
     ) -> _ResponseNotebooksPut:
         """Replace all attributes of this Notebook
+
+        API URL: ``PUT /notebooks/{id}``
 
         Parameters
         ----------
@@ -23293,7 +24274,7 @@ class _Notebooks:
                 - created_at : str (time)
                 - updated_at : str (time)
                 - notebook_id : int
-                    The ID of owning Notebook
+                    The ID of the owning Notebook
             - credentials : List[int]
                 A list of credential IDs to pass to the notebook.
             - environment_variables : :class:`civis.Response`
@@ -23325,6 +24306,7 @@ class _Notebooks:
     def patch(
         self,
         id: int,
+        *,
         name: str | None = ...,
         language: str | None = ...,
         description: str | None = ...,
@@ -23345,6 +24327,8 @@ class _Notebooks:
         git_path: str | None = ...,
     ) -> _ResponseNotebooksPatch:
         """Update some attributes of this Notebook
+
+        API URL: ``PATCH /notebooks/{id}``
 
         Parameters
         ----------
@@ -23470,7 +24454,7 @@ class _Notebooks:
                 - created_at : str (time)
                 - updated_at : str (time)
                 - notebook_id : int
-                    The ID of owning Notebook
+                    The ID of the owning Notebook
             - credentials : List[int]
                 A list of credential IDs to pass to the notebook.
             - environment_variables : :class:`civis.Response`
@@ -23502,8 +24486,10 @@ class _Notebooks:
     def list_update_links(
         self,
         id: int,
-    ) -> _ResponseNotebooksListUpdateLinks:
+    ) -> List[_ResponseNotebooksListUpdateLinks]:
         """Get URLs to update notebook
+
+        API URL: ``GET /notebooks/{id}/update-links``
 
         Parameters
         ----------
@@ -23511,7 +24497,7 @@ class _Notebooks:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - update_url : str
                 Time-limited URL to PUT new contents of the .ipynb file for this
                 notebook.
@@ -23526,6 +24512,8 @@ class _Notebooks:
         id: int,
     ) -> _ResponseNotebooksPostClone:
         """Clone this Notebook
+
+        API URL: ``POST /notebooks/{id}/clone``
 
         Parameters
         ----------
@@ -23611,7 +24599,7 @@ class _Notebooks:
                 - created_at : str (time)
                 - updated_at : str (time)
                 - notebook_id : int
-                    The ID of owning Notebook
+                    The ID of the owning Notebook
             - credentials : List[int]
                 A list of credential IDs to pass to the notebook.
             - environment_variables : :class:`civis.Response`
@@ -23643,8 +24631,10 @@ class _Notebooks:
     def list_shares(
         self,
         id: int,
-    ) -> _ResponseNotebooksListShares:
+    ) -> List[_ResponseNotebooksListShares]:
         """List users and groups permissioned on this object
+
+        API URL: ``GET /notebooks/{id}/shares``
 
         Parameters
         ----------
@@ -23653,7 +24643,7 @@ class _Notebooks:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - readers : :class:`civis.Response`
                 - users : List[:class:`civis.Response`]
                     - id : int
@@ -23689,10 +24679,13 @@ class _Notebooks:
         id: int,
         user_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseNotebooksPutSharesUsers:
         """Set the permissions users have on this object
+
+        API URL: ``PUT /notebooks/{id}/shares/users``
 
         Parameters
         ----------
@@ -23747,6 +24740,8 @@ class _Notebooks:
     ) -> Response:
         """Revoke the permissions a user has on this object
 
+        API URL: ``DELETE /notebooks/{id}/shares/users/{user_id}``
+
         Parameters
         ----------
         id : int
@@ -23766,10 +24761,13 @@ class _Notebooks:
         id: int,
         group_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseNotebooksPutSharesGroups:
         """Set the permissions groups has on this object
+
+        API URL: ``PUT /notebooks/{id}/shares/groups``
 
         Parameters
         ----------
@@ -23824,6 +24822,8 @@ class _Notebooks:
     ) -> Response:
         """Revoke the permissions a group has on this object
 
+        API URL: ``DELETE /notebooks/{id}/shares/groups/{group_id}``
+
         Parameters
         ----------
         id : int
@@ -23841,9 +24841,12 @@ class _Notebooks:
     def list_dependencies(
         self,
         id: int,
+        *,
         user_id: int | None = ...,
-    ) -> _ResponseNotebooksListDependencies:
+    ) -> List[_ResponseNotebooksListDependencies]:
         """List dependent objects for this object
+
+        API URL: ``GET /notebooks/{id}/dependencies``
 
         Parameters
         ----------
@@ -23854,7 +24857,7 @@ class _Notebooks:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - object_type : str
                 Dependent object type
             - fco_type : str
@@ -23880,10 +24883,13 @@ class _Notebooks:
         id: int,
         user_id: int,
         include_dependencies: bool,
+        *,
         email_body: str | None = ...,
         send_email: bool | None = ...,
     ) -> _ResponseNotebooksPutTransfer:
         """Transfer ownership of this object to another user
+
+        API URL: ``PUT /notebooks/{id}/transfer``
 
         Parameters
         ----------
@@ -23930,6 +24936,8 @@ class _Notebooks:
         status: bool,
     ) -> _ResponseNotebooksPutArchive:
         """Update the archive status of this object
+
+        API URL: ``PUT /notebooks/{id}/archive``
 
         Parameters
         ----------
@@ -24018,7 +25026,7 @@ class _Notebooks:
                 - created_at : str (time)
                 - updated_at : str (time)
                 - notebook_id : int
-                    The ID of owning Notebook
+                    The ID of the owning Notebook
             - credentials : List[int]
                 A list of credential IDs to pass to the notebook.
             - environment_variables : :class:`civis.Response`
@@ -24050,9 +25058,12 @@ class _Notebooks:
     def list_projects(
         self,
         id: int,
+        *,
         hidden: bool | None = ...,
-    ) -> _ResponseNotebooksListProjects:
+    ) -> List[_ResponseNotebooksListProjects]:
         """List the projects a Notebook belongs to
+
+        API URL: ``GET /notebooks/{id}/projects``
 
         Parameters
         ----------
@@ -24064,7 +25075,7 @@ class _Notebooks:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID for this project.
             - author : :class:`civis.Response`
@@ -24110,6 +25121,8 @@ class _Notebooks:
     ) -> Response:
         """Add a Notebook to a project
 
+        API URL: ``PUT /notebooks/{id}/projects/{project_id}``
+
         Parameters
         ----------
         id : int
@@ -24131,6 +25144,8 @@ class _Notebooks:
     ) -> Response:
         """Remove a Notebook from a project
 
+        API URL: ``DELETE /notebooks/{id}/projects/{project_id}``
+
         Parameters
         ----------
         id : int
@@ -24148,6 +25163,7 @@ class _Notebooks:
     def list_deployments(
         self,
         notebook_id: int,
+        *,
         deployment_id: int | None = ...,
         limit: int | None = ...,
         page_num: int | None = ...,
@@ -24156,6 +25172,8 @@ class _Notebooks:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseNotebooksListDeployments]:
         """List deployments for a Notebook
+
+        API URL: ``GET /notebooks/{notebook_id}/deployments``
 
         Parameters
         ----------
@@ -24178,12 +25196,13 @@ class _Notebooks:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - deployment_id : int
                 The ID for this deployment.
             - user_id : int
@@ -24215,16 +25234,19 @@ class _Notebooks:
             - created_at : str (time)
             - updated_at : str (time)
             - notebook_id : int
-                The ID of owning Notebook
+                The ID of the owning Notebook
         """
         ...
 
     def post_deployments(
         self,
         notebook_id: int,
+        *,
         deployment_id: int | None = ...,
     ) -> _ResponseNotebooksPostDeployments:
         """Deploy a Notebook
+
+        API URL: ``POST /notebooks/{notebook_id}/deployments``
 
         Parameters
         ----------
@@ -24269,7 +25291,7 @@ class _Notebooks:
             - created_at : str (time)
             - updated_at : str (time)
             - notebook_id : int
-                The ID of owning Notebook
+                The ID of the owning Notebook
         """
         ...
 
@@ -24279,6 +25301,8 @@ class _Notebooks:
         deployment_id: int,
     ) -> _ResponseNotebooksGetDeployments:
         """Get details about a Notebook deployment
+
+        API URL: ``GET /notebooks/{notebook_id}/deployments/{deployment_id}``
 
         Parameters
         ----------
@@ -24323,7 +25347,7 @@ class _Notebooks:
             - created_at : str (time)
             - updated_at : str (time)
             - notebook_id : int
-                The ID of owning Notebook
+                The ID of the owning Notebook
         """
         ...
 
@@ -24333,6 +25357,8 @@ class _Notebooks:
         deployment_id: int,
     ) -> Response:
         """Delete a Notebook deployment
+
+        API URL: ``DELETE /notebooks/{notebook_id}/deployments/{deployment_id}``
 
         Parameters
         ----------
@@ -24352,11 +25378,14 @@ class _Notebooks:
         self,
         id: int,
         deployment_id: int,
+        *,
         start_at: str | None = ...,
         end_at: str | None = ...,
         limit: int | None = ...,
-    ) -> _ResponseNotebooksListDeploymentsLogs:
+    ) -> List[_ResponseNotebooksListDeploymentsLogs]:
         """Get the logs for a Notebook deployment
+
+        API URL: ``GET /notebooks/{id}/deployments/{deployment_id}/logs``
 
         Parameters
         ----------
@@ -24373,7 +25402,7 @@ class _Notebooks:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - message : str
                 The log message.
             - stream : str
@@ -24388,8 +25417,10 @@ class _Notebooks:
     def list_git(
         self,
         id: int,
-    ) -> _ResponseNotebooksListGit:
+    ) -> List[_ResponseNotebooksListGit]:
         """Get the git metadata attached to an item
+
+        API URL: ``GET /notebooks/{id}/git``
 
         Parameters
         ----------
@@ -24398,7 +25429,7 @@ class _Notebooks:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - git_ref : str
                 A git reference specifying an unambiguous version of the file. Can be a
                 branch name, tag or the full or shortened SHA of a commit.
@@ -24424,6 +25455,7 @@ class _Notebooks:
     def put_git(
         self,
         id: int,
+        *,
         git_ref: str | None = ...,
         git_branch: str | None = ...,
         git_path: str | None = ...,
@@ -24432,6 +25464,8 @@ class _Notebooks:
         pull_from_git: bool | None = ...,
     ) -> _ResponseNotebooksPutGit:
         """Attach an item to a file in a git repo
+
+        API URL: ``PUT /notebooks/{id}/git``
 
         Parameters
         ----------
@@ -24480,6 +25514,7 @@ class _Notebooks:
     def patch_git(
         self,
         id: int,
+        *,
         git_ref: str | None = ...,
         git_branch: str | None = ...,
         git_path: str | None = ...,
@@ -24488,6 +25523,8 @@ class _Notebooks:
         pull_from_git: bool | None = ...,
     ) -> _ResponseNotebooksPatchGit:
         """Update an attached git file
+
+        API URL: ``PATCH /notebooks/{id}/git``
 
         Parameters
         ----------
@@ -24536,8 +25573,10 @@ class _Notebooks:
     def list_git_commits(
         self,
         id: int,
-    ) -> _ResponseNotebooksListGitCommits:
+    ) -> List[_ResponseNotebooksListGitCommits]:
         """Get the git commits for an item on the current branch
+
+        API URL: ``GET /notebooks/{id}/git/commits``
 
         Parameters
         ----------
@@ -24546,7 +25585,7 @@ class _Notebooks:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - commit_hash : str
                 The SHA of the commit.
             - author_name : str
@@ -24566,6 +25605,8 @@ class _Notebooks:
         file_hash: str,
     ) -> _ResponseNotebooksPostGitCommits:
         """Commit and push a new version of the file
+
+        API URL: ``POST /notebooks/{id}/git/commits``
 
         Parameters
         ----------
@@ -24599,6 +25640,8 @@ class _Notebooks:
     ) -> _ResponseNotebooksGetGitCommits:
         """Get file contents at git ref
 
+        API URL: ``GET /notebooks/{id}/git/commits/{commit_hash}``
+
         Parameters
         ----------
         id : int
@@ -24623,11 +25666,14 @@ class _Notebooks:
 class _Notifications:
     def list(
         self,
+        *,
         last_event_id: str | None = ...,
         r: str | None = ...,
         mock: str | None = ...,
-    ) -> Response:
+    ) -> List[Response]:
         """Receive a stream of notifications as they come in
+
+        API URL: ``GET /notifications``
 
         Parameters
         ----------
@@ -24648,9 +25694,12 @@ class _Notifications:
 class _Ontology:
     def list(
         self,
+        *,
         subset: str | None = ...,
-    ) -> _ResponseOntologyList:
+    ) -> List[_ResponseOntologyList]:
         """List the ontology of column names Civis uses
+
+        API URL: ``GET /ontology``
 
         Parameters
         ----------
@@ -24659,7 +25708,7 @@ class _Ontology:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - key : str
             - title : str
             - desc : str
@@ -24668,9 +25717,164 @@ class _Ontology:
         """
         ...
 
+class _Organizations:
+    def list_favorites(
+        self,
+        *,
+        object_id: int | None = ...,
+        object_type: str | None = ...,
+        limit: int | None = ...,
+        page_num: int | None = ...,
+        order: str | None = ...,
+        order_dir: str | None = ...,
+        iterator: bool | None = ...,
+    ) -> Iterator[_ResponseOrganizationsListFavorites]:
+        """List Favorites
+
+        API URL: ``GET /organizations/favorites``
+
+        Parameters
+        ----------
+        object_id : int, optional
+            The id of the object. If specified as a query parameter, must also specify
+            object_type parameter.
+        object_type : str, optional
+            The type of the object that is favorited. Valid options: Container Script,
+            Identity Resolution, Import, Python Script, R Script, dbt Script,
+            JavaScript Script, SQL Script, Template Script, Project, Workflow, Tableau
+            Report, Service Report, HTML Report, SQL Report
+        limit : int, optional
+            Number of results to return. Defaults to 50. Maximum allowed is 1000.
+        page_num : int, optional
+            Page number of the results to return. Defaults to the first page, 1.
+        order : str, optional
+            The field on which to order the result set. Defaults to created_at. Must be
+            one of: created_at, object_type, object_id.
+        order_dir : str, optional
+            Direction in which to sort, either asc (ascending) or desc (descending)
+            defaulting to desc.
+        iterator : bool, optional
+            If True, return a generator (specifically, a
+            :class:`civis.PaginatedResponse` object) to iterate over all responses.
+            Use it when more results than the maximum allowed by 'limit' are needed.
+            When True, 'page_num' is ignored.
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
+            determined by 'limit'. Defaults to False.
+
+        Returns
+        -------
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
+            - id : int
+                The id of the favorite.
+            - object_id : int
+                The id of the object. If specified as a query parameter, must also
+                specify object_type parameter.
+            - object_type : str
+                The type of the object that is favorited. Valid options: Container
+                Script, Identity Resolution, Import, Python Script, R Script, dbt
+                Script, JavaScript Script, SQL Script, Template Script, Project,
+                Workflow, Tableau Report, Service Report, HTML Report, SQL Report
+            - object_name : str
+                The name of the object that is favorited.
+            - created_at : str (time)
+                The time this favorite was created.
+            - object_updated_at : str (time)
+                The time the object that is favorited was last updated
+            - object_author : :class:`civis.Response`
+                - id : int
+                    The ID of this user.
+                - name : str
+                    This user's name.
+                - username : str
+                    This user's username.
+                - initials : str
+                    This user's initials.
+                - online : bool
+                    Whether this user is online.
+            - position : int
+                The rank position of this favorite. Use the patch
+                users/me/favorites/:id/ranking/ endpoints to update.
+        """
+        ...
+
+    def post_favorites(
+        self,
+        object_id: int,
+        object_type: str,
+    ) -> _ResponseOrganizationsPostFavorites:
+        """Favorite an item for your organization
+
+        API URL: ``POST /organizations/favorites``
+
+        Parameters
+        ----------
+        object_id : int
+            The id of the object. If specified as a query parameter, must also specify
+            object_type parameter.
+        object_type : str
+            The type of the object that is favorited. Valid options: Container Script,
+            Identity Resolution, Import, Python Script, R Script, dbt Script,
+            JavaScript Script, SQL Script, Template Script, Project, Workflow, Tableau
+            Report, Service Report, HTML Report, SQL Report
+
+        Returns
+        -------
+        :class:`civis.Response`
+            - id : int
+                The id of the favorite.
+            - object_id : int
+                The id of the object. If specified as a query parameter, must also
+                specify object_type parameter.
+            - object_type : str
+                The type of the object that is favorited. Valid options: Container
+                Script, Identity Resolution, Import, Python Script, R Script, dbt
+                Script, JavaScript Script, SQL Script, Template Script, Project,
+                Workflow, Tableau Report, Service Report, HTML Report, SQL Report
+            - object_name : str
+                The name of the object that is favorited.
+            - created_at : str (time)
+                The time this favorite was created.
+            - object_updated_at : str (time)
+                The time the object that is favorited was last updated
+            - object_author : :class:`civis.Response`
+                - id : int
+                    The ID of this user.
+                - name : str
+                    This user's name.
+                - username : str
+                    This user's username.
+                - initials : str
+                    This user's initials.
+                - online : bool
+                    Whether this user is online.
+        """
+        ...
+
+    def delete_favorites(
+        self,
+        id: int,
+    ) -> Response:
+        """Unfavorite an item for your organization
+
+        API URL: ``DELETE /organizations/favorites/{id}``
+
+        Parameters
+        ----------
+        id : int
+            The id of the favorite.
+
+        Returns
+        -------
+        None
+            Response code 204: success
+        """
+        ...
+
 class _Permission_Sets:
     def list(
         self,
+        *,
         archived: str | None = ...,
         author: str | None = ...,
         limit: int | None = ...,
@@ -24680,6 +25884,8 @@ class _Permission_Sets:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponsePermissionSetsList]:
         """List Permission Sets
+
+        API URL: ``GET /permission_sets``
 
         Parameters
         ----------
@@ -24703,12 +25909,13 @@ class _Permission_Sets:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
                 The ID for this permission set.
             - name : str
@@ -24736,9 +25943,12 @@ class _Permission_Sets:
     def post(
         self,
         name: str,
+        *,
         description: str | None = ...,
     ) -> _ResponsePermissionSetsPost:
         """Create a Permission Set
+
+        API URL: ``POST /permission_sets``
 
         Parameters
         ----------
@@ -24780,6 +25990,8 @@ class _Permission_Sets:
     ) -> _ResponsePermissionSetsGet:
         """Get a Permission Set
 
+        API URL: ``GET /permission_sets/{id}``
+
         Parameters
         ----------
         id : int
@@ -24815,9 +26027,12 @@ class _Permission_Sets:
         self,
         id: int,
         name: str,
+        *,
         description: str | None = ...,
     ) -> _ResponsePermissionSetsPut:
         """Replace all attributes of this Permission Set
+
+        API URL: ``PUT /permission_sets/{id}``
 
         Parameters
         ----------
@@ -24858,10 +26073,13 @@ class _Permission_Sets:
     def patch(
         self,
         id: int,
+        *,
         name: str | None = ...,
         description: str | None = ...,
     ) -> _ResponsePermissionSetsPatch:
         """Update some attributes of this Permission Set
+
+        API URL: ``PATCH /permission_sets/{id}``
 
         Parameters
         ----------
@@ -24902,8 +26120,10 @@ class _Permission_Sets:
     def list_shares(
         self,
         id: int,
-    ) -> _ResponsePermissionSetsListShares:
+    ) -> List[_ResponsePermissionSetsListShares]:
         """List users and groups permissioned on this object
+
+        API URL: ``GET /permission_sets/{id}/shares``
 
         Parameters
         ----------
@@ -24912,7 +26132,7 @@ class _Permission_Sets:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - readers : :class:`civis.Response`
                 - users : List[:class:`civis.Response`]
                     - id : int
@@ -24948,10 +26168,13 @@ class _Permission_Sets:
         id: int,
         user_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponsePermissionSetsPutSharesUsers:
         """Set the permissions users have on this object
+
+        API URL: ``PUT /permission_sets/{id}/shares/users``
 
         Parameters
         ----------
@@ -25006,6 +26229,8 @@ class _Permission_Sets:
     ) -> Response:
         """Revoke the permissions a user has on this object
 
+        API URL: ``DELETE /permission_sets/{id}/shares/users/{user_id}``
+
         Parameters
         ----------
         id : int
@@ -25025,10 +26250,13 @@ class _Permission_Sets:
         id: int,
         group_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponsePermissionSetsPutSharesGroups:
         """Set the permissions groups has on this object
+
+        API URL: ``PUT /permission_sets/{id}/shares/groups``
 
         Parameters
         ----------
@@ -25083,6 +26311,8 @@ class _Permission_Sets:
     ) -> Response:
         """Revoke the permissions a group has on this object
 
+        API URL: ``DELETE /permission_sets/{id}/shares/groups/{group_id}``
+
         Parameters
         ----------
         id : int
@@ -25100,9 +26330,12 @@ class _Permission_Sets:
     def list_dependencies(
         self,
         id: int,
+        *,
         user_id: int | None = ...,
-    ) -> _ResponsePermissionSetsListDependencies:
+    ) -> List[_ResponsePermissionSetsListDependencies]:
         """List dependent objects for this object
+
+        API URL: ``GET /permission_sets/{id}/dependencies``
 
         Parameters
         ----------
@@ -25113,7 +26346,7 @@ class _Permission_Sets:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - object_type : str
                 Dependent object type
             - fco_type : str
@@ -25139,10 +26372,13 @@ class _Permission_Sets:
         id: int,
         user_id: int,
         include_dependencies: bool,
+        *,
         email_body: str | None = ...,
         send_email: bool | None = ...,
     ) -> _ResponsePermissionSetsPutTransfer:
         """Transfer ownership of this object to another user
+
+        API URL: ``PUT /permission_sets/{id}/transfer``
 
         Parameters
         ----------
@@ -25190,6 +26426,8 @@ class _Permission_Sets:
     ) -> _ResponsePermissionSetsPutArchive:
         """Update the archive status of this object
 
+        API URL: ``PUT /permission_sets/{id}/archive``
+
         Parameters
         ----------
         id : int
@@ -25228,8 +26466,10 @@ class _Permission_Sets:
         self,
         id: int,
         user_id: int,
-    ) -> _ResponsePermissionSetsListUsersPermissions:
+    ) -> List[_ResponsePermissionSetsListUsersPermissions]:
         """Get all permissions for a user, in this permission set
+
+        API URL: ``GET /permission_sets/{id}/users/{user_id}/permissions``
 
         Parameters
         ----------
@@ -25240,7 +26480,7 @@ class _Permission_Sets:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - resource_name : str
                 The name of the resource.
             - read : bool
@@ -25255,6 +26495,7 @@ class _Permission_Sets:
     def list_resources(
         self,
         id: int,
+        *,
         limit: int | None = ...,
         page_num: int | None = ...,
         order: str | None = ...,
@@ -25262,6 +26503,8 @@ class _Permission_Sets:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponsePermissionSetsListResources]:
         """List resources in a permission set
+
+        API URL: ``GET /permission_sets/{id}/resources``
 
         Parameters
         ----------
@@ -25282,12 +26525,13 @@ class _Permission_Sets:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - permission_set_id : int
                 The ID for the permission set this resource belongs to.
             - name : str
@@ -25303,9 +26547,12 @@ class _Permission_Sets:
         self,
         id: int,
         name: str,
+        *,
         description: str | None = ...,
     ) -> _ResponsePermissionSetsPostResources:
         """Create a resource in a permission set
+
+        API URL: ``POST /permission_sets/{id}/resources``
 
         Parameters
         ----------
@@ -25337,6 +26584,8 @@ class _Permission_Sets:
     ) -> _ResponsePermissionSetsGetResources:
         """Get a resource in a permission set
 
+        API URL: ``GET /permission_sets/{id}/resources/{name}``
+
         Parameters
         ----------
         id : int
@@ -25362,9 +26611,12 @@ class _Permission_Sets:
         self,
         id: int,
         name: str,
+        *,
         description: str | None = ...,
     ) -> _ResponsePermissionSetsPatchResources:
         """Update a resource in a permission set
+
+        API URL: ``PATCH /permission_sets/{id}/resources/{name}``
 
         Parameters
         ----------
@@ -25396,6 +26648,8 @@ class _Permission_Sets:
     ) -> Response:
         """Delete a resource in a permission set
 
+        API URL: ``DELETE /permission_sets/{id}/resources/{name}``
+
         Parameters
         ----------
         id : int
@@ -25414,8 +26668,10 @@ class _Permission_Sets:
         self,
         id: int,
         name: str,
-    ) -> _ResponsePermissionSetsListResourcesShares:
+    ) -> List[_ResponsePermissionSetsListResourcesShares]:
         """List users and groups permissioned on this object
+
+        API URL: ``GET /permission_sets/{id}/resources/{name}/shares``
 
         Parameters
         ----------
@@ -25426,7 +26682,7 @@ class _Permission_Sets:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - readers : :class:`civis.Response`
                 - users : List[:class:`civis.Response`]
                     - id : int
@@ -25463,10 +26719,13 @@ class _Permission_Sets:
         name: str,
         user_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponsePermissionSetsPutResourcesSharesUsers:
         """Set the permissions users have on this object
+
+        API URL: ``PUT /permission_sets/{id}/resources/{name}/shares/users``
 
         Parameters
         ----------
@@ -25524,6 +26783,8 @@ class _Permission_Sets:
     ) -> Response:
         """Revoke the permissions a user has on this object
 
+        API URL: ``DELETE /permission_sets/{id}/resources/{name}/shares/users/{user_id}``
+
         Parameters
         ----------
         id : int
@@ -25546,10 +26807,13 @@ class _Permission_Sets:
         name: str,
         group_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponsePermissionSetsPutResourcesSharesGroups:
         """Set the permissions groups has on this object
+
+        API URL: ``PUT /permission_sets/{id}/resources/{name}/shares/groups``
 
         Parameters
         ----------
@@ -25607,6 +26871,8 @@ class _Permission_Sets:
     ) -> Response:
         """Revoke the permissions a group has on this object
 
+        API URL: ``DELETE /permission_sets/{id}/resources/{name}/shares/groups/{group_id}``
+
         Parameters
         ----------
         id : int
@@ -25626,9 +26892,12 @@ class _Permission_Sets:
 class _Predictions:
     def list(
         self,
+        *,
         model_id: int | None = ...,
-    ) -> _ResponsePredictionsList:
+    ) -> List[_ResponsePredictionsList]:
         """List predictions
+
+        API URL: ``GET /predictions``
 
         Parameters
         ----------
@@ -25637,7 +26906,7 @@ class _Predictions:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID of the prediction.
             - model_id : int
@@ -25675,6 +26944,8 @@ class _Predictions:
         id: int,
     ) -> _ResponsePredictionsGet:
         """Show the specified prediction
+
+        API URL: ``GET /predictions/{id}``
 
         Parameters
         ----------
@@ -25762,8 +27033,10 @@ class _Predictions:
     def list_schedules(
         self,
         id: int,
-    ) -> _ResponsePredictionsListSchedules:
+    ) -> List[_ResponsePredictionsListSchedules]:
         """Show the prediction schedule
+
+        API URL: ``GET /predictions/{id}/schedules``
 
         Parameters
         ----------
@@ -25772,7 +27045,7 @@ class _Predictions:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 ID of the prediction associated with this schedule.
             - schedule : :class:`civis.Response`
@@ -25799,6 +27072,7 @@ class _Predictions:
 class _Projects:
     def list(
         self,
+        *,
         permission: str | None = ...,
         auto_share: bool | None = ...,
         author: str | None = ...,
@@ -25811,6 +27085,8 @@ class _Projects:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseProjectsList]:
         """List projects
+
+        API URL: ``GET /projects``
 
         Parameters
         ----------
@@ -25843,12 +27119,13 @@ class _Projects:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
                 The ID for this project.
             - author : :class:`civis.Response`
@@ -25891,11 +27168,14 @@ class _Projects:
         self,
         name: str,
         description: str,
+        *,
         note: str | None = ...,
         auto_share: bool | None = ...,
         hidden: bool | None = ...,
     ) -> _ResponseProjectsPost:
         """Create a project
+
+        API URL: ``POST /projects``
 
         Parameters
         ----------
@@ -26109,10 +27389,13 @@ class _Projects:
     def post_clone(
         self,
         id: int,
+        *,
         clone_schedule: bool | None = ...,
         clone_notifications: bool | None = ...,
     ) -> _ResponseProjectsPostClone:
         """Clone this
+
+        API URL: ``POST /projects/{id}/clone``
 
         Parameters
         ----------
@@ -26324,6 +27607,8 @@ class _Projects:
     ) -> _ResponseProjectsGet:
         """Get a detailed view of a project and the objects in it
 
+        API URL: ``GET /projects/{project_id}``
+
         Parameters
         ----------
         project_id : int
@@ -26526,11 +27811,14 @@ class _Projects:
     def put(
         self,
         project_id: int,
+        *,
         name: str | None = ...,
         description: str | None = ...,
         note: str | None = ...,
     ) -> _ResponseProjectsPut:
         """Update a project
+
+        API URL: ``PUT /projects/{project_id}``
 
         Parameters
         ----------
@@ -26744,6 +28032,8 @@ class _Projects:
     ) -> _ResponseProjectsPutAutoShare:
         """Enable or disable Auto-Share on a project
 
+        API URL: ``PUT /projects/{project_id}/auto_share``
+
         Parameters
         ----------
         project_id : int
@@ -26949,8 +28239,10 @@ class _Projects:
     def list_shares(
         self,
         id: int,
-    ) -> _ResponseProjectsListShares:
+    ) -> List[_ResponseProjectsListShares]:
         """List users and groups permissioned on this object
+
+        API URL: ``GET /projects/{id}/shares``
 
         Parameters
         ----------
@@ -26959,7 +28251,7 @@ class _Projects:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - readers : :class:`civis.Response`
                 - users : List[:class:`civis.Response`]
                     - id : int
@@ -26995,10 +28287,13 @@ class _Projects:
         id: int,
         user_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseProjectsPutSharesUsers:
         """Set the permissions users have on this object
+
+        API URL: ``PUT /projects/{id}/shares/users``
 
         Parameters
         ----------
@@ -27053,6 +28348,8 @@ class _Projects:
     ) -> Response:
         """Revoke the permissions a user has on this object
 
+        API URL: ``DELETE /projects/{id}/shares/users/{user_id}``
+
         Parameters
         ----------
         id : int
@@ -27072,10 +28369,13 @@ class _Projects:
         id: int,
         group_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseProjectsPutSharesGroups:
         """Set the permissions groups has on this object
+
+        API URL: ``PUT /projects/{id}/shares/groups``
 
         Parameters
         ----------
@@ -27130,6 +28430,8 @@ class _Projects:
     ) -> Response:
         """Revoke the permissions a group has on this object
 
+        API URL: ``DELETE /projects/{id}/shares/groups/{group_id}``
+
         Parameters
         ----------
         id : int
@@ -27147,9 +28449,12 @@ class _Projects:
     def list_dependencies(
         self,
         id: int,
+        *,
         user_id: int | None = ...,
-    ) -> _ResponseProjectsListDependencies:
+    ) -> List[_ResponseProjectsListDependencies]:
         """List dependent objects for this object
+
+        API URL: ``GET /projects/{id}/dependencies``
 
         Parameters
         ----------
@@ -27160,7 +28465,7 @@ class _Projects:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - object_type : str
                 Dependent object type
             - fco_type : str
@@ -27186,10 +28491,13 @@ class _Projects:
         id: int,
         user_id: int,
         include_dependencies: bool,
+        *,
         email_body: str | None = ...,
         send_email: bool | None = ...,
     ) -> _ResponseProjectsPutTransfer:
         """Transfer ownership of this object to another user
+
+        API URL: ``PUT /projects/{id}/transfer``
 
         Parameters
         ----------
@@ -27236,6 +28544,8 @@ class _Projects:
         status: bool,
     ) -> _ResponseProjectsPutArchive:
         """Update the archive status of this object
+
+        API URL: ``PUT /projects/{id}/archive``
 
         Parameters
         ----------
@@ -27442,9 +28752,12 @@ class _Projects:
     def list_parent_projects(
         self,
         id: int,
+        *,
         hidden: bool | None = ...,
-    ) -> _ResponseProjectsListParentProjects:
+    ) -> List[_ResponseProjectsListParentProjects]:
         """List the Parent Projects an item belongs to
+
+        API URL: ``GET /projects/{id}/parent_projects``
 
         Parameters
         ----------
@@ -27456,7 +28769,7 @@ class _Projects:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID for this project.
             - author : :class:`civis.Response`
@@ -27502,6 +28815,8 @@ class _Projects:
     ) -> Response:
         """Add an item to a Parent Project
 
+        API URL: ``PUT /projects/{id}/parent_projects/{parent_project_id}``
+
         Parameters
         ----------
         id : int
@@ -27523,6 +28838,8 @@ class _Projects:
     ) -> Response:
         """Remove an item from a Parent Project
 
+        API URL: ``DELETE /projects/{id}/parent_projects/{parent_project_id}``
+
         Parameters
         ----------
         id : int
@@ -27540,6 +28857,7 @@ class _Projects:
 class _Queries:
     def list(
         self,
+        *,
         query: str | None = ...,
         database_id: int | None = ...,
         credential_id: int | None = ...,
@@ -27559,6 +28877,8 @@ class _Queries:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseQueriesList]:
         """List queries
+
+        API URL: ``GET /queries``
 
         Parameters
         ----------
@@ -27606,12 +28926,13 @@ class _Queries:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
                 The query ID.
             - database : int
@@ -27655,6 +28976,7 @@ class _Queries:
         database: int,
         sql: str,
         preview_rows: int,
+        *,
         credential: int | None = ...,
         hidden: bool | None = ...,
         interactive: bool | None = ...,
@@ -27665,6 +28987,8 @@ class _Queries:
         filename_prefix: str | None = ...,
     ) -> _ResponseQueriesPost:
         """Execute a query
+
+        API URL: ``POST /queries``
 
         Parameters
         ----------
@@ -27755,6 +29079,8 @@ class _Queries:
     ) -> _ResponseQueriesPostRuns:
         """Start a run
 
+        API URL: ``POST /queries/{id}/runs``
+
         Parameters
         ----------
         id : int
@@ -27786,6 +29112,7 @@ class _Queries:
     def list_runs(
         self,
         id: int,
+        *,
         limit: int | None = ...,
         page_num: int | None = ...,
         order: str | None = ...,
@@ -27793,6 +29120,8 @@ class _Queries:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseQueriesListRuns]:
         """List runs for the given Query job
+
+        API URL: ``GET /queries/{id}/runs``
 
         Parameters
         ----------
@@ -27813,12 +29142,13 @@ class _Queries:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
                 The ID of the run.
             - query_id : int
@@ -27845,6 +29175,8 @@ class _Queries:
         run_id: int,
     ) -> _ResponseQueriesGetRuns:
         """Check status of a run
+
+        API URL: ``GET /queries/{id}/runs/{run_id}``
 
         Parameters
         ----------
@@ -27883,6 +29215,8 @@ class _Queries:
     ) -> Response:
         """Cancel a run
 
+        API URL: ``DELETE /queries/{id}/runs/{run_id}``
+
         Parameters
         ----------
         id : int
@@ -27901,10 +29235,13 @@ class _Queries:
         self,
         id: int,
         run_id: int,
+        *,
         last_id: int | None = ...,
         limit: int | None = ...,
-    ) -> _ResponseQueriesListRunsLogs:
+    ) -> List[_ResponseQueriesListRunsLogs]:
         """Get the logs for a run
+
+        API URL: ``GET /queries/{id}/runs/{run_id}/logs``
 
         Parameters
         ----------
@@ -27921,7 +29258,7 @@ class _Queries:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID of the log.
             - created_at : str (date-time)
@@ -27939,6 +29276,8 @@ class _Queries:
         script_id: int,
     ) -> _ResponseQueriesPutScripts:
         """Update the query's associated script
+
+        API URL: ``PUT /queries/{id}/scripts/{script_id}``
 
         Parameters
         ----------
@@ -28007,6 +29346,8 @@ class _Queries:
     ) -> _ResponseQueriesGet:
         """Get details about a query
 
+        API URL: ``GET /queries/{id}``
+
         Parameters
         ----------
         id : int
@@ -28072,6 +29413,8 @@ class _Queries:
     ) -> _ResponseQueriesDelete:
         """Sets Query Hidden to true
 
+        API URL: ``DELETE /queries/{id}``
+
         Parameters
         ----------
         id : int
@@ -28134,9 +29477,12 @@ class _Queries:
 class _Remote_Hosts:
     def list(
         self,
+        *,
         type: str | None = ...,
-    ) -> _ResponseRemoteHostsList:
+    ) -> List[_ResponseRemoteHostsList]:
         """List Remote Hosts
+
+        API URL: ``GET /remote_hosts``
 
         Parameters
         ----------
@@ -28149,7 +29495,7 @@ class _Remote_Hosts:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID of the remote host.
             - name : str
@@ -28173,6 +29519,8 @@ class _Remote_Hosts:
         type: str,
     ) -> _ResponseRemoteHostsPost:
         """Create a Remote Host
+
+        API URL: ``POST /remote_hosts``
 
         Parameters
         ----------
@@ -28230,6 +29578,8 @@ class _Remote_Hosts:
     ) -> _ResponseRemoteHostsGet:
         """Get a Remote Host
 
+        API URL: ``GET /remote_hosts/{id}``
+
         Parameters
         ----------
         id : int
@@ -28280,6 +29630,8 @@ class _Remote_Hosts:
         description: str,
     ) -> _ResponseRemoteHostsPut:
         """Replace all attributes of this Remote Host
+
+        API URL: ``PUT /remote_hosts/{id}``
 
         Parameters
         ----------
@@ -28338,12 +29690,15 @@ class _Remote_Hosts:
     def patch(
         self,
         id: int,
+        *,
         name: str | None = ...,
         type: str | None = ...,
         url: str | None = ...,
         description: str | None = ...,
     ) -> _ResponseRemoteHostsPatch:
         """Update some attributes of this Remote Host
+
+        API URL: ``PATCH /remote_hosts/{id}``
 
         Parameters
         ----------
@@ -28402,8 +29757,10 @@ class _Remote_Hosts:
     def list_shares(
         self,
         id: int,
-    ) -> _ResponseRemoteHostsListShares:
+    ) -> List[_ResponseRemoteHostsListShares]:
         """List users and groups permissioned on this object
+
+        API URL: ``GET /remote_hosts/{id}/shares``
 
         Parameters
         ----------
@@ -28412,7 +29769,7 @@ class _Remote_Hosts:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - readers : :class:`civis.Response`
                 - users : List[:class:`civis.Response`]
                     - id : int
@@ -28448,10 +29805,13 @@ class _Remote_Hosts:
         id: int,
         user_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseRemoteHostsPutSharesUsers:
         """Set the permissions users have on this object
+
+        API URL: ``PUT /remote_hosts/{id}/shares/users``
 
         Parameters
         ----------
@@ -28506,6 +29866,8 @@ class _Remote_Hosts:
     ) -> Response:
         """Revoke the permissions a user has on this object
 
+        API URL: ``DELETE /remote_hosts/{id}/shares/users/{user_id}``
+
         Parameters
         ----------
         id : int
@@ -28525,10 +29887,13 @@ class _Remote_Hosts:
         id: int,
         group_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseRemoteHostsPutSharesGroups:
         """Set the permissions groups has on this object
+
+        API URL: ``PUT /remote_hosts/{id}/shares/groups``
 
         Parameters
         ----------
@@ -28583,6 +29948,8 @@ class _Remote_Hosts:
     ) -> Response:
         """Revoke the permissions a group has on this object
 
+        API URL: ``DELETE /remote_hosts/{id}/shares/groups/{group_id}``
+
         Parameters
         ----------
         id : int
@@ -28600,12 +29967,15 @@ class _Remote_Hosts:
     def post_authenticate(
         self,
         id: int,
+        *,
         credential_id: int | None = ...,
         username: str | None = ...,
         password: str | None = ...,
     ) -> Response:
         """Authenticate against a remote host using either a credential or a user name and
         password
+
+        API URL: ``POST /remote_hosts/{id}/authenticate``
 
         Parameters
         ----------
@@ -28628,13 +29998,16 @@ class _Remote_Hosts:
     def list_data_sets(
         self,
         id: int,
+        *,
         credential_id: int | None = ...,
         username: str | None = ...,
         password: str | None = ...,
         q: str | None = ...,
         s: bool | None = ...,
-    ) -> _ResponseRemoteHostsListDataSets:
+    ) -> List[_ResponseRemoteHostsListDataSets]:
         """List data sets available from a remote host
+
+        API URL: ``GET /remote_hosts/{id}/data_sets``
 
         Parameters
         ----------
@@ -28654,7 +30027,7 @@ class _Remote_Hosts:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - name : str
                 The path to a data_set.
             - full_path : bool
@@ -28666,6 +30039,7 @@ class _Remote_Hosts:
 class _Reports:
     def list(
         self,
+        *,
         type: str | None = ...,
         template_id: int | None = ...,
         author: str | None = ...,
@@ -28678,6 +30052,8 @@ class _Reports:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseReportsList]:
         """List Reports
+
+        API URL: ``GET /reports``
 
         Parameters
         ----------
@@ -28709,12 +30085,13 @@ class _Reports:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
                 The ID of this report.
             - name : str
@@ -28782,6 +30159,7 @@ class _Reports:
 
     def post(
         self,
+        *,
         script_id: int | None = ...,
         name: str | None = ...,
         code_body: str | None = ...,
@@ -28792,6 +30170,8 @@ class _Reports:
         hidden: bool | None = ...,
     ) -> _ResponseReportsPost:
         """Create an HTML report
+
+        API URL: ``POST /reports``
 
         Parameters
         ----------
@@ -28909,8 +30289,10 @@ class _Reports:
     def list_git(
         self,
         id: int,
-    ) -> _ResponseReportsListGit:
+    ) -> List[_ResponseReportsListGit]:
         """Get the git metadata attached to an item
+
+        API URL: ``GET /reports/{id}/git``
 
         Parameters
         ----------
@@ -28919,7 +30301,7 @@ class _Reports:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - git_ref : str
                 A git reference specifying an unambiguous version of the file. Can be a
                 branch name, tag or the full or shortened SHA of a commit.
@@ -28945,6 +30327,7 @@ class _Reports:
     def put_git(
         self,
         id: int,
+        *,
         git_ref: str | None = ...,
         git_branch: str | None = ...,
         git_path: str | None = ...,
@@ -28953,6 +30336,8 @@ class _Reports:
         pull_from_git: bool | None = ...,
     ) -> _ResponseReportsPutGit:
         """Attach an item to a file in a git repo
+
+        API URL: ``PUT /reports/{id}/git``
 
         Parameters
         ----------
@@ -29001,6 +30386,7 @@ class _Reports:
     def patch_git(
         self,
         id: int,
+        *,
         git_ref: str | None = ...,
         git_branch: str | None = ...,
         git_path: str | None = ...,
@@ -29009,6 +30395,8 @@ class _Reports:
         pull_from_git: bool | None = ...,
     ) -> _ResponseReportsPatchGit:
         """Update an attached git file
+
+        API URL: ``PATCH /reports/{id}/git``
 
         Parameters
         ----------
@@ -29057,8 +30445,10 @@ class _Reports:
     def list_git_commits(
         self,
         id: int,
-    ) -> _ResponseReportsListGitCommits:
+    ) -> List[_ResponseReportsListGitCommits]:
         """Get the git commits for an item on the current branch
+
+        API URL: ``GET /reports/{id}/git/commits``
 
         Parameters
         ----------
@@ -29067,7 +30457,7 @@ class _Reports:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - commit_hash : str
                 The SHA of the commit.
             - author_name : str
@@ -29087,6 +30477,8 @@ class _Reports:
         file_hash: str,
     ) -> _ResponseReportsPostGitCommits:
         """Commit and push a new version of the file
+
+        API URL: ``POST /reports/{id}/git/commits``
 
         Parameters
         ----------
@@ -29120,6 +30512,8 @@ class _Reports:
     ) -> _ResponseReportsGetGitCommits:
         """Get file contents at git ref
 
+        API URL: ``GET /reports/{id}/git/commits/{commit_hash}``
+
         Parameters
         ----------
         id : int
@@ -29146,6 +30540,8 @@ class _Reports:
         id: int,
     ) -> _ResponseReportsGet:
         """Get a single report
+
+        API URL: ``GET /reports/{id}``
 
         Parameters
         ----------
@@ -29249,6 +30645,7 @@ class _Reports:
     def patch(
         self,
         id: int,
+        *,
         name: str | None = ...,
         script_id: int | None = ...,
         code_body: str | None = ...,
@@ -29260,6 +30657,8 @@ class _Reports:
         description: str | None = ...,
     ) -> _ResponseReportsPatch:
         """Update a report
+
+        API URL: ``PATCH /reports/{id}``
 
         Parameters
         ----------
@@ -29386,6 +30785,8 @@ class _Reports:
         """Grant this report the ability to perform Civis platform API operations on your
         behalf
 
+        API URL: ``POST /reports/{id}/grants``
+
         Parameters
         ----------
         id : int
@@ -29492,6 +30893,8 @@ class _Reports:
         """Revoke permission for this report to perform Civis platform API operations on
         your behalf
 
+        API URL: ``DELETE /reports/{id}/grants``
+
         Parameters
         ----------
         id : int
@@ -29507,8 +30910,10 @@ class _Reports:
     def list_shares(
         self,
         id: int,
-    ) -> _ResponseReportsListShares:
+    ) -> List[_ResponseReportsListShares]:
         """List users and groups permissioned on this object
+
+        API URL: ``GET /reports/{id}/shares``
 
         Parameters
         ----------
@@ -29517,7 +30922,7 @@ class _Reports:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - readers : :class:`civis.Response`
                 - users : List[:class:`civis.Response`]
                     - id : int
@@ -29553,10 +30958,13 @@ class _Reports:
         id: int,
         user_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseReportsPutSharesUsers:
         """Set the permissions users have on this object
+
+        API URL: ``PUT /reports/{id}/shares/users``
 
         Parameters
         ----------
@@ -29611,6 +31019,8 @@ class _Reports:
     ) -> Response:
         """Revoke the permissions a user has on this object
 
+        API URL: ``DELETE /reports/{id}/shares/users/{user_id}``
+
         Parameters
         ----------
         id : int
@@ -29630,10 +31040,13 @@ class _Reports:
         id: int,
         group_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseReportsPutSharesGroups:
         """Set the permissions groups has on this object
+
+        API URL: ``PUT /reports/{id}/shares/groups``
 
         Parameters
         ----------
@@ -29688,6 +31101,8 @@ class _Reports:
     ) -> Response:
         """Revoke the permissions a group has on this object
 
+        API URL: ``DELETE /reports/{id}/shares/groups/{group_id}``
+
         Parameters
         ----------
         id : int
@@ -29705,9 +31120,12 @@ class _Reports:
     def list_dependencies(
         self,
         id: int,
+        *,
         user_id: int | None = ...,
-    ) -> _ResponseReportsListDependencies:
+    ) -> List[_ResponseReportsListDependencies]:
         """List dependent objects for this object
+
+        API URL: ``GET /reports/{id}/dependencies``
 
         Parameters
         ----------
@@ -29718,7 +31136,7 @@ class _Reports:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - object_type : str
                 Dependent object type
             - fco_type : str
@@ -29744,10 +31162,13 @@ class _Reports:
         id: int,
         user_id: int,
         include_dependencies: bool,
+        *,
         email_body: str | None = ...,
         send_email: bool | None = ...,
     ) -> _ResponseReportsPutTransfer:
         """Transfer ownership of this object to another user
+
+        API URL: ``PUT /reports/{id}/transfer``
 
         Parameters
         ----------
@@ -29791,9 +31212,12 @@ class _Reports:
     def list_projects(
         self,
         id: int,
+        *,
         hidden: bool | None = ...,
-    ) -> _ResponseReportsListProjects:
+    ) -> List[_ResponseReportsListProjects]:
         """List the projects a Report belongs to
+
+        API URL: ``GET /reports/{id}/projects``
 
         Parameters
         ----------
@@ -29805,7 +31229,7 @@ class _Reports:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID for this project.
             - author : :class:`civis.Response`
@@ -29851,6 +31275,8 @@ class _Reports:
     ) -> Response:
         """Add a Report to a project
 
+        API URL: ``PUT /reports/{id}/projects/{project_id}``
+
         Parameters
         ----------
         id : int
@@ -29872,6 +31298,8 @@ class _Reports:
     ) -> Response:
         """Remove a Report from a project
 
+        API URL: ``DELETE /reports/{id}/projects/{project_id}``
+
         Parameters
         ----------
         id : int
@@ -29892,6 +31320,8 @@ class _Reports:
         status: bool,
     ) -> _ResponseReportsPutArchive:
         """Update the archive status of this object
+
+        API URL: ``PUT /reports/{id}/archive``
 
         Parameters
         ----------
@@ -30000,6 +31430,8 @@ class _Reports:
     ) -> _ResponseReportsGetServices:
         """Get a single service report
 
+        API URL: ``GET /reports/services/{id}``
+
         Parameters
         ----------
         id : int
@@ -30055,10 +31487,13 @@ class _Reports:
     def patch_services(
         self,
         id: int,
+        *,
         name: str | None = ...,
         provide_api_key: bool | None = ...,
     ) -> _ResponseReportsPatchServices:
         """Update some attributes of this service report
+
+        API URL: ``PATCH /reports/services/{id}``
 
         Parameters
         ----------
@@ -30119,9 +31554,12 @@ class _Reports:
     def post_services(
         self,
         service_id: int,
+        *,
         provide_api_key: bool | None = ...,
     ) -> _ResponseReportsPostServices:
         """Create a service report
+
+        API URL: ``POST /reports/services``
 
         Parameters
         ----------
@@ -30180,8 +31618,10 @@ class _Reports:
     def list_services_shares(
         self,
         id: int,
-    ) -> _ResponseReportsListServicesShares:
+    ) -> List[_ResponseReportsListServicesShares]:
         """List users and groups permissioned on this object
+
+        API URL: ``GET /reports/services/{id}/shares``
 
         Parameters
         ----------
@@ -30190,7 +31630,7 @@ class _Reports:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - readers : :class:`civis.Response`
                 - users : List[:class:`civis.Response`]
                     - id : int
@@ -30226,10 +31666,13 @@ class _Reports:
         id: int,
         user_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseReportsPutServicesSharesUsers:
         """Set the permissions users have on this object
+
+        API URL: ``PUT /reports/services/{id}/shares/users``
 
         Parameters
         ----------
@@ -30284,6 +31727,8 @@ class _Reports:
     ) -> Response:
         """Revoke the permissions a user has on this object
 
+        API URL: ``DELETE /reports/services/{id}/shares/users/{user_id}``
+
         Parameters
         ----------
         id : int
@@ -30303,10 +31748,13 @@ class _Reports:
         id: int,
         group_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseReportsPutServicesSharesGroups:
         """Set the permissions groups has on this object
+
+        API URL: ``PUT /reports/services/{id}/shares/groups``
 
         Parameters
         ----------
@@ -30361,6 +31809,8 @@ class _Reports:
     ) -> Response:
         """Revoke the permissions a group has on this object
 
+        API URL: ``DELETE /reports/services/{id}/shares/groups/{group_id}``
+
         Parameters
         ----------
         id : int
@@ -30378,9 +31828,12 @@ class _Reports:
     def list_services_dependencies(
         self,
         id: int,
+        *,
         user_id: int | None = ...,
-    ) -> _ResponseReportsListServicesDependencies:
+    ) -> List[_ResponseReportsListServicesDependencies]:
         """List dependent objects for this object
+
+        API URL: ``GET /reports/services/{id}/dependencies``
 
         Parameters
         ----------
@@ -30391,7 +31844,7 @@ class _Reports:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - object_type : str
                 Dependent object type
             - fco_type : str
@@ -30417,10 +31870,13 @@ class _Reports:
         id: int,
         user_id: int,
         include_dependencies: bool,
+        *,
         email_body: str | None = ...,
         send_email: bool | None = ...,
     ) -> _ResponseReportsPutServicesTransfer:
         """Transfer ownership of this object to another user
+
+        API URL: ``PUT /reports/services/{id}/transfer``
 
         Parameters
         ----------
@@ -30464,9 +31920,12 @@ class _Reports:
     def list_services_projects(
         self,
         id: int,
+        *,
         hidden: bool | None = ...,
-    ) -> _ResponseReportsListServicesProjects:
+    ) -> List[_ResponseReportsListServicesProjects]:
         """List the projects a Service Report belongs to
+
+        API URL: ``GET /reports/services/{id}/projects``
 
         Parameters
         ----------
@@ -30478,7 +31937,7 @@ class _Reports:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID for this project.
             - author : :class:`civis.Response`
@@ -30524,6 +31983,8 @@ class _Reports:
     ) -> Response:
         """Add a Service Report to a project
 
+        API URL: ``PUT /reports/services/{id}/projects/{project_id}``
+
         Parameters
         ----------
         id : int
@@ -30545,6 +32006,8 @@ class _Reports:
     ) -> Response:
         """Remove a Service Report from a project
 
+        API URL: ``DELETE /reports/services/{id}/projects/{project_id}``
+
         Parameters
         ----------
         id : int
@@ -30565,6 +32028,8 @@ class _Reports:
         status: bool,
     ) -> _ResponseReportsPutServicesArchive:
         """Update the archive status of this object
+
+        API URL: ``PUT /reports/services/{id}/archive``
 
         Parameters
         ----------
@@ -30626,6 +32091,8 @@ class _Reports:
     ) -> _ResponseReportsPostRefresh:
         """Refresh the data in this Tableau report
 
+        API URL: ``POST /reports/{id}/refresh``
+
         Parameters
         ----------
         id : int
@@ -30654,9 +32121,12 @@ class _Reports:
         query_id: int,
         name: str,
         config: str,
+        *,
         description: str | None = ...,
     ) -> _ResponseReportsPostSql:
         """Create a SQL report
+
+        API URL: ``POST /reports/sql``
 
         Parameters
         ----------
@@ -30745,6 +32215,8 @@ class _Reports:
     ) -> _ResponseReportsGetSql:
         """Get a single SQL report
 
+        API URL: ``GET /reports/sql/{id}``
+
         Parameters
         ----------
         id : int
@@ -30823,12 +32295,15 @@ class _Reports:
     def patch_sql(
         self,
         id: int,
+        *,
         query_id: int | None = ...,
         name: str | None = ...,
         config: str | None = ...,
         description: str | None = ...,
     ) -> _ResponseReportsPatchSql:
         """Update a SQL report
+
+        API URL: ``PATCH /reports/sql/{id}``
 
         Parameters
         ----------
@@ -30919,6 +32394,8 @@ class _Reports:
     ) -> _ResponseReportsPostSqlRefresh:
         """Refresh the data in a SQL report
 
+        API URL: ``POST /reports/sql/{id}/refresh``
+
         Parameters
         ----------
         id : int
@@ -30997,8 +32474,10 @@ class _Reports:
     def list_sql_shares(
         self,
         id: int,
-    ) -> _ResponseReportsListSqlShares:
+    ) -> List[_ResponseReportsListSqlShares]:
         """List users and groups permissioned on this object
+
+        API URL: ``GET /reports/sql/{id}/shares``
 
         Parameters
         ----------
@@ -31007,7 +32486,7 @@ class _Reports:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - readers : :class:`civis.Response`
                 - users : List[:class:`civis.Response`]
                     - id : int
@@ -31043,10 +32522,13 @@ class _Reports:
         id: int,
         user_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseReportsPutSqlSharesUsers:
         """Set the permissions users have on this object
+
+        API URL: ``PUT /reports/sql/{id}/shares/users``
 
         Parameters
         ----------
@@ -31101,6 +32583,8 @@ class _Reports:
     ) -> Response:
         """Revoke the permissions a user has on this object
 
+        API URL: ``DELETE /reports/sql/{id}/shares/users/{user_id}``
+
         Parameters
         ----------
         id : int
@@ -31120,10 +32604,13 @@ class _Reports:
         id: int,
         group_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseReportsPutSqlSharesGroups:
         """Set the permissions groups has on this object
+
+        API URL: ``PUT /reports/sql/{id}/shares/groups``
 
         Parameters
         ----------
@@ -31178,6 +32665,8 @@ class _Reports:
     ) -> Response:
         """Revoke the permissions a group has on this object
 
+        API URL: ``DELETE /reports/sql/{id}/shares/groups/{group_id}``
+
         Parameters
         ----------
         id : int
@@ -31195,9 +32684,12 @@ class _Reports:
     def list_sql_dependencies(
         self,
         id: int,
+        *,
         user_id: int | None = ...,
-    ) -> _ResponseReportsListSqlDependencies:
+    ) -> List[_ResponseReportsListSqlDependencies]:
         """List dependent objects for this object
+
+        API URL: ``GET /reports/sql/{id}/dependencies``
 
         Parameters
         ----------
@@ -31208,7 +32700,7 @@ class _Reports:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - object_type : str
                 Dependent object type
             - fco_type : str
@@ -31234,10 +32726,13 @@ class _Reports:
         id: int,
         user_id: int,
         include_dependencies: bool,
+        *,
         email_body: str | None = ...,
         send_email: bool | None = ...,
     ) -> _ResponseReportsPutSqlTransfer:
         """Transfer ownership of this object to another user
+
+        API URL: ``PUT /reports/sql/{id}/transfer``
 
         Parameters
         ----------
@@ -31281,9 +32776,12 @@ class _Reports:
     def list_sql_projects(
         self,
         id: int,
+        *,
         hidden: bool | None = ...,
-    ) -> _ResponseReportsListSqlProjects:
+    ) -> List[_ResponseReportsListSqlProjects]:
         """List the projects a SQL Report belongs to
+
+        API URL: ``GET /reports/sql/{id}/projects``
 
         Parameters
         ----------
@@ -31295,7 +32793,7 @@ class _Reports:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID for this project.
             - author : :class:`civis.Response`
@@ -31341,6 +32839,8 @@ class _Reports:
     ) -> Response:
         """Add a SQL Report to a project
 
+        API URL: ``PUT /reports/sql/{id}/projects/{project_id}``
+
         Parameters
         ----------
         id : int
@@ -31362,6 +32862,8 @@ class _Reports:
     ) -> Response:
         """Remove a SQL Report from a project
 
+        API URL: ``DELETE /reports/sql/{id}/projects/{project_id}``
+
         Parameters
         ----------
         id : int
@@ -31382,6 +32884,8 @@ class _Reports:
         status: bool,
     ) -> _ResponseReportsPutSqlArchive:
         """Update the archive status of this object
+
+        API URL: ``PUT /reports/sql/{id}/archive``
 
         Parameters
         ----------
@@ -31463,6 +32967,7 @@ class _Reports:
 class _Roles:
     def list(
         self,
+        *,
         limit: int | None = ...,
         page_num: int | None = ...,
         order: str | None = ...,
@@ -31470,6 +32975,8 @@ class _Roles:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseRolesList]:
         """List Roles
+
+        API URL: ``GET /roles``
 
         Parameters
         ----------
@@ -31488,12 +32995,13 @@ class _Roles:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
                 ID of the Role.
             - name : str
@@ -31508,12 +33016,14 @@ class _Roles:
 class _Scripts:
     def list_types(
         self,
-    ) -> _ResponseScriptsListTypes:
+    ) -> List[_ResponseScriptsListTypes]:
         """List available script types
+
+        API URL: ``GET /scripts/types``
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - name : str
                 The name of the type.
         """
@@ -31522,8 +33032,10 @@ class _Scripts:
     def list_history(
         self,
         id: int,
-    ) -> _ResponseScriptsListHistory:
+    ) -> List[_ResponseScriptsListHistory]:
         """Get the run history and outputs of this script
+
+        API URL: ``GET /scripts/{id}/history``
 
         Parameters
         ----------
@@ -31532,7 +33044,7 @@ class _Scripts:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID of this run.
             - sql_id : int
@@ -31564,6 +33076,7 @@ class _Scripts:
         remote_host_id: int,
         credential_id: int,
         sql: str,
+        *,
         params: List[dict] | None = ...,
         arguments: dict | None = ...,
         template_script_id: int | None = ...,
@@ -31571,6 +33084,8 @@ class _Scripts:
         hidden: bool | None = ...,
     ) -> _ResponseScriptsPost:
         """Create a script (legacy)
+
+        API URL: ``POST /scripts``
 
         Parameters
         ----------
@@ -31811,6 +33326,7 @@ class _Scripts:
 
     def list(
         self,
+        *,
         type: str | None = ...,
         category: str | None = ...,
         author: str | None = ...,
@@ -31824,6 +33340,8 @@ class _Scripts:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseScriptsList]:
         """List Scripts
+
+        API URL: ``GET /scripts``
 
         Parameters
         ----------
@@ -31860,12 +33378,13 @@ class _Scripts:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
                 The ID for the script.
             - name : str
@@ -31935,6 +33454,8 @@ class _Scripts:
     ) -> Response:
         """Run a SQL script (legacy)
 
+        API URL: ``POST /scripts/{id}/run``
+
         Parameters
         ----------
         id : int
@@ -31952,6 +33473,8 @@ class _Scripts:
         id: int,
     ) -> _ResponseScriptsPostCancel:
         """Cancel a run
+
+        API URL: ``POST /scripts/{id}/cancel``
 
         Parameters
         ----------
@@ -31975,6 +33498,8 @@ class _Scripts:
         id: int,
     ) -> _ResponseScriptsGet:
         """Get details about a SQL script (legacy)
+
+        API URL: ``GET /scripts/{id}``
 
         Parameters
         ----------
@@ -32156,6 +33681,7 @@ class _Scripts:
     def post_containers(
         self,
         required_resources: dict,
+        *,
         name: str | None = ...,
         parent_id: int | None = ...,
         user_context: str | None = ...,
@@ -32179,6 +33705,8 @@ class _Scripts:
         running_as_id: int | None = ...,
     ) -> _ResponseScriptsPostContainers:
         """Create a container
+
+        API URL: ``POST /scripts/containers``
 
         Parameters
         ----------
@@ -32528,6 +34056,8 @@ class _Scripts:
     ) -> _ResponseScriptsGetContainers:
         """View a container
 
+        API URL: ``GET /scripts/containers/{id}``
+
         Parameters
         ----------
         id : int
@@ -32754,6 +34284,7 @@ class _Scripts:
         self,
         id: int,
         required_resources: dict,
+        *,
         name: str | None = ...,
         parent_id: int | None = ...,
         user_context: str | None = ...,
@@ -32776,6 +34307,8 @@ class _Scripts:
         running_as_id: int | None = ...,
     ) -> _ResponseScriptsPutContainers:
         """Edit a container
+
+        API URL: ``PUT /scripts/containers/{id}``
 
         Parameters
         ----------
@@ -33122,6 +34655,7 @@ class _Scripts:
     def patch_containers(
         self,
         id: int,
+        *,
         name: str | None = ...,
         parent_id: int | None = ...,
         user_context: str | None = ...,
@@ -33145,6 +34679,8 @@ class _Scripts:
         running_as_id: int | None = ...,
     ) -> _ResponseScriptsPatchContainers:
         """Update a container
+
+        API URL: ``PATCH /scripts/containers/{id}``
 
         Parameters
         ----------
@@ -33492,12 +35028,15 @@ class _Scripts:
         self,
         id: int,
         run_id: int,
+        *,
         message: str | None = ...,
         level: str | None = ...,
         messages: List[dict] | None = ...,
         child_job_id: int | None = ...,
     ) -> Response:
         """Add log messages
+
+        API URL: ``POST /scripts/containers/{id}/runs/{run_id}/logs``
 
         Parameters
         ----------
@@ -33539,10 +35078,13 @@ class _Scripts:
         self,
         id: int,
         run_id: int,
+        *,
         last_id: int | None = ...,
         limit: int | None = ...,
-    ) -> _ResponseScriptsListContainersRunsLogs:
+    ) -> List[_ResponseScriptsListContainersRunsLogs]:
         """Get the logs for a run
+
+        API URL: ``GET /scripts/containers/{id}/runs/{run_id}/logs``
 
         Parameters
         ----------
@@ -33559,7 +35101,7 @@ class _Scripts:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID of the log.
             - created_at : str (date-time)
@@ -33577,6 +35119,7 @@ class _Scripts:
         sql: str,
         remote_host_id: int,
         credential_id: int,
+        *,
         parent_id: int | None = ...,
         user_context: str | None = ...,
         params: List[dict] | None = ...,
@@ -33591,6 +35134,8 @@ class _Scripts:
         running_as_id: int | None = ...,
     ) -> _ResponseScriptsPostSql:
         """Create a SQL Script
+
+        API URL: ``POST /scripts/sql``
 
         Parameters
         ----------
@@ -33908,6 +35453,8 @@ class _Scripts:
     ) -> _ResponseScriptsGetSql:
         """Get a SQL Script
 
+        API URL: ``GET /scripts/sql/{id}``
+
         Parameters
         ----------
         id : int
@@ -34117,6 +35664,7 @@ class _Scripts:
         sql: str,
         remote_host_id: int,
         credential_id: int,
+        *,
         parent_id: int | None = ...,
         user_context: str | None = ...,
         params: List[dict] | None = ...,
@@ -34130,6 +35678,8 @@ class _Scripts:
         running_as_id: int | None = ...,
     ) -> _ResponseScriptsPutSql:
         """Replace all attributes of this SQL Script
+
+        API URL: ``PUT /scripts/sql/{id}``
 
         Parameters
         ----------
@@ -34444,6 +35994,7 @@ class _Scripts:
     def patch_sql(
         self,
         id: int,
+        *,
         name: str | None = ...,
         parent_id: int | None = ...,
         user_context: str | None = ...,
@@ -34461,6 +36012,8 @@ class _Scripts:
         running_as_id: int | None = ...,
     ) -> _ResponseScriptsPatchSql:
         """Update some attributes of this SQL Script
+
+        API URL: ``PATCH /scripts/sql/{id}``
 
         Parameters
         ----------
@@ -34776,6 +36329,7 @@ class _Scripts:
         self,
         name: str,
         source: str,
+        *,
         parent_id: int | None = ...,
         user_context: str | None = ...,
         params: List[dict] | None = ...,
@@ -34794,6 +36348,8 @@ class _Scripts:
         running_as_id: int | None = ...,
     ) -> _ResponseScriptsPostPython3:
         """Create a Python Script
+
+        API URL: ``POST /scripts/python3``
 
         Parameters
         ----------
@@ -35107,6 +36663,8 @@ class _Scripts:
     ) -> _ResponseScriptsGetPython3:
         """Get a Python Script
 
+        API URL: ``GET /scripts/python3/{id}``
+
         Parameters
         ----------
         id : int
@@ -35310,6 +36868,7 @@ class _Scripts:
         id: int,
         name: str,
         source: str,
+        *,
         parent_id: int | None = ...,
         user_context: str | None = ...,
         params: List[dict] | None = ...,
@@ -35327,6 +36886,8 @@ class _Scripts:
         running_as_id: int | None = ...,
     ) -> _ResponseScriptsPutPython3:
         """Replace all attributes of this Python Script
+
+        API URL: ``PUT /scripts/python3/{id}``
 
         Parameters
         ----------
@@ -35637,6 +37198,7 @@ class _Scripts:
     def patch_python3(
         self,
         id: int,
+        *,
         name: str | None = ...,
         parent_id: int | None = ...,
         user_context: str | None = ...,
@@ -35656,6 +37218,8 @@ class _Scripts:
         source: str | None = ...,
     ) -> _ResponseScriptsPatchPython3:
         """Update some attributes of this Python Script
+
+        API URL: ``PATCH /scripts/python3/{id}``
 
         Parameters
         ----------
@@ -35967,6 +37531,7 @@ class _Scripts:
         self,
         name: str,
         source: str,
+        *,
         parent_id: int | None = ...,
         user_context: str | None = ...,
         params: List[dict] | None = ...,
@@ -35985,6 +37550,8 @@ class _Scripts:
         running_as_id: int | None = ...,
     ) -> _ResponseScriptsPostR:
         """Create an R Script
+
+        API URL: ``POST /scripts/r``
 
         Parameters
         ----------
@@ -36298,6 +37865,8 @@ class _Scripts:
     ) -> _ResponseScriptsGetR:
         """Get an R Script
 
+        API URL: ``GET /scripts/r/{id}``
+
         Parameters
         ----------
         id : int
@@ -36501,6 +38070,7 @@ class _Scripts:
         id: int,
         name: str,
         source: str,
+        *,
         parent_id: int | None = ...,
         user_context: str | None = ...,
         params: List[dict] | None = ...,
@@ -36518,6 +38088,8 @@ class _Scripts:
         running_as_id: int | None = ...,
     ) -> _ResponseScriptsPutR:
         """Replace all attributes of this R Script
+
+        API URL: ``PUT /scripts/r/{id}``
 
         Parameters
         ----------
@@ -36828,6 +38400,7 @@ class _Scripts:
     def patch_r(
         self,
         id: int,
+        *,
         name: str | None = ...,
         parent_id: int | None = ...,
         user_context: str | None = ...,
@@ -36847,6 +38420,8 @@ class _Scripts:
         source: str | None = ...,
     ) -> _ResponseScriptsPatchR:
         """Update some attributes of this R Script
+
+        API URL: ``PATCH /scripts/r/{id}``
 
         Parameters
         ----------
@@ -37158,6 +38733,7 @@ class _Scripts:
         self,
         name: str,
         repo_http_uri: str,
+        *,
         parent_id: int | None = ...,
         user_context: str | None = ...,
         params: List[dict] | None = ...,
@@ -37179,6 +38755,8 @@ class _Scripts:
         target_database: dict | None = ...,
     ) -> _ResponseScriptsPostDbt:
         """Create a dbt Script
+
+        API URL: ``POST /scripts/dbt``
 
         Parameters
         ----------
@@ -37576,6 +39154,8 @@ class _Scripts:
     ) -> _ResponseScriptsGetDbt:
         """Get a dbt Script
 
+        API URL: ``GET /scripts/dbt/{id}``
+
         Parameters
         ----------
         id : int
@@ -37821,6 +39401,7 @@ class _Scripts:
         id: int,
         name: str,
         repo_http_uri: str,
+        *,
         parent_id: int | None = ...,
         user_context: str | None = ...,
         params: List[dict] | None = ...,
@@ -37841,6 +39422,8 @@ class _Scripts:
         target_database: dict | None = ...,
     ) -> _ResponseScriptsPutDbt:
         """Replace all attributes of this dbt Script
+
+        API URL: ``PUT /scripts/dbt/{id}``
 
         Parameters
         ----------
@@ -38235,6 +39818,7 @@ class _Scripts:
     def patch_dbt(
         self,
         id: int,
+        *,
         name: str | None = ...,
         parent_id: int | None = ...,
         user_context: str | None = ...,
@@ -38257,6 +39841,8 @@ class _Scripts:
         target_database: dict | None = ...,
     ) -> _ResponseScriptsPatchDbt:
         """Update some attributes of this dbt Script
+
+        API URL: ``PATCH /scripts/dbt/{id}``
 
         Parameters
         ----------
@@ -38654,6 +40240,7 @@ class _Scripts:
         source: str,
         remote_host_id: int,
         credential_id: int,
+        *,
         parent_id: int | None = ...,
         user_context: str | None = ...,
         params: List[dict] | None = ...,
@@ -38667,6 +40254,8 @@ class _Scripts:
         running_as_id: int | None = ...,
     ) -> _ResponseScriptsPostJavascript:
         """Create a JavaScript Script
+
+        API URL: ``POST /scripts/javascript``
 
         Parameters
         ----------
@@ -38940,6 +40529,8 @@ class _Scripts:
     ) -> _ResponseScriptsGetJavascript:
         """Get a JavaScript Script
 
+        API URL: ``GET /scripts/javascript/{id}``
+
         Parameters
         ----------
         id : int
@@ -39125,6 +40716,7 @@ class _Scripts:
         source: str,
         remote_host_id: int,
         credential_id: int,
+        *,
         parent_id: int | None = ...,
         user_context: str | None = ...,
         params: List[dict] | None = ...,
@@ -39137,6 +40729,8 @@ class _Scripts:
         running_as_id: int | None = ...,
     ) -> _ResponseScriptsPutJavascript:
         """Replace all attributes of this JavaScript Script
+
+        API URL: ``PUT /scripts/javascript/{id}``
 
         Parameters
         ----------
@@ -39407,6 +41001,7 @@ class _Scripts:
     def patch_javascript(
         self,
         id: int,
+        *,
         name: str | None = ...,
         parent_id: int | None = ...,
         user_context: str | None = ...,
@@ -39423,6 +41018,8 @@ class _Scripts:
         running_as_id: int | None = ...,
     ) -> _ResponseScriptsPatchJavascript:
         """Update some attributes of this JavaScript Script
+
+        API URL: ``PATCH /scripts/javascript/{id}``
 
         Parameters
         ----------
@@ -39692,6 +41289,7 @@ class _Scripts:
 
     def list_custom(
         self,
+        *,
         from_template_id: str | None = ...,
         author: str | None = ...,
         status: str | None = ...,
@@ -39704,6 +41302,8 @@ class _Scripts:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseScriptsListCustom]:
         """List Custom Scripts
+
+        API URL: ``GET /scripts/custom``
 
         Parameters
         ----------
@@ -39737,12 +41337,13 @@ class _Scripts:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
                 The ID for the script.
             - name : str
@@ -39813,6 +41414,7 @@ class _Scripts:
     def post_custom(
         self,
         from_template_id: int,
+        *,
         name: str | None = ...,
         parent_id: int | None = ...,
         arguments: dict | None = ...,
@@ -39828,6 +41430,8 @@ class _Scripts:
         running_as_id: int | None = ...,
     ) -> _ResponseScriptsPostCustom:
         """Create a Custom Script
+
+        API URL: ``POST /scripts/custom``
 
         Parameters
         ----------
@@ -40115,6 +41719,8 @@ class _Scripts:
     ) -> _ResponseScriptsGetCustom:
         """Get a Custom Script
 
+        API URL: ``GET /scripts/custom/{id}``
+
         Parameters
         ----------
         id : int
@@ -40327,6 +41933,7 @@ class _Scripts:
     def put_custom(
         self,
         id: int,
+        *,
         name: str | None = ...,
         parent_id: int | None = ...,
         arguments: dict | None = ...,
@@ -40341,6 +41948,8 @@ class _Scripts:
         running_as_id: int | None = ...,
     ) -> _ResponseScriptsPutCustom:
         """Replace all attributes of this Custom Script
+
+        API URL: ``PUT /scripts/custom/{id}``
 
         Parameters
         ----------
@@ -40623,6 +42232,7 @@ class _Scripts:
     def patch_custom(
         self,
         id: int,
+        *,
         name: str | None = ...,
         parent_id: int | None = ...,
         arguments: dict | None = ...,
@@ -40637,6 +42247,8 @@ class _Scripts:
         running_as_id: int | None = ...,
     ) -> _ResponseScriptsPatchCustom:
         """Update some attributes of this Custom Script
+
+        API URL: ``PATCH /scripts/custom/{id}``
 
         Parameters
         ----------
@@ -40922,6 +42534,8 @@ class _Scripts:
     ) -> _ResponseScriptsPostSqlRuns:
         """Start a run
 
+        API URL: ``POST /scripts/sql/{id}/runs``
+
         Parameters
         ----------
         id : int
@@ -40966,6 +42580,7 @@ class _Scripts:
     def list_sql_runs(
         self,
         id: int,
+        *,
         limit: int | None = ...,
         page_num: int | None = ...,
         order: str | None = ...,
@@ -40973,6 +42588,8 @@ class _Scripts:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseScriptsListSqlRuns]:
         """List runs for the given SQL job
+
+        API URL: ``GET /scripts/sql/{id}/runs``
 
         Parameters
         ----------
@@ -40993,12 +42610,13 @@ class _Scripts:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
                 The ID of the run.
             - sql_id : int
@@ -41038,6 +42656,8 @@ class _Scripts:
         run_id: int,
     ) -> _ResponseScriptsGetSqlRuns:
         """Check status of a run
+
+        API URL: ``GET /scripts/sql/{id}/runs/{run_id}``
 
         Parameters
         ----------
@@ -41089,6 +42709,8 @@ class _Scripts:
     ) -> Response:
         """Cancel a run
 
+        API URL: ``DELETE /scripts/sql/{id}/runs/{run_id}``
+
         Parameters
         ----------
         id : int
@@ -41107,9 +42729,12 @@ class _Scripts:
         self,
         id: int,
         run_id: int,
+        *,
         error: str | None = ...,
     ) -> Response:
         """Update the given run
+
+        API URL: ``PATCH /scripts/sql/{id}/runs/{run_id}``
 
         Parameters
         ----------
@@ -41131,10 +42756,13 @@ class _Scripts:
         self,
         id: int,
         run_id: int,
+        *,
         last_id: int | None = ...,
         limit: int | None = ...,
-    ) -> _ResponseScriptsListSqlRunsLogs:
+    ) -> List[_ResponseScriptsListSqlRunsLogs]:
         """Get the logs for a run
+
+        API URL: ``GET /scripts/sql/{id}/runs/{run_id}/logs``
 
         Parameters
         ----------
@@ -41151,7 +42779,7 @@ class _Scripts:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID of the log.
             - created_at : str (date-time)
@@ -41168,6 +42796,8 @@ class _Scripts:
         id: int,
     ) -> _ResponseScriptsPostContainersRuns:
         """Start a run
+
+        API URL: ``POST /scripts/containers/{id}/runs``
 
         Parameters
         ----------
@@ -41206,6 +42836,7 @@ class _Scripts:
     def list_containers_runs(
         self,
         id: int,
+        *,
         limit: int | None = ...,
         page_num: int | None = ...,
         order: str | None = ...,
@@ -41213,6 +42844,8 @@ class _Scripts:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseScriptsListContainersRuns]:
         """List runs for the given Container job
+
+        API URL: ``GET /scripts/containers/{id}/runs``
 
         Parameters
         ----------
@@ -41233,12 +42866,13 @@ class _Scripts:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
                 The ID of the run.
             - container_id : int
@@ -41271,6 +42905,8 @@ class _Scripts:
         run_id: int,
     ) -> _ResponseScriptsGetContainersRuns:
         """Check status of a run
+
+        API URL: ``GET /scripts/containers/{id}/runs/{run_id}``
 
         Parameters
         ----------
@@ -41315,6 +42951,8 @@ class _Scripts:
     ) -> Response:
         """Cancel a run
 
+        API URL: ``DELETE /scripts/containers/{id}/runs/{run_id}``
+
         Parameters
         ----------
         id : int
@@ -41334,6 +42972,8 @@ class _Scripts:
         id: int,
     ) -> _ResponseScriptsPostPython3Runs:
         """Start a run
+
+        API URL: ``POST /scripts/python3/{id}/runs``
 
         Parameters
         ----------
@@ -41372,6 +43012,7 @@ class _Scripts:
     def list_python3_runs(
         self,
         id: int,
+        *,
         limit: int | None = ...,
         page_num: int | None = ...,
         order: str | None = ...,
@@ -41379,6 +43020,8 @@ class _Scripts:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseScriptsListPython3Runs]:
         """List runs for the given Python job
+
+        API URL: ``GET /scripts/python3/{id}/runs``
 
         Parameters
         ----------
@@ -41399,12 +43042,13 @@ class _Scripts:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
                 The ID of the run.
             - python_id : int
@@ -41437,6 +43081,8 @@ class _Scripts:
         run_id: int,
     ) -> _ResponseScriptsGetPython3Runs:
         """Check status of a run
+
+        API URL: ``GET /scripts/python3/{id}/runs/{run_id}``
 
         Parameters
         ----------
@@ -41481,6 +43127,8 @@ class _Scripts:
     ) -> Response:
         """Cancel a run
 
+        API URL: ``DELETE /scripts/python3/{id}/runs/{run_id}``
+
         Parameters
         ----------
         id : int
@@ -41499,9 +43147,12 @@ class _Scripts:
         self,
         id: int,
         run_id: int,
+        *,
         error: str | None = ...,
     ) -> Response:
         """Update the given run
+
+        API URL: ``PATCH /scripts/python3/{id}/runs/{run_id}``
 
         Parameters
         ----------
@@ -41523,10 +43174,13 @@ class _Scripts:
         self,
         id: int,
         run_id: int,
+        *,
         last_id: int | None = ...,
         limit: int | None = ...,
-    ) -> _ResponseScriptsListPython3RunsLogs:
+    ) -> List[_ResponseScriptsListPython3RunsLogs]:
         """Get the logs for a run
+
+        API URL: ``GET /scripts/python3/{id}/runs/{run_id}/logs``
 
         Parameters
         ----------
@@ -41543,7 +43197,7 @@ class _Scripts:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID of the log.
             - created_at : str (date-time)
@@ -41560,6 +43214,8 @@ class _Scripts:
         id: int,
     ) -> _ResponseScriptsPostRRuns:
         """Start a run
+
+        API URL: ``POST /scripts/r/{id}/runs``
 
         Parameters
         ----------
@@ -41598,6 +43254,7 @@ class _Scripts:
     def list_r_runs(
         self,
         id: int,
+        *,
         limit: int | None = ...,
         page_num: int | None = ...,
         order: str | None = ...,
@@ -41605,6 +43262,8 @@ class _Scripts:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseScriptsListRRuns]:
         """List runs for the given R job
+
+        API URL: ``GET /scripts/r/{id}/runs``
 
         Parameters
         ----------
@@ -41625,12 +43284,13 @@ class _Scripts:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
                 The ID of the run.
             - r_id : int
@@ -41663,6 +43323,8 @@ class _Scripts:
         run_id: int,
     ) -> _ResponseScriptsGetRRuns:
         """Check status of a run
+
+        API URL: ``GET /scripts/r/{id}/runs/{run_id}``
 
         Parameters
         ----------
@@ -41707,6 +43369,8 @@ class _Scripts:
     ) -> Response:
         """Cancel a run
 
+        API URL: ``DELETE /scripts/r/{id}/runs/{run_id}``
+
         Parameters
         ----------
         id : int
@@ -41725,9 +43389,12 @@ class _Scripts:
         self,
         id: int,
         run_id: int,
+        *,
         error: str | None = ...,
     ) -> Response:
         """Update the given run
+
+        API URL: ``PATCH /scripts/r/{id}/runs/{run_id}``
 
         Parameters
         ----------
@@ -41749,10 +43416,13 @@ class _Scripts:
         self,
         id: int,
         run_id: int,
+        *,
         last_id: int | None = ...,
         limit: int | None = ...,
-    ) -> _ResponseScriptsListRRunsLogs:
+    ) -> List[_ResponseScriptsListRRunsLogs]:
         """Get the logs for a run
+
+        API URL: ``GET /scripts/r/{id}/runs/{run_id}/logs``
 
         Parameters
         ----------
@@ -41769,7 +43439,7 @@ class _Scripts:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID of the log.
             - created_at : str (date-time)
@@ -41786,6 +43456,8 @@ class _Scripts:
         id: int,
     ) -> _ResponseScriptsPostDbtRuns:
         """Start a run
+
+        API URL: ``POST /scripts/dbt/{id}/runs``
 
         Parameters
         ----------
@@ -41824,6 +43496,7 @@ class _Scripts:
     def list_dbt_runs(
         self,
         id: int,
+        *,
         limit: int | None = ...,
         page_num: int | None = ...,
         order: str | None = ...,
@@ -41831,6 +43504,8 @@ class _Scripts:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseScriptsListDbtRuns]:
         """List runs for the given dbt job
+
+        API URL: ``GET /scripts/dbt/{id}/runs``
 
         Parameters
         ----------
@@ -41851,12 +43526,13 @@ class _Scripts:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
                 The ID of the run.
             - dbt_id : int
@@ -41889,6 +43565,8 @@ class _Scripts:
         run_id: int,
     ) -> _ResponseScriptsGetDbtRuns:
         """Check status of a run
+
+        API URL: ``GET /scripts/dbt/{id}/runs/{run_id}``
 
         Parameters
         ----------
@@ -41933,6 +43611,8 @@ class _Scripts:
     ) -> Response:
         """Cancel a run
 
+        API URL: ``DELETE /scripts/dbt/{id}/runs/{run_id}``
+
         Parameters
         ----------
         id : int
@@ -41951,9 +43631,12 @@ class _Scripts:
         self,
         id: int,
         run_id: int,
+        *,
         error: str | None = ...,
     ) -> Response:
         """Update the given run
+
+        API URL: ``PATCH /scripts/dbt/{id}/runs/{run_id}``
 
         Parameters
         ----------
@@ -41975,10 +43658,13 @@ class _Scripts:
         self,
         id: int,
         run_id: int,
+        *,
         last_id: int | None = ...,
         limit: int | None = ...,
-    ) -> _ResponseScriptsListDbtRunsLogs:
+    ) -> List[_ResponseScriptsListDbtRunsLogs]:
         """Get the logs for a run
+
+        API URL: ``GET /scripts/dbt/{id}/runs/{run_id}/logs``
 
         Parameters
         ----------
@@ -41995,7 +43681,7 @@ class _Scripts:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID of the log.
             - created_at : str (date-time)
@@ -42012,6 +43698,8 @@ class _Scripts:
         id: int,
     ) -> _ResponseScriptsPostJavascriptRuns:
         """Start a run
+
+        API URL: ``POST /scripts/javascript/{id}/runs``
 
         Parameters
         ----------
@@ -42044,6 +43732,7 @@ class _Scripts:
     def list_javascript_runs(
         self,
         id: int,
+        *,
         limit: int | None = ...,
         page_num: int | None = ...,
         order: str | None = ...,
@@ -42051,6 +43740,8 @@ class _Scripts:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseScriptsListJavascriptRuns]:
         """List runs for the given Javascript job
+
+        API URL: ``GET /scripts/javascript/{id}/runs``
 
         Parameters
         ----------
@@ -42071,12 +43762,13 @@ class _Scripts:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
                 The ID of the run.
             - javascript_id : int
@@ -42103,6 +43795,8 @@ class _Scripts:
         run_id: int,
     ) -> _ResponseScriptsGetJavascriptRuns:
         """Check status of a run
+
+        API URL: ``GET /scripts/javascript/{id}/runs/{run_id}``
 
         Parameters
         ----------
@@ -42141,6 +43835,8 @@ class _Scripts:
     ) -> Response:
         """Cancel a run
 
+        API URL: ``DELETE /scripts/javascript/{id}/runs/{run_id}``
+
         Parameters
         ----------
         id : int
@@ -42159,9 +43855,12 @@ class _Scripts:
         self,
         id: int,
         run_id: int,
+        *,
         error: str | None = ...,
     ) -> Response:
         """Update the given run
+
+        API URL: ``PATCH /scripts/javascript/{id}/runs/{run_id}``
 
         Parameters
         ----------
@@ -42183,10 +43882,13 @@ class _Scripts:
         self,
         id: int,
         run_id: int,
+        *,
         last_id: int | None = ...,
         limit: int | None = ...,
-    ) -> _ResponseScriptsListJavascriptRunsLogs:
+    ) -> List[_ResponseScriptsListJavascriptRunsLogs]:
         """Get the logs for a run
+
+        API URL: ``GET /scripts/javascript/{id}/runs/{run_id}/logs``
 
         Parameters
         ----------
@@ -42203,7 +43905,7 @@ class _Scripts:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID of the log.
             - created_at : str (date-time)
@@ -42220,6 +43922,8 @@ class _Scripts:
         id: int,
     ) -> _ResponseScriptsPostCustomRuns:
         """Start a run
+
+        API URL: ``POST /scripts/custom/{id}/runs``
 
         Parameters
         ----------
@@ -42260,6 +43964,7 @@ class _Scripts:
     def list_custom_runs(
         self,
         id: int,
+        *,
         limit: int | None = ...,
         page_num: int | None = ...,
         order: str | None = ...,
@@ -42267,6 +43972,8 @@ class _Scripts:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseScriptsListCustomRuns]:
         """List runs for the given Custom job
+
+        API URL: ``GET /scripts/custom/{id}/runs``
 
         Parameters
         ----------
@@ -42287,12 +43994,13 @@ class _Scripts:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
                 The ID of the run.
             - custom_id : int
@@ -42327,6 +44035,8 @@ class _Scripts:
         run_id: int,
     ) -> _ResponseScriptsGetCustomRuns:
         """Check status of a run
+
+        API URL: ``GET /scripts/custom/{id}/runs/{run_id}``
 
         Parameters
         ----------
@@ -42373,6 +44083,8 @@ class _Scripts:
     ) -> Response:
         """Cancel a run
 
+        API URL: ``DELETE /scripts/custom/{id}/runs/{run_id}``
+
         Parameters
         ----------
         id : int
@@ -42391,10 +44103,13 @@ class _Scripts:
         self,
         id: int,
         run_id: int,
+        *,
         last_id: int | None = ...,
         limit: int | None = ...,
-    ) -> _ResponseScriptsListCustomRunsLogs:
+    ) -> List[_ResponseScriptsListCustomRunsLogs]:
         """Get the logs for a run
+
+        API URL: ``GET /scripts/custom/{id}/runs/{run_id}/logs``
 
         Parameters
         ----------
@@ -42411,7 +44126,7 @@ class _Scripts:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID of the log.
             - created_at : str (date-time)
@@ -42427,6 +44142,7 @@ class _Scripts:
         self,
         id: int,
         run_id: int,
+        *,
         limit: int | None = ...,
         page_num: int | None = ...,
         order: str | None = ...,
@@ -42434,6 +44150,8 @@ class _Scripts:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseScriptsListSqlRunsOutputs]:
         """List the outputs for a run
+
+        API URL: ``GET /scripts/sql/{id}/runs/{run_id}/outputs``
 
         Parameters
         ----------
@@ -42456,12 +44174,13 @@ class _Scripts:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - object_type : str
                 The type of the output. Valid values are File, Table, Report, Project,
                 Credential, or JSONValue
@@ -42479,6 +44198,7 @@ class _Scripts:
         self,
         id: int,
         run_id: int,
+        *,
         limit: int | None = ...,
         page_num: int | None = ...,
         order: str | None = ...,
@@ -42486,6 +44206,8 @@ class _Scripts:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseScriptsListContainersRunsOutputs]:
         """List the outputs for a run
+
+        API URL: ``GET /scripts/containers/{id}/runs/{run_id}/outputs``
 
         Parameters
         ----------
@@ -42508,12 +44230,13 @@ class _Scripts:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - object_type : str
                 The type of the output. Valid values are File, Table, Report, Project,
                 Credential, or JSONValue
@@ -42535,6 +44258,8 @@ class _Scripts:
         object_id: int,
     ) -> _ResponseScriptsPostContainersRunsOutputs:
         """Add an output for a run
+
+        API URL: ``POST /scripts/containers/{id}/runs/{run_id}/outputs``
 
         Parameters
         ----------
@@ -42568,6 +44293,7 @@ class _Scripts:
         self,
         id: int,
         run_id: int,
+        *,
         limit: int | None = ...,
         page_num: int | None = ...,
         order: str | None = ...,
@@ -42575,6 +44301,8 @@ class _Scripts:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseScriptsListPython3RunsOutputs]:
         """List the outputs for a run
+
+        API URL: ``GET /scripts/python3/{id}/runs/{run_id}/outputs``
 
         Parameters
         ----------
@@ -42597,12 +44325,13 @@ class _Scripts:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - object_type : str
                 The type of the output. Valid values are File, Table, Report, Project,
                 Credential, or JSONValue
@@ -42624,6 +44353,8 @@ class _Scripts:
         object_id: int,
     ) -> _ResponseScriptsPostPython3RunsOutputs:
         """Add an output for a run
+
+        API URL: ``POST /scripts/python3/{id}/runs/{run_id}/outputs``
 
         Parameters
         ----------
@@ -42657,6 +44388,7 @@ class _Scripts:
         self,
         id: int,
         run_id: int,
+        *,
         limit: int | None = ...,
         page_num: int | None = ...,
         order: str | None = ...,
@@ -42664,6 +44396,8 @@ class _Scripts:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseScriptsListRRunsOutputs]:
         """List the outputs for a run
+
+        API URL: ``GET /scripts/r/{id}/runs/{run_id}/outputs``
 
         Parameters
         ----------
@@ -42686,12 +44420,13 @@ class _Scripts:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - object_type : str
                 The type of the output. Valid values are File, Table, Report, Project,
                 Credential, or JSONValue
@@ -42713,6 +44448,8 @@ class _Scripts:
         object_id: int,
     ) -> _ResponseScriptsPostRRunsOutputs:
         """Add an output for a run
+
+        API URL: ``POST /scripts/r/{id}/runs/{run_id}/outputs``
 
         Parameters
         ----------
@@ -42746,6 +44483,7 @@ class _Scripts:
         self,
         id: int,
         run_id: int,
+        *,
         limit: int | None = ...,
         page_num: int | None = ...,
         order: str | None = ...,
@@ -42753,6 +44491,8 @@ class _Scripts:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseScriptsListDbtRunsOutputs]:
         """List the outputs for a run
+
+        API URL: ``GET /scripts/dbt/{id}/runs/{run_id}/outputs``
 
         Parameters
         ----------
@@ -42775,12 +44515,13 @@ class _Scripts:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - object_type : str
                 The type of the output. Valid values are File, Table, Report, Project,
                 Credential, or JSONValue
@@ -42802,6 +44543,8 @@ class _Scripts:
         object_id: int,
     ) -> _ResponseScriptsPostDbtRunsOutputs:
         """Add an output for a run
+
+        API URL: ``POST /scripts/dbt/{id}/runs/{run_id}/outputs``
 
         Parameters
         ----------
@@ -42835,6 +44578,7 @@ class _Scripts:
         self,
         id: int,
         run_id: int,
+        *,
         limit: int | None = ...,
         page_num: int | None = ...,
         order: str | None = ...,
@@ -42842,6 +44586,8 @@ class _Scripts:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseScriptsListJavascriptRunsOutputs]:
         """List the outputs for a run
+
+        API URL: ``GET /scripts/javascript/{id}/runs/{run_id}/outputs``
 
         Parameters
         ----------
@@ -42864,12 +44610,13 @@ class _Scripts:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - object_type : str
                 The type of the output. Valid values are File, Table, Report, Project,
                 Credential, or JSONValue
@@ -42891,6 +44638,8 @@ class _Scripts:
         object_id: int,
     ) -> _ResponseScriptsPostJavascriptRunsOutputs:
         """Add an output for a run
+
+        API URL: ``POST /scripts/javascript/{id}/runs/{run_id}/outputs``
 
         Parameters
         ----------
@@ -42924,6 +44673,7 @@ class _Scripts:
         self,
         id: int,
         run_id: int,
+        *,
         limit: int | None = ...,
         page_num: int | None = ...,
         order: str | None = ...,
@@ -42931,6 +44681,8 @@ class _Scripts:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseScriptsListCustomRunsOutputs]:
         """List the outputs for a run
+
+        API URL: ``GET /scripts/custom/{id}/runs/{run_id}/outputs``
 
         Parameters
         ----------
@@ -42953,12 +44705,13 @@ class _Scripts:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - object_type : str
                 The type of the output. Valid values are File, Table, Report, Project,
                 Credential, or JSONValue
@@ -42980,6 +44733,8 @@ class _Scripts:
         object_id: int,
     ) -> _ResponseScriptsPostCustomRunsOutputs:
         """Add an output for a run
+
+        API URL: ``POST /scripts/custom/{id}/runs/{run_id}/outputs``
 
         Parameters
         ----------
@@ -43013,9 +44768,12 @@ class _Scripts:
         self,
         id: int,
         run_id: int,
+        *,
         error: str | None = ...,
     ) -> Response:
         """Update the given run
+
+        API URL: ``PATCH /scripts/container/{id}/runs/{run_id}``
 
         Parameters
         ----------
@@ -43036,8 +44794,10 @@ class _Scripts:
     def list_sql_git(
         self,
         id: int,
-    ) -> _ResponseScriptsListSqlGit:
+    ) -> List[_ResponseScriptsListSqlGit]:
         """Get the git metadata attached to an item
+
+        API URL: ``GET /scripts/sql/{id}/git``
 
         Parameters
         ----------
@@ -43046,7 +44806,7 @@ class _Scripts:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - git_ref : str
                 A git reference specifying an unambiguous version of the file. Can be a
                 branch name, tag or the full or shortened SHA of a commit.
@@ -43072,6 +44832,7 @@ class _Scripts:
     def put_sql_git(
         self,
         id: int,
+        *,
         git_ref: str | None = ...,
         git_branch: str | None = ...,
         git_path: str | None = ...,
@@ -43080,6 +44841,8 @@ class _Scripts:
         pull_from_git: bool | None = ...,
     ) -> _ResponseScriptsPutSqlGit:
         """Attach an item to a file in a git repo
+
+        API URL: ``PUT /scripts/sql/{id}/git``
 
         Parameters
         ----------
@@ -43128,6 +44891,7 @@ class _Scripts:
     def patch_sql_git(
         self,
         id: int,
+        *,
         git_ref: str | None = ...,
         git_branch: str | None = ...,
         git_path: str | None = ...,
@@ -43136,6 +44900,8 @@ class _Scripts:
         pull_from_git: bool | None = ...,
     ) -> _ResponseScriptsPatchSqlGit:
         """Update an attached git file
+
+        API URL: ``PATCH /scripts/sql/{id}/git``
 
         Parameters
         ----------
@@ -43184,8 +44950,10 @@ class _Scripts:
     def list_sql_git_commits(
         self,
         id: int,
-    ) -> _ResponseScriptsListSqlGitCommits:
+    ) -> List[_ResponseScriptsListSqlGitCommits]:
         """Get the git commits for an item on the current branch
+
+        API URL: ``GET /scripts/sql/{id}/git/commits``
 
         Parameters
         ----------
@@ -43194,7 +44962,7 @@ class _Scripts:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - commit_hash : str
                 The SHA of the commit.
             - author_name : str
@@ -43214,6 +44982,8 @@ class _Scripts:
         file_hash: str,
     ) -> _ResponseScriptsPostSqlGitCommits:
         """Commit and push a new version of the file
+
+        API URL: ``POST /scripts/sql/{id}/git/commits``
 
         Parameters
         ----------
@@ -43247,6 +45017,8 @@ class _Scripts:
     ) -> _ResponseScriptsGetSqlGitCommits:
         """Get file contents at git ref
 
+        API URL: ``GET /scripts/sql/{id}/git/commits/{commit_hash}``
+
         Parameters
         ----------
         id : int
@@ -43274,6 +45046,8 @@ class _Scripts:
     ) -> _ResponseScriptsPostSqlGitCheckoutLatest:
         """Checkout latest commit on the current branch of a script or workflow
 
+        API URL: ``POST /scripts/sql/{id}/git/checkout-latest``
+
         Parameters
         ----------
         id : int
@@ -43299,6 +45073,8 @@ class _Scripts:
     ) -> _ResponseScriptsPostSqlGitCheckout:
         """Checkout content that the existing git_ref points to and save to the object
 
+        API URL: ``POST /scripts/sql/{id}/git/checkout``
+
         Parameters
         ----------
         id : int
@@ -43321,8 +45097,10 @@ class _Scripts:
     def list_javascript_git(
         self,
         id: int,
-    ) -> _ResponseScriptsListJavascriptGit:
+    ) -> List[_ResponseScriptsListJavascriptGit]:
         """Get the git metadata attached to an item
+
+        API URL: ``GET /scripts/javascript/{id}/git``
 
         Parameters
         ----------
@@ -43331,7 +45109,7 @@ class _Scripts:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - git_ref : str
                 A git reference specifying an unambiguous version of the file. Can be a
                 branch name, tag or the full or shortened SHA of a commit.
@@ -43357,6 +45135,7 @@ class _Scripts:
     def put_javascript_git(
         self,
         id: int,
+        *,
         git_ref: str | None = ...,
         git_branch: str | None = ...,
         git_path: str | None = ...,
@@ -43365,6 +45144,8 @@ class _Scripts:
         pull_from_git: bool | None = ...,
     ) -> _ResponseScriptsPutJavascriptGit:
         """Attach an item to a file in a git repo
+
+        API URL: ``PUT /scripts/javascript/{id}/git``
 
         Parameters
         ----------
@@ -43413,6 +45194,7 @@ class _Scripts:
     def patch_javascript_git(
         self,
         id: int,
+        *,
         git_ref: str | None = ...,
         git_branch: str | None = ...,
         git_path: str | None = ...,
@@ -43421,6 +45203,8 @@ class _Scripts:
         pull_from_git: bool | None = ...,
     ) -> _ResponseScriptsPatchJavascriptGit:
         """Update an attached git file
+
+        API URL: ``PATCH /scripts/javascript/{id}/git``
 
         Parameters
         ----------
@@ -43469,8 +45253,10 @@ class _Scripts:
     def list_javascript_git_commits(
         self,
         id: int,
-    ) -> _ResponseScriptsListJavascriptGitCommits:
+    ) -> List[_ResponseScriptsListJavascriptGitCommits]:
         """Get the git commits for an item on the current branch
+
+        API URL: ``GET /scripts/javascript/{id}/git/commits``
 
         Parameters
         ----------
@@ -43479,7 +45265,7 @@ class _Scripts:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - commit_hash : str
                 The SHA of the commit.
             - author_name : str
@@ -43499,6 +45285,8 @@ class _Scripts:
         file_hash: str,
     ) -> _ResponseScriptsPostJavascriptGitCommits:
         """Commit and push a new version of the file
+
+        API URL: ``POST /scripts/javascript/{id}/git/commits``
 
         Parameters
         ----------
@@ -43532,6 +45320,8 @@ class _Scripts:
     ) -> _ResponseScriptsGetJavascriptGitCommits:
         """Get file contents at git ref
 
+        API URL: ``GET /scripts/javascript/{id}/git/commits/{commit_hash}``
+
         Parameters
         ----------
         id : int
@@ -43559,6 +45349,8 @@ class _Scripts:
     ) -> _ResponseScriptsPostJavascriptGitCheckoutLatest:
         """Checkout latest commit on the current branch of a script or workflow
 
+        API URL: ``POST /scripts/javascript/{id}/git/checkout-latest``
+
         Parameters
         ----------
         id : int
@@ -43584,6 +45376,8 @@ class _Scripts:
     ) -> _ResponseScriptsPostJavascriptGitCheckout:
         """Checkout content that the existing git_ref points to and save to the object
 
+        API URL: ``POST /scripts/javascript/{id}/git/checkout``
+
         Parameters
         ----------
         id : int
@@ -43606,8 +45400,10 @@ class _Scripts:
     def list_python3_git(
         self,
         id: int,
-    ) -> _ResponseScriptsListPython3Git:
+    ) -> List[_ResponseScriptsListPython3Git]:
         """Get the git metadata attached to an item
+
+        API URL: ``GET /scripts/python3/{id}/git``
 
         Parameters
         ----------
@@ -43616,7 +45412,7 @@ class _Scripts:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - git_ref : str
                 A git reference specifying an unambiguous version of the file. Can be a
                 branch name, tag or the full or shortened SHA of a commit.
@@ -43642,6 +45438,7 @@ class _Scripts:
     def put_python3_git(
         self,
         id: int,
+        *,
         git_ref: str | None = ...,
         git_branch: str | None = ...,
         git_path: str | None = ...,
@@ -43650,6 +45447,8 @@ class _Scripts:
         pull_from_git: bool | None = ...,
     ) -> _ResponseScriptsPutPython3Git:
         """Attach an item to a file in a git repo
+
+        API URL: ``PUT /scripts/python3/{id}/git``
 
         Parameters
         ----------
@@ -43698,6 +45497,7 @@ class _Scripts:
     def patch_python3_git(
         self,
         id: int,
+        *,
         git_ref: str | None = ...,
         git_branch: str | None = ...,
         git_path: str | None = ...,
@@ -43706,6 +45506,8 @@ class _Scripts:
         pull_from_git: bool | None = ...,
     ) -> _ResponseScriptsPatchPython3Git:
         """Update an attached git file
+
+        API URL: ``PATCH /scripts/python3/{id}/git``
 
         Parameters
         ----------
@@ -43754,8 +45556,10 @@ class _Scripts:
     def list_python3_git_commits(
         self,
         id: int,
-    ) -> _ResponseScriptsListPython3GitCommits:
+    ) -> List[_ResponseScriptsListPython3GitCommits]:
         """Get the git commits for an item on the current branch
+
+        API URL: ``GET /scripts/python3/{id}/git/commits``
 
         Parameters
         ----------
@@ -43764,7 +45568,7 @@ class _Scripts:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - commit_hash : str
                 The SHA of the commit.
             - author_name : str
@@ -43784,6 +45588,8 @@ class _Scripts:
         file_hash: str,
     ) -> _ResponseScriptsPostPython3GitCommits:
         """Commit and push a new version of the file
+
+        API URL: ``POST /scripts/python3/{id}/git/commits``
 
         Parameters
         ----------
@@ -43817,6 +45623,8 @@ class _Scripts:
     ) -> _ResponseScriptsGetPython3GitCommits:
         """Get file contents at git ref
 
+        API URL: ``GET /scripts/python3/{id}/git/commits/{commit_hash}``
+
         Parameters
         ----------
         id : int
@@ -43844,6 +45652,8 @@ class _Scripts:
     ) -> _ResponseScriptsPostPython3GitCheckoutLatest:
         """Checkout latest commit on the current branch of a script or workflow
 
+        API URL: ``POST /scripts/python3/{id}/git/checkout-latest``
+
         Parameters
         ----------
         id : int
@@ -43869,6 +45679,8 @@ class _Scripts:
     ) -> _ResponseScriptsPostPython3GitCheckout:
         """Checkout content that the existing git_ref points to and save to the object
 
+        API URL: ``POST /scripts/python3/{id}/git/checkout``
+
         Parameters
         ----------
         id : int
@@ -43891,8 +45703,10 @@ class _Scripts:
     def list_r_git(
         self,
         id: int,
-    ) -> _ResponseScriptsListRGit:
+    ) -> List[_ResponseScriptsListRGit]:
         """Get the git metadata attached to an item
+
+        API URL: ``GET /scripts/r/{id}/git``
 
         Parameters
         ----------
@@ -43901,7 +45715,7 @@ class _Scripts:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - git_ref : str
                 A git reference specifying an unambiguous version of the file. Can be a
                 branch name, tag or the full or shortened SHA of a commit.
@@ -43927,6 +45741,7 @@ class _Scripts:
     def put_r_git(
         self,
         id: int,
+        *,
         git_ref: str | None = ...,
         git_branch: str | None = ...,
         git_path: str | None = ...,
@@ -43935,6 +45750,8 @@ class _Scripts:
         pull_from_git: bool | None = ...,
     ) -> _ResponseScriptsPutRGit:
         """Attach an item to a file in a git repo
+
+        API URL: ``PUT /scripts/r/{id}/git``
 
         Parameters
         ----------
@@ -43983,6 +45800,7 @@ class _Scripts:
     def patch_r_git(
         self,
         id: int,
+        *,
         git_ref: str | None = ...,
         git_branch: str | None = ...,
         git_path: str | None = ...,
@@ -43991,6 +45809,8 @@ class _Scripts:
         pull_from_git: bool | None = ...,
     ) -> _ResponseScriptsPatchRGit:
         """Update an attached git file
+
+        API URL: ``PATCH /scripts/r/{id}/git``
 
         Parameters
         ----------
@@ -44039,8 +45859,10 @@ class _Scripts:
     def list_r_git_commits(
         self,
         id: int,
-    ) -> _ResponseScriptsListRGitCommits:
+    ) -> List[_ResponseScriptsListRGitCommits]:
         """Get the git commits for an item on the current branch
+
+        API URL: ``GET /scripts/r/{id}/git/commits``
 
         Parameters
         ----------
@@ -44049,7 +45871,7 @@ class _Scripts:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - commit_hash : str
                 The SHA of the commit.
             - author_name : str
@@ -44069,6 +45891,8 @@ class _Scripts:
         file_hash: str,
     ) -> _ResponseScriptsPostRGitCommits:
         """Commit and push a new version of the file
+
+        API URL: ``POST /scripts/r/{id}/git/commits``
 
         Parameters
         ----------
@@ -44102,6 +45926,8 @@ class _Scripts:
     ) -> _ResponseScriptsGetRGitCommits:
         """Get file contents at git ref
 
+        API URL: ``GET /scripts/r/{id}/git/commits/{commit_hash}``
+
         Parameters
         ----------
         id : int
@@ -44129,6 +45955,8 @@ class _Scripts:
     ) -> _ResponseScriptsPostRGitCheckoutLatest:
         """Checkout latest commit on the current branch of a script or workflow
 
+        API URL: ``POST /scripts/r/{id}/git/checkout-latest``
+
         Parameters
         ----------
         id : int
@@ -44154,6 +45982,8 @@ class _Scripts:
     ) -> _ResponseScriptsPostRGitCheckout:
         """Checkout content that the existing git_ref points to and save to the object
 
+        API URL: ``POST /scripts/r/{id}/git/checkout``
+
         Parameters
         ----------
         id : int
@@ -44176,8 +46006,10 @@ class _Scripts:
     def list_sql_shares(
         self,
         id: int,
-    ) -> _ResponseScriptsListSqlShares:
+    ) -> List[_ResponseScriptsListSqlShares]:
         """List users and groups permissioned on this object
+
+        API URL: ``GET /scripts/sql/{id}/shares``
 
         Parameters
         ----------
@@ -44186,7 +46018,7 @@ class _Scripts:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - readers : :class:`civis.Response`
                 - users : List[:class:`civis.Response`]
                     - id : int
@@ -44222,10 +46054,13 @@ class _Scripts:
         id: int,
         user_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseScriptsPutSqlSharesUsers:
         """Set the permissions users have on this object
+
+        API URL: ``PUT /scripts/sql/{id}/shares/users``
 
         Parameters
         ----------
@@ -44280,6 +46115,8 @@ class _Scripts:
     ) -> Response:
         """Revoke the permissions a user has on this object
 
+        API URL: ``DELETE /scripts/sql/{id}/shares/users/{user_id}``
+
         Parameters
         ----------
         id : int
@@ -44299,10 +46136,13 @@ class _Scripts:
         id: int,
         group_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseScriptsPutSqlSharesGroups:
         """Set the permissions groups has on this object
+
+        API URL: ``PUT /scripts/sql/{id}/shares/groups``
 
         Parameters
         ----------
@@ -44357,6 +46197,8 @@ class _Scripts:
     ) -> Response:
         """Revoke the permissions a group has on this object
 
+        API URL: ``DELETE /scripts/sql/{id}/shares/groups/{group_id}``
+
         Parameters
         ----------
         id : int
@@ -44374,9 +46216,12 @@ class _Scripts:
     def list_sql_dependencies(
         self,
         id: int,
+        *,
         user_id: int | None = ...,
-    ) -> _ResponseScriptsListSqlDependencies:
+    ) -> List[_ResponseScriptsListSqlDependencies]:
         """List dependent objects for this object
+
+        API URL: ``GET /scripts/sql/{id}/dependencies``
 
         Parameters
         ----------
@@ -44387,7 +46232,7 @@ class _Scripts:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - object_type : str
                 Dependent object type
             - fco_type : str
@@ -44413,10 +46258,13 @@ class _Scripts:
         id: int,
         user_id: int,
         include_dependencies: bool,
+        *,
         email_body: str | None = ...,
         send_email: bool | None = ...,
     ) -> _ResponseScriptsPutSqlTransfer:
         """Transfer ownership of this object to another user
+
+        API URL: ``PUT /scripts/sql/{id}/transfer``
 
         Parameters
         ----------
@@ -44460,9 +46308,12 @@ class _Scripts:
     def list_sql_projects(
         self,
         id: int,
+        *,
         hidden: bool | None = ...,
-    ) -> _ResponseScriptsListSqlProjects:
+    ) -> List[_ResponseScriptsListSqlProjects]:
         """List the projects a SQL Script belongs to
+
+        API URL: ``GET /scripts/sql/{id}/projects``
 
         Parameters
         ----------
@@ -44474,7 +46325,7 @@ class _Scripts:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID for this project.
             - author : :class:`civis.Response`
@@ -44520,6 +46371,8 @@ class _Scripts:
     ) -> Response:
         """Add a SQL Script to a project
 
+        API URL: ``PUT /scripts/sql/{id}/projects/{project_id}``
+
         Parameters
         ----------
         id : int
@@ -44541,6 +46394,8 @@ class _Scripts:
     ) -> Response:
         """Remove a SQL Script from a project
 
+        API URL: ``DELETE /scripts/sql/{id}/projects/{project_id}``
+
         Parameters
         ----------
         id : int
@@ -44561,6 +46416,8 @@ class _Scripts:
         status: bool,
     ) -> _ResponseScriptsPutSqlArchive:
         """Update the archive status of this object
+
+        API URL: ``PUT /scripts/sql/{id}/archive``
 
         Parameters
         ----------
@@ -44770,8 +46627,10 @@ class _Scripts:
     def list_containers_shares(
         self,
         id: int,
-    ) -> _ResponseScriptsListContainersShares:
+    ) -> List[_ResponseScriptsListContainersShares]:
         """List users and groups permissioned on this object
+
+        API URL: ``GET /scripts/containers/{id}/shares``
 
         Parameters
         ----------
@@ -44780,7 +46639,7 @@ class _Scripts:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - readers : :class:`civis.Response`
                 - users : List[:class:`civis.Response`]
                     - id : int
@@ -44816,10 +46675,13 @@ class _Scripts:
         id: int,
         user_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseScriptsPutContainersSharesUsers:
         """Set the permissions users have on this object
+
+        API URL: ``PUT /scripts/containers/{id}/shares/users``
 
         Parameters
         ----------
@@ -44874,6 +46736,8 @@ class _Scripts:
     ) -> Response:
         """Revoke the permissions a user has on this object
 
+        API URL: ``DELETE /scripts/containers/{id}/shares/users/{user_id}``
+
         Parameters
         ----------
         id : int
@@ -44893,10 +46757,13 @@ class _Scripts:
         id: int,
         group_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseScriptsPutContainersSharesGroups:
         """Set the permissions groups has on this object
+
+        API URL: ``PUT /scripts/containers/{id}/shares/groups``
 
         Parameters
         ----------
@@ -44951,6 +46818,8 @@ class _Scripts:
     ) -> Response:
         """Revoke the permissions a group has on this object
 
+        API URL: ``DELETE /scripts/containers/{id}/shares/groups/{group_id}``
+
         Parameters
         ----------
         id : int
@@ -44968,9 +46837,12 @@ class _Scripts:
     def list_containers_dependencies(
         self,
         id: int,
+        *,
         user_id: int | None = ...,
-    ) -> _ResponseScriptsListContainersDependencies:
+    ) -> List[_ResponseScriptsListContainersDependencies]:
         """List dependent objects for this object
+
+        API URL: ``GET /scripts/containers/{id}/dependencies``
 
         Parameters
         ----------
@@ -44981,7 +46853,7 @@ class _Scripts:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - object_type : str
                 Dependent object type
             - fco_type : str
@@ -45007,10 +46879,13 @@ class _Scripts:
         id: int,
         user_id: int,
         include_dependencies: bool,
+        *,
         email_body: str | None = ...,
         send_email: bool | None = ...,
     ) -> _ResponseScriptsPutContainersTransfer:
         """Transfer ownership of this object to another user
+
+        API URL: ``PUT /scripts/containers/{id}/transfer``
 
         Parameters
         ----------
@@ -45054,9 +46929,12 @@ class _Scripts:
     def list_containers_projects(
         self,
         id: int,
+        *,
         hidden: bool | None = ...,
-    ) -> _ResponseScriptsListContainersProjects:
+    ) -> List[_ResponseScriptsListContainersProjects]:
         """List the projects a Container Script belongs to
+
+        API URL: ``GET /scripts/containers/{id}/projects``
 
         Parameters
         ----------
@@ -45068,7 +46946,7 @@ class _Scripts:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID for this project.
             - author : :class:`civis.Response`
@@ -45114,6 +46992,8 @@ class _Scripts:
     ) -> Response:
         """Add a Container Script to a project
 
+        API URL: ``PUT /scripts/containers/{id}/projects/{project_id}``
+
         Parameters
         ----------
         id : int
@@ -45135,6 +47015,8 @@ class _Scripts:
     ) -> Response:
         """Remove a Container Script from a project
 
+        API URL: ``DELETE /scripts/containers/{id}/projects/{project_id}``
+
         Parameters
         ----------
         id : int
@@ -45155,6 +47037,8 @@ class _Scripts:
         status: bool,
     ) -> _ResponseScriptsPutContainersArchive:
         """Update the archive status of this object
+
+        API URL: ``PUT /scripts/containers/{id}/archive``
 
         Parameters
         ----------
@@ -45383,8 +47267,10 @@ class _Scripts:
     def list_python3_shares(
         self,
         id: int,
-    ) -> _ResponseScriptsListPython3Shares:
+    ) -> List[_ResponseScriptsListPython3Shares]:
         """List users and groups permissioned on this object
+
+        API URL: ``GET /scripts/python3/{id}/shares``
 
         Parameters
         ----------
@@ -45393,7 +47279,7 @@ class _Scripts:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - readers : :class:`civis.Response`
                 - users : List[:class:`civis.Response`]
                     - id : int
@@ -45429,10 +47315,13 @@ class _Scripts:
         id: int,
         user_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseScriptsPutPython3SharesUsers:
         """Set the permissions users have on this object
+
+        API URL: ``PUT /scripts/python3/{id}/shares/users``
 
         Parameters
         ----------
@@ -45487,6 +47376,8 @@ class _Scripts:
     ) -> Response:
         """Revoke the permissions a user has on this object
 
+        API URL: ``DELETE /scripts/python3/{id}/shares/users/{user_id}``
+
         Parameters
         ----------
         id : int
@@ -45506,10 +47397,13 @@ class _Scripts:
         id: int,
         group_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseScriptsPutPython3SharesGroups:
         """Set the permissions groups has on this object
+
+        API URL: ``PUT /scripts/python3/{id}/shares/groups``
 
         Parameters
         ----------
@@ -45564,6 +47458,8 @@ class _Scripts:
     ) -> Response:
         """Revoke the permissions a group has on this object
 
+        API URL: ``DELETE /scripts/python3/{id}/shares/groups/{group_id}``
+
         Parameters
         ----------
         id : int
@@ -45581,9 +47477,12 @@ class _Scripts:
     def list_python3_dependencies(
         self,
         id: int,
+        *,
         user_id: int | None = ...,
-    ) -> _ResponseScriptsListPython3Dependencies:
+    ) -> List[_ResponseScriptsListPython3Dependencies]:
         """List dependent objects for this object
+
+        API URL: ``GET /scripts/python3/{id}/dependencies``
 
         Parameters
         ----------
@@ -45594,7 +47493,7 @@ class _Scripts:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - object_type : str
                 Dependent object type
             - fco_type : str
@@ -45620,10 +47519,13 @@ class _Scripts:
         id: int,
         user_id: int,
         include_dependencies: bool,
+        *,
         email_body: str | None = ...,
         send_email: bool | None = ...,
     ) -> _ResponseScriptsPutPython3Transfer:
         """Transfer ownership of this object to another user
+
+        API URL: ``PUT /scripts/python3/{id}/transfer``
 
         Parameters
         ----------
@@ -45667,9 +47569,12 @@ class _Scripts:
     def list_python3_projects(
         self,
         id: int,
+        *,
         hidden: bool | None = ...,
-    ) -> _ResponseScriptsListPython3Projects:
+    ) -> List[_ResponseScriptsListPython3Projects]:
         """List the projects a Python Script belongs to
+
+        API URL: ``GET /scripts/python3/{id}/projects``
 
         Parameters
         ----------
@@ -45681,7 +47586,7 @@ class _Scripts:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID for this project.
             - author : :class:`civis.Response`
@@ -45727,6 +47632,8 @@ class _Scripts:
     ) -> Response:
         """Add a Python Script to a project
 
+        API URL: ``PUT /scripts/python3/{id}/projects/{project_id}``
+
         Parameters
         ----------
         id : int
@@ -45748,6 +47655,8 @@ class _Scripts:
     ) -> Response:
         """Remove a Python Script from a project
 
+        API URL: ``DELETE /scripts/python3/{id}/projects/{project_id}``
+
         Parameters
         ----------
         id : int
@@ -45768,6 +47677,8 @@ class _Scripts:
         status: bool,
     ) -> _ResponseScriptsPutPython3Archive:
         """Update the archive status of this object
+
+        API URL: ``PUT /scripts/python3/{id}/archive``
 
         Parameters
         ----------
@@ -45973,8 +47884,10 @@ class _Scripts:
     def list_r_shares(
         self,
         id: int,
-    ) -> _ResponseScriptsListRShares:
+    ) -> List[_ResponseScriptsListRShares]:
         """List users and groups permissioned on this object
+
+        API URL: ``GET /scripts/r/{id}/shares``
 
         Parameters
         ----------
@@ -45983,7 +47896,7 @@ class _Scripts:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - readers : :class:`civis.Response`
                 - users : List[:class:`civis.Response`]
                     - id : int
@@ -46019,10 +47932,13 @@ class _Scripts:
         id: int,
         user_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseScriptsPutRSharesUsers:
         """Set the permissions users have on this object
+
+        API URL: ``PUT /scripts/r/{id}/shares/users``
 
         Parameters
         ----------
@@ -46077,6 +47993,8 @@ class _Scripts:
     ) -> Response:
         """Revoke the permissions a user has on this object
 
+        API URL: ``DELETE /scripts/r/{id}/shares/users/{user_id}``
+
         Parameters
         ----------
         id : int
@@ -46096,10 +48014,13 @@ class _Scripts:
         id: int,
         group_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseScriptsPutRSharesGroups:
         """Set the permissions groups has on this object
+
+        API URL: ``PUT /scripts/r/{id}/shares/groups``
 
         Parameters
         ----------
@@ -46154,6 +48075,8 @@ class _Scripts:
     ) -> Response:
         """Revoke the permissions a group has on this object
 
+        API URL: ``DELETE /scripts/r/{id}/shares/groups/{group_id}``
+
         Parameters
         ----------
         id : int
@@ -46171,9 +48094,12 @@ class _Scripts:
     def list_r_dependencies(
         self,
         id: int,
+        *,
         user_id: int | None = ...,
-    ) -> _ResponseScriptsListRDependencies:
+    ) -> List[_ResponseScriptsListRDependencies]:
         """List dependent objects for this object
+
+        API URL: ``GET /scripts/r/{id}/dependencies``
 
         Parameters
         ----------
@@ -46184,7 +48110,7 @@ class _Scripts:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - object_type : str
                 Dependent object type
             - fco_type : str
@@ -46210,10 +48136,13 @@ class _Scripts:
         id: int,
         user_id: int,
         include_dependencies: bool,
+        *,
         email_body: str | None = ...,
         send_email: bool | None = ...,
     ) -> _ResponseScriptsPutRTransfer:
         """Transfer ownership of this object to another user
+
+        API URL: ``PUT /scripts/r/{id}/transfer``
 
         Parameters
         ----------
@@ -46257,9 +48186,12 @@ class _Scripts:
     def list_r_projects(
         self,
         id: int,
+        *,
         hidden: bool | None = ...,
-    ) -> _ResponseScriptsListRProjects:
+    ) -> List[_ResponseScriptsListRProjects]:
         """List the projects an R Script belongs to
+
+        API URL: ``GET /scripts/r/{id}/projects``
 
         Parameters
         ----------
@@ -46271,7 +48203,7 @@ class _Scripts:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID for this project.
             - author : :class:`civis.Response`
@@ -46317,6 +48249,8 @@ class _Scripts:
     ) -> Response:
         """Add an R Script to a project
 
+        API URL: ``PUT /scripts/r/{id}/projects/{project_id}``
+
         Parameters
         ----------
         id : int
@@ -46338,6 +48272,8 @@ class _Scripts:
     ) -> Response:
         """Remove an R Script from a project
 
+        API URL: ``DELETE /scripts/r/{id}/projects/{project_id}``
+
         Parameters
         ----------
         id : int
@@ -46358,6 +48294,8 @@ class _Scripts:
         status: bool,
     ) -> _ResponseScriptsPutRArchive:
         """Update the archive status of this object
+
+        API URL: ``PUT /scripts/r/{id}/archive``
 
         Parameters
         ----------
@@ -46563,8 +48501,10 @@ class _Scripts:
     def list_dbt_shares(
         self,
         id: int,
-    ) -> _ResponseScriptsListDbtShares:
+    ) -> List[_ResponseScriptsListDbtShares]:
         """List users and groups permissioned on this object
+
+        API URL: ``GET /scripts/dbt/{id}/shares``
 
         Parameters
         ----------
@@ -46573,7 +48513,7 @@ class _Scripts:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - readers : :class:`civis.Response`
                 - users : List[:class:`civis.Response`]
                     - id : int
@@ -46609,10 +48549,13 @@ class _Scripts:
         id: int,
         user_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseScriptsPutDbtSharesUsers:
         """Set the permissions users have on this object
+
+        API URL: ``PUT /scripts/dbt/{id}/shares/users``
 
         Parameters
         ----------
@@ -46667,6 +48610,8 @@ class _Scripts:
     ) -> Response:
         """Revoke the permissions a user has on this object
 
+        API URL: ``DELETE /scripts/dbt/{id}/shares/users/{user_id}``
+
         Parameters
         ----------
         id : int
@@ -46686,10 +48631,13 @@ class _Scripts:
         id: int,
         group_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseScriptsPutDbtSharesGroups:
         """Set the permissions groups has on this object
+
+        API URL: ``PUT /scripts/dbt/{id}/shares/groups``
 
         Parameters
         ----------
@@ -46744,6 +48692,8 @@ class _Scripts:
     ) -> Response:
         """Revoke the permissions a group has on this object
 
+        API URL: ``DELETE /scripts/dbt/{id}/shares/groups/{group_id}``
+
         Parameters
         ----------
         id : int
@@ -46761,9 +48711,12 @@ class _Scripts:
     def list_dbt_dependencies(
         self,
         id: int,
+        *,
         user_id: int | None = ...,
-    ) -> _ResponseScriptsListDbtDependencies:
+    ) -> List[_ResponseScriptsListDbtDependencies]:
         """List dependent objects for this object
+
+        API URL: ``GET /scripts/dbt/{id}/dependencies``
 
         Parameters
         ----------
@@ -46774,7 +48727,7 @@ class _Scripts:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - object_type : str
                 Dependent object type
             - fco_type : str
@@ -46800,10 +48753,13 @@ class _Scripts:
         id: int,
         user_id: int,
         include_dependencies: bool,
+        *,
         email_body: str | None = ...,
         send_email: bool | None = ...,
     ) -> _ResponseScriptsPutDbtTransfer:
         """Transfer ownership of this object to another user
+
+        API URL: ``PUT /scripts/dbt/{id}/transfer``
 
         Parameters
         ----------
@@ -46847,9 +48803,12 @@ class _Scripts:
     def list_dbt_projects(
         self,
         id: int,
+        *,
         hidden: bool | None = ...,
-    ) -> _ResponseScriptsListDbtProjects:
+    ) -> List[_ResponseScriptsListDbtProjects]:
         """List the projects a dbt Script belongs to
+
+        API URL: ``GET /scripts/dbt/{id}/projects``
 
         Parameters
         ----------
@@ -46861,7 +48820,7 @@ class _Scripts:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID for this project.
             - author : :class:`civis.Response`
@@ -46907,6 +48866,8 @@ class _Scripts:
     ) -> Response:
         """Add a dbt Script to a project
 
+        API URL: ``PUT /scripts/dbt/{id}/projects/{project_id}``
+
         Parameters
         ----------
         id : int
@@ -46928,6 +48889,8 @@ class _Scripts:
     ) -> Response:
         """Remove a dbt Script from a project
 
+        API URL: ``DELETE /scripts/dbt/{id}/projects/{project_id}``
+
         Parameters
         ----------
         id : int
@@ -46948,6 +48911,8 @@ class _Scripts:
         status: bool,
     ) -> _ResponseScriptsPutDbtArchive:
         """Update the archive status of this object
+
+        API URL: ``PUT /scripts/dbt/{id}/archive``
 
         Parameters
         ----------
@@ -47195,8 +49160,10 @@ class _Scripts:
     def list_javascript_shares(
         self,
         id: int,
-    ) -> _ResponseScriptsListJavascriptShares:
+    ) -> List[_ResponseScriptsListJavascriptShares]:
         """List users and groups permissioned on this object
+
+        API URL: ``GET /scripts/javascript/{id}/shares``
 
         Parameters
         ----------
@@ -47205,7 +49172,7 @@ class _Scripts:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - readers : :class:`civis.Response`
                 - users : List[:class:`civis.Response`]
                     - id : int
@@ -47241,10 +49208,13 @@ class _Scripts:
         id: int,
         user_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseScriptsPutJavascriptSharesUsers:
         """Set the permissions users have on this object
+
+        API URL: ``PUT /scripts/javascript/{id}/shares/users``
 
         Parameters
         ----------
@@ -47299,6 +49269,8 @@ class _Scripts:
     ) -> Response:
         """Revoke the permissions a user has on this object
 
+        API URL: ``DELETE /scripts/javascript/{id}/shares/users/{user_id}``
+
         Parameters
         ----------
         id : int
@@ -47318,10 +49290,13 @@ class _Scripts:
         id: int,
         group_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseScriptsPutJavascriptSharesGroups:
         """Set the permissions groups has on this object
+
+        API URL: ``PUT /scripts/javascript/{id}/shares/groups``
 
         Parameters
         ----------
@@ -47376,6 +49351,8 @@ class _Scripts:
     ) -> Response:
         """Revoke the permissions a group has on this object
 
+        API URL: ``DELETE /scripts/javascript/{id}/shares/groups/{group_id}``
+
         Parameters
         ----------
         id : int
@@ -47393,9 +49370,12 @@ class _Scripts:
     def list_javascript_dependencies(
         self,
         id: int,
+        *,
         user_id: int | None = ...,
-    ) -> _ResponseScriptsListJavascriptDependencies:
+    ) -> List[_ResponseScriptsListJavascriptDependencies]:
         """List dependent objects for this object
+
+        API URL: ``GET /scripts/javascript/{id}/dependencies``
 
         Parameters
         ----------
@@ -47406,7 +49386,7 @@ class _Scripts:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - object_type : str
                 Dependent object type
             - fco_type : str
@@ -47432,10 +49412,13 @@ class _Scripts:
         id: int,
         user_id: int,
         include_dependencies: bool,
+        *,
         email_body: str | None = ...,
         send_email: bool | None = ...,
     ) -> _ResponseScriptsPutJavascriptTransfer:
         """Transfer ownership of this object to another user
+
+        API URL: ``PUT /scripts/javascript/{id}/transfer``
 
         Parameters
         ----------
@@ -47479,9 +49462,12 @@ class _Scripts:
     def list_javascript_projects(
         self,
         id: int,
+        *,
         hidden: bool | None = ...,
-    ) -> _ResponseScriptsListJavascriptProjects:
+    ) -> List[_ResponseScriptsListJavascriptProjects]:
         """List the projects a JavaScript Script belongs to
+
+        API URL: ``GET /scripts/javascript/{id}/projects``
 
         Parameters
         ----------
@@ -47493,7 +49479,7 @@ class _Scripts:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID for this project.
             - author : :class:`civis.Response`
@@ -47539,6 +49525,8 @@ class _Scripts:
     ) -> Response:
         """Add a JavaScript Script to a project
 
+        API URL: ``PUT /scripts/javascript/{id}/projects/{project_id}``
+
         Parameters
         ----------
         id : int
@@ -47560,6 +49548,8 @@ class _Scripts:
     ) -> Response:
         """Remove a JavaScript Script from a project
 
+        API URL: ``DELETE /scripts/javascript/{id}/projects/{project_id}``
+
         Parameters
         ----------
         id : int
@@ -47580,6 +49570,8 @@ class _Scripts:
         status: bool,
     ) -> _ResponseScriptsPutJavascriptArchive:
         """Update the archive status of this object
+
+        API URL: ``PUT /scripts/javascript/{id}/archive``
 
         Parameters
         ----------
@@ -47765,8 +49757,10 @@ class _Scripts:
     def list_custom_shares(
         self,
         id: int,
-    ) -> _ResponseScriptsListCustomShares:
+    ) -> List[_ResponseScriptsListCustomShares]:
         """List users and groups permissioned on this object
+
+        API URL: ``GET /scripts/custom/{id}/shares``
 
         Parameters
         ----------
@@ -47775,7 +49769,7 @@ class _Scripts:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - readers : :class:`civis.Response`
                 - users : List[:class:`civis.Response`]
                     - id : int
@@ -47811,10 +49805,13 @@ class _Scripts:
         id: int,
         user_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseScriptsPutCustomSharesUsers:
         """Set the permissions users have on this object
+
+        API URL: ``PUT /scripts/custom/{id}/shares/users``
 
         Parameters
         ----------
@@ -47869,6 +49866,8 @@ class _Scripts:
     ) -> Response:
         """Revoke the permissions a user has on this object
 
+        API URL: ``DELETE /scripts/custom/{id}/shares/users/{user_id}``
+
         Parameters
         ----------
         id : int
@@ -47888,10 +49887,13 @@ class _Scripts:
         id: int,
         group_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseScriptsPutCustomSharesGroups:
         """Set the permissions groups has on this object
+
+        API URL: ``PUT /scripts/custom/{id}/shares/groups``
 
         Parameters
         ----------
@@ -47946,6 +49948,8 @@ class _Scripts:
     ) -> Response:
         """Revoke the permissions a group has on this object
 
+        API URL: ``DELETE /scripts/custom/{id}/shares/groups/{group_id}``
+
         Parameters
         ----------
         id : int
@@ -47963,9 +49967,12 @@ class _Scripts:
     def list_custom_dependencies(
         self,
         id: int,
+        *,
         user_id: int | None = ...,
-    ) -> _ResponseScriptsListCustomDependencies:
+    ) -> List[_ResponseScriptsListCustomDependencies]:
         """List dependent objects for this object
+
+        API URL: ``GET /scripts/custom/{id}/dependencies``
 
         Parameters
         ----------
@@ -47976,7 +49983,7 @@ class _Scripts:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - object_type : str
                 Dependent object type
             - fco_type : str
@@ -48002,10 +50009,13 @@ class _Scripts:
         id: int,
         user_id: int,
         include_dependencies: bool,
+        *,
         email_body: str | None = ...,
         send_email: bool | None = ...,
     ) -> _ResponseScriptsPutCustomTransfer:
         """Transfer ownership of this object to another user
+
+        API URL: ``PUT /scripts/custom/{id}/transfer``
 
         Parameters
         ----------
@@ -48049,9 +50059,12 @@ class _Scripts:
     def list_custom_projects(
         self,
         id: int,
+        *,
         hidden: bool | None = ...,
-    ) -> _ResponseScriptsListCustomProjects:
+    ) -> List[_ResponseScriptsListCustomProjects]:
         """List the projects a Custom Script belongs to
+
+        API URL: ``GET /scripts/custom/{id}/projects``
 
         Parameters
         ----------
@@ -48063,7 +50076,7 @@ class _Scripts:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID for this project.
             - author : :class:`civis.Response`
@@ -48109,6 +50122,8 @@ class _Scripts:
     ) -> Response:
         """Add a Custom Script to a project
 
+        API URL: ``PUT /scripts/custom/{id}/projects/{project_id}``
+
         Parameters
         ----------
         id : int
@@ -48130,6 +50145,8 @@ class _Scripts:
     ) -> Response:
         """Remove a Custom Script from a project
 
+        API URL: ``DELETE /scripts/custom/{id}/projects/{project_id}``
+
         Parameters
         ----------
         id : int
@@ -48150,6 +50167,8 @@ class _Scripts:
         status: bool,
     ) -> _ResponseScriptsPutCustomArchive:
         """Update the archive status of this object
+
+        API URL: ``PUT /scripts/custom/{id}/archive``
 
         Parameters
         ----------
@@ -48366,11 +50385,14 @@ class _Scripts:
     def post_sql_clone(
         self,
         id: int,
+        *,
         clone_schedule: bool | None = ...,
         clone_triggers: bool | None = ...,
         clone_notifications: bool | None = ...,
     ) -> _ResponseScriptsPostSqlClone:
         """Clone this SQL Script
+
+        API URL: ``POST /scripts/sql/{id}/clone``
 
         Parameters
         ----------
@@ -48584,11 +50606,14 @@ class _Scripts:
     def post_javascript_clone(
         self,
         id: int,
+        *,
         clone_schedule: bool | None = ...,
         clone_triggers: bool | None = ...,
         clone_notifications: bool | None = ...,
     ) -> _ResponseScriptsPostJavascriptClone:
         """Clone this JavaScript Script
+
+        API URL: ``POST /scripts/javascript/{id}/clone``
 
         Parameters
         ----------
@@ -48778,11 +50803,14 @@ class _Scripts:
     def post_python3_clone(
         self,
         id: int,
+        *,
         clone_schedule: bool | None = ...,
         clone_triggers: bool | None = ...,
         clone_notifications: bool | None = ...,
     ) -> _ResponseScriptsPostPython3Clone:
         """Clone this Python Script
+
+        API URL: ``POST /scripts/python3/{id}/clone``
 
         Parameters
         ----------
@@ -48992,11 +51020,14 @@ class _Scripts:
     def post_r_clone(
         self,
         id: int,
+        *,
         clone_schedule: bool | None = ...,
         clone_triggers: bool | None = ...,
         clone_notifications: bool | None = ...,
     ) -> _ResponseScriptsPostRClone:
         """Clone this R Script
+
+        API URL: ``POST /scripts/r/{id}/clone``
 
         Parameters
         ----------
@@ -49206,11 +51237,14 @@ class _Scripts:
     def post_containers_clone(
         self,
         id: int,
+        *,
         clone_schedule: bool | None = ...,
         clone_triggers: bool | None = ...,
         clone_notifications: bool | None = ...,
     ) -> _ResponseScriptsPostContainersClone:
         """Clone this Container Script
+
+        API URL: ``POST /scripts/containers/{id}/clone``
 
         Parameters
         ----------
@@ -49443,11 +51477,14 @@ class _Scripts:
     def post_dbt_clone(
         self,
         id: int,
+        *,
         clone_schedule: bool | None = ...,
         clone_triggers: bool | None = ...,
         clone_notifications: bool | None = ...,
     ) -> _ResponseScriptsPostDbtClone:
         """Clone this dbt Script
+
+        API URL: ``POST /scripts/dbt/{id}/clone``
 
         Parameters
         ----------
@@ -49699,11 +51736,14 @@ class _Scripts:
     def post_custom_clone(
         self,
         id: int,
+        *,
         clone_schedule: bool | None = ...,
         clone_triggers: bool | None = ...,
         clone_notifications: bool | None = ...,
     ) -> _ResponseScriptsPostCustomClone:
         """Clone this Custom Script
+
+        API URL: ``POST /scripts/custom/{id}/clone``
 
         Parameters
         ----------
@@ -49924,6 +51964,7 @@ class _Scripts:
 class _Search:
     def list(
         self,
+        *,
         query: str | None = ...,
         type: str | None = ...,
         offset: int | None = ...,
@@ -49932,8 +51973,10 @@ class _Search:
         limit: int | None = ...,
         archived: str | None = ...,
         last_run_state: str | None = ...,
-    ) -> _ResponseSearchList:
+    ) -> List[_ResponseSearchList]:
         """Perform a search
+
+        API URL: ``GET /search``
 
         Parameters
         ----------
@@ -49959,7 +52002,7 @@ class _Search:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - total_results : int
                 The number of items matching the search query.
             - aggregations : :class:`civis.Response`
@@ -50002,12 +52045,14 @@ class _Search:
 
     def list_types(
         self,
-    ) -> _ResponseSearchListTypes:
+    ) -> List[_ResponseSearchListTypes]:
         """List available search types
+
+        API URL: ``GET /search/types``
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - type : str
                 The name of the item type.
         """
@@ -50015,6 +52060,7 @@ class _Search:
 
     def list_queries(
         self,
+        *,
         search_string: str | None = ...,
         database_id: int | None = ...,
         credential_id: int | None = ...,
@@ -50030,6 +52076,8 @@ class _Search:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseSearchListQueries]:
         """Search queries that are not hidden
+
+        API URL: ``GET /search/queries``
 
         Parameters
         ----------
@@ -50067,12 +52115,13 @@ class _Search:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
                 The query ID.
             - database : int
@@ -50104,6 +52153,7 @@ class _Search:
 class _Services:
     def list(
         self,
+        *,
         hidden: bool | None = ...,
         archived: str | None = ...,
         author: str | None = ...,
@@ -50115,6 +52165,8 @@ class _Services:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseServicesList]:
         """List Services
+
+        API URL: ``GET /services``
 
         Parameters
         ----------
@@ -50144,12 +52196,13 @@ class _Services:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
                 The ID for this Service.
             - name : str
@@ -50219,6 +52272,7 @@ class _Services:
 
     def post(
         self,
+        *,
         name: str | None = ...,
         description: str | None = ...,
         type: str | None = ...,
@@ -50241,6 +52295,8 @@ class _Services:
         hidden: bool | None = ...,
     ) -> _ResponseServicesPost:
         """Create a Service
+
+        API URL: ``POST /services``
 
         Parameters
         ----------
@@ -50436,6 +52492,8 @@ class _Services:
     ) -> _ResponseServicesGet:
         """Get a Service
 
+        API URL: ``GET /services/{id}``
+
         Parameters
         ----------
         id : int
@@ -50569,6 +52627,7 @@ class _Services:
     def put(
         self,
         id: int,
+        *,
         name: str | None = ...,
         description: str | None = ...,
         docker_image_name: str | None = ...,
@@ -50589,6 +52648,8 @@ class _Services:
         partition_label: str | None = ...,
     ) -> _ResponseServicesPut:
         """Replace all attributes of this Service
+
+        API URL: ``PUT /services/{id}``
 
         Parameters
         ----------
@@ -50779,6 +52840,7 @@ class _Services:
     def patch(
         self,
         id: int,
+        *,
         name: str | None = ...,
         description: str | None = ...,
         docker_image_name: str | None = ...,
@@ -50799,6 +52861,8 @@ class _Services:
         partition_label: str | None = ...,
     ) -> _ResponseServicesPatch:
         """Update some attributes of this Service
+
+        API URL: ``PATCH /services/{id}``
 
         Parameters
         ----------
@@ -50989,8 +53053,10 @@ class _Services:
     def list_shares(
         self,
         id: int,
-    ) -> _ResponseServicesListShares:
+    ) -> List[_ResponseServicesListShares]:
         """List users and groups permissioned on this object
+
+        API URL: ``GET /services/{id}/shares``
 
         Parameters
         ----------
@@ -50999,7 +53065,7 @@ class _Services:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - readers : :class:`civis.Response`
                 - users : List[:class:`civis.Response`]
                     - id : int
@@ -51035,10 +53101,13 @@ class _Services:
         id: int,
         user_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseServicesPutSharesUsers:
         """Set the permissions users have on this object
+
+        API URL: ``PUT /services/{id}/shares/users``
 
         Parameters
         ----------
@@ -51093,6 +53162,8 @@ class _Services:
     ) -> Response:
         """Revoke the permissions a user has on this object
 
+        API URL: ``DELETE /services/{id}/shares/users/{user_id}``
+
         Parameters
         ----------
         id : int
@@ -51112,10 +53183,13 @@ class _Services:
         id: int,
         group_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseServicesPutSharesGroups:
         """Set the permissions groups has on this object
+
+        API URL: ``PUT /services/{id}/shares/groups``
 
         Parameters
         ----------
@@ -51170,6 +53244,8 @@ class _Services:
     ) -> Response:
         """Revoke the permissions a group has on this object
 
+        API URL: ``DELETE /services/{id}/shares/groups/{group_id}``
+
         Parameters
         ----------
         id : int
@@ -51187,9 +53263,12 @@ class _Services:
     def list_dependencies(
         self,
         id: int,
+        *,
         user_id: int | None = ...,
-    ) -> _ResponseServicesListDependencies:
+    ) -> List[_ResponseServicesListDependencies]:
         """List dependent objects for this object
+
+        API URL: ``GET /services/{id}/dependencies``
 
         Parameters
         ----------
@@ -51200,7 +53279,7 @@ class _Services:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - object_type : str
                 Dependent object type
             - fco_type : str
@@ -51226,10 +53305,13 @@ class _Services:
         id: int,
         user_id: int,
         include_dependencies: bool,
+        *,
         email_body: str | None = ...,
         send_email: bool | None = ...,
     ) -> _ResponseServicesPutTransfer:
         """Transfer ownership of this object to another user
+
+        API URL: ``PUT /services/{id}/transfer``
 
         Parameters
         ----------
@@ -51276,6 +53358,8 @@ class _Services:
         status: bool,
     ) -> _ResponseServicesPutArchive:
         """Update the archive status of this object
+
+        API URL: ``PUT /services/{id}/archive``
 
         Parameters
         ----------
@@ -51413,9 +53497,12 @@ class _Services:
     def list_projects(
         self,
         id: int,
+        *,
         hidden: bool | None = ...,
-    ) -> _ResponseServicesListProjects:
+    ) -> List[_ResponseServicesListProjects]:
         """List the projects a Service belongs to
+
+        API URL: ``GET /services/{id}/projects``
 
         Parameters
         ----------
@@ -51427,7 +53514,7 @@ class _Services:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID for this project.
             - author : :class:`civis.Response`
@@ -51473,6 +53560,8 @@ class _Services:
     ) -> Response:
         """Add a Service to a project
 
+        API URL: ``PUT /services/{id}/projects/{project_id}``
+
         Parameters
         ----------
         id : int
@@ -51494,6 +53583,8 @@ class _Services:
     ) -> Response:
         """Remove a Service from a project
 
+        API URL: ``DELETE /services/{id}/projects/{project_id}``
+
         Parameters
         ----------
         id : int
@@ -51511,6 +53602,7 @@ class _Services:
     def list_deployments(
         self,
         service_id: int,
+        *,
         deployment_id: int | None = ...,
         limit: int | None = ...,
         page_num: int | None = ...,
@@ -51519,6 +53611,8 @@ class _Services:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseServicesListDeployments]:
         """List deployments for a Service
+
+        API URL: ``GET /services/{service_id}/deployments``
 
         Parameters
         ----------
@@ -51541,12 +53635,13 @@ class _Services:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - deployment_id : int
                 The ID for this deployment.
             - user_id : int
@@ -51585,9 +53680,12 @@ class _Services:
     def post_deployments(
         self,
         service_id: int,
+        *,
         deployment_id: int | None = ...,
     ) -> _ResponseServicesPostDeployments:
         """Deploy a Service
+
+        API URL: ``POST /services/{service_id}/deployments``
 
         Parameters
         ----------
@@ -51643,6 +53741,8 @@ class _Services:
     ) -> _ResponseServicesGetDeployments:
         """Get details about a Service deployment
 
+        API URL: ``GET /services/{service_id}/deployments/{deployment_id}``
+
         Parameters
         ----------
         service_id : int
@@ -51697,6 +53797,8 @@ class _Services:
     ) -> Response:
         """Delete a Service deployment
 
+        API URL: ``DELETE /services/{service_id}/deployments/{deployment_id}``
+
         Parameters
         ----------
         service_id : int
@@ -51714,9 +53816,12 @@ class _Services:
     def post_redeploy(
         self,
         service_id: int,
+        *,
         deployment_id: int | None = ...,
     ) -> _ResponseServicesPostRedeploy:
         """Redeploy a Service
+
+        API URL: ``POST /services/{service_id}/redeploy``
 
         Parameters
         ----------
@@ -51769,11 +53874,14 @@ class _Services:
         self,
         id: int,
         deployment_id: int,
+        *,
         start_at: str | None = ...,
         end_at: str | None = ...,
         limit: int | None = ...,
-    ) -> _ResponseServicesListDeploymentsLogs:
+    ) -> List[_ResponseServicesListDeploymentsLogs]:
         """Get the logs for a Service deployment
+
+        API URL: ``GET /services/{id}/deployments/{deployment_id}/logs``
 
         Parameters
         ----------
@@ -51790,7 +53898,7 @@ class _Services:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - message : str
                 The log message.
             - stream : str
@@ -51807,6 +53915,8 @@ class _Services:
         id: int,
     ) -> _ResponseServicesPostClone:
         """Clone this Service
+
+        API URL: ``POST /services/{id}/clone``
 
         Parameters
         ----------
@@ -51942,10 +54052,13 @@ class _Services:
         self,
         id: int,
         name: str,
+        *,
         machine_token: bool | None = ...,
         expires_in: int | None = ...,
     ) -> _ResponseServicesPostTokens:
         """Create a new long-lived service token
+
+        API URL: ``POST /services/{id}/tokens``
 
         Parameters
         ----------
@@ -51990,8 +54103,10 @@ class _Services:
     def list_tokens(
         self,
         id: int,
-    ) -> _ResponseServicesListTokens:
+    ) -> List[_ResponseServicesListTokens]:
         """List tokens
+
+        API URL: ``GET /services/{id}/tokens``
 
         Parameters
         ----------
@@ -52000,7 +54115,7 @@ class _Services:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID of the token.
             - name : str
@@ -52032,6 +54147,8 @@ class _Services:
     ) -> Response:
         """Revoke a token by id
 
+        API URL: ``DELETE /services/{id}/tokens/{token_id}``
+
         Parameters
         ----------
         id : int
@@ -52049,12 +54166,14 @@ class _Services:
 class _Storage_Hosts:
     def list(
         self,
-    ) -> _ResponseStorageHostsList:
+    ) -> List[_ResponseStorageHostsList]:
         """List the storage hosts
+
+        API URL: ``GET /storage_hosts``
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID of the storage host.
             - owner : :class:`civis.Response`
@@ -52085,9 +54204,12 @@ class _Storage_Hosts:
         provider: str,
         bucket: str,
         name: str,
+        *,
         s3_options: dict | None = ...,
     ) -> _ResponseStorageHostsPost:
         """Create a new storage host
+
+        API URL: ``POST /storage_hosts``
 
         Parameters
         ----------
@@ -52135,6 +54257,8 @@ class _Storage_Hosts:
     ) -> _ResponseStorageHostsGet:
         """Get a storage host
 
+        API URL: ``GET /storage_hosts/{id}``
+
         Parameters
         ----------
         id : int
@@ -52174,9 +54298,12 @@ class _Storage_Hosts:
         name: str,
         provider: str,
         bucket: str,
+        *,
         s3_options: dict | None = ...,
     ) -> _ResponseStorageHostsPut:
         """Replace all attributes of this storage host
+
+        API URL: ``PUT /storage_hosts/{id}``
 
         Parameters
         ----------
@@ -52223,12 +54350,15 @@ class _Storage_Hosts:
     def patch(
         self,
         id: int,
+        *,
         name: str | None = ...,
         provider: str | None = ...,
         bucket: str | None = ...,
         s3_options: dict | None = ...,
     ) -> _ResponseStorageHostsPatch:
         """Update some attributes of this storage host
+
+        API URL: ``PATCH /storage_hosts/{id}``
 
         Parameters
         ----------
@@ -52275,8 +54405,10 @@ class _Storage_Hosts:
     def list_shares(
         self,
         id: int,
-    ) -> _ResponseStorageHostsListShares:
+    ) -> List[_ResponseStorageHostsListShares]:
         """List users and groups permissioned on this object
+
+        API URL: ``GET /storage_hosts/{id}/shares``
 
         Parameters
         ----------
@@ -52285,7 +54417,7 @@ class _Storage_Hosts:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - readers : :class:`civis.Response`
                 - users : List[:class:`civis.Response`]
                     - id : int
@@ -52321,10 +54453,13 @@ class _Storage_Hosts:
         id: int,
         user_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseStorageHostsPutSharesUsers:
         """Set the permissions users have on this object
+
+        API URL: ``PUT /storage_hosts/{id}/shares/users``
 
         Parameters
         ----------
@@ -52379,6 +54514,8 @@ class _Storage_Hosts:
     ) -> Response:
         """Revoke the permissions a user has on this object
 
+        API URL: ``DELETE /storage_hosts/{id}/shares/users/{user_id}``
+
         Parameters
         ----------
         id : int
@@ -52398,10 +54535,13 @@ class _Storage_Hosts:
         id: int,
         group_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseStorageHostsPutSharesGroups:
         """Set the permissions groups has on this object
+
+        API URL: ``PUT /storage_hosts/{id}/shares/groups``
 
         Parameters
         ----------
@@ -52456,6 +54596,8 @@ class _Storage_Hosts:
     ) -> Response:
         """Revoke the permissions a group has on this object
 
+        API URL: ``DELETE /storage_hosts/{id}/shares/groups/{group_id}``
+
         Parameters
         ----------
         id : int
@@ -52473,9 +54615,12 @@ class _Storage_Hosts:
     def list_dependencies(
         self,
         id: int,
+        *,
         user_id: int | None = ...,
-    ) -> _ResponseStorageHostsListDependencies:
+    ) -> List[_ResponseStorageHostsListDependencies]:
         """List dependent objects for this object
+
+        API URL: ``GET /storage_hosts/{id}/dependencies``
 
         Parameters
         ----------
@@ -52486,7 +54631,7 @@ class _Storage_Hosts:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - object_type : str
                 Dependent object type
             - fco_type : str
@@ -52512,10 +54657,13 @@ class _Storage_Hosts:
         id: int,
         user_id: int,
         include_dependencies: bool,
+        *,
         email_body: str | None = ...,
         send_email: bool | None = ...,
     ) -> _ResponseStorageHostsPutTransfer:
         """Transfer ownership of this object to another user
+
+        API URL: ``PUT /storage_hosts/{id}/transfer``
 
         Parameters
         ----------
@@ -52559,6 +54707,7 @@ class _Storage_Hosts:
 class _Table_Tags:
     def list(
         self,
+        *,
         name: str | None = ...,
         limit: int | None = ...,
         page_num: int | None = ...,
@@ -52567,6 +54716,8 @@ class _Table_Tags:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseTableTagsList]:
         """List Table Tags
+
+        API URL: ``GET /table_tags``
 
         Parameters
         ----------
@@ -52587,12 +54738,13 @@ class _Table_Tags:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
                 Table Tag ID
             - name : str
@@ -52618,6 +54770,8 @@ class _Table_Tags:
         name: str,
     ) -> _ResponseTableTagsPost:
         """Create a Table Tag
+
+        API URL: ``POST /table_tags``
 
         Parameters
         ----------
@@ -52657,6 +54811,8 @@ class _Table_Tags:
     ) -> _ResponseTableTagsGet:
         """Get a Table Tag
 
+        API URL: ``GET /table_tags/{id}``
+
         Parameters
         ----------
         id : int
@@ -52694,6 +54850,8 @@ class _Table_Tags:
     ) -> Response:
         """Delete a Table Tag
 
+        API URL: ``DELETE /table_tags/{id}``
+
         Parameters
         ----------
         id : int
@@ -52715,6 +54873,8 @@ class _Tables:
             Warning: The tables/:source_table_id/enhancements/geocodings endpoint is deprecated and will be removed after January 1, 2021.
 
         Geocode a table
+
+        API URL: ``POST /tables/{source_table_id}/enhancements/geocodings``
 
         Parameters
         ----------
@@ -52741,6 +54901,7 @@ class _Tables:
     def post_enhancements_cass_ncoa(
         self,
         source_table_id: int,
+        *,
         perform_ncoa: bool | None = ...,
         ncoa_credential_id: int | None = ...,
         output_level: str | None = ...,
@@ -52751,6 +54912,8 @@ class _Tables:
             Warning: The tables/:source_table_id/enhancements/cass-ncoa endpoint is deprecated and will be removed after January 1, 2021.
 
         Standardize addresses in a table
+
+        API URL: ``POST /tables/{source_table_id}/enhancements/cass-ncoa``
 
         Parameters
         ----------
@@ -52812,6 +54975,8 @@ class _Tables:
 
         View the status of a geocoding table enhancement
 
+        API URL: ``GET /tables/{source_table_id}/enhancements/geocodings/{id}``
+
         Parameters
         ----------
         id : int
@@ -52846,6 +55011,8 @@ class _Tables:
             Warning: The tables/:source_table_id/enhancements/cass-ncoa/:id endpoint is deprecated and will be removed after January 1, 2021.
 
         View the status of a CASS / NCOA table enhancement
+
+        API URL: ``GET /tables/{source_table_id}/enhancements/cass-ncoa/{id}``
 
         Parameters
         ----------
@@ -52890,9 +55057,12 @@ class _Tables:
         database_id: int,
         schema: str,
         table_name: str,
+        *,
         stats_priority: str | None = ...,
     ) -> _ResponseTablesPostScan:
         """Creates and enqueues a single table scanner job on a new table
+
+        API URL: ``POST /tables/scan``
 
         Parameters
         ----------
@@ -52928,6 +55098,8 @@ class _Tables:
             Warning: The tables/:id/refresh endpoint is deprecated. Please use tables/scan from now on.
 
         Request a refresh for column and table statistics
+
+        API URL: ``POST /tables/{id}/refresh``
 
         Parameters
         ----------
@@ -53121,6 +55293,7 @@ class _Tables:
 
     def list(
         self,
+        *,
         database_id: int | None = ...,
         schema: str | None = ...,
         name: str | None = ...,
@@ -53134,6 +55307,8 @@ class _Tables:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseTablesList]:
         """List tables
+
+        API URL: ``GET /tables``
 
         Parameters
         ----------
@@ -53173,12 +55348,13 @@ class _Tables:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
                 The ID of the table.
             - database_id : int
@@ -53238,6 +55414,8 @@ class _Tables:
         id: int,
     ) -> _ResponseTablesGet:
         """Show basic table info
+
+        API URL: ``GET /tables/{id}``
 
         Parameters
         ----------
@@ -53432,12 +55610,15 @@ class _Tables:
     def patch(
         self,
         id: int,
+        *,
         ontology_mapping: dict | None = ...,
         description: str | None = ...,
         primary_keys: List[str] | None = ...,
         last_modified_keys: List[str] | None = ...,
     ) -> _ResponseTablesPatch:
         """Update a table
+
+        API URL: ``PATCH /tables/{id}``
 
         Parameters
         ----------
@@ -53529,6 +55710,7 @@ class _Tables:
     def list_columns(
         self,
         id: int,
+        *,
         name: str | None = ...,
         limit: int | None = ...,
         page_num: int | None = ...,
@@ -53537,6 +55719,8 @@ class _Tables:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseTablesListColumns]:
         """List columns in the specified table
+
+        API URL: ``GET /tables/{id}/columns``
 
         Parameters
         ----------
@@ -53558,12 +55742,13 @@ class _Tables:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - name : str
                 Name of the column.
             - civis_data_type : str
@@ -53621,6 +55806,8 @@ class _Tables:
     ) -> _ResponseTablesPutTags:
         """Add a tag to a table
 
+        API URL: ``PUT /tables/{id}/tags/{table_tag_id}``
+
         Parameters
         ----------
         id : int
@@ -53645,6 +55832,8 @@ class _Tables:
     ) -> Response:
         """Add a tag to a table
 
+        API URL: ``DELETE /tables/{id}/tags/{table_tag_id}``
+
         Parameters
         ----------
         id : int
@@ -53662,9 +55851,12 @@ class _Tables:
     def list_projects(
         self,
         id: int,
+        *,
         hidden: bool | None = ...,
-    ) -> _ResponseTablesListProjects:
+    ) -> List[_ResponseTablesListProjects]:
         """List the projects a Table belongs to
+
+        API URL: ``GET /tables/{id}/projects``
 
         Parameters
         ----------
@@ -53676,7 +55868,7 @@ class _Tables:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID for this project.
             - author : :class:`civis.Response`
@@ -53722,6 +55914,8 @@ class _Tables:
     ) -> Response:
         """Add a Table to a project
 
+        API URL: ``PUT /tables/{id}/projects/{project_id}``
+
         Parameters
         ----------
         id : int
@@ -53743,6 +55937,8 @@ class _Tables:
     ) -> Response:
         """Remove a Table from a project
 
+        API URL: ``DELETE /tables/{id}/projects/{project_id}``
+
         Parameters
         ----------
         id : int
@@ -53761,8 +55957,10 @@ class _Templates:
     def list_reports_shares(
         self,
         id: int,
-    ) -> _ResponseTemplatesListReportsShares:
+    ) -> List[_ResponseTemplatesListReportsShares]:
         """List users and groups permissioned on this object
+
+        API URL: ``GET /templates/reports/{id}/shares``
 
         Parameters
         ----------
@@ -53771,7 +55969,7 @@ class _Templates:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - readers : :class:`civis.Response`
                 - users : List[:class:`civis.Response`]
                     - id : int
@@ -53807,10 +56005,13 @@ class _Templates:
         id: int,
         user_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseTemplatesPutReportsSharesUsers:
         """Set the permissions users have on this object
+
+        API URL: ``PUT /templates/reports/{id}/shares/users``
 
         Parameters
         ----------
@@ -53865,6 +56066,8 @@ class _Templates:
     ) -> Response:
         """Revoke the permissions a user has on this object
 
+        API URL: ``DELETE /templates/reports/{id}/shares/users/{user_id}``
+
         Parameters
         ----------
         id : int
@@ -53884,10 +56087,13 @@ class _Templates:
         id: int,
         group_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseTemplatesPutReportsSharesGroups:
         """Set the permissions groups has on this object
+
+        API URL: ``PUT /templates/reports/{id}/shares/groups``
 
         Parameters
         ----------
@@ -53942,6 +56148,8 @@ class _Templates:
     ) -> Response:
         """Revoke the permissions a group has on this object
 
+        API URL: ``DELETE /templates/reports/{id}/shares/groups/{group_id}``
+
         Parameters
         ----------
         id : int
@@ -53959,9 +56167,12 @@ class _Templates:
     def list_reports_dependencies(
         self,
         id: int,
+        *,
         user_id: int | None = ...,
-    ) -> _ResponseTemplatesListReportsDependencies:
+    ) -> List[_ResponseTemplatesListReportsDependencies]:
         """List dependent objects for this object
+
+        API URL: ``GET /templates/reports/{id}/dependencies``
 
         Parameters
         ----------
@@ -53972,7 +56183,7 @@ class _Templates:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - object_type : str
                 Dependent object type
             - fco_type : str
@@ -53998,10 +56209,13 @@ class _Templates:
         id: int,
         user_id: int,
         include_dependencies: bool,
+        *,
         email_body: str | None = ...,
         send_email: bool | None = ...,
     ) -> _ResponseTemplatesPutReportsTransfer:
         """Transfer ownership of this object to another user
+
+        API URL: ``PUT /templates/reports/{id}/transfer``
 
         Parameters
         ----------
@@ -54044,6 +56258,7 @@ class _Templates:
 
     def list_reports(
         self,
+        *,
         hidden: bool | None = ...,
         author: str | None = ...,
         category: str | None = ...,
@@ -54054,6 +56269,8 @@ class _Templates:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseTemplatesListReports]:
         """List Report Templates
+
+        API URL: ``GET /templates/reports``
 
         Parameters
         ----------
@@ -54080,12 +56297,13 @@ class _Templates:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
             - name : str
                 The name of the template.
@@ -54119,12 +56337,15 @@ class _Templates:
         self,
         name: str,
         code_body: str,
+        *,
         category: str | None = ...,
         archived: bool | None = ...,
         provide_api_key: bool | None = ...,
         hidden: bool | None = ...,
     ) -> _ResponseTemplatesPostReports:
         """Create a Report Template
+
+        API URL: ``POST /templates/reports``
 
         Parameters
         ----------
@@ -54188,6 +56409,8 @@ class _Templates:
     ) -> _ResponseTemplatesGetReports:
         """Get a Report Template
 
+        API URL: ``GET /templates/reports/{id}``
+
         Parameters
         ----------
         id : int
@@ -54236,11 +56459,14 @@ class _Templates:
         id: int,
         name: str,
         code_body: str,
+        *,
         category: str | None = ...,
         archived: bool | None = ...,
         provide_api_key: bool | None = ...,
     ) -> _ResponseTemplatesPutReports:
         """Replace all attributes of this Report Template
+
+        API URL: ``PUT /templates/reports/{id}``
 
         Parameters
         ----------
@@ -54300,6 +56526,7 @@ class _Templates:
     def patch_reports(
         self,
         id: int,
+        *,
         name: str | None = ...,
         category: str | None = ...,
         archived: bool | None = ...,
@@ -54307,6 +56534,8 @@ class _Templates:
         provide_api_key: bool | None = ...,
     ) -> _ResponseTemplatesPatchReports:
         """Update some attributes of this Report Template
+
+        API URL: ``PATCH /templates/reports/{id}``
 
         Parameters
         ----------
@@ -54366,8 +56595,10 @@ class _Templates:
     def list_scripts_shares(
         self,
         id: int,
-    ) -> _ResponseTemplatesListScriptsShares:
+    ) -> List[_ResponseTemplatesListScriptsShares]:
         """List users and groups permissioned on this object
+
+        API URL: ``GET /templates/scripts/{id}/shares``
 
         Parameters
         ----------
@@ -54376,7 +56607,7 @@ class _Templates:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - readers : :class:`civis.Response`
                 - users : List[:class:`civis.Response`]
                     - id : int
@@ -54412,10 +56643,13 @@ class _Templates:
         id: int,
         user_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseTemplatesPutScriptsSharesUsers:
         """Set the permissions users have on this object
+
+        API URL: ``PUT /templates/scripts/{id}/shares/users``
 
         Parameters
         ----------
@@ -54470,6 +56704,8 @@ class _Templates:
     ) -> Response:
         """Revoke the permissions a user has on this object
 
+        API URL: ``DELETE /templates/scripts/{id}/shares/users/{user_id}``
+
         Parameters
         ----------
         id : int
@@ -54489,10 +56725,13 @@ class _Templates:
         id: int,
         group_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseTemplatesPutScriptsSharesGroups:
         """Set the permissions groups has on this object
+
+        API URL: ``PUT /templates/scripts/{id}/shares/groups``
 
         Parameters
         ----------
@@ -54547,6 +56786,8 @@ class _Templates:
     ) -> Response:
         """Revoke the permissions a group has on this object
 
+        API URL: ``DELETE /templates/scripts/{id}/shares/groups/{group_id}``
+
         Parameters
         ----------
         id : int
@@ -54564,9 +56805,12 @@ class _Templates:
     def list_scripts_dependencies(
         self,
         id: int,
+        *,
         user_id: int | None = ...,
-    ) -> _ResponseTemplatesListScriptsDependencies:
+    ) -> List[_ResponseTemplatesListScriptsDependencies]:
         """List dependent objects for this object
+
+        API URL: ``GET /templates/scripts/{id}/dependencies``
 
         Parameters
         ----------
@@ -54577,7 +56821,7 @@ class _Templates:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - object_type : str
                 Dependent object type
             - fco_type : str
@@ -54603,10 +56847,13 @@ class _Templates:
         id: int,
         user_id: int,
         include_dependencies: bool,
+        *,
         email_body: str | None = ...,
         send_email: bool | None = ...,
     ) -> _ResponseTemplatesPutScriptsTransfer:
         """Transfer ownership of this object to another user
+
+        API URL: ``PUT /templates/scripts/{id}/transfer``
 
         Parameters
         ----------
@@ -54650,9 +56897,12 @@ class _Templates:
     def list_scripts_projects(
         self,
         id: int,
+        *,
         hidden: bool | None = ...,
-    ) -> _ResponseTemplatesListScriptsProjects:
+    ) -> List[_ResponseTemplatesListScriptsProjects]:
         """List the projects a Script Template belongs to
+
+        API URL: ``GET /templates/scripts/{id}/projects``
 
         Parameters
         ----------
@@ -54664,7 +56914,7 @@ class _Templates:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID for this project.
             - author : :class:`civis.Response`
@@ -54710,6 +56960,8 @@ class _Templates:
     ) -> Response:
         """Add a Script Template to a project
 
+        API URL: ``PUT /templates/scripts/{id}/projects/{project_id}``
+
         Parameters
         ----------
         id : int
@@ -54731,6 +56983,8 @@ class _Templates:
     ) -> Response:
         """Remove a Script Template from a project
 
+        API URL: ``DELETE /templates/scripts/{id}/projects/{project_id}``
+
         Parameters
         ----------
         id : int
@@ -54747,6 +57001,7 @@ class _Templates:
 
     def list_scripts(
         self,
+        *,
         hidden: bool | None = ...,
         author: str | None = ...,
         category: str | None = ...,
@@ -54757,6 +57012,8 @@ class _Templates:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseTemplatesListScripts]:
         """List Script Templates
+
+        API URL: ``GET /templates/scripts``
 
         Parameters
         ----------
@@ -54784,12 +57041,13 @@ class _Templates:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
             - public : bool
                 If the template is public or not.
@@ -54830,12 +57088,15 @@ class _Templates:
         self,
         script_id: int,
         name: str,
+        *,
         note: str | None = ...,
         ui_report_id: int | None = ...,
         archived: bool | None = ...,
         hidden: bool | None = ...,
     ) -> _ResponseTemplatesPostScripts:
         """Create a Script Template
+
+        API URL: ``POST /templates/scripts``
 
         Parameters
         ----------
@@ -54938,6 +57199,8 @@ class _Templates:
     ) -> _ResponseTemplatesGetScripts:
         """Get a Script Template
 
+        API URL: ``GET /templates/scripts/{id}``
+
         Parameters
         ----------
         id : int
@@ -55025,11 +57288,14 @@ class _Templates:
         self,
         id: int,
         name: str,
+        *,
         note: str | None = ...,
         ui_report_id: int | None = ...,
         archived: bool | None = ...,
     ) -> _ResponseTemplatesPutScripts:
         """Replace all attributes of this Script Template
+
+        API URL: ``PUT /templates/scripts/{id}``
 
         Parameters
         ----------
@@ -55126,12 +57392,15 @@ class _Templates:
     def patch_scripts(
         self,
         id: int,
+        *,
         name: str | None = ...,
         note: str | None = ...,
         ui_report_id: int | None = ...,
         archived: bool | None = ...,
     ) -> _ResponseTemplatesPatchScripts:
         """Update some attributes of this Script Template
+
+        API URL: ``PATCH /templates/scripts/{id}``
 
         Parameters
         ----------
@@ -55228,12 +57497,15 @@ class _Templates:
 class _Usage:
     def list_matching(
         self,
+        *,
         org_id: int | None = ...,
         task: str | None = ...,
         start_date: str | None = ...,
         end_date: str | None = ...,
-    ) -> _ResponseUsageListMatching:
+    ) -> List[_ResponseUsageListMatching]:
         """Get usage statistics for a given organization
+
+        API URL: ``GET /usage/matching``
 
         Parameters
         ----------
@@ -55248,15 +57520,15 @@ class _Usage:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - run_id : int
                 The ID of the run which contributed this usage.
             - job_id : int
                 The ID of the job which contributed this usage.
             - user_id : int
-                The ID of the user who started the run.
+                The ID of the user who contributed this usage.
             - organization_id : int
-                The organization of the user who started the run.
+                The organization of the user who contributed this usage.
             - run_created_at : str (date-time)
                 When the run was created at.
             - run_time : int
@@ -55271,11 +57543,14 @@ class _Usage:
 
     def list_llm(
         self,
+        *,
         org_id: int | None = ...,
         start_date: str | None = ...,
         end_date: str | None = ...,
-    ) -> _ResponseUsageListLlm:
+    ) -> List[_ResponseUsageListLlm]:
         """Get a list of usage statistics for a given organization
+
+        API URL: ``GET /usage/llm``
 
         Parameters
         ----------
@@ -55292,7 +57567,7 @@ class _Usage:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID of the usage statistic to get.
             - run_id : int
@@ -55300,9 +57575,9 @@ class _Usage:
             - job_id : int
                 The ID of the job which contributed this usage.
             - user_id : int
-                The ID of the user who started the run.
+                The ID of the user who contributed this usage.
             - organization_id : int
-                The organization of the user who started the run.
+                The organization of the user who contributed this usage.
             - run_created_at : str (date-time)
                 When the run was created at.
             - run_time : int
@@ -55324,6 +57599,8 @@ class _Usage:
     ) -> _ResponseUsageGetLlm:
         """Get an individual usage statistic for a given organization
 
+        API URL: ``GET /usage/llm/{id}``
+
         Parameters
         ----------
         id : int
@@ -55339,9 +57616,9 @@ class _Usage:
             - job_id : int
                 The ID of the job which contributed this usage.
             - user_id : int
-                The ID of the user who started the run.
+                The ID of the user who contributed this usage.
             - organization_id : int
-                The organization of the user who started the run.
+                The organization of the user who contributed this usage.
             - run_created_at : str (date-time)
                 When the run was created at.
             - run_time : int
@@ -55360,10 +57637,13 @@ class _Usage:
     def list_llm_organization_summary(
         self,
         org_id: int,
+        *,
         start_date: str | None = ...,
         end_date: str | None = ...,
-    ) -> _ResponseUsageListLlmOrganizationSummary:
+    ) -> List[_ResponseUsageListLlmOrganizationSummary]:
         """Get summarized usage statistics for a given organization
+
+        API URL: ``GET /usage/llm/organization/{org_id}/summary``
 
         Parameters
         ----------
@@ -55380,7 +57660,7 @@ class _Usage:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - credits : float (float)
                 The number of credits used.
             - organization_id : int
@@ -55391,9 +57671,12 @@ class _Usage:
 class _Usage_Limits:
     def list_matching(
         self,
+        *,
         task: str | None = ...,
-    ) -> _ResponseUsageLimitsListMatching:
+    ) -> List[_ResponseUsageLimitsListMatching]:
         """List Matching Usage Limits
+
+        API URL: ``GET /usage_limits/matching``
 
         Parameters
         ----------
@@ -55402,7 +57685,7 @@ class _Usage_Limits:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID for the limit.
             - organization_id : int
@@ -55426,6 +57709,8 @@ class _Usage_Limits:
         id: int,
     ) -> _ResponseUsageLimitsGetMatching:
         """Get a Matching Usage Limit
+
+        API URL: ``GET /usage_limits/matching/{id}``
 
         Parameters
         ----------
@@ -55455,9 +57740,12 @@ class _Usage_Limits:
 
     def list_llm(
         self,
+        *,
         organization_id: int | None = ...,
-    ) -> _ResponseUsageLimitsListLlm:
+    ) -> List[_ResponseUsageLimitsListLlm]:
         """List LLM Usage Limits
+
+        API URL: ``GET /usage_limits/llm``
 
         Parameters
         ----------
@@ -55466,7 +57754,7 @@ class _Usage_Limits:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID for the limit.
             - organization_id : int
@@ -55485,6 +57773,8 @@ class _Usage_Limits:
         id: int,
     ) -> _ResponseUsageLimitsGetLlm:
         """Get a LLM Usage Limit
+
+        API URL: ``GET /usage_limits/llm/{id}``
 
         Parameters
         ----------
@@ -55510,6 +57800,7 @@ class _Usage_Limits:
 class _Users:
     def list(
         self,
+        *,
         feature_flag: str | None = ...,
         account_status: str | None = ...,
         query: str | None = ...,
@@ -55524,6 +57815,8 @@ class _Users:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseUsersList]:
         """List users
+
+        API URL: ``GET /users``
 
         Parameters
         ----------
@@ -55559,12 +57852,13 @@ class _Users:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
                 The ID of this user.
             - user : str
@@ -55613,6 +57907,7 @@ class _Users:
         email: str,
         primary_group_id: int,
         user: str,
+        *,
         active: bool | None = ...,
         city: str | None = ...,
         state: str | None = ...,
@@ -55630,6 +57925,8 @@ class _Users:
         send_email: bool | None = ...,
     ) -> _ResponseUsersPost:
         """Create a new user (must be a team or org admin)
+
+        API URL: ``POST /users``
 
         Parameters
         ----------
@@ -55671,7 +57968,7 @@ class _Users:
         robot : bool, optional
             Whether the user is a robot.
         send_email : bool, optional
-            Whether the user will receive a welcome email.
+            Whether the user will receive a welcome email. Defaults to false.
 
         Returns
         -------
@@ -55766,12 +58063,14 @@ class _Users:
 
     def list_me(
         self,
-    ) -> _ResponseUsersListMe:
+    ) -> List[_ResponseUsersListMe]:
         """Show info about the logged-in user
+
+        API URL: ``GET /users/me``
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID of this user.
             - name : str
@@ -55818,7 +58117,7 @@ class _Users:
             - sign_in_count : int
                 The number of times the user has signed in.
             - assuming_role : bool
-                Whether the user is assuming a role or not.
+                Whether the user is assuming this role or not.
             - assuming_admin : bool
                 Whether the user is assuming admin.
             - assuming_admin_expiration : str (date-time)
@@ -55839,10 +58138,13 @@ class _Users:
 
     def patch_me(
         self,
+        *,
         preferences: dict | None = ...,
         last_checked_announcements: str | None = ...,
     ) -> _ResponseUsersPatchMe:
         """Update info about the logged-in user
+
+        API URL: ``PATCH /users/me``
 
         Parameters
         ----------
@@ -55999,8 +58301,12 @@ class _Users:
                 on by default.
             - my_activity_metrics : bool
                 Whether the activity metrics are filtered to the current user.
+            - standard_sql_autocomplete_disabled : bool
+                Whether the query page includes standard SQL autocomplete.
             - ai_sql_assist_disabled : bool
-                Whether the query page includes AI-powered SQL assistance.
+                Whether the query page includes AI-powered SQL autocomplete.
+            - query_preview_rows : int
+                Number of preview rows query should return in the UI.
         last_checked_announcements : str (date-time), optional
             The date and time at which the user last checked their announcements.
 
@@ -56053,7 +58359,7 @@ class _Users:
             - sign_in_count : int
                 The number of times the user has signed in.
             - assuming_role : bool
-                Whether the user is assuming a role or not.
+                Whether the user is assuming this role or not.
             - assuming_admin : bool
                 Whether the user is assuming admin.
             - assuming_admin_expiration : str (date-time)
@@ -56074,11 +58380,14 @@ class _Users:
 
     def list_me_activity(
         self,
+        *,
         status: str | None = ...,
         author: str | None = ...,
         order: str | None = ...,
-    ) -> _ResponseUsersListMeActivity:
+    ) -> List[_ResponseUsersListMeActivity]:
         """Get recent activity for logged-in user
+
+        API URL: ``GET /users/me/activity``
 
         Parameters
         ----------
@@ -56093,7 +58402,7 @@ class _Users:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : str
                 The ID of the object.
             - name : str
@@ -56120,12 +58429,14 @@ class _Users:
 
     def list_me_organization_admins(
         self,
-    ) -> _ResponseUsersListMeOrganizationAdmins:
+    ) -> List[_ResponseUsersListMeOrganizationAdmins]:
         """Get list of organization admins for logged-in user
+
+        API URL: ``GET /users/me/organization_admins``
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID of this user.
             - name : str
@@ -56143,12 +58454,14 @@ class _Users:
 
     def list_me_themes(
         self,
-    ) -> _ResponseUsersListMeThemes:
+    ) -> List[_ResponseUsersListMeThemes]:
         """List themes
+
+        API URL: ``GET /users/me/themes``
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID of this theme.
             - name : str
@@ -56163,6 +58476,8 @@ class _Users:
         id: int,
     ) -> _ResponseUsersGetMeThemes:
         """Show a theme
+
+        API URL: ``GET /users/me/themes/{id}``
 
         Parameters
         ----------
@@ -56195,6 +58510,8 @@ class _Users:
         id: int,
     ) -> _ResponseUsersGet:
         """Show info about a user
+
+        API URL: ``GET /users/{id}``
 
         Parameters
         ----------
@@ -56295,6 +58612,7 @@ class _Users:
     def patch(
         self,
         id: int,
+        *,
         name: str | None = ...,
         email: str | None = ...,
         active: bool | None = ...,
@@ -56317,6 +58635,8 @@ class _Users:
         account_status: str | None = ...,
     ) -> _ResponseUsersPatch:
         """Update info about a user (must be a team or org admin)
+
+        API URL: ``PATCH /users/{id}``
 
         Parameters
         ----------
@@ -56459,6 +58779,7 @@ class _Users:
     def list_api_keys(
         self,
         id: str,
+        *,
         limit: int | None = ...,
         page_num: int | None = ...,
         order: str | None = ...,
@@ -56466,6 +58787,8 @@ class _Users:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseUsersListApiKeys]:
         """Show API keys belonging to the specified user
+
+        API URL: ``GET /users/{id}/api_keys``
 
         Parameters
         ----------
@@ -56486,12 +58809,13 @@ class _Users:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
                 The ID of the API key.
             - name : str
@@ -56522,9 +58846,12 @@ class _Users:
         id: str,
         expires_in: int,
         name: str,
+        *,
         constraints: List[dict] | None = ...,
     ) -> _ResponseUsersPostApiKeys:
         """Create a new API key belonging to the logged-in user
+
+        API URL: ``POST /users/{id}/api_keys``
 
         Parameters
         ----------
@@ -56608,6 +58935,8 @@ class _Users:
     ) -> _ResponseUsersGetApiKeys:
         """Show the specified API key
 
+        API URL: ``GET /users/{id}/api_keys/{key_id}``
+
         Parameters
         ----------
         id : str
@@ -56667,6 +58996,8 @@ class _Users:
     ) -> _ResponseUsersDeleteApiKeys:
         """Revoke the specified API key
 
+        API URL: ``DELETE /users/{id}/api_keys/{key_id}``
+
         Parameters
         ----------
         id : str
@@ -56724,6 +59055,8 @@ class _Users:
         id: int,
     ) -> _ResponseUsersDeleteSessions:
         """Terminate all of the user's active sessions (must be a team or org admin)
+
+        API URL: ``DELETE /users/{id}/sessions``
 
         Parameters
         ----------
@@ -56823,6 +59156,7 @@ class _Users:
 
     def list_me_favorites(
         self,
+        *,
         object_id: int | None = ...,
         object_type: str | None = ...,
         limit: int | None = ...,
@@ -56832,6 +59166,8 @@ class _Users:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseUsersListMeFavorites]:
         """List Favorites
+
+        API URL: ``GET /users/me/favorites``
 
         Parameters
         ----------
@@ -56858,12 +59194,13 @@ class _Users:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
                 The id of the favorite.
             - object_id : int
@@ -56903,6 +59240,8 @@ class _Users:
         object_type: str,
     ) -> _ResponseUsersPostMeFavorites:
         """Favorite an item
+
+        API URL: ``POST /users/me/favorites``
 
         Parameters
         ----------
@@ -56954,6 +59293,8 @@ class _Users:
     ) -> Response:
         """Unfavorite an item
 
+        API URL: ``DELETE /users/me/favorites/{id}``
+
         Parameters
         ----------
         id : int
@@ -56971,6 +59312,8 @@ class _Users:
         id: int,
     ) -> Response:
         """Move a favorite to the top of the list
+
+        API URL: ``PATCH /users/me/favorites/{id}/ranking/top``
 
         Parameters
         ----------
@@ -56990,6 +59333,8 @@ class _Users:
     ) -> Response:
         """Move a favorite to the bottom of the list
 
+        API URL: ``PATCH /users/me/favorites/{id}/ranking/bottom``
+
         Parameters
         ----------
         id : int
@@ -57007,6 +59352,8 @@ class _Users:
         id: int,
     ) -> Response:
         """Move a favorite one position closer to the top of the list
+
+        API URL: ``PATCH /users/me/favorites/{id}/ranking/higher``
 
         Parameters
         ----------
@@ -57026,6 +59373,8 @@ class _Users:
     ) -> Response:
         """Move a favorite one position closer to the bottom of the list
 
+        API URL: ``PATCH /users/me/favorites/{id}/ranking/lower``
+
         Parameters
         ----------
         id : int
@@ -57043,6 +59392,8 @@ class _Users:
         id: int,
     ) -> _ResponseUsersPostUnsuspend:
         """Unsuspends user
+
+        API URL: ``POST /users/{id}/unsuspend``
 
         Parameters
         ----------
@@ -57067,6 +59418,8 @@ class _Users:
     ) -> _ResponseUsersDelete2Fa:
         """Wipes the user's current 2FA settings so that they must reset them upon next
         login
+
+        API URL: ``DELETE /users/{id}/2fa``
 
         Parameters
         ----------
@@ -57171,6 +59524,8 @@ class _Users:
         """Sends the target user a 'Reset Password' or 'Welcome to Platform' email
         depending on the their status - Only available to Org and Team Admins
 
+        API URL: ``POST /users/{id}/access_email``
+
         Parameters
         ----------
         id : int
@@ -57186,6 +59541,7 @@ class _Users:
 class _Workflows:
     def list(
         self,
+        *,
         hidden: bool | None = ...,
         archived: str | None = ...,
         author: str | None = ...,
@@ -57199,6 +59555,8 @@ class _Workflows:
     ) -> Iterator[_ResponseWorkflowsList]:
         """List Workflows
 
+        API URL: ``GET /workflows``
+
         Parameters
         ----------
         hidden : bool, optional
@@ -57210,8 +59568,11 @@ class _Workflows:
             If specified, return items from any of these authors. It accepts a comma-
             separated list of user IDs.
         state : List[str], optional
-            State of the most recent execution.One or more of queued, running,
-            succeeded, failed, cancelled, idle, and scheduled.
+            State of the most recent execution. One or more of queued, running,
+            succeeded, failed, cancelled, idle, and scheduled. Note that the
+            "scheduled" state applies only to scheduled workflows which have never been
+            run. If you want to see all scheduled workflows, please use the "scheduled"
+            filter instead.
         scheduled : bool, optional
             If the workflow is scheduled.
         limit : int, optional
@@ -57229,12 +59590,13 @@ class _Workflows:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
                 The ID for this workflow.
             - name : str
@@ -57290,6 +59652,7 @@ class _Workflows:
     def post(
         self,
         name: str,
+        *,
         description: str | None = ...,
         from_job_chain: int | None = ...,
         definition: str | None = ...,
@@ -57300,6 +59663,8 @@ class _Workflows:
         hidden: bool | None = ...,
     ) -> _ResponseWorkflowsPost:
         """Create a Workflow
+
+        API URL: ``POST /workflows``
 
         Parameters
         ----------
@@ -57440,6 +59805,8 @@ class _Workflows:
     ) -> _ResponseWorkflowsGet:
         """Get a Workflow
 
+        API URL: ``GET /workflows/{id}``
+
         Parameters
         ----------
         id : int
@@ -57530,6 +59897,7 @@ class _Workflows:
         self,
         id: int,
         name: str,
+        *,
         description: str | None = ...,
         definition: str | None = ...,
         schedule: dict | None = ...,
@@ -57538,6 +59906,8 @@ class _Workflows:
         notifications: dict | None = ...,
     ) -> _ResponseWorkflowsPut:
         """Replace all attributes of this Workflow
+
+        API URL: ``PUT /workflows/{id}``
 
         Parameters
         ----------
@@ -57672,6 +60042,7 @@ class _Workflows:
     def patch(
         self,
         id: int,
+        *,
         name: str | None = ...,
         description: str | None = ...,
         definition: str | None = ...,
@@ -57681,6 +60052,8 @@ class _Workflows:
         notifications: dict | None = ...,
     ) -> _ResponseWorkflowsPatch:
         """Update some attributes of this Workflow
+
+        API URL: ``PATCH /workflows/{id}``
 
         Parameters
         ----------
@@ -57815,8 +60188,10 @@ class _Workflows:
     def list_shares(
         self,
         id: int,
-    ) -> _ResponseWorkflowsListShares:
+    ) -> List[_ResponseWorkflowsListShares]:
         """List users and groups permissioned on this object
+
+        API URL: ``GET /workflows/{id}/shares``
 
         Parameters
         ----------
@@ -57825,7 +60200,7 @@ class _Workflows:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - readers : :class:`civis.Response`
                 - users : List[:class:`civis.Response`]
                     - id : int
@@ -57861,10 +60236,13 @@ class _Workflows:
         id: int,
         user_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseWorkflowsPutSharesUsers:
         """Set the permissions users have on this object
+
+        API URL: ``PUT /workflows/{id}/shares/users``
 
         Parameters
         ----------
@@ -57919,6 +60297,8 @@ class _Workflows:
     ) -> Response:
         """Revoke the permissions a user has on this object
 
+        API URL: ``DELETE /workflows/{id}/shares/users/{user_id}``
+
         Parameters
         ----------
         id : int
@@ -57938,10 +60318,13 @@ class _Workflows:
         id: int,
         group_ids: List[int],
         permission_level: str,
+        *,
         share_email_body: str | None = ...,
         send_shared_email: bool | None = ...,
     ) -> _ResponseWorkflowsPutSharesGroups:
         """Set the permissions groups has on this object
+
+        API URL: ``PUT /workflows/{id}/shares/groups``
 
         Parameters
         ----------
@@ -57996,6 +60379,8 @@ class _Workflows:
     ) -> Response:
         """Revoke the permissions a group has on this object
 
+        API URL: ``DELETE /workflows/{id}/shares/groups/{group_id}``
+
         Parameters
         ----------
         id : int
@@ -58013,9 +60398,12 @@ class _Workflows:
     def list_dependencies(
         self,
         id: int,
+        *,
         user_id: int | None = ...,
-    ) -> _ResponseWorkflowsListDependencies:
+    ) -> List[_ResponseWorkflowsListDependencies]:
         """List dependent objects for this object
+
+        API URL: ``GET /workflows/{id}/dependencies``
 
         Parameters
         ----------
@@ -58026,7 +60414,7 @@ class _Workflows:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - object_type : str
                 Dependent object type
             - fco_type : str
@@ -58052,10 +60440,13 @@ class _Workflows:
         id: int,
         user_id: int,
         include_dependencies: bool,
+        *,
         email_body: str | None = ...,
         send_email: bool | None = ...,
     ) -> _ResponseWorkflowsPutTransfer:
         """Transfer ownership of this object to another user
+
+        API URL: ``PUT /workflows/{id}/transfer``
 
         Parameters
         ----------
@@ -58102,6 +60493,8 @@ class _Workflows:
         status: bool,
     ) -> _ResponseWorkflowsPutArchive:
         """Update the archive status of this object
+
+        API URL: ``PUT /workflows/{id}/archive``
 
         Parameters
         ----------
@@ -58195,9 +60588,12 @@ class _Workflows:
     def list_projects(
         self,
         id: int,
+        *,
         hidden: bool | None = ...,
-    ) -> _ResponseWorkflowsListProjects:
+    ) -> List[_ResponseWorkflowsListProjects]:
         """List the projects a Workflow belongs to
+
+        API URL: ``GET /workflows/{id}/projects``
 
         Parameters
         ----------
@@ -58209,7 +60605,7 @@ class _Workflows:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - id : int
                 The ID for this project.
             - author : :class:`civis.Response`
@@ -58255,6 +60651,8 @@ class _Workflows:
     ) -> Response:
         """Add a Workflow to a project
 
+        API URL: ``PUT /workflows/{id}/projects/{project_id}``
+
         Parameters
         ----------
         id : int
@@ -58276,6 +60674,8 @@ class _Workflows:
     ) -> Response:
         """Remove a Workflow from a project
 
+        API URL: ``DELETE /workflows/{id}/projects/{project_id}``
+
         Parameters
         ----------
         id : int
@@ -58293,8 +60693,10 @@ class _Workflows:
     def list_git(
         self,
         id: int,
-    ) -> _ResponseWorkflowsListGit:
+    ) -> List[_ResponseWorkflowsListGit]:
         """Get the git metadata attached to an item
+
+        API URL: ``GET /workflows/{id}/git``
 
         Parameters
         ----------
@@ -58303,7 +60705,7 @@ class _Workflows:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - git_ref : str
                 A git reference specifying an unambiguous version of the file. Can be a
                 branch name, tag or the full or shortened SHA of a commit.
@@ -58329,6 +60731,7 @@ class _Workflows:
     def put_git(
         self,
         id: int,
+        *,
         git_ref: str | None = ...,
         git_branch: str | None = ...,
         git_path: str | None = ...,
@@ -58337,6 +60740,8 @@ class _Workflows:
         pull_from_git: bool | None = ...,
     ) -> _ResponseWorkflowsPutGit:
         """Attach an item to a file in a git repo
+
+        API URL: ``PUT /workflows/{id}/git``
 
         Parameters
         ----------
@@ -58385,6 +60790,7 @@ class _Workflows:
     def patch_git(
         self,
         id: int,
+        *,
         git_ref: str | None = ...,
         git_branch: str | None = ...,
         git_path: str | None = ...,
@@ -58393,6 +60799,8 @@ class _Workflows:
         pull_from_git: bool | None = ...,
     ) -> _ResponseWorkflowsPatchGit:
         """Update an attached git file
+
+        API URL: ``PATCH /workflows/{id}/git``
 
         Parameters
         ----------
@@ -58441,8 +60849,10 @@ class _Workflows:
     def list_git_commits(
         self,
         id: int,
-    ) -> _ResponseWorkflowsListGitCommits:
+    ) -> List[_ResponseWorkflowsListGitCommits]:
         """Get the git commits for an item on the current branch
+
+        API URL: ``GET /workflows/{id}/git/commits``
 
         Parameters
         ----------
@@ -58451,7 +60861,7 @@ class _Workflows:
 
         Returns
         -------
-        :class:`civis.Response`
+        :class:`civis.ListResponse`
             - commit_hash : str
                 The SHA of the commit.
             - author_name : str
@@ -58471,6 +60881,8 @@ class _Workflows:
         file_hash: str,
     ) -> _ResponseWorkflowsPostGitCommits:
         """Commit and push a new version of the file
+
+        API URL: ``POST /workflows/{id}/git/commits``
 
         Parameters
         ----------
@@ -58504,6 +60916,8 @@ class _Workflows:
     ) -> _ResponseWorkflowsGetGitCommits:
         """Get file contents at git ref
 
+        API URL: ``GET /workflows/{id}/git/commits/{commit_hash}``
+
         Parameters
         ----------
         id : int
@@ -58531,6 +60945,8 @@ class _Workflows:
     ) -> _ResponseWorkflowsPostGitCheckoutLatest:
         """Checkout latest commit on the current branch of a script or workflow
 
+        API URL: ``POST /workflows/{id}/git/checkout-latest``
+
         Parameters
         ----------
         id : int
@@ -58553,10 +60969,13 @@ class _Workflows:
     def post_clone(
         self,
         id: int,
+        *,
         clone_schedule: bool | None = ...,
         clone_notifications: bool | None = ...,
     ) -> _ResponseWorkflowsPostClone:
         """Clone this Workflow
+
+        API URL: ``POST /workflows/{id}/clone``
 
         Parameters
         ----------
@@ -58652,6 +61071,7 @@ class _Workflows:
     def list_executions(
         self,
         id: int,
+        *,
         limit: int | None = ...,
         page_num: int | None = ...,
         order: str | None = ...,
@@ -58659,6 +61079,8 @@ class _Workflows:
         iterator: bool | None = ...,
     ) -> Iterator[_ResponseWorkflowsListExecutions]:
         """List workflow executions
+
+        API URL: ``GET /workflows/{id}/executions``
 
         Parameters
         ----------
@@ -58679,12 +61101,13 @@ class _Workflows:
             :class:`civis.PaginatedResponse` object) to iterate over all responses.
             Use it when more results than the maximum allowed by 'limit' are needed.
             When True, 'page_num' is ignored.
-            If False, return a list of :class:`civis.Response` objects, whose size is
+            If False, return a :class:`civis.ListResponse` object
+            (= a list of :class:`civis.Response` objects), whose size is
             determined by 'limit'. Defaults to False.
 
         Returns
         -------
-        :class:`civis.PaginatedResponse`
+        :class:`civis.ListResponse` | :class:`civis.PaginatedResponse`
             - id : int
                 The ID for this workflow execution.
             - state : str
@@ -58719,11 +61142,14 @@ class _Workflows:
     def post_executions(
         self,
         id: int,
+        *,
         target_task: str | None = ...,
         input: dict | None = ...,
         included_tasks: List[str] | None = ...,
     ) -> _ResponseWorkflowsPostExecutions:
         """Execute a workflow
+
+        API URL: ``POST /workflows/{id}/executions``
 
         Parameters
         ----------
@@ -58830,6 +61256,8 @@ class _Workflows:
     ) -> _ResponseWorkflowsGetExecutions:
         """Get a workflow execution
 
+        API URL: ``GET /workflows/{id}/executions/{execution_id}``
+
         Parameters
         ----------
         id : int
@@ -58929,6 +61357,8 @@ class _Workflows:
         execution_id: int,
     ) -> _ResponseWorkflowsPostExecutionsCancel:
         """Cancel a workflow execution
+
+        API URL: ``POST /workflows/{id}/executions/{execution_id}/cancel``
 
         Parameters
         ----------
@@ -59030,6 +61460,8 @@ class _Workflows:
     ) -> _ResponseWorkflowsPostExecutionsResume:
         """Resume a paused workflow execution
 
+        API URL: ``POST /workflows/{id}/executions/{execution_id}/resume``
+
         Parameters
         ----------
         id : int
@@ -59127,9 +61559,12 @@ class _Workflows:
         self,
         id: int,
         execution_id: int,
+        *,
         task_name: str | None = ...,
     ) -> _ResponseWorkflowsPostExecutionsRetry:
         """Retry a failed task, or all failed tasks in an execution
+
+        API URL: ``POST /workflows/{id}/executions/{execution_id}/retry``
 
         Parameters
         ----------
@@ -59234,6 +61669,8 @@ class _Workflows:
         task_name: str,
     ) -> _ResponseWorkflowsGetExecutionsTasks:
         """Get a task of a workflow execution
+
+        API URL: ``GET /workflows/{id}/executions/{execution_id}/tasks/{task_name}``
 
         Parameters
         ----------
@@ -59800,6 +62237,40 @@ class _ResponseClustersListKubernetesInstanceConfigsUserStatistics(Response):
 class _ResponseClustersListKubernetesInstanceConfigsHistoricalGraphs(Response):
     cpu_graph_url: str
     mem_graph_url: str
+
+class _ResponseClustersListKubernetesInstanceConfigsHistoricalMetrics(Response):
+    instance_config_id: int
+    metric: str
+    timeframe: str
+    unit: str
+    metrics: _ResponseClustersListKubernetesInstanceConfigsHistoricalMetricsMetrics
+
+class _ResponseClustersListKubernetesInstanceConfigsHistoricalMetricsMetrics(Response):
+    used: _ResponseClustersListKubernetesInstanceConfigsHistoricalMetricsMetricsUsed
+    requested: (
+        _ResponseClustersListKubernetesInstanceConfigsHistoricalMetricsMetricsRequested
+    )
+    capacity: (
+        _ResponseClustersListKubernetesInstanceConfigsHistoricalMetricsMetricsCapacity
+    )
+
+class _ResponseClustersListKubernetesInstanceConfigsHistoricalMetricsMetricsUsed(
+    Response
+):
+    times: List[int]
+    values: List[float]
+
+class _ResponseClustersListKubernetesInstanceConfigsHistoricalMetricsMetricsRequested(
+    Response
+):
+    times: List[int]
+    values: List[float]
+
+class _ResponseClustersListKubernetesInstanceConfigsHistoricalMetricsMetricsCapacity(
+    Response
+):
+    times: List[int]
+    values: List[float]
 
 class _ResponseCredentialsListTypes(Response):
     types: List[str]
@@ -68182,6 +70653,39 @@ class _ResponseOntologyList(Response):
     title: str
     desc: str
     aliases: List[str]
+
+class _ResponseOrganizationsListFavorites(Response):
+    id: int
+    object_id: int
+    object_type: str
+    object_name: str
+    created_at: str
+    object_updated_at: str
+    object_author: _ResponseOrganizationsListFavoritesObjectAuthor
+    position: int
+
+class _ResponseOrganizationsListFavoritesObjectAuthor(Response):
+    id: int
+    name: str
+    username: str
+    initials: str
+    online: bool
+
+class _ResponseOrganizationsPostFavorites(Response):
+    id: int
+    object_id: int
+    object_type: str
+    object_name: str
+    created_at: str
+    object_updated_at: str
+    object_author: _ResponseOrganizationsPostFavoritesObjectAuthor
+
+class _ResponseOrganizationsPostFavoritesObjectAuthor(Response):
+    id: int
+    name: str
+    username: str
+    initials: str
+    online: bool
 
 class _ResponsePermissionSetsList(Response):
     id: int
@@ -81932,6 +84436,7 @@ class APIClient:
     notebooks = _Notebooks()
     notifications = _Notifications()
     ontology = _Ontology()
+    organizations = _Organizations()
     permission_sets = _Permission_Sets()
     predictions = _Predictions()
     projects = _Projects()

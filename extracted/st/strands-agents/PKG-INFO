@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: strands-agents
-Version: 0.1.9
+Version: 0.2.0
 Summary: A model-driven approach to building AI agents in just a few lines of code
 Project-URL: Homepage, https://github.com/strands-agents/sdk-python
 Project-URL: Bug Tracker, https://github.com/strands-agents/sdk-python/issues
@@ -55,6 +55,8 @@ Provides-Extra: litellm
 Requires-Dist: litellm<1.73.0,>=1.72.6; extra == 'litellm'
 Provides-Extra: llamaapi
 Requires-Dist: llama-api-client<1.0.0,>=0.1.0; extra == 'llamaapi'
+Provides-Extra: mistral
+Requires-Dist: mistralai>=1.8.2; extra == 'mistral'
 Provides-Extra: ollama
 Requires-Dist: ollama<1.0.0,>=0.4.8; extra == 'ollama'
 Provides-Extra: openai

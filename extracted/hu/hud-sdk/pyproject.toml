@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hud-sdk"
+dynamic = ["version", "dependencies", "optional-dependencies"]
+description = ""
+# authors = ["HUD"]
+readme = "README.md"
+requires-python = ">=3.5"
+license = { file = "LICENSE" }
+
+[project.scripts]
+hud-run = "hud_sdk.entrypoint:main"

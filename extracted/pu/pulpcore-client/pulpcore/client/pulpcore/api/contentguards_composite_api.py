@@ -52,6 +52,7 @@ class ContentguardsCompositeApi:
         self,
         composite_content_guard_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -73,6 +74,8 @@ class ContentguardsCompositeApi:
         :type composite_content_guard_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -98,6 +101,7 @@ class ContentguardsCompositeApi:
         _param = self._add_role_serialize(
             composite_content_guard_href=composite_content_guard_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -123,6 +127,7 @@ class ContentguardsCompositeApi:
         self,
         composite_content_guard_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -144,6 +149,8 @@ class ContentguardsCompositeApi:
         :type composite_content_guard_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -169,6 +176,7 @@ class ContentguardsCompositeApi:
         _param = self._add_role_serialize(
             composite_content_guard_href=composite_content_guard_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -194,6 +202,7 @@ class ContentguardsCompositeApi:
         self,
         composite_content_guard_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -215,6 +224,8 @@ class ContentguardsCompositeApi:
         :type composite_content_guard_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -240,6 +251,7 @@ class ContentguardsCompositeApi:
         _param = self._add_role_serialize(
             composite_content_guard_href=composite_content_guard_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -260,6 +272,7 @@ class ContentguardsCompositeApi:
         self,
         composite_content_guard_href,
         nested_role,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -269,6 +282,7 @@ class ContentguardsCompositeApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -285,6 +299,8 @@ class ContentguardsCompositeApi:
             _path_params['composite_content_guard_href'] = composite_content_guard_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if nested_role is not None:
@@ -343,6 +359,7 @@ class ContentguardsCompositeApi:
     def create(
         self,
         composite_content_guard: CompositeContentGuard,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -362,6 +379,8 @@ class ContentguardsCompositeApi:
 
         :param composite_content_guard: (required)
         :type composite_content_guard: CompositeContentGuard
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -386,6 +405,7 @@ class ContentguardsCompositeApi:
 
         _param = self._create_serialize(
             composite_content_guard=composite_content_guard,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -410,6 +430,7 @@ class ContentguardsCompositeApi:
     def create_with_http_info(
         self,
         composite_content_guard: CompositeContentGuard,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -429,6 +450,8 @@ class ContentguardsCompositeApi:
 
         :param composite_content_guard: (required)
         :type composite_content_guard: CompositeContentGuard
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -453,6 +476,7 @@ class ContentguardsCompositeApi:
 
         _param = self._create_serialize(
             composite_content_guard=composite_content_guard,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -477,6 +501,7 @@ class ContentguardsCompositeApi:
     def create_without_preload_content(
         self,
         composite_content_guard: CompositeContentGuard,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -496,6 +521,8 @@ class ContentguardsCompositeApi:
 
         :param composite_content_guard: (required)
         :type composite_content_guard: CompositeContentGuard
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -520,6 +547,7 @@ class ContentguardsCompositeApi:
 
         _param = self._create_serialize(
             composite_content_guard=composite_content_guard,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -539,6 +567,7 @@ class ContentguardsCompositeApi:
     def _create_serialize(
         self,
         composite_content_guard,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -548,6 +577,7 @@ class ContentguardsCompositeApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -562,6 +592,8 @@ class ContentguardsCompositeApi:
         # process the path parameters
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if composite_content_guard is not None:
@@ -620,6 +652,7 @@ class ContentguardsCompositeApi:
     def delete(
         self,
         composite_content_guard_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -639,6 +672,8 @@ class ContentguardsCompositeApi:
 
         :param composite_content_guard_href: (required)
         :type composite_content_guard_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -663,6 +698,7 @@ class ContentguardsCompositeApi:
 
         _param = self._delete_serialize(
             composite_content_guard_href=composite_content_guard_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -687,6 +723,7 @@ class ContentguardsCompositeApi:
     def delete_with_http_info(
         self,
         composite_content_guard_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -706,6 +743,8 @@ class ContentguardsCompositeApi:
 
         :param composite_content_guard_href: (required)
         :type composite_content_guard_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -730,6 +769,7 @@ class ContentguardsCompositeApi:
 
         _param = self._delete_serialize(
             composite_content_guard_href=composite_content_guard_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -754,6 +794,7 @@ class ContentguardsCompositeApi:
     def delete_without_preload_content(
         self,
         composite_content_guard_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -773,6 +814,8 @@ class ContentguardsCompositeApi:
 
         :param composite_content_guard_href: (required)
         :type composite_content_guard_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -797,6 +840,7 @@ class ContentguardsCompositeApi:
 
         _param = self._delete_serialize(
             composite_content_guard_href=composite_content_guard_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -816,6 +860,7 @@ class ContentguardsCompositeApi:
     def _delete_serialize(
         self,
         composite_content_guard_href,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -825,6 +870,7 @@ class ContentguardsCompositeApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -841,6 +887,8 @@ class ContentguardsCompositeApi:
             _path_params['composite_content_guard_href'] = composite_content_guard_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -874,6 +922,7 @@ class ContentguardsCompositeApi:
     @validate_call
     def list(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter results where name matches value")] = None,
         name__contains: Annotated[Optional[StrictStr], Field(description="Filter results where name contains value")] = None,
@@ -909,6 +958,8 @@ class ContentguardsCompositeApi:
 
         Content guard that queries a list-of content-guards for access permissions.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param limit: Number of results to return per page.
         :type limit: int
         :param name: Filter results where name matches value
@@ -968,6 +1019,7 @@ class ContentguardsCompositeApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             name=name,
             name__contains=name__contains,
@@ -1009,6 +1061,7 @@ class ContentguardsCompositeApi:
     @validate_call
     def list_with_http_info(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter results where name matches value")] = None,
         name__contains: Annotated[Optional[StrictStr], Field(description="Filter results where name contains value")] = None,
@@ -1044,6 +1097,8 @@ class ContentguardsCompositeApi:
 
         Content guard that queries a list-of content-guards for access permissions.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param limit: Number of results to return per page.
         :type limit: int
         :param name: Filter results where name matches value
@@ -1103,6 +1158,7 @@ class ContentguardsCompositeApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             name=name,
             name__contains=name__contains,
@@ -1144,6 +1200,7 @@ class ContentguardsCompositeApi:
     @validate_call
     def list_without_preload_content(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter results where name matches value")] = None,
         name__contains: Annotated[Optional[StrictStr], Field(description="Filter results where name contains value")] = None,
@@ -1179,6 +1236,8 @@ class ContentguardsCompositeApi:
 
         Content guard that queries a list-of content-guards for access permissions.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param limit: Number of results to return per page.
         :type limit: int
         :param name: Filter results where name matches value
@@ -1238,6 +1297,7 @@ class ContentguardsCompositeApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             name=name,
             name__contains=name__contains,
@@ -1274,6 +1334,7 @@ class ContentguardsCompositeApi:
 
     def _list_serialize(
         self,
+        x_task_diagnostics,
         limit,
         name,
         name__contains,
@@ -1301,6 +1362,7 @@ class ContentguardsCompositeApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'name__in': 'csv',
             'ordering': 'csv',
             'prn__in': 'csv',
@@ -1394,6 +1456,8 @@ class ContentguardsCompositeApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -1435,6 +1499,7 @@ class ContentguardsCompositeApi:
     def list_roles(
         self,
         composite_content_guard_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1456,6 +1521,8 @@ class ContentguardsCompositeApi:
 
         :param composite_content_guard_href: (required)
         :type composite_content_guard_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1484,6 +1551,7 @@ class ContentguardsCompositeApi:
 
         _param = self._list_roles_serialize(
             composite_content_guard_href=composite_content_guard_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1510,6 +1578,7 @@ class ContentguardsCompositeApi:
     def list_roles_with_http_info(
         self,
         composite_content_guard_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1531,6 +1600,8 @@ class ContentguardsCompositeApi:
 
         :param composite_content_guard_href: (required)
         :type composite_content_guard_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1559,6 +1630,7 @@ class ContentguardsCompositeApi:
 
         _param = self._list_roles_serialize(
             composite_content_guard_href=composite_content_guard_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1585,6 +1657,7 @@ class ContentguardsCompositeApi:
     def list_roles_without_preload_content(
         self,
         composite_content_guard_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1606,6 +1679,8 @@ class ContentguardsCompositeApi:
 
         :param composite_content_guard_href: (required)
         :type composite_content_guard_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1634,6 +1709,7 @@ class ContentguardsCompositeApi:
 
         _param = self._list_roles_serialize(
             composite_content_guard_href=composite_content_guard_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1655,6 +1731,7 @@ class ContentguardsCompositeApi:
     def _list_roles_serialize(
         self,
         composite_content_guard_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -1666,6 +1743,7 @@ class ContentguardsCompositeApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -1692,6 +1770,8 @@ class ContentguardsCompositeApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -1733,6 +1813,7 @@ class ContentguardsCompositeApi:
     def my_permissions(
         self,
         composite_content_guard_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1754,6 +1835,8 @@ class ContentguardsCompositeApi:
 
         :param composite_content_guard_href: (required)
         :type composite_content_guard_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1782,6 +1865,7 @@ class ContentguardsCompositeApi:
 
         _param = self._my_permissions_serialize(
             composite_content_guard_href=composite_content_guard_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1808,6 +1892,7 @@ class ContentguardsCompositeApi:
     def my_permissions_with_http_info(
         self,
         composite_content_guard_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1829,6 +1914,8 @@ class ContentguardsCompositeApi:
 
         :param composite_content_guard_href: (required)
         :type composite_content_guard_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1857,6 +1944,7 @@ class ContentguardsCompositeApi:
 
         _param = self._my_permissions_serialize(
             composite_content_guard_href=composite_content_guard_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1883,6 +1971,7 @@ class ContentguardsCompositeApi:
     def my_permissions_without_preload_content(
         self,
         composite_content_guard_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1904,6 +1993,8 @@ class ContentguardsCompositeApi:
 
         :param composite_content_guard_href: (required)
         :type composite_content_guard_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1932,6 +2023,7 @@ class ContentguardsCompositeApi:
 
         _param = self._my_permissions_serialize(
             composite_content_guard_href=composite_content_guard_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1953,6 +2045,7 @@ class ContentguardsCompositeApi:
     def _my_permissions_serialize(
         self,
         composite_content_guard_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -1964,6 +2057,7 @@ class ContentguardsCompositeApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -1990,6 +2084,8 @@ class ContentguardsCompositeApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -2032,6 +2128,7 @@ class ContentguardsCompositeApi:
         self,
         composite_content_guard_href: StrictStr,
         patched_composite_content_guard: PatchedCompositeContentGuard,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2053,6 +2150,8 @@ class ContentguardsCompositeApi:
         :type composite_content_guard_href: str
         :param patched_composite_content_guard: (required)
         :type patched_composite_content_guard: PatchedCompositeContentGuard
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2078,6 +2177,7 @@ class ContentguardsCompositeApi:
         _param = self._partial_update_serialize(
             composite_content_guard_href=composite_content_guard_href,
             patched_composite_content_guard=patched_composite_content_guard,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2103,6 +2203,7 @@ class ContentguardsCompositeApi:
         self,
         composite_content_guard_href: StrictStr,
         patched_composite_content_guard: PatchedCompositeContentGuard,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2124,6 +2225,8 @@ class ContentguardsCompositeApi:
         :type composite_content_guard_href: str
         :param patched_composite_content_guard: (required)
         :type patched_composite_content_guard: PatchedCompositeContentGuard
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2149,6 +2252,7 @@ class ContentguardsCompositeApi:
         _param = self._partial_update_serialize(
             composite_content_guard_href=composite_content_guard_href,
             patched_composite_content_guard=patched_composite_content_guard,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2174,6 +2278,7 @@ class ContentguardsCompositeApi:
         self,
         composite_content_guard_href: StrictStr,
         patched_composite_content_guard: PatchedCompositeContentGuard,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2195,6 +2300,8 @@ class ContentguardsCompositeApi:
         :type composite_content_guard_href: str
         :param patched_composite_content_guard: (required)
         :type patched_composite_content_guard: PatchedCompositeContentGuard
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2220,6 +2327,7 @@ class ContentguardsCompositeApi:
         _param = self._partial_update_serialize(
             composite_content_guard_href=composite_content_guard_href,
             patched_composite_content_guard=patched_composite_content_guard,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2240,6 +2348,7 @@ class ContentguardsCompositeApi:
         self,
         composite_content_guard_href,
         patched_composite_content_guard,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -2249,6 +2358,7 @@ class ContentguardsCompositeApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -2265,6 +2375,8 @@ class ContentguardsCompositeApi:
             _path_params['composite_content_guard_href'] = composite_content_guard_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if patched_composite_content_guard is not None:
@@ -2323,6 +2435,7 @@ class ContentguardsCompositeApi:
     def read(
         self,
         composite_content_guard_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -2344,6 +2457,8 @@ class ContentguardsCompositeApi:
 
         :param composite_content_guard_href: (required)
         :type composite_content_guard_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2372,6 +2487,7 @@ class ContentguardsCompositeApi:
 
         _param = self._read_serialize(
             composite_content_guard_href=composite_content_guard_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2398,6 +2514,7 @@ class ContentguardsCompositeApi:
     def read_with_http_info(
         self,
         composite_content_guard_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -2419,6 +2536,8 @@ class ContentguardsCompositeApi:
 
         :param composite_content_guard_href: (required)
         :type composite_content_guard_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2447,6 +2566,7 @@ class ContentguardsCompositeApi:
 
         _param = self._read_serialize(
             composite_content_guard_href=composite_content_guard_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2473,6 +2593,7 @@ class ContentguardsCompositeApi:
     def read_without_preload_content(
         self,
         composite_content_guard_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -2494,6 +2615,8 @@ class ContentguardsCompositeApi:
 
         :param composite_content_guard_href: (required)
         :type composite_content_guard_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2522,6 +2645,7 @@ class ContentguardsCompositeApi:
 
         _param = self._read_serialize(
             composite_content_guard_href=composite_content_guard_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2543,6 +2667,7 @@ class ContentguardsCompositeApi:
     def _read_serialize(
         self,
         composite_content_guard_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -2554,6 +2679,7 @@ class ContentguardsCompositeApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -2580,6 +2706,8 @@ class ContentguardsCompositeApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -2622,6 +2750,7 @@ class ContentguardsCompositeApi:
         self,
         composite_content_guard_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2643,6 +2772,8 @@ class ContentguardsCompositeApi:
         :type composite_content_guard_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2668,6 +2799,7 @@ class ContentguardsCompositeApi:
         _param = self._remove_role_serialize(
             composite_content_guard_href=composite_content_guard_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2693,6 +2825,7 @@ class ContentguardsCompositeApi:
         self,
         composite_content_guard_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2714,6 +2847,8 @@ class ContentguardsCompositeApi:
         :type composite_content_guard_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2739,6 +2874,7 @@ class ContentguardsCompositeApi:
         _param = self._remove_role_serialize(
             composite_content_guard_href=composite_content_guard_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2764,6 +2900,7 @@ class ContentguardsCompositeApi:
         self,
         composite_content_guard_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2785,6 +2922,8 @@ class ContentguardsCompositeApi:
         :type composite_content_guard_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2810,6 +2949,7 @@ class ContentguardsCompositeApi:
         _param = self._remove_role_serialize(
             composite_content_guard_href=composite_content_guard_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2830,6 +2970,7 @@ class ContentguardsCompositeApi:
         self,
         composite_content_guard_href,
         nested_role,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -2839,6 +2980,7 @@ class ContentguardsCompositeApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -2855,6 +2997,8 @@ class ContentguardsCompositeApi:
             _path_params['composite_content_guard_href'] = composite_content_guard_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if nested_role is not None:
@@ -2914,6 +3058,7 @@ class ContentguardsCompositeApi:
         self,
         composite_content_guard_href: StrictStr,
         composite_content_guard: CompositeContentGuard,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2935,6 +3080,8 @@ class ContentguardsCompositeApi:
         :type composite_content_guard_href: str
         :param composite_content_guard: (required)
         :type composite_content_guard: CompositeContentGuard
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2960,6 +3107,7 @@ class ContentguardsCompositeApi:
         _param = self._update_serialize(
             composite_content_guard_href=composite_content_guard_href,
             composite_content_guard=composite_content_guard,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2985,6 +3133,7 @@ class ContentguardsCompositeApi:
         self,
         composite_content_guard_href: StrictStr,
         composite_content_guard: CompositeContentGuard,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3006,6 +3155,8 @@ class ContentguardsCompositeApi:
         :type composite_content_guard_href: str
         :param composite_content_guard: (required)
         :type composite_content_guard: CompositeContentGuard
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3031,6 +3182,7 @@ class ContentguardsCompositeApi:
         _param = self._update_serialize(
             composite_content_guard_href=composite_content_guard_href,
             composite_content_guard=composite_content_guard,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3056,6 +3208,7 @@ class ContentguardsCompositeApi:
         self,
         composite_content_guard_href: StrictStr,
         composite_content_guard: CompositeContentGuard,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3077,6 +3230,8 @@ class ContentguardsCompositeApi:
         :type composite_content_guard_href: str
         :param composite_content_guard: (required)
         :type composite_content_guard: CompositeContentGuard
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3102,6 +3257,7 @@ class ContentguardsCompositeApi:
         _param = self._update_serialize(
             composite_content_guard_href=composite_content_guard_href,
             composite_content_guard=composite_content_guard,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3122,6 +3278,7 @@ class ContentguardsCompositeApi:
         self,
         composite_content_guard_href,
         composite_content_guard,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -3131,6 +3288,7 @@ class ContentguardsCompositeApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -3147,6 +3305,8 @@ class ContentguardsCompositeApi:
             _path_params['composite_content_guard_href'] = composite_content_guard_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if composite_content_guard is not None:

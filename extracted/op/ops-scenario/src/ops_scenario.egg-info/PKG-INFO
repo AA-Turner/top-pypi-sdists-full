@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ops-scenario
-Version: 7.23.0
+Version: 8.0.0
 Summary: Python library providing a state-transition testing API for Operator Framework charms.
 Author-email: Pietro Pasotti <pietro.pasotti@canonical.com>
 Maintainer: The Charm Tech team at Canonical Ltd.
@@ -15,9 +15,9 @@ Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development :: Quality Assurance
 Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: Utilities
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-Requires-Dist: ops==2.23.0
+Requires-Dist: ops==3.0.0
 Requires-Dist: PyYAML>=6.0.1
 
 # ops-scenario, the unit testing framework for ops charms

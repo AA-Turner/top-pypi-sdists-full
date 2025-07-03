@@ -21,3 +21,17 @@ from .hijacking.hijacking import HijackingMetric
 from .intellectual_property.intellectual_property import (
     IntellectualPropertyMetric,
 )
+
+
+# Agentic metrics
+from .agentic.unauthorized_execution.unauthorized_execution import (
+    UnauthorizedExecutionMetric,
+)
+from .agentic.escalation_success.escalation_success import (
+    EscalationSuccessMetric,
+)
+from .toxicity.toxicity import ToxicityMetric
+from .misinformation.misinformation import MisinformationMetric
+from .illegal_activity.illegal_activity import IllegalMetric
+from .graphic_content.graphic_content import GraphicMetric
+from .personal_safety.personal_safety import SafetyMetric

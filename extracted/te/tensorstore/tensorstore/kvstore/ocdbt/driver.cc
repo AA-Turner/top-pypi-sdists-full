@@ -41,6 +41,7 @@
 #include "tensorstore/internal/path.h"
 #include "tensorstore/internal/ref_counted_string.h"
 #include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/kvstore/auto_detect.h"
 #include "tensorstore/kvstore/common_metrics.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
@@ -546,10 +547,13 @@ Future<kvstore::ReadResult> OcdbtDriver::TransactionalRead(
 
 namespace {
 Result<kvstore::Spec> ParseOcdbtUrl(std::string_view url, kvstore::Spec base) {
-  auto parsed = internal::ParseGenericUriWithoutSlashSlash(url);
-  assert(parsed.scheme == OcdbtDriverSpec::id);
+  auto parsed = internal::ParseGenericUri(url);
+  if (parsed.scheme != OcdbtDriverSpec::id) {
+    return absl::InvalidArgumentError(absl::StrCat(
+        "Scheme \"", OcdbtDriverSpec::id, ":\" not present in url"));
+  }
   TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoQueryOrFragment(parsed));
-  std::string_view encoded_path = parsed.authority_and_path;
+  std::string_view encoded_path = parsed.path;
   std::optional<VersionSpec> version_spec;
   if (!encoded_path.empty() && encoded_path[0] == '@') {
     size_t version_end = encoded_path.find('/');
@@ -591,4 +595,9 @@ const tensorstore::internal_kvstore::UrlSchemeRegistration
     url_scheme_registration{tensorstore::internal_ocdbt::OcdbtDriverSpec::id,
                             tensorstore::internal_ocdbt::ParseOcdbtUrl};
 
+const tensorstore::internal_kvstore::AutoDetectRegistration
+    auto_detect_registration{
+        tensorstore::internal_kvstore::AutoDetectDirectorySpec::SingleFile(
+            tensorstore::internal_ocdbt::OcdbtDriverSpec::id,
+            tensorstore::internal_ocdbt::kManifestFilename)};
 }  // namespace

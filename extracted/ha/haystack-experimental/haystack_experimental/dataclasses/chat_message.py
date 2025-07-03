@@ -6,7 +6,6 @@ import json
 from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List, Optional, Sequence, Union
 
-import haystack.dataclasses.chat_message
 from haystack import logging
 from haystack.dataclasses import ChatMessage as HaystackChatMessage
 from haystack.dataclasses import ChatRole, TextContent, ToolCall, ToolCallResult
@@ -17,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 ChatMessageContentT = Union[TextContent, ToolCall, ToolCallResult, ImageContent]
+
 
 def _deserialize_content_part(part: Dict[str, Any]) -> ChatMessageContentT:
     """
@@ -44,7 +44,6 @@ def _deserialize_content_part(part: Dict[str, Any]) -> ChatMessageContentT:
     raise ValueError(f"Unsupported part in serialized ChatMessage: `{part}`")
 
 
-
 def _deserialize_content(serialized_content: List[Dict[str, Any]]) -> List[ChatMessageContentT]:
     """
     Deserialize the `content` field of a serialized ChatMessage.
@@ -57,9 +56,6 @@ def _deserialize_content(serialized_content: List[Dict[str, Any]]) -> List[ChatM
     """
     return [_deserialize_content_part(part) for part in serialized_content]
 
-
-# Note: this is a monkey patch to the original _deserialize_content function
-haystack.dataclasses.chat_message._deserialize_content = _deserialize_content
 
 def _serialize_content_part(part: ChatMessageContentT) -> Dict[str, Any]:
     """
@@ -82,6 +78,7 @@ def _serialize_content_part(part: ChatMessageContentT) -> Dict[str, Any]:
         return {"image": asdict(part)}
     raise TypeError(f"Unsupported type in ChatMessage content: `{type(part).__name__}` for `{part}`.")
 
+
 @dataclass
 class ChatMessage(HaystackChatMessage):
     """
@@ -91,7 +88,7 @@ class ChatMessage(HaystackChatMessage):
     """
 
     _role: ChatRole
-    _content: Sequence[ChatMessageContentT]
+    _content: Sequence[ChatMessageContentT]  # type: ignore[assignment]
     _name: Optional[str] = None
     _meta: Dict[str, Any] = field(default_factory=dict, hash=False)
 
@@ -145,11 +142,11 @@ class ChatMessage(HaystackChatMessage):
 
             unsupported_parts = [el for el in content if not isinstance(el, (ImageContent, TextContent))]
             if unsupported_parts:
-                raise ValueError(f"The user message must contain only text or image parts."
-                                 f"Unsupported parts: {unsupported_parts}")
+                raise ValueError(
+                    f"The user message must contain only text or image parts.Unsupported parts: {unsupported_parts}"
+                )
 
         return cls(_role=ChatRole.USER, _content=content, _meta=meta or {}, _name=name)
-
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -167,9 +164,19 @@ class ChatMessage(HaystackChatMessage):
         serialized["content"] = [_serialize_content_part(part) for part in self._content]
         return serialized
 
-    def to_openai_dict_format(self) -> Dict[str, Any]:
+    def to_openai_dict_format(self, require_tool_call_ids: bool = True) -> Dict[str, Any]:
         """
         Convert a ChatMessage to the dictionary format expected by OpenAI's Chat API.
+
+        :param require_tool_call_ids:
+            If True (default), enforces that each Tool Call includes a non-null `id` attribute.
+            Set to False to allow Tool Calls without `id`, which may be suitable for shallow OpenAI-compatible APIs.
+        :returns:
+            The ChatMessage in the format expected by OpenAI's Chat API.
+
+        :raises ValueError:
+            If the message format is invalid, or if `require_tool_call_ids` is True and any Tool Call is missing an
+            `id` attribute.
         """
         text_contents = self.texts
         tool_calls = self.tool_calls
@@ -180,8 +187,9 @@ class ChatMessage(HaystackChatMessage):
                 "A `ChatMessage` must contain at least one `TextContent`, `ToolCall`, or `ToolCallResult`."
             )
         if len(text_contents) + len(tool_call_results) > 1:
-            raise ValueError("For OpenAI compatibility, a `ChatMessage` can only contain one `TextContent` or "
-                             "one `ToolCallResult`.")
+            raise ValueError(
+                "For OpenAI compatibility, a `ChatMessage` can only contain one `TextContent` or one `ToolCallResult`."
+            )
 
         openai_msg: Dict[str, Any] = {"role": self._role.value}
 
@@ -216,10 +224,11 @@ class ChatMessage(HaystackChatMessage):
         # tool message
         if tool_call_results:
             result = tool_call_results[0]
-            if result.origin.id is None:
-                raise ValueError("`ToolCall` must have a non-null `id` attribute to be used with OpenAI.")
             openai_msg["content"] = result.result
-            openai_msg["tool_call_id"] = result.origin.id
+            if result.origin.id is not None:
+                openai_msg["tool_call_id"] = result.origin.id
+            elif require_tool_call_ids:
+                raise ValueError("`ToolCall` must have a non-null `id` attribute to be used with OpenAI.")
             # OpenAI does not provide a way to communicate errors in tool invocations, so we ignore the error field
             return openai_msg
 
@@ -229,15 +238,113 @@ class ChatMessage(HaystackChatMessage):
         if tool_calls:
             openai_tool_calls = []
             for tc in tool_calls:
-                if tc.id is None:
+                openai_tool_call = {
+                    "type": "function",
+                    # We disable ensure_ascii so special chars like emojis are not converted
+                    "function": {"name": tc.tool_name, "arguments": json.dumps(tc.arguments, ensure_ascii=False)},
+                }
+                if tc.id is not None:
+                    openai_tool_call["id"] = tc.id
+                elif require_tool_call_ids:
                     raise ValueError("`ToolCall` must have a non-null `id` attribute to be used with OpenAI.")
-                openai_tool_calls.append(
-                    {
-                        "id": tc.id,
-                        "type": "function",
-                        # We disable ensure_ascii so special chars like emojis are not converted
-                        "function": {"name": tc.tool_name, "arguments": json.dumps(tc.arguments, ensure_ascii=False)},
-                    }
-                )
+                openai_tool_calls.append(openai_tool_call)
             openai_msg["tool_calls"] = openai_tool_calls
         return openai_msg
+
+    # NOTE: The following class methods are copied from Haystack.
+    # They are needed to return the experimental ChatMessage type.
+
+    @classmethod
+    def from_system(cls, text: str, meta: Optional[Dict[str, Any]] = None, name: Optional[str] = None) -> "ChatMessage":
+        """
+        Create a message from the system.
+
+        :param text: The text content of the message.
+        :param meta: Additional metadata associated with the message.
+        :param name: An optional name for the participant. This field is only supported by OpenAI.
+        :returns: A new ChatMessage instance.
+        """
+        return cls(_role=ChatRole.SYSTEM, _content=[TextContent(text=text)], _meta=meta or {}, _name=name)
+
+    @classmethod
+    def from_assistant(
+        cls,
+        text: Optional[str] = None,
+        meta: Optional[Dict[str, Any]] = None,
+        name: Optional[str] = None,
+        tool_calls: Optional[List[ToolCall]] = None,
+    ) -> "ChatMessage":
+        """
+        Create a message from the assistant.
+
+        :param text: The text content of the message.
+        :param meta: Additional metadata associated with the message.
+        :param tool_calls: The Tool calls to include in the message.
+        :param name: An optional name for the participant. This field is only supported by OpenAI.
+        :returns: A new ChatMessage instance.
+        """
+        content: List[ChatMessageContentT] = []
+        if text is not None:
+            content.append(TextContent(text=text))
+        if tool_calls:
+            content.extend(tool_calls)
+
+        return cls(_role=ChatRole.ASSISTANT, _content=content, _meta=meta or {}, _name=name)
+
+    @classmethod
+    def from_tool(
+        cls, tool_result: str, origin: ToolCall, error: bool = False, meta: Optional[Dict[str, Any]] = None
+    ) -> "ChatMessage":
+        """
+        Create a message from a Tool.
+
+        :param tool_result: The result of the Tool invocation.
+        :param origin: The Tool call that produced this result.
+        :param error: Whether the Tool invocation resulted in an error.
+        :param meta: Additional metadata associated with the message.
+        :returns: A new ChatMessage instance.
+        """
+        return cls(
+            _role=ChatRole.TOOL,
+            _content=[ToolCallResult(result=tool_result, origin=origin, error=error)],
+            _meta=meta or {},
+        )
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "ChatMessage":
+        """
+        Creates a new ChatMessage object from a dictionary.
+
+        :param data:
+            The dictionary to build the ChatMessage object.
+        :returns:
+            The created object.
+        """
+
+        if "content" in data:
+            init_params: Dict[str, Any] = {
+                "_role": ChatRole(data["role"]),
+                "_name": data.get("name"),
+                "_meta": data.get("meta") or {},
+            }
+
+            if isinstance(data["content"], list):
+                # current format - the serialized `content` field is a list of dictionaries
+                init_params["_content"] = _deserialize_content(data["content"])
+            elif isinstance(data["content"], str):
+                # pre 2.9.0 format - the `content` field is a string
+                init_params["_content"] = [TextContent(text=data["content"])]
+            else:
+                raise TypeError(f"Unsupported content type in serialized ChatMessage: `{(data['content'])}`")
+            return cls(**init_params)
+
+        if "_content" in data:
+            # format for versions >=2.9.0 and <2.12.0 - the serialized `_content` field is a list of dictionaries
+            return cls(
+                _role=ChatRole(data["_role"]),
+                _content=_deserialize_content(data["_content"]),
+                _name=data.get("_name"),
+                _meta=data.get("_meta") or {},
+            )
+
+        raise ValueError(f"Missing 'content' or '_content' in serialized ChatMessage: `{data}`")

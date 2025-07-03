@@ -1,7 +1,7 @@
 r'''
 # `aws_amplify_branch`
 
-Refer to the Terraform Registry for docs: [`aws_amplify_branch`](https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch).
+Refer to the Terraform Registry for docs: [`aws_amplify_branch`](https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AmplifyBranch(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.amplifyBranch.AmplifyBranch",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch aws_amplify_branch}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch aws_amplify_branch}.'''
 
     def __init__(
         self,
@@ -62,6 +62,7 @@ class AmplifyBranch(
         enable_notification: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         enable_performance_mode: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         enable_pull_request_preview: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        enable_skew_protection: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         framework: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
@@ -79,30 +80,31 @@ class AmplifyBranch(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch aws_amplify_branch} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch aws_amplify_branch} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param app_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#app_id AmplifyBranch#app_id}.
-        :param branch_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#branch_name AmplifyBranch#branch_name}.
-        :param backend_environment_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#backend_environment_arn AmplifyBranch#backend_environment_arn}.
-        :param basic_auth_credentials: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#basic_auth_credentials AmplifyBranch#basic_auth_credentials}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#description AmplifyBranch#description}.
-        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#display_name AmplifyBranch#display_name}.
-        :param enable_auto_build: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#enable_auto_build AmplifyBranch#enable_auto_build}.
-        :param enable_basic_auth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#enable_basic_auth AmplifyBranch#enable_basic_auth}.
-        :param enable_notification: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#enable_notification AmplifyBranch#enable_notification}.
-        :param enable_performance_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#enable_performance_mode AmplifyBranch#enable_performance_mode}.
-        :param enable_pull_request_preview: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#enable_pull_request_preview AmplifyBranch#enable_pull_request_preview}.
-        :param environment_variables: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#environment_variables AmplifyBranch#environment_variables}.
-        :param framework: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#framework AmplifyBranch#framework}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#id AmplifyBranch#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param pull_request_environment_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#pull_request_environment_name AmplifyBranch#pull_request_environment_name}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#region AmplifyBranch#region}
-        :param stage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#stage AmplifyBranch#stage}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#tags AmplifyBranch#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#tags_all AmplifyBranch#tags_all}.
-        :param ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#ttl AmplifyBranch#ttl}.
+        :param app_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#app_id AmplifyBranch#app_id}.
+        :param branch_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#branch_name AmplifyBranch#branch_name}.
+        :param backend_environment_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#backend_environment_arn AmplifyBranch#backend_environment_arn}.
+        :param basic_auth_credentials: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#basic_auth_credentials AmplifyBranch#basic_auth_credentials}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#description AmplifyBranch#description}.
+        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#display_name AmplifyBranch#display_name}.
+        :param enable_auto_build: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#enable_auto_build AmplifyBranch#enable_auto_build}.
+        :param enable_basic_auth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#enable_basic_auth AmplifyBranch#enable_basic_auth}.
+        :param enable_notification: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#enable_notification AmplifyBranch#enable_notification}.
+        :param enable_performance_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#enable_performance_mode AmplifyBranch#enable_performance_mode}.
+        :param enable_pull_request_preview: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#enable_pull_request_preview AmplifyBranch#enable_pull_request_preview}.
+        :param enable_skew_protection: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#enable_skew_protection AmplifyBranch#enable_skew_protection}.
+        :param environment_variables: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#environment_variables AmplifyBranch#environment_variables}.
+        :param framework: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#framework AmplifyBranch#framework}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#id AmplifyBranch#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param pull_request_environment_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#pull_request_environment_name AmplifyBranch#pull_request_environment_name}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#region AmplifyBranch#region}
+        :param stage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#stage AmplifyBranch#stage}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#tags AmplifyBranch#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#tags_all AmplifyBranch#tags_all}.
+        :param ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#ttl AmplifyBranch#ttl}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,6 +129,7 @@ class AmplifyBranch(
             enable_notification=enable_notification,
             enable_performance_mode=enable_performance_mode,
             enable_pull_request_preview=enable_pull_request_preview,
+            enable_skew_protection=enable_skew_protection,
             environment_variables=environment_variables,
             framework=framework,
             id=id,
@@ -160,7 +163,7 @@ class AmplifyBranch(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AmplifyBranch to import.
-        :param import_from_id: The id of the existing AmplifyBranch that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AmplifyBranch that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AmplifyBranch to import is found.
         '''
         if __debug__:
@@ -206,6 +209,10 @@ class AmplifyBranch(
     @jsii.member(jsii_name="resetEnablePullRequestPreview")
     def reset_enable_pull_request_preview(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetEnablePullRequestPreview", []))
+
+    @jsii.member(jsii_name="resetEnableSkewProtection")
+    def reset_enable_skew_protection(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetEnableSkewProtection", []))
 
     @jsii.member(jsii_name="resetEnvironmentVariables")
     def reset_environment_variables(self) -> None:
@@ -345,6 +352,13 @@ class AmplifyBranch(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], jsii.get(self, "enablePullRequestPreviewInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="enableSkewProtectionInput")
+    def enable_skew_protection_input(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], jsii.get(self, "enableSkewProtectionInput"))
 
     @builtins.property
     @jsii.member(jsii_name="environmentVariablesInput")
@@ -553,6 +567,23 @@ class AmplifyBranch(
         jsii.set(self, "enablePullRequestPreview", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="enableSkewProtection")
+    def enable_skew_protection(
+        self,
+    ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
+        return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], jsii.get(self, "enableSkewProtection"))
+
+    @enable_skew_protection.setter
+    def enable_skew_protection(
+        self,
+        value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__145b0b29faf9579545978f92e5a2fb3bc11a9bcede7131838e305ed38eecb760)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "enableSkewProtection", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="environmentVariables")
     def environment_variables(self) -> typing.Mapping[builtins.str, builtins.str]:
         return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "environmentVariables"))
@@ -686,6 +717,7 @@ class AmplifyBranch(
         "enable_notification": "enableNotification",
         "enable_performance_mode": "enablePerformanceMode",
         "enable_pull_request_preview": "enablePullRequestPreview",
+        "enable_skew_protection": "enableSkewProtection",
         "environment_variables": "environmentVariables",
         "framework": "framework",
         "id": "id",
@@ -719,6 +751,7 @@ class AmplifyBranchConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         enable_notification: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         enable_performance_mode: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         enable_pull_request_preview: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        enable_skew_protection: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         framework: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
@@ -737,26 +770,27 @@ class AmplifyBranchConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param app_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#app_id AmplifyBranch#app_id}.
-        :param branch_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#branch_name AmplifyBranch#branch_name}.
-        :param backend_environment_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#backend_environment_arn AmplifyBranch#backend_environment_arn}.
-        :param basic_auth_credentials: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#basic_auth_credentials AmplifyBranch#basic_auth_credentials}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#description AmplifyBranch#description}.
-        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#display_name AmplifyBranch#display_name}.
-        :param enable_auto_build: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#enable_auto_build AmplifyBranch#enable_auto_build}.
-        :param enable_basic_auth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#enable_basic_auth AmplifyBranch#enable_basic_auth}.
-        :param enable_notification: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#enable_notification AmplifyBranch#enable_notification}.
-        :param enable_performance_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#enable_performance_mode AmplifyBranch#enable_performance_mode}.
-        :param enable_pull_request_preview: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#enable_pull_request_preview AmplifyBranch#enable_pull_request_preview}.
-        :param environment_variables: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#environment_variables AmplifyBranch#environment_variables}.
-        :param framework: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#framework AmplifyBranch#framework}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#id AmplifyBranch#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param pull_request_environment_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#pull_request_environment_name AmplifyBranch#pull_request_environment_name}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#region AmplifyBranch#region}
-        :param stage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#stage AmplifyBranch#stage}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#tags AmplifyBranch#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#tags_all AmplifyBranch#tags_all}.
-        :param ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#ttl AmplifyBranch#ttl}.
+        :param app_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#app_id AmplifyBranch#app_id}.
+        :param branch_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#branch_name AmplifyBranch#branch_name}.
+        :param backend_environment_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#backend_environment_arn AmplifyBranch#backend_environment_arn}.
+        :param basic_auth_credentials: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#basic_auth_credentials AmplifyBranch#basic_auth_credentials}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#description AmplifyBranch#description}.
+        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#display_name AmplifyBranch#display_name}.
+        :param enable_auto_build: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#enable_auto_build AmplifyBranch#enable_auto_build}.
+        :param enable_basic_auth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#enable_basic_auth AmplifyBranch#enable_basic_auth}.
+        :param enable_notification: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#enable_notification AmplifyBranch#enable_notification}.
+        :param enable_performance_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#enable_performance_mode AmplifyBranch#enable_performance_mode}.
+        :param enable_pull_request_preview: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#enable_pull_request_preview AmplifyBranch#enable_pull_request_preview}.
+        :param enable_skew_protection: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#enable_skew_protection AmplifyBranch#enable_skew_protection}.
+        :param environment_variables: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#environment_variables AmplifyBranch#environment_variables}.
+        :param framework: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#framework AmplifyBranch#framework}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#id AmplifyBranch#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param pull_request_environment_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#pull_request_environment_name AmplifyBranch#pull_request_environment_name}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#region AmplifyBranch#region}
+        :param stage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#stage AmplifyBranch#stage}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#tags AmplifyBranch#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#tags_all AmplifyBranch#tags_all}.
+        :param ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#ttl AmplifyBranch#ttl}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -780,6 +814,7 @@ class AmplifyBranchConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument enable_notification", value=enable_notification, expected_type=type_hints["enable_notification"])
             check_type(argname="argument enable_performance_mode", value=enable_performance_mode, expected_type=type_hints["enable_performance_mode"])
             check_type(argname="argument enable_pull_request_preview", value=enable_pull_request_preview, expected_type=type_hints["enable_pull_request_preview"])
+            check_type(argname="argument enable_skew_protection", value=enable_skew_protection, expected_type=type_hints["enable_skew_protection"])
             check_type(argname="argument environment_variables", value=environment_variables, expected_type=type_hints["environment_variables"])
             check_type(argname="argument framework", value=framework, expected_type=type_hints["framework"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
@@ -825,6 +860,8 @@ class AmplifyBranchConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["enable_performance_mode"] = enable_performance_mode
         if enable_pull_request_preview is not None:
             self._values["enable_pull_request_preview"] = enable_pull_request_preview
+        if enable_skew_protection is not None:
+            self._values["enable_skew_protection"] = enable_skew_protection
         if environment_variables is not None:
             self._values["environment_variables"] = environment_variables
         if framework is not None:
@@ -910,39 +947,39 @@ class AmplifyBranchConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def app_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#app_id AmplifyBranch#app_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#app_id AmplifyBranch#app_id}.'''
         result = self._values.get("app_id")
         assert result is not None, "Required property 'app_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def branch_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#branch_name AmplifyBranch#branch_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#branch_name AmplifyBranch#branch_name}.'''
         result = self._values.get("branch_name")
         assert result is not None, "Required property 'branch_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def backend_environment_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#backend_environment_arn AmplifyBranch#backend_environment_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#backend_environment_arn AmplifyBranch#backend_environment_arn}.'''
         result = self._values.get("backend_environment_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def basic_auth_credentials(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#basic_auth_credentials AmplifyBranch#basic_auth_credentials}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#basic_auth_credentials AmplifyBranch#basic_auth_credentials}.'''
         result = self._values.get("basic_auth_credentials")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#description AmplifyBranch#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#description AmplifyBranch#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def display_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#display_name AmplifyBranch#display_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#display_name AmplifyBranch#display_name}.'''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -950,7 +987,7 @@ class AmplifyBranchConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enable_auto_build(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#enable_auto_build AmplifyBranch#enable_auto_build}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#enable_auto_build AmplifyBranch#enable_auto_build}.'''
         result = self._values.get("enable_auto_build")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -958,7 +995,7 @@ class AmplifyBranchConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enable_basic_auth(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#enable_basic_auth AmplifyBranch#enable_basic_auth}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#enable_basic_auth AmplifyBranch#enable_basic_auth}.'''
         result = self._values.get("enable_basic_auth")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -966,7 +1003,7 @@ class AmplifyBranchConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enable_notification(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#enable_notification AmplifyBranch#enable_notification}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#enable_notification AmplifyBranch#enable_notification}.'''
         result = self._values.get("enable_notification")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -974,7 +1011,7 @@ class AmplifyBranchConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enable_performance_mode(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#enable_performance_mode AmplifyBranch#enable_performance_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#enable_performance_mode AmplifyBranch#enable_performance_mode}.'''
         result = self._values.get("enable_performance_mode")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -982,27 +1019,35 @@ class AmplifyBranchConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enable_pull_request_preview(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#enable_pull_request_preview AmplifyBranch#enable_pull_request_preview}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#enable_pull_request_preview AmplifyBranch#enable_pull_request_preview}.'''
         result = self._values.get("enable_pull_request_preview")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
+
+    @builtins.property
+    def enable_skew_protection(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#enable_skew_protection AmplifyBranch#enable_skew_protection}.'''
+        result = self._values.get("enable_skew_protection")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def environment_variables(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#environment_variables AmplifyBranch#environment_variables}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#environment_variables AmplifyBranch#environment_variables}.'''
         result = self._values.get("environment_variables")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def framework(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#framework AmplifyBranch#framework}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#framework AmplifyBranch#framework}.'''
         result = self._values.get("framework")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#id AmplifyBranch#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#id AmplifyBranch#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1012,7 +1057,7 @@ class AmplifyBranchConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def pull_request_environment_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#pull_request_environment_name AmplifyBranch#pull_request_environment_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#pull_request_environment_name AmplifyBranch#pull_request_environment_name}.'''
         result = self._values.get("pull_request_environment_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1020,32 +1065,32 @@ class AmplifyBranchConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#region AmplifyBranch#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#region AmplifyBranch#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def stage(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#stage AmplifyBranch#stage}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#stage AmplifyBranch#stage}.'''
         result = self._values.get("stage")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#tags AmplifyBranch#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#tags AmplifyBranch#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#tags_all AmplifyBranch#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#tags_all AmplifyBranch#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def ttl(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.0.0/docs/resources/amplify_branch#ttl AmplifyBranch#ttl}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.2.0/docs/resources/amplify_branch#ttl AmplifyBranch#ttl}.'''
         result = self._values.get("ttl")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1083,6 +1128,7 @@ def _typecheckingstub__133ff60a20dae68762e4e17b6f77a6c02f941814e26096f388ba2bdbd
     enable_notification: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     enable_performance_mode: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     enable_pull_request_preview: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+    enable_skew_protection: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     framework: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
@@ -1178,6 +1224,12 @@ def _typecheckingstub__0a8c31b45ee3ecca3789b70ac025013a5012127cb84954f7b70690b01
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__145b0b29faf9579545978f92e5a2fb3bc11a9bcede7131838e305ed38eecb760(
+    value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__6c48183ea7ddb643f609926e23e45e455eb4c1817c6562e650d781c192b72b2e(
     value: typing.Mapping[builtins.str, builtins.str],
 ) -> None:
@@ -1252,6 +1304,7 @@ def _typecheckingstub__223232647ec57e3c06083bbacbea38ad0a23fc3b87bfbe05b298280ab
     enable_notification: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     enable_performance_mode: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     enable_pull_request_preview: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+    enable_skew_protection: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     framework: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,

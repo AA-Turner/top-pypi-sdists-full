@@ -321,7 +321,8 @@ class Connections(metaclass=SingleInstanceMetaClass):
         """
         Constructs a milvus connection and register it under given alias.
 
-        :param alias: The name of milvus connection
+        :param alias: The name of milvus connection. For each alias, there will be one and only one
+        connection created.
         :type  alias: str
 
         :param kwargs:
@@ -389,6 +390,7 @@ class Connections(metaclass=SingleInstanceMetaClass):
                     message=f"Open local milvus failed, dir: {parent_path} not exists"
                 )
 
+            # ruff: noqa: PLC0415
             from milvus_lite.server_manager import (
                 server_manager_instance,
             )

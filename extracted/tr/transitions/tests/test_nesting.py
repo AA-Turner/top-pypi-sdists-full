@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-
 try:
     from builtins import object
 except ImportError:
@@ -31,8 +30,8 @@ except ImportError:  # pragma: no cover
 
 
 if TYPE_CHECKING:
-    from typing import List, Dict, Union, Type
-
+    from typing import List, Dict, Union, Type, Sequence
+    from transitions.core import TransitionConfig
 
 default_separator = NestedState.separator
 
@@ -661,7 +660,7 @@ class TestNestedTransitions(TestTransitions):
             ['goA', '*', 'A'],
             ['goF1', ['C{0}1'.format(self.machine_cls.separator), 'C{0}2'.format(self.machine_cls.separator)], 'F'],
             ['goF2', 'C', 'F']
-        ]
+        ]  # type: Sequence[TransitionConfig]
         m = self.machine_cls(states=test_states, transitions=transitions, auto_transitions=False, initial='A')
         self.assertEqual(1, len(m.get_nested_triggers(['C', '1'])))
         with m('C'):
@@ -1008,6 +1007,21 @@ class TestSeparatorsBase(TestCase):
         assert m.get_transitions("jo")
         m.remove_transition("jo")
         assert not m.get_transitions("jo")
+
+    def test_add_nested_instances(self):
+        if self.separator != '_':
+            idle_state = NestedState(name='idle')
+            task_machine = self.machine_cls(states=[idle_state], initial=idle_state.name)
+            task_state = NestedState('mock_task')
+            parent_state = NestedState(name='seq', initial=task_state.name)
+            parent_state.add_substate(task_state)
+            # add_state breaks in versions greater than 0.9.0
+            task_machine.add_state(parent_state)
+            task_machine.add_transition('t0', 'idle', parent_state.name)
+            task_machine.t0()
+            assert not task_machine.is_seq()
+            assert task_machine.is_seq(allow_substates=True)
+            assert task_machine.is_seq.mock_task()
 
 
 class TestSeparatorsSlash(TestSeparatorsBase):

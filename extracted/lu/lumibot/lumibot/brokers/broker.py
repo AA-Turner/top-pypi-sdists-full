@@ -1,3 +1,4 @@
+import os
 import logging
 import time
 from abc import ABC, abstractmethod
@@ -88,6 +89,12 @@ class Broker(ABC):
 
         # Create an adapter with 'strategy_name' set to the instance's name
         self.logger = CustomLoggerAdapter(logger, {'strategy_name': "unknown"})
+
+        # --- Market calendar setting ---
+        # StrategyExecutor relies on broker.market to decide whether trading is
+        # 24/7 or should follow an exchange calendar.  Derive it from config or
+        # env, else default to "NASDAQ" which is compatible with pandas-market-calendars.
+        self.market = (config.get("MARKET") if config else None) or os.environ.get("MARKET") or "NASDAQ"
 
         if self.data_source is None:
             raise ValueError("Broker must have a data source")
@@ -665,7 +672,7 @@ class Broker(ABC):
             self._process_crypto_quote(order, quantity, price)
 
         return position
-    
+
     def _process_error_order(self, order, error):
         self._new_orders.remove(order.identifier, key="identifier")
         self._unprocessed_orders.remove(order.identifier, key="identifier")
@@ -708,7 +715,7 @@ class Broker(ABC):
             else:
                 logging.debug(f"Skipping crypto quote processing for order {order.identifier} - both avg_fill_price and limit_price are None")
                 return
-        
+
         quote_quantity = Decimal(quantity) * Decimal(price)
         if order.side == "buy":
             quote_quantity = -quote_quantity
@@ -948,16 +955,17 @@ class Broker(ABC):
             for broker_order in broker_orders:
                 order = self._parse_broker_order(broker_order, strategy_name, strategy_object=strategy_object)
                 # skip if parsing returned None
-                #if order is None:
-                #    continue
+                if order is None:
+                    continue
 
                 # Check if it is a multileg order and Parse the legs
                 if isinstance(broker_order, dict) and "leg" in broker_order and isinstance(broker_order["leg"], list):
                     parsed_legs = []
                     for leg in broker_order["leg"]:
                         order_leg = self._parse_broker_order(leg, strategy_name, strategy_object=strategy_object)
-                        order_leg.parent_identifier = order.identifier
-                        parsed_legs.append(order_leg)
+                        if order_leg is not None:  # Additional None check for legs
+                            order_leg.parent_identifier = order.identifier
+                            parsed_legs.append(order_leg)
 
                     # Add the legs to the parent order
                     order.child_orders = parsed_legs

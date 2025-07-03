@@ -37,7 +37,13 @@ from highdicom._module_utils import (
 
 class SegmentDescription(Dataset):
 
-    """Dataset describing a segment based on the Segment Description macro."""
+    """Dataset describing a segment based on the Segment Description macro.
+
+    Note that this does **not** correspond to the "Segment Description"
+    attribute (0062,0006), which is just one attribute within the Segment
+    Description macro.
+
+    """
 
     def __init__(
         self,
@@ -664,7 +670,7 @@ class DimensionIndexSequence(DataElementSequence):
             This is used in combination with the ``handedness`` to determine
             the positive direction used to order frames.
         handedness: Union[highdicom.enum.AxisHandedness, str], optional
-            Choose the frame order in order such that the frame axis creates a
+            Choose the frame order such that the frame axis creates a
             coordinate system with this handedness in the when combined with
             the within-frame convention given by ``index_convention``.
 

@@ -40,6 +40,9 @@ DEFAULT_WORKBOOK_NAME = DEFAULT_WORKBOOK_PATH.split('>>')[-1].strip()
 DEFAULT_WORKBOOK_STATE = '{"version":1, "state":{"stores":{}}}'
 DEFAULT_WORKSHEET_NAME = 'From Data Lab'
 
+# Specifically use protocol 4 so that pickle files are portable back to Python 3.4
+DEFAULT_PICKLE_PROTOCOL = 4
+
 DATALAB_HOME = '/home/datalab'
 
 # Kept for backwards compatibility. Should match _folder#MY_FOLDER.
@@ -877,6 +880,34 @@ def look_up_in_df(item, lookup_df: pd.DataFrame) -> pd.DataFrame:
         raise SPyRuntimeError(f'Multiple IDs for pushed item where\n{friendly_string}')
 
     return pushed_item.iloc[0]
+
+
+def smart_pd_concat(dfs, ignore_index=False):
+    """
+    Concatenates a list of DataFrames, handling empty ones and preserving dtype and column union,
+    with column order preserved by first occurrence.
+    """
+    if len(dfs) == 0:
+        return pd.DataFrame()
+
+    non_empty_dfs = [d for d in dfs if not d.empty]
+
+    # Capture the union of all columns and their dtypes, in order of appearance
+    all_columns = dict()
+    for df in dfs:
+        for column_name in df.columns:
+            if column_name not in all_columns:
+                all_columns[column_name] = df[column_name].dtype
+
+    result = pd.DataFrame()
+    if len(non_empty_dfs) > 0:
+        result = pd.concat(non_empty_dfs, ignore_index=ignore_index)
+
+    for column_name, dtype in all_columns.items():
+        if column_name not in result.columns:
+            result[column_name] = pd.Series(dtype=dtype)
+
+    return result
 
 
 def ensure_upper_case_id(key, val):

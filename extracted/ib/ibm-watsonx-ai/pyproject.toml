@@ -59,6 +59,7 @@ dependencies = [
     "tabulate",
     "packaging",
     "ibm-cos-sdk<2.15.0,>=2.12.0",
+    "cachetools"
 ]
 
 

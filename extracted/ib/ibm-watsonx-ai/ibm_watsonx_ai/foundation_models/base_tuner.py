@@ -2,6 +2,7 @@
 #  (C) Copyright IBM Corp. 2025.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
+import copy
 from abc import ABC
 from typing import Literal, TYPE_CHECKING, cast
 
@@ -113,6 +114,8 @@ class BaseTuner(ABC):
                         location=ContainerLocation(path=result_path)
                     )
         # -- end note
+        else:
+            results_reference = copy.deepcopy(results_reference)
 
         # note: validate location types:
         if self._client.ICP_PLATFORM_SPACES:
@@ -128,6 +131,16 @@ class BaseTuner(ABC):
                     "Unsupported results location type. Results reference can be stored"
                     " only on S3Location or ContainerLocation."
                 )
+            elif isinstance(results_reference.location, S3Location) and hasattr(
+                results_reference.location, "file_name"
+            ):
+                filename = results_reference.location.file_name.split("/")[-1]
+                # Replace `file_name` with `path` if it is a directory to correctly specify the tuning payload
+                if "." not in filename or filename == ".":
+                    results_reference.location.path = (
+                        results_reference.location.file_name
+                    )
+                    del results_reference.location.file_name
         # -- end note
         return results_reference
 

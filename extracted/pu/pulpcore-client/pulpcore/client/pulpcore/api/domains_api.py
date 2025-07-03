@@ -53,6 +53,7 @@ class DomainsApi:
     def create(
         self,
         domain: Domain,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -72,6 +73,8 @@ class DomainsApi:
 
         :param domain: (required)
         :type domain: Domain
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -96,6 +99,7 @@ class DomainsApi:
 
         _param = self._create_serialize(
             domain=domain,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -120,6 +124,7 @@ class DomainsApi:
     def create_with_http_info(
         self,
         domain: Domain,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -139,6 +144,8 @@ class DomainsApi:
 
         :param domain: (required)
         :type domain: Domain
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -163,6 +170,7 @@ class DomainsApi:
 
         _param = self._create_serialize(
             domain=domain,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -187,6 +195,7 @@ class DomainsApi:
     def create_without_preload_content(
         self,
         domain: Domain,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -206,6 +215,8 @@ class DomainsApi:
 
         :param domain: (required)
         :type domain: Domain
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -230,6 +241,7 @@ class DomainsApi:
 
         _param = self._create_serialize(
             domain=domain,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -249,6 +261,7 @@ class DomainsApi:
     def _create_serialize(
         self,
         domain,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -258,6 +271,7 @@ class DomainsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -272,6 +286,8 @@ class DomainsApi:
         # process the path parameters
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if domain is not None:
@@ -330,6 +346,7 @@ class DomainsApi:
     def delete(
         self,
         domain_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -349,6 +366,8 @@ class DomainsApi:
 
         :param domain_href: (required)
         :type domain_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -373,6 +392,7 @@ class DomainsApi:
 
         _param = self._delete_serialize(
             domain_href=domain_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -397,6 +417,7 @@ class DomainsApi:
     def delete_with_http_info(
         self,
         domain_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -416,6 +437,8 @@ class DomainsApi:
 
         :param domain_href: (required)
         :type domain_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -440,6 +463,7 @@ class DomainsApi:
 
         _param = self._delete_serialize(
             domain_href=domain_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -464,6 +488,7 @@ class DomainsApi:
     def delete_without_preload_content(
         self,
         domain_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -483,6 +508,8 @@ class DomainsApi:
 
         :param domain_href: (required)
         :type domain_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -507,6 +534,7 @@ class DomainsApi:
 
         _param = self._delete_serialize(
             domain_href=domain_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -526,6 +554,7 @@ class DomainsApi:
     def _delete_serialize(
         self,
         domain_href,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -535,6 +564,7 @@ class DomainsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -551,6 +581,8 @@ class DomainsApi:
             _path_params['domain_href'] = domain_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -591,6 +623,7 @@ class DomainsApi:
     @validate_call
     def list(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter results where name matches value")] = None,
         name__contains: Annotated[Optional[StrictStr], Field(description="Filter results where name contains value")] = None,
@@ -627,6 +660,8 @@ class DomainsApi:
 
         ViewSet for Domain.  NOTE: This API endpoint is in \"tech preview\" and subject to change
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param limit: Number of results to return per page.
         :type limit: int
         :param name: Filter results where name matches value
@@ -688,6 +723,7 @@ class DomainsApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             name=name,
             name__contains=name__contains,
@@ -730,6 +766,7 @@ class DomainsApi:
     @validate_call
     def list_with_http_info(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter results where name matches value")] = None,
         name__contains: Annotated[Optional[StrictStr], Field(description="Filter results where name contains value")] = None,
@@ -766,6 +803,8 @@ class DomainsApi:
 
         ViewSet for Domain.  NOTE: This API endpoint is in \"tech preview\" and subject to change
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param limit: Number of results to return per page.
         :type limit: int
         :param name: Filter results where name matches value
@@ -827,6 +866,7 @@ class DomainsApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             name=name,
             name__contains=name__contains,
@@ -869,6 +909,7 @@ class DomainsApi:
     @validate_call
     def list_without_preload_content(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter results where name matches value")] = None,
         name__contains: Annotated[Optional[StrictStr], Field(description="Filter results where name contains value")] = None,
@@ -905,6 +946,8 @@ class DomainsApi:
 
         ViewSet for Domain.  NOTE: This API endpoint is in \"tech preview\" and subject to change
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param limit: Number of results to return per page.
         :type limit: int
         :param name: Filter results where name matches value
@@ -966,6 +1009,7 @@ class DomainsApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             name=name,
             name__contains=name__contains,
@@ -1003,6 +1047,7 @@ class DomainsApi:
 
     def _list_serialize(
         self,
+        x_task_diagnostics,
         limit,
         name,
         name__contains,
@@ -1031,6 +1076,7 @@ class DomainsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'name__in': 'csv',
             'ordering': 'csv',
             'prn__in': 'csv',
@@ -1128,6 +1174,8 @@ class DomainsApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -1169,6 +1217,7 @@ class DomainsApi:
     def migrate(
         self,
         domain_backend_migrator: DomainBackendMigrator,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1188,6 +1237,8 @@ class DomainsApi:
 
         :param domain_backend_migrator: (required)
         :type domain_backend_migrator: DomainBackendMigrator
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1212,6 +1263,7 @@ class DomainsApi:
 
         _param = self._migrate_serialize(
             domain_backend_migrator=domain_backend_migrator,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1236,6 +1288,7 @@ class DomainsApi:
     def migrate_with_http_info(
         self,
         domain_backend_migrator: DomainBackendMigrator,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1255,6 +1308,8 @@ class DomainsApi:
 
         :param domain_backend_migrator: (required)
         :type domain_backend_migrator: DomainBackendMigrator
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1279,6 +1334,7 @@ class DomainsApi:
 
         _param = self._migrate_serialize(
             domain_backend_migrator=domain_backend_migrator,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1303,6 +1359,7 @@ class DomainsApi:
     def migrate_without_preload_content(
         self,
         domain_backend_migrator: DomainBackendMigrator,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1322,6 +1379,8 @@ class DomainsApi:
 
         :param domain_backend_migrator: (required)
         :type domain_backend_migrator: DomainBackendMigrator
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1346,6 +1405,7 @@ class DomainsApi:
 
         _param = self._migrate_serialize(
             domain_backend_migrator=domain_backend_migrator,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1365,6 +1425,7 @@ class DomainsApi:
     def _migrate_serialize(
         self,
         domain_backend_migrator,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -1374,6 +1435,7 @@ class DomainsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -1388,6 +1450,8 @@ class DomainsApi:
         # process the path parameters
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if domain_backend_migrator is not None:
@@ -1447,6 +1511,7 @@ class DomainsApi:
         self,
         domain_href: StrictStr,
         patched_domain: PatchedDomain,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1468,6 +1533,8 @@ class DomainsApi:
         :type domain_href: str
         :param patched_domain: (required)
         :type patched_domain: PatchedDomain
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1493,6 +1560,7 @@ class DomainsApi:
         _param = self._partial_update_serialize(
             domain_href=domain_href,
             patched_domain=patched_domain,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1518,6 +1586,7 @@ class DomainsApi:
         self,
         domain_href: StrictStr,
         patched_domain: PatchedDomain,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1539,6 +1608,8 @@ class DomainsApi:
         :type domain_href: str
         :param patched_domain: (required)
         :type patched_domain: PatchedDomain
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1564,6 +1635,7 @@ class DomainsApi:
         _param = self._partial_update_serialize(
             domain_href=domain_href,
             patched_domain=patched_domain,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1589,6 +1661,7 @@ class DomainsApi:
         self,
         domain_href: StrictStr,
         patched_domain: PatchedDomain,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1610,6 +1683,8 @@ class DomainsApi:
         :type domain_href: str
         :param patched_domain: (required)
         :type patched_domain: PatchedDomain
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1635,6 +1710,7 @@ class DomainsApi:
         _param = self._partial_update_serialize(
             domain_href=domain_href,
             patched_domain=patched_domain,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1655,6 +1731,7 @@ class DomainsApi:
         self,
         domain_href,
         patched_domain,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -1664,6 +1741,7 @@ class DomainsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -1680,6 +1758,8 @@ class DomainsApi:
             _path_params['domain_href'] = domain_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if patched_domain is not None:
@@ -1738,6 +1818,7 @@ class DomainsApi:
     def read(
         self,
         domain_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1759,6 +1840,8 @@ class DomainsApi:
 
         :param domain_href: (required)
         :type domain_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1787,6 +1870,7 @@ class DomainsApi:
 
         _param = self._read_serialize(
             domain_href=domain_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1813,6 +1897,7 @@ class DomainsApi:
     def read_with_http_info(
         self,
         domain_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1834,6 +1919,8 @@ class DomainsApi:
 
         :param domain_href: (required)
         :type domain_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1862,6 +1949,7 @@ class DomainsApi:
 
         _param = self._read_serialize(
             domain_href=domain_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1888,6 +1976,7 @@ class DomainsApi:
     def read_without_preload_content(
         self,
         domain_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1909,6 +1998,8 @@ class DomainsApi:
 
         :param domain_href: (required)
         :type domain_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1937,6 +2028,7 @@ class DomainsApi:
 
         _param = self._read_serialize(
             domain_href=domain_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1958,6 +2050,7 @@ class DomainsApi:
     def _read_serialize(
         self,
         domain_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -1969,6 +2062,7 @@ class DomainsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -1995,6 +2089,8 @@ class DomainsApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -2037,6 +2133,7 @@ class DomainsApi:
         self,
         domain_href: StrictStr,
         set_label: SetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2058,6 +2155,8 @@ class DomainsApi:
         :type domain_href: str
         :param set_label: (required)
         :type set_label: SetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2083,6 +2182,7 @@ class DomainsApi:
         _param = self._set_label_serialize(
             domain_href=domain_href,
             set_label=set_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2108,6 +2208,7 @@ class DomainsApi:
         self,
         domain_href: StrictStr,
         set_label: SetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2129,6 +2230,8 @@ class DomainsApi:
         :type domain_href: str
         :param set_label: (required)
         :type set_label: SetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2154,6 +2257,7 @@ class DomainsApi:
         _param = self._set_label_serialize(
             domain_href=domain_href,
             set_label=set_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2179,6 +2283,7 @@ class DomainsApi:
         self,
         domain_href: StrictStr,
         set_label: SetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2200,6 +2305,8 @@ class DomainsApi:
         :type domain_href: str
         :param set_label: (required)
         :type set_label: SetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2225,6 +2332,7 @@ class DomainsApi:
         _param = self._set_label_serialize(
             domain_href=domain_href,
             set_label=set_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2245,6 +2353,7 @@ class DomainsApi:
         self,
         domain_href,
         set_label,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -2254,6 +2363,7 @@ class DomainsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -2270,6 +2380,8 @@ class DomainsApi:
             _path_params['domain_href'] = domain_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if set_label is not None:
@@ -2329,6 +2441,7 @@ class DomainsApi:
         self,
         domain_href: StrictStr,
         unset_label: UnsetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2350,6 +2463,8 @@ class DomainsApi:
         :type domain_href: str
         :param unset_label: (required)
         :type unset_label: UnsetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2375,6 +2490,7 @@ class DomainsApi:
         _param = self._unset_label_serialize(
             domain_href=domain_href,
             unset_label=unset_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2400,6 +2516,7 @@ class DomainsApi:
         self,
         domain_href: StrictStr,
         unset_label: UnsetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2421,6 +2538,8 @@ class DomainsApi:
         :type domain_href: str
         :param unset_label: (required)
         :type unset_label: UnsetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2446,6 +2565,7 @@ class DomainsApi:
         _param = self._unset_label_serialize(
             domain_href=domain_href,
             unset_label=unset_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2471,6 +2591,7 @@ class DomainsApi:
         self,
         domain_href: StrictStr,
         unset_label: UnsetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2492,6 +2613,8 @@ class DomainsApi:
         :type domain_href: str
         :param unset_label: (required)
         :type unset_label: UnsetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2517,6 +2640,7 @@ class DomainsApi:
         _param = self._unset_label_serialize(
             domain_href=domain_href,
             unset_label=unset_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2537,6 +2661,7 @@ class DomainsApi:
         self,
         domain_href,
         unset_label,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -2546,6 +2671,7 @@ class DomainsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -2562,6 +2688,8 @@ class DomainsApi:
             _path_params['domain_href'] = domain_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if unset_label is not None:
@@ -2621,6 +2749,7 @@ class DomainsApi:
         self,
         domain_href: StrictStr,
         domain: Domain,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2642,6 +2771,8 @@ class DomainsApi:
         :type domain_href: str
         :param domain: (required)
         :type domain: Domain
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2667,6 +2798,7 @@ class DomainsApi:
         _param = self._update_serialize(
             domain_href=domain_href,
             domain=domain,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2692,6 +2824,7 @@ class DomainsApi:
         self,
         domain_href: StrictStr,
         domain: Domain,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2713,6 +2846,8 @@ class DomainsApi:
         :type domain_href: str
         :param domain: (required)
         :type domain: Domain
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2738,6 +2873,7 @@ class DomainsApi:
         _param = self._update_serialize(
             domain_href=domain_href,
             domain=domain,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2763,6 +2899,7 @@ class DomainsApi:
         self,
         domain_href: StrictStr,
         domain: Domain,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2784,6 +2921,8 @@ class DomainsApi:
         :type domain_href: str
         :param domain: (required)
         :type domain: Domain
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2809,6 +2948,7 @@ class DomainsApi:
         _param = self._update_serialize(
             domain_href=domain_href,
             domain=domain,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2829,6 +2969,7 @@ class DomainsApi:
         self,
         domain_href,
         domain,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -2838,6 +2979,7 @@ class DomainsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -2854,6 +2996,8 @@ class DomainsApi:
             _path_params['domain_href'] = domain_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if domain is not None:

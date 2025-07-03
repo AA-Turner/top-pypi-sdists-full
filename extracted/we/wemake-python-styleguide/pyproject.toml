@@ -2,21 +2,18 @@
 build-backend = "poetry.core.masonry.api"
 requires = [ "poetry-core>=2.0" ]
 
-[tool.poetry]
+[project]
 name = "wemake-python-styleguide"
-version = "1.1.0"
+version = "1.2.0"
 description = "The strictest and most opinionated python linter ever"
 
-license = "MIT"
+license = {text = "MIT"}
 
 authors = [
-  "Nikita Sobolev <mail@sobolevn.me>",
+  {name = "Nikita Sobolev", email = "mail@sobolevn.me"}
 ]
 
 readme = "README.md"
-
-repository = "https://github.com/wemake-services/wemake-python-styleguide"
-homepage = "https://wemake-python-styleguide.rtfd.io"
 
 keywords = [
   "flake8",
@@ -40,8 +37,10 @@ classifiers = [
   "Typing :: Typed",
 ]
 
-[tool.poetry.urls]
-"Funding" = "https://opencollective.com/wemake-python-styleguide"
+[project.urls]
+Homepage = "https://wemake-python-styleguide.rtfd.io"
+Repository = "https://github.com/wemake-services/wemake-python-styleguide"
+Funding = "https://opencollective.com/wemake-python-styleguide"
 
 [tool.poetry.plugins."flake8.extension"]
 WPS = "wemake_python_styleguide.checker:Checker"
@@ -52,29 +51,29 @@ wemake = "wemake_python_styleguide.formatter:WemakeFormatter"
 [tool.poetry.dependencies]
 python = "^3.10"
 
-flake8 = "^7.1"
+flake8 = "^7.3"
 attrs = "*"
-pygments = "^2.5"
+pygments = "^2.19"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^8.1"
-pytest-cov = "^6.0"
+pytest = "^8.4"
+pytest-cov = "^6.2"
 pytest-randomly = "^3.12"
-pytest-xdist = "^3.6"
+pytest-xdist = "^3.8"
 covdefaults = "^2.3"
 syrupy = "^4.6"
-hypothesis = "^6.35"
+hypothesis = "^6.135"
 hypothesmith = "^0.3"
 
-mypy = "^1.13"
-types-flake8 = "^7.1"
+mypy = "^1.16"
+types-flake8 = "^7.3"
 
 import-linter = "^2.0"
 
 astpath = "^0.9"
-lxml = "^5.1"
+lxml = "^6.0"
 nbqa = "^1.2"
-ruff = "^0.11"
+ruff = "^0.12"
 black = "^25.1"
 
 [tool.poetry.group.docs]
@@ -115,6 +114,7 @@ extend-exclude = [
 
 [tool.ruff.format]
 quote-style = "single"
+# This is only required because we have invalid on-purpose code in docstrings:
 docstring-code-format = false
 
 [tool.ruff.lint]

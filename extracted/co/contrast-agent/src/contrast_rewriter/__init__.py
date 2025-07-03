@@ -136,7 +136,7 @@ class ContrastMetaPathFinder(importlib.abc.MetaPathFinder):
                 or not isinstance(spec.loader, importlib.machinery.SourceFileLoader)
             ):
                 rewriter_module.logger.debug(
-                    "WARNING: Skipping non-source module",
+                    "Skipping non-source module",
                     module_name=fullname,
                     path=getattr(spec, "origin", "<unknown>"),
                 )
@@ -196,7 +196,10 @@ class ContrastRewriteLoader(importlib.machinery.SourceFileLoader):
             tree = ast.parse(original_source_code)
         except Exception as ex:
             rewriter_module.logger.debug(
-                "WARNING: failed to rewrite module", filename=filename, exc_info=ex
+                "WARNING: failed to parse module AST",
+                filename=filename,
+                exc_info=ex,
+                module_name=self.name,
             )
 
             _load_module(original_source_code, module, filename)
@@ -223,7 +226,10 @@ class ContrastRewriteLoader(importlib.machinery.SourceFileLoader):
                 propagation_rewriter.populate_dependencies(module)
             except Exception as ex:
                 rewriter_module.logger.debug(
-                    "WARNING: failed to rewrite module", filename=filename, exc_info=ex
+                    "WARNING: failed to rewrite module",
+                    filename=filename,
+                    exc_info=ex,
+                    module_name=self.name,
                 )
 
         rewriter_module.registry.add(self.name)

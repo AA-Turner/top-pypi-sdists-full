@@ -46,6 +46,7 @@ class AccessPoliciesApi:
     @validate_call
     def list(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         customized: Annotated[Optional[StrictBool], Field(description="Filter results where customized matches value")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
@@ -82,6 +83,8 @@ class AccessPoliciesApi:
 
         ViewSet for AccessPolicy.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param customized: Filter results where customized matches value
         :type customized: bool
         :param limit: Number of results to return per page.
@@ -143,6 +146,7 @@ class AccessPoliciesApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             customized=customized,
             limit=limit,
             offset=offset,
@@ -185,6 +189,7 @@ class AccessPoliciesApi:
     @validate_call
     def list_with_http_info(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         customized: Annotated[Optional[StrictBool], Field(description="Filter results where customized matches value")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
@@ -221,6 +226,8 @@ class AccessPoliciesApi:
 
         ViewSet for AccessPolicy.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param customized: Filter results where customized matches value
         :type customized: bool
         :param limit: Number of results to return per page.
@@ -282,6 +289,7 @@ class AccessPoliciesApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             customized=customized,
             limit=limit,
             offset=offset,
@@ -324,6 +332,7 @@ class AccessPoliciesApi:
     @validate_call
     def list_without_preload_content(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         customized: Annotated[Optional[StrictBool], Field(description="Filter results where customized matches value")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
@@ -360,6 +369,8 @@ class AccessPoliciesApi:
 
         ViewSet for AccessPolicy.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param customized: Filter results where customized matches value
         :type customized: bool
         :param limit: Number of results to return per page.
@@ -421,6 +432,7 @@ class AccessPoliciesApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             customized=customized,
             limit=limit,
             offset=offset,
@@ -458,6 +470,7 @@ class AccessPoliciesApi:
 
     def _list_serialize(
         self,
+        x_task_diagnostics,
         customized,
         limit,
         offset,
@@ -486,6 +499,7 @@ class AccessPoliciesApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'ordering': 'csv',
             'prn__in': 'csv',
             'pulp_href__in': 'csv',
@@ -583,6 +597,8 @@ class AccessPoliciesApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -625,6 +641,7 @@ class AccessPoliciesApi:
         self,
         access_policy_href: StrictStr,
         patched_access_policy: PatchedAccessPolicy,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -646,6 +663,8 @@ class AccessPoliciesApi:
         :type access_policy_href: str
         :param patched_access_policy: (required)
         :type patched_access_policy: PatchedAccessPolicy
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -671,6 +690,7 @@ class AccessPoliciesApi:
         _param = self._partial_update_serialize(
             access_policy_href=access_policy_href,
             patched_access_policy=patched_access_policy,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -696,6 +716,7 @@ class AccessPoliciesApi:
         self,
         access_policy_href: StrictStr,
         patched_access_policy: PatchedAccessPolicy,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -717,6 +738,8 @@ class AccessPoliciesApi:
         :type access_policy_href: str
         :param patched_access_policy: (required)
         :type patched_access_policy: PatchedAccessPolicy
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -742,6 +765,7 @@ class AccessPoliciesApi:
         _param = self._partial_update_serialize(
             access_policy_href=access_policy_href,
             patched_access_policy=patched_access_policy,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -767,6 +791,7 @@ class AccessPoliciesApi:
         self,
         access_policy_href: StrictStr,
         patched_access_policy: PatchedAccessPolicy,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -788,6 +813,8 @@ class AccessPoliciesApi:
         :type access_policy_href: str
         :param patched_access_policy: (required)
         :type patched_access_policy: PatchedAccessPolicy
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -813,6 +840,7 @@ class AccessPoliciesApi:
         _param = self._partial_update_serialize(
             access_policy_href=access_policy_href,
             patched_access_policy=patched_access_policy,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -833,6 +861,7 @@ class AccessPoliciesApi:
         self,
         access_policy_href,
         patched_access_policy,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -842,6 +871,7 @@ class AccessPoliciesApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -858,6 +888,8 @@ class AccessPoliciesApi:
             _path_params['access_policy_href'] = access_policy_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if patched_access_policy is not None:
@@ -916,6 +948,7 @@ class AccessPoliciesApi:
     def read(
         self,
         access_policy_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -937,6 +970,8 @@ class AccessPoliciesApi:
 
         :param access_policy_href: (required)
         :type access_policy_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -965,6 +1000,7 @@ class AccessPoliciesApi:
 
         _param = self._read_serialize(
             access_policy_href=access_policy_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -991,6 +1027,7 @@ class AccessPoliciesApi:
     def read_with_http_info(
         self,
         access_policy_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1012,6 +1049,8 @@ class AccessPoliciesApi:
 
         :param access_policy_href: (required)
         :type access_policy_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1040,6 +1079,7 @@ class AccessPoliciesApi:
 
         _param = self._read_serialize(
             access_policy_href=access_policy_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1066,6 +1106,7 @@ class AccessPoliciesApi:
     def read_without_preload_content(
         self,
         access_policy_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1087,6 +1128,8 @@ class AccessPoliciesApi:
 
         :param access_policy_href: (required)
         :type access_policy_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1115,6 +1158,7 @@ class AccessPoliciesApi:
 
         _param = self._read_serialize(
             access_policy_href=access_policy_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1136,6 +1180,7 @@ class AccessPoliciesApi:
     def _read_serialize(
         self,
         access_policy_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -1147,6 +1192,7 @@ class AccessPoliciesApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -1173,6 +1219,8 @@ class AccessPoliciesApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -1214,6 +1262,7 @@ class AccessPoliciesApi:
     def reset(
         self,
         access_policy_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1233,6 +1282,8 @@ class AccessPoliciesApi:
 
         :param access_policy_href: (required)
         :type access_policy_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1257,6 +1308,7 @@ class AccessPoliciesApi:
 
         _param = self._reset_serialize(
             access_policy_href=access_policy_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1281,6 +1333,7 @@ class AccessPoliciesApi:
     def reset_with_http_info(
         self,
         access_policy_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1300,6 +1353,8 @@ class AccessPoliciesApi:
 
         :param access_policy_href: (required)
         :type access_policy_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1324,6 +1379,7 @@ class AccessPoliciesApi:
 
         _param = self._reset_serialize(
             access_policy_href=access_policy_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1348,6 +1404,7 @@ class AccessPoliciesApi:
     def reset_without_preload_content(
         self,
         access_policy_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1367,6 +1424,8 @@ class AccessPoliciesApi:
 
         :param access_policy_href: (required)
         :type access_policy_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1391,6 +1450,7 @@ class AccessPoliciesApi:
 
         _param = self._reset_serialize(
             access_policy_href=access_policy_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1410,6 +1470,7 @@ class AccessPoliciesApi:
     def _reset_serialize(
         self,
         access_policy_href,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -1419,6 +1480,7 @@ class AccessPoliciesApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -1435,6 +1497,8 @@ class AccessPoliciesApi:
             _path_params['access_policy_href'] = access_policy_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -1477,6 +1541,7 @@ class AccessPoliciesApi:
         self,
         access_policy_href: StrictStr,
         access_policy: AccessPolicy,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1498,6 +1563,8 @@ class AccessPoliciesApi:
         :type access_policy_href: str
         :param access_policy: (required)
         :type access_policy: AccessPolicy
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1523,6 +1590,7 @@ class AccessPoliciesApi:
         _param = self._update_serialize(
             access_policy_href=access_policy_href,
             access_policy=access_policy,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1548,6 +1616,7 @@ class AccessPoliciesApi:
         self,
         access_policy_href: StrictStr,
         access_policy: AccessPolicy,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1569,6 +1638,8 @@ class AccessPoliciesApi:
         :type access_policy_href: str
         :param access_policy: (required)
         :type access_policy: AccessPolicy
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1594,6 +1665,7 @@ class AccessPoliciesApi:
         _param = self._update_serialize(
             access_policy_href=access_policy_href,
             access_policy=access_policy,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1619,6 +1691,7 @@ class AccessPoliciesApi:
         self,
         access_policy_href: StrictStr,
         access_policy: AccessPolicy,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1640,6 +1713,8 @@ class AccessPoliciesApi:
         :type access_policy_href: str
         :param access_policy: (required)
         :type access_policy: AccessPolicy
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1665,6 +1740,7 @@ class AccessPoliciesApi:
         _param = self._update_serialize(
             access_policy_href=access_policy_href,
             access_policy=access_policy,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1685,6 +1761,7 @@ class AccessPoliciesApi:
         self,
         access_policy_href,
         access_policy,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -1694,6 +1771,7 @@ class AccessPoliciesApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -1710,6 +1788,8 @@ class AccessPoliciesApi:
             _path_params['access_policy_href'] = access_policy_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if access_policy is not None:

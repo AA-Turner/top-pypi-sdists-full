@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import logging
 import operator
 from typing import Callable, Iterable
@@ -67,6 +68,7 @@ class Finder:
         architecture: str | None = None,
         allow_prereleases: bool = False,
         implementation: str | None = None,
+        freethreaded: bool | None = None,
     ) -> list[PythonVersion]:
         """
         Return all Python versions matching the given version criteria.
@@ -80,6 +82,7 @@ class Finder:
         :param architecture: The architecture of the python.
         :param allow_prereleases: Whether to allow prereleases.
         :param implementation: The implementation of the python. E.g. "cpython", "pypy".
+        :param freethreaded: Whether the python is freethreaded.
         :return: a list of PythonVersion objects
         """
         if allow_prereleases and (pre is False or dev is False):
@@ -104,6 +107,7 @@ class Finder:
                     dev = dev or None
                 architecture = version_dict["architecture"]
                 implementation = version_dict["implementation"]
+                freethreaded = version_dict["freethreaded"]
             else:
                 name, major = major, None
 
@@ -117,6 +121,7 @@ class Finder:
             name,
             architecture,
             implementation,
+            freethreaded,
         )
         # Deduplicate with the python executable path
         matched_python = set(self._find_all_python_versions())
@@ -180,8 +185,6 @@ class Finder:
                 return python_version.interpreter.as_posix()
             if self.no_same_file:
                 return python_version.binary_hash()
-            if self.resolve_symlinks and not python_version.keep_symlink:
-                return python_version.real_path.as_posix()
             return python_version.executable.as_posix()
 
         def sort_key(python_version: PythonVersion) -> tuple[int, int, int]:
@@ -194,6 +197,14 @@ class Finder:
         result: dict[str, PythonVersion] = {}
 
         for python_version in sorted(python_versions, key=sort_key):
+            if (
+                self.resolve_symlinks
+                and not python_version.keep_symlink
+                and python_version.executable.is_symlink()
+            ):
+                python_version = dataclasses.replace(
+                    python_version, executable=python_version.real_path
+                )
             key = dedup_key(python_version)
             if (
                 key not in result

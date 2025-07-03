@@ -12,7 +12,7 @@ format:
 
 # test commands
 
-TEST ?= "tests/integration_tests/"
+TEST ?= tests/
 AUTH_TEST ?= "tests/integration_tests/test_custom_auth.py"
 LANGGRAPH_HTTP ?= {"disable_mcp": false}
 LANGGRAPH_AES_KEY ?= '1234567890123456'

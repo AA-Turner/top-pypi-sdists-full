@@ -72,6 +72,7 @@ from phoenix.exceptions import PhoenixMigrationError
 from phoenix.pointcloud.umap_parameters import UMAPParameters
 from phoenix.server.api.context import Context, DataLoaders
 from phoenix.server.api.dataloaders import (
+    AnnotationConfigsByProjectDataLoader,
     AnnotationSummaryDataLoader,
     AverageExperimentRunLatencyDataLoader,
     CacheForDataLoaders,
@@ -231,6 +232,8 @@ class AppConfig(NamedTuple):
     auto_login_idp_name: Optional[str] = None
     fullstory_org: Optional[str] = None
     """ FullStory organization ID for web analytics tracking """
+    management_url: Optional[str] = None
+    """ URL for a phoenix management interface, only visible to management users """
 
 
 class Static(StaticFiles):
@@ -297,6 +300,7 @@ class Static(StaticFiles):
                     "basic_auth_disabled": self._app_config.basic_auth_disabled,
                     "auto_login_idp_name": self._app_config.auto_login_idp_name,
                     "fullstory_org": self._app_config.fullstory_org,
+                    "management_url": self._app_config.management_url,
                 },
             )
         except Exception as e:
@@ -642,6 +646,7 @@ def create_graphql_router(
             last_updated_at=last_updated_at,
             event_queue=event_queue,
             data_loaders=DataLoaders(
+                annotation_configs_by_project=AnnotationConfigsByProjectDataLoader(db),
                 average_experiment_run_latency=AverageExperimentRunLatencyDataLoader(db),
                 dataset_example_revisions=DatasetExampleRevisionsDataLoader(db),
                 dataset_example_spans=DatasetExampleSpansDataLoader(db),
@@ -847,6 +852,7 @@ def create_app(
     basic_auth_disabled: bool = False,
     bulk_inserter_factory: Optional[Callable[..., BulkInserter]] = None,
     allowed_origins: Optional[list[str]] = None,
+    management_url: Optional[str] = None,
 ) -> FastAPI:
     verify_server_environment_variables()
     if model.embedding_dimensions:
@@ -1026,6 +1032,7 @@ def create_app(
                     basic_auth_disabled=basic_auth_disabled,
                     auto_login_idp_name=auto_login_idp_name,
                     fullstory_org=Settings.fullstory_org,
+                    management_url=management_url,
                 ),
             ),
             name="static",

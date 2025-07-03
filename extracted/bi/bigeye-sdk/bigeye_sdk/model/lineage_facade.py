@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import enum
 import os
 from dataclasses import dataclass
 from typing import List, Optional, Any, TypeVar, Union
@@ -8,7 +9,7 @@ from typing import List, Optional, Any, TypeVar, Union
 from bigeye_sdk.bigconfig_validation.yaml_model_base import (
     YamlModelWithValidatorContext,
 )
-from bigeye_sdk.exceptions.exceptions import FileLoadException, FileNotFoundException
+from bigeye_sdk.exceptions.exceptions import FileLoadException, FileNotFoundException, InvalidConfigurationException
 from bigeye_sdk.generated.com.bigeye.models.generated import Table, TableColumn, DataNodeType
 from bigeye_sdk.model.protobuf_enum_facade import SimpleDataNodeType
 from bigeye_sdk.serializable import File
@@ -20,6 +21,43 @@ LINEAGE_CONFIGURATION_FILE = TypeVar(
     "LINEAGE_CONFIGURATION_FILE", bound="LineageConfigurationFile"
 )
 
+ICONS_BUCKET = "https://lineage-plus-icons.s3.us-west-2.amazonaws.com"
+
+class SimpleCustomIconType(enum.Enum):
+    CUSTOM_ICON_TYPE_FIVETRAN = f"{ICONS_BUCKET}/fivetran.svg"
+    CUSTOM_ICON_TYPE_GOOGLE_SHEETS = f"{ICONS_BUCKET}/gsheets.svg"
+    CUSTOM_ICON_TYPE_SHOPIFY = f"{ICONS_BUCKET}/shopify.svg"
+    CUSTOM_ICON_TYPE_ADOBE_ANALYTICS = f"{ICONS_BUCKET}/adobe_analytics.svg"
+    CUSTOM_ICON_TYPE_ADP = f"{ICONS_BUCKET}/adp_workforce.svg"
+    CUSTOM_ICON_TYPE_AMAZON = f"{ICONS_BUCKET}/amazon.svg"
+    CUSTOM_ICON_TYPE_GITHUB = f"{ICONS_BUCKET}/github.svg"
+    CUSTOM_ICON_TYPE_QUICKBOOKS = f"{ICONS_BUCKET}/quickbooks.svg"
+    CUSTOM_ICON_TYPE_WORKDAY = f"{ICONS_BUCKET}/workday.svg"
+    CUSTOM_ICON_TYPE_YOUTUBE_ANALYTICS = f"{ICONS_BUCKET}/youtube_analytics.svg"
+    CUSTOM_ICON_TYPE_MICROSOFT_ADVERTISING = f"{ICONS_BUCKET}/microsoft_advertising.svg"
+    CUSTOM_ICON_TYPE_MICROSOFT_D365 = f"{ICONS_BUCKET}/microsoft_d365.svg"
+    CUSTOM_ICON_TYPE_MICROSOFT_ONEDRIVE = f"{ICONS_BUCKET}/microsoft_onedrive.svg"
+    CUSTOM_ICON_TYPE_MICROSOFT_TEAMS = f"{ICONS_BUCKET}/microsoft_teams.svg"
+    CUSTOM_ICON_TYPE_PAYPAL = f"{ICONS_BUCKET}/paypal.svg"
+    CUSTOM_ICON_TYPE_SALESFORCE = f"{ICONS_BUCKET}/salesforce.svg"
+    CUSTOM_ICON_TYPE_SFTP = f"{ICONS_BUCKET}/sftp.svg"
+    CUSTOM_ICON_TYPE_SHAREPOINT = f"{ICONS_BUCKET}/sharepoint.svg"
+    CUSTOM_ICON_TYPE_GOOGLE = f"{ICONS_BUCKET}/google.svg"
+    CUSTOM_ICON_TYPE_GOOGLE_DRIVE = f"{ICONS_BUCKET}/google_drive.svg"
+    CUSTOM_ICON_TYPE_GOOGLE_SEARCH_ADS = f"{ICONS_BUCKET}/google_search_ads.svg"
+    CUSTOM_ICON_TYPE_HUBSPOT = f"{ICONS_BUCKET}/hubspot.svg"
+    CUSTOM_ICON_TYPE_INSTAGRAM = f"{ICONS_BUCKET}/instagram.svg"
+    CUSTOM_ICON_TYPE_INTERCOM = f"{ICONS_BUCKET}/intercom.svg"
+    CUSTOM_ICON_TYPE_LINKEDIN = f"{ICONS_BUCKET}/linkedin.svg"
+    CUSTOM_ICON_TYPE_JIRA = f"{ICONS_BUCKET}/atlassian_jira.svg"
+    CUSTOM_ICON_TYPE_AZURE = f"{ICONS_BUCKET}/azure.svg"
+    CUSTOM_ICON_TYPE_AZURE_STORAGE = f"{ICONS_BUCKET}/azure_storage.svg"
+    CUSTOM_ICON_TYPE_BOX = f"{ICONS_BUCKET}/box.svg"
+    CUSTOM_ICON_TYPE_DATADOG = f"{ICONS_BUCKET}/datadog.svg"
+    CUSTOM_ICON_TYPE_FTP = f"{ICONS_BUCKET}/ftp.svg"
+    CUSTOM_ICON_TYPE_GOOGLE_ADS = f"{ICONS_BUCKET}/google_ads.svg"
+    CUSTOM_ICON_TYPE_GOOGLE_ANALYTICS = f"{ICONS_BUCKET}/google_analytics.svg"
+
 
 class SimpleCustomNode(YamlModelWithValidatorContext):
     name: str
@@ -27,7 +65,17 @@ class SimpleCustomNode(YamlModelWithValidatorContext):
     data_node_id: Optional[int] = None
     container_node_id: Optional[int] = None
     node_type: DataNodeType = DataNodeType.DATA_NODE_TYPE_CUSTOM
+    node_icon: Optional[Union[str, SimpleCustomIconType]] = None
+    metadata: Optional[dict] = None
 
+    @property
+    def node_icon_url(self):
+        if isinstance(self.node_icon, SimpleCustomIconType):
+            return self.node_icon.value
+        elif self.node_icon is not None :
+            return self.node_icon
+        else:
+            return None
 
 @dataclass
 class SimpleLineageEdgeRequest:
@@ -59,8 +107,6 @@ class LineageTableOverride(YamlModelWithValidatorContext):
     column_overrides: Optional[List[LineageColumnOverride]] = None
     column_name_exclusions: Optional[List[str]] = None
     etl_task: Optional[SimpleCustomNode] = None
-    upstream_sub_table_name: Optional[str] = None
-    downstream_sub_table_name: Optional[str] = None
 
 
 class LineageConfiguration(YamlModelWithValidatorContext):
@@ -80,6 +126,10 @@ class LineageConfiguration(YamlModelWithValidatorContext):
     downstream_schema_name: str
     upstream_type: Optional[SimpleDataNodeType] = None
     downstream_type: Optional[SimpleDataNodeType] = None
+    upstream_metadata: Optional[dict] = None
+    downstream_metadata: Optional[dict] = None
+    upstream_icon_url: Optional[str] = None
+    downstream_icon_url: Optional[str] = None
     table_overrides: Optional[List[LineageTableOverride]] = None
     etl_task: Optional[SimpleCustomNode] = None
 
@@ -88,7 +138,12 @@ class LineageConfiguration(YamlModelWithValidatorContext):
         self.__verify_config()
 
     def __verify_config(self):
-        pass
+        if not self.has_custom_upstream and self.upstream_icon_url:
+            raise InvalidConfigurationException(f"Upstream node of type {self.upstream_type} cannot be configured with an icon url.")
+        if not self.has_custom_downstream and self.downstream_icon_url:
+            raise InvalidConfigurationException(f"Downstream node of type {self.downstream_type} cannot be configured with an icon url.")
+
+        return
 
     @property
     def has_custom_upstream(self):
@@ -175,20 +230,11 @@ class SimpleLineageConfigurationFile(
                             table_key = (row['upstream_table_name'], row['downstream_table_name'])
 
                             if table_key not in table_overrides:
-                                # Get the sub table names if available, otherwise use None
-                                upstream_sub_table_name = row.get('upstream_sub_table_name', '')
-                                upstream_sub_table_name = None if not upstream_sub_table_name or upstream_sub_table_name == '' else upstream_sub_table_name
-
-                                downstream_sub_table_name = row.get('downstream_sub_table_name', '')
-                                downstream_sub_table_name = None if not downstream_sub_table_name or downstream_sub_table_name == '' else downstream_sub_table_name
-
                                 table_overrides[table_key] = {
                                     'override': LineageTableOverride(
                                         upstream_table_name=row['upstream_table_name'],
                                         downstream_table_name=row['downstream_table_name'],
                                         column_overrides=[],
-                                        upstream_sub_table_name=upstream_sub_table_name,
-                                        downstream_sub_table_name=downstream_sub_table_name
                                     )
                                 }
 
@@ -208,7 +254,7 @@ class SimpleLineageConfigurationFile(
                         upstream_type=upstream_type,
                         downstream_type=downstream_type,
                         table_overrides=[override['override'] for override in
-                                         table_overrides.values()] if table_overrides else None
+                                         table_overrides.values()] if table_overrides else []
                     )
                     configurations.append(config)
 

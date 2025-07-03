@@ -3,7 +3,7 @@ import dataclasses
 import datetime
 import types
 import typing
-from typing import Dict, Optional
+from typing import Dict, Optional, AsyncIterator, TypeVar
 
 from pysqlsync.base import BaseContext, Explorer
 from pysqlsync.model.entity_types import make_entity
@@ -16,9 +16,9 @@ from strong_typing.classdef import (
 from strong_typing.core import JsonType, Schema
 from strong_typing.inspection import DataclassInstance, dataclass_fields
 
-from dap.api import DAPSession, logger
-from dap.dap_types import VersionedSchema
-from dap.replicator import canvas, canvas_logs, catalog, meta_schema
+from ..api import DAPSession, logger
+from ..dap_types import (VersionedSchema)
+from ..replicator import canvas, canvas_logs, catalog, meta_schema
 
 DEFAULT_DOWNLOAD_DIR: str = "instructure_dap_temp"
 UTC_TIMEZONE = datetime.timezone.utc
@@ -41,7 +41,7 @@ str_to_namespace = {
 
 def get_module_for_namespace(namespace: str) -> types.ModuleType:
     if namespace not in str_to_namespace:
-        raise ValueError(f"namespace {namespace} not supported")
+        raise ValueError(f"Namespace '{namespace}' is not supported. Please check the available namespaces.")
     return str_to_namespace[namespace]
 
 
@@ -139,3 +139,19 @@ def create_table_dataclass(
         schema_to_type(table_schema, module=module, class_name=table_name),
     )
     return make_entity(entity_type, key_name)
+
+
+T = TypeVar("T")
+
+class AsyncCountingIterator(AsyncIterator[T]):
+    def __init__(self, async_iter: AsyncIterator[T]):
+        self._async_iter = async_iter
+        self.count = 0
+
+    def __aiter__(self) -> AsyncIterator[T]:
+        return self
+
+    async def __anext__(self) -> T:
+        item = await self._async_iter.__anext__()
+        self.count += 1
+        return item

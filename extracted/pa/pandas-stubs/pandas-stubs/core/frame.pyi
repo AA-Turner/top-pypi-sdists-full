@@ -1,3 +1,7 @@
+from builtins import (
+    bool as _bool,
+    str as _str,
+)
 from collections.abc import (
     Callable,
     Hashable,
@@ -50,7 +54,9 @@ from pandas.core.reshape.pivot import (
     _PivotTableIndexTypes,
     _PivotTableValuesTypes,
 )
-from pandas.core.series import Series
+from pandas.core.series import (
+    Series,
+)
 from pandas.core.window import (
     Expanding,
     ExponentialMovingWindow,
@@ -66,13 +72,13 @@ from typing_extensions import (
 )
 import xarray as xr
 
-from pandas._libs.lib import NoDefault
+from pandas._libs.lib import _NoDefaultDoNotUse
 from pandas._libs.missing import NAType
 from pandas._libs.tslibs import BaseOffset
 from pandas._libs.tslibs.nattype import NaTType
 from pandas._libs.tslibs.offsets import DateOffset
 from pandas._typing import (
-    S1,
+    S2,
     AggFuncTypeBase,
     AggFuncTypeDictFrame,
     AggFuncTypeDictSeries,
@@ -157,9 +163,6 @@ from pandas._typing import (
 
 from pandas.io.formats.style import Styler
 from pandas.plotting import PlotAccessor
-
-_str = str
-_bool = bool
 
 class _iLocIndexerFrame(_iLocIndexer, Generic[_T]):
     @overload
@@ -1104,192 +1107,192 @@ class DataFrame(NDFrame, OpsMixin, _GetItemHack):
     def groupby(  # pyright: ignore reportOverlappingOverload
         self,
         by: Scalar,
-        axis: AxisIndex | NoDefault = ...,
+        axis: AxisIndex | _NoDefaultDoNotUse = ...,
         level: IndexLabel | None = ...,
         as_index: Literal[True] = True,
         sort: _bool = ...,
         group_keys: _bool = ...,
-        observed: _bool | NoDefault = ...,
+        observed: _bool | _NoDefaultDoNotUse = ...,
         dropna: _bool = ...,
     ) -> DataFrameGroupBy[Scalar, Literal[True]]: ...
     @overload
     def groupby(
         self,
         by: Scalar,
-        axis: AxisIndex | NoDefault = ...,
+        axis: AxisIndex | _NoDefaultDoNotUse = ...,
         level: IndexLabel | None = ...,
         as_index: Literal[False] = ...,
         sort: _bool = ...,
         group_keys: _bool = ...,
-        observed: _bool | NoDefault = ...,
+        observed: _bool | _NoDefaultDoNotUse = ...,
         dropna: _bool = ...,
     ) -> DataFrameGroupBy[Scalar, Literal[False]]: ...
     @overload
     def groupby(  # pyright: ignore reportOverlappingOverload
         self,
         by: DatetimeIndex,
-        axis: AxisIndex | NoDefault = ...,
+        axis: AxisIndex | _NoDefaultDoNotUse = ...,
         level: IndexLabel | None = ...,
         as_index: Literal[True] = True,
         sort: _bool = ...,
         group_keys: _bool = ...,
-        observed: _bool | NoDefault = ...,
+        observed: _bool | _NoDefaultDoNotUse = ...,
         dropna: _bool = ...,
     ) -> DataFrameGroupBy[Timestamp, Literal[True]]: ...
     @overload
     def groupby(  # pyright: ignore reportOverlappingOverload
         self,
         by: DatetimeIndex,
-        axis: AxisIndex | NoDefault = ...,
+        axis: AxisIndex | _NoDefaultDoNotUse = ...,
         level: IndexLabel | None = ...,
         as_index: Literal[False] = ...,
         sort: _bool = ...,
         group_keys: _bool = ...,
-        observed: _bool | NoDefault = ...,
+        observed: _bool | _NoDefaultDoNotUse = ...,
         dropna: _bool = ...,
     ) -> DataFrameGroupBy[Timestamp, Literal[False]]: ...
     @overload
     def groupby(  # pyright: ignore reportOverlappingOverload
         self,
         by: TimedeltaIndex,
-        axis: AxisIndex | NoDefault = ...,
+        axis: AxisIndex | _NoDefaultDoNotUse = ...,
         level: IndexLabel | None = ...,
         as_index: Literal[True] = True,
         sort: _bool = ...,
         group_keys: _bool = ...,
-        observed: _bool | NoDefault = ...,
+        observed: _bool | _NoDefaultDoNotUse = ...,
         dropna: _bool = ...,
     ) -> DataFrameGroupBy[Timedelta, Literal[True]]: ...
     @overload
     def groupby(
         self,
         by: TimedeltaIndex,
-        axis: AxisIndex | NoDefault = ...,
+        axis: AxisIndex | _NoDefaultDoNotUse = ...,
         level: IndexLabel | None = ...,
         as_index: Literal[False] = ...,
         sort: _bool = ...,
         group_keys: _bool = ...,
-        observed: _bool | NoDefault = ...,
+        observed: _bool | _NoDefaultDoNotUse = ...,
         dropna: _bool = ...,
     ) -> DataFrameGroupBy[Timedelta, Literal[False]]: ...
     @overload
     def groupby(  # pyright: ignore reportOverlappingOverload
         self,
         by: PeriodIndex,
-        axis: AxisIndex | NoDefault = ...,
+        axis: AxisIndex | _NoDefaultDoNotUse = ...,
         level: IndexLabel | None = ...,
         as_index: Literal[True] = True,
         sort: _bool = ...,
         group_keys: _bool = ...,
-        observed: _bool | NoDefault = ...,
+        observed: _bool | _NoDefaultDoNotUse = ...,
         dropna: _bool = ...,
     ) -> DataFrameGroupBy[Period, Literal[True]]: ...
     @overload
     def groupby(
         self,
         by: PeriodIndex,
-        axis: AxisIndex | NoDefault = ...,
+        axis: AxisIndex | _NoDefaultDoNotUse = ...,
         level: IndexLabel | None = ...,
         as_index: Literal[False] = ...,
         sort: _bool = ...,
         group_keys: _bool = ...,
-        observed: _bool | NoDefault = ...,
+        observed: _bool | _NoDefaultDoNotUse = ...,
         dropna: _bool = ...,
     ) -> DataFrameGroupBy[Period, Literal[False]]: ...
     @overload
     def groupby(  # pyright: ignore reportOverlappingOverload
         self,
         by: IntervalIndex[IntervalT],
-        axis: AxisIndex | NoDefault = ...,
+        axis: AxisIndex | _NoDefaultDoNotUse = ...,
         level: IndexLabel | None = ...,
         as_index: Literal[True] = True,
         sort: _bool = ...,
         group_keys: _bool = ...,
-        observed: _bool | NoDefault = ...,
+        observed: _bool | _NoDefaultDoNotUse = ...,
         dropna: _bool = ...,
     ) -> DataFrameGroupBy[IntervalT, Literal[True]]: ...
     @overload
     def groupby(
         self,
         by: IntervalIndex[IntervalT],
-        axis: AxisIndex | NoDefault = ...,
+        axis: AxisIndex | _NoDefaultDoNotUse = ...,
         level: IndexLabel | None = ...,
         as_index: Literal[False] = ...,
         sort: _bool = ...,
         group_keys: _bool = ...,
-        observed: _bool | NoDefault = ...,
+        observed: _bool | _NoDefaultDoNotUse = ...,
         dropna: _bool = ...,
     ) -> DataFrameGroupBy[IntervalT, Literal[False]]: ...
     @overload
     def groupby(  # type: ignore[overload-overlap] # pyright: ignore reportOverlappingOverload
         self,
         by: MultiIndex | GroupByObjectNonScalar | None = ...,
-        axis: AxisIndex | NoDefault = ...,
+        axis: AxisIndex | _NoDefaultDoNotUse = ...,
         level: IndexLabel | None = ...,
         as_index: Literal[True] = True,
         sort: _bool = ...,
         group_keys: _bool = ...,
-        observed: _bool | NoDefault = ...,
+        observed: _bool | _NoDefaultDoNotUse = ...,
         dropna: _bool = ...,
     ) -> DataFrameGroupBy[tuple, Literal[True]]: ...
     @overload
     def groupby(  # type: ignore[overload-overlap]
         self,
         by: MultiIndex | GroupByObjectNonScalar | None = ...,
-        axis: AxisIndex | NoDefault = ...,
+        axis: AxisIndex | _NoDefaultDoNotUse = ...,
         level: IndexLabel | None = ...,
         as_index: Literal[False] = ...,
         sort: _bool = ...,
         group_keys: _bool = ...,
-        observed: _bool | NoDefault = ...,
+        observed: _bool | _NoDefaultDoNotUse = ...,
         dropna: _bool = ...,
     ) -> DataFrameGroupBy[tuple, Literal[False]]: ...
     @overload
     def groupby(  # pyright: ignore reportOverlappingOverload
         self,
         by: Series[SeriesByT],
-        axis: AxisIndex | NoDefault = ...,
+        axis: AxisIndex | _NoDefaultDoNotUse = ...,
         level: IndexLabel | None = ...,
         as_index: Literal[True] = True,
         sort: _bool = ...,
         group_keys: _bool = ...,
-        observed: _bool | NoDefault = ...,
+        observed: _bool | _NoDefaultDoNotUse = ...,
         dropna: _bool = ...,
     ) -> DataFrameGroupBy[SeriesByT, Literal[True]]: ...
     @overload
     def groupby(
         self,
         by: Series[SeriesByT],
-        axis: AxisIndex | NoDefault = ...,
+        axis: AxisIndex | _NoDefaultDoNotUse = ...,
         level: IndexLabel | None = ...,
         as_index: Literal[False] = ...,
         sort: _bool = ...,
         group_keys: _bool = ...,
-        observed: _bool | NoDefault = ...,
+        observed: _bool | _NoDefaultDoNotUse = ...,
         dropna: _bool = ...,
     ) -> DataFrameGroupBy[SeriesByT, Literal[False]]: ...
     @overload
     def groupby(
         self,
         by: CategoricalIndex | Index | Series,
-        axis: AxisIndex | NoDefault = ...,
+        axis: AxisIndex | _NoDefaultDoNotUse = ...,
         level: IndexLabel | None = ...,
         as_index: Literal[True] = True,
         sort: _bool = ...,
         group_keys: _bool = ...,
-        observed: _bool | NoDefault = ...,
+        observed: _bool | _NoDefaultDoNotUse = ...,
         dropna: _bool = ...,
     ) -> DataFrameGroupBy[Any, Literal[True]]: ...
     @overload
     def groupby(
         self,
         by: CategoricalIndex | Index | Series,
-        axis: AxisIndex | NoDefault = ...,
+        axis: AxisIndex | _NoDefaultDoNotUse = ...,
         level: IndexLabel | None = ...,
         as_index: Literal[False] = ...,
         sort: _bool = ...,
         group_keys: _bool = ...,
-        observed: _bool | NoDefault = ...,
+        observed: _bool | _NoDefaultDoNotUse = ...,
         dropna: _bool = ...,
     ) -> DataFrameGroupBy[Any, Literal[False]]: ...
     def pivot(
@@ -1314,18 +1317,18 @@ class DataFrame(NDFrame, OpsMixin, _GetItemHack):
     ) -> Self: ...
     @overload
     def stack(
-        self, level: Level | list[Level] = ..., dropna: _bool = ..., sort: _bool = ...
-    ) -> Self | Series[Any]: ...
+        self, level: IndexLabel = ..., dropna: _bool = ..., sort: _bool = ...
+    ) -> Self | Series: ...
     @overload
     def stack(
-        self, level: Level | list[Level] = ..., future_stack: _bool = ...
-    ) -> Self | Series[Any]: ...
+        self, level: IndexLabel = ..., future_stack: _bool = ...
+    ) -> Self | Series: ...
     def explode(
         self, column: Sequence[Hashable], ignore_index: _bool = ...
     ) -> Self: ...
     def unstack(
         self,
-        level: Level = ...,
+        level: IndexLabel = ...,
         fill_value: Scalar | None = ...,
         sort: _bool = ...,
     ) -> Self | Series: ...
@@ -1379,7 +1382,7 @@ class DataFrame(NDFrame, OpsMixin, _GetItemHack):
     @overload
     def apply(
         self,
-        f: Callable[..., ListLikeExceptSeriesAndStr | Series[Any]],
+        f: Callable[..., ListLikeExceptSeriesAndStr | Series],
         axis: AxisIndex = ...,
         raw: _bool = ...,
         result_type: None = ...,
@@ -1389,13 +1392,14 @@ class DataFrame(NDFrame, OpsMixin, _GetItemHack):
     @overload
     def apply(
         self,
-        f: Callable[..., S1 | NAType],
+        # Use S2 (TypeVar without `default=Any`) instead of S1 due to https://github.com/python/mypy/issues/19182.
+        f: Callable[..., S2 | NAType],
         axis: AxisIndex = ...,
         raw: _bool = ...,
         result_type: None = ...,
         args: Any = ...,
         **kwargs: Any,
-    ) -> Series[S1]: ...
+    ) -> Series[S2]: ...
     # Since non-scalar type T is not supported in Series[T],
     # we separate this overload from the above one
     @overload
@@ -1407,24 +1411,25 @@ class DataFrame(NDFrame, OpsMixin, _GetItemHack):
         result_type: None = ...,
         args: Any = ...,
         **kwargs: Any,
-    ) -> Series[Any]: ...
+    ) -> Series: ...
 
     # apply() overloads with keyword result_type, and axis does not matter
     @overload
     def apply(
         self,
-        f: Callable[..., S1 | NAType],
+        # Use S2 (TypeVar without `default=Any`) instead of S1 due to https://github.com/python/mypy/issues/19182.
+        f: Callable[..., S2 | NAType],
         axis: Axis = ...,
         raw: _bool = ...,
         args: Any = ...,
         *,
         result_type: Literal["expand", "reduce"],
         **kwargs: Any,
-    ) -> Series[S1]: ...
+    ) -> Series[S2]: ...
     @overload
     def apply(
         self,
-        f: Callable[..., ListLikeExceptSeriesAndStr | Series[Any] | Mapping[Any, Any]],
+        f: Callable[..., ListLikeExceptSeriesAndStr | Series | Mapping[Any, Any]],
         axis: Axis = ...,
         raw: _bool = ...,
         args: Any = ...,
@@ -1442,12 +1447,12 @@ class DataFrame(NDFrame, OpsMixin, _GetItemHack):
         *,
         result_type: Literal["reduce"],
         **kwargs: Any,
-    ) -> Series[Any]: ...
+    ) -> Series: ...
     @overload
     def apply(
         self,
         f: Callable[
-            ..., ListLikeExceptSeriesAndStr | Series[Any] | Scalar | Mapping[Any, Any]
+            ..., ListLikeExceptSeriesAndStr | Series | Scalar | Mapping[Any, Any]
         ],
         axis: Axis = ...,
         raw: _bool = ...,
@@ -1461,27 +1466,28 @@ class DataFrame(NDFrame, OpsMixin, _GetItemHack):
     @overload
     def apply(
         self,
-        f: Callable[..., Series[Any]],
+        f: Callable[..., Series],
         axis: AxisIndex = ...,
         raw: _bool = ...,
         args: Any = ...,
         *,
         result_type: Literal["reduce"],
         **kwargs: Any,
-    ) -> Series[Any]: ...
+    ) -> Series: ...
 
     # apply() overloads with default result_type of None, and keyword axis=1 matters
     @overload
     def apply(
         self,
-        f: Callable[..., S1 | NAType],
+        # Use S2 (TypeVar without `default=Any`) instead of S1 due to https://github.com/python/mypy/issues/19182.
+        f: Callable[..., S2 | NAType],
         raw: _bool = ...,
         result_type: None = ...,
         args: Any = ...,
         *,
         axis: AxisColumn,
         **kwargs: Any,
-    ) -> Series[S1]: ...
+    ) -> Series[S2]: ...
     @overload
     def apply(
         self,
@@ -1492,11 +1498,11 @@ class DataFrame(NDFrame, OpsMixin, _GetItemHack):
         *,
         axis: AxisColumn,
         **kwargs: Any,
-    ) -> Series[Any]: ...
+    ) -> Series: ...
     @overload
     def apply(
         self,
-        f: Callable[..., Series[Any]],
+        f: Callable[..., Series],
         raw: _bool = ...,
         result_type: None = ...,
         args: Any = ...,
@@ -1509,7 +1515,7 @@ class DataFrame(NDFrame, OpsMixin, _GetItemHack):
     @overload
     def apply(
         self,
-        f: Callable[..., Series[Any]],
+        f: Callable[..., Series],
         raw: _bool = ...,
         args: Any = ...,
         *,
@@ -1534,7 +1540,7 @@ class DataFrame(NDFrame, OpsMixin, _GetItemHack):
     ) -> Self: ...
     def merge(
         self,
-        right: DataFrame | Series[Any],
+        right: DataFrame | Series,
         how: MergeHow = ...,
         on: IndexLabel | AnyArrayLike | None = ...,
         left_on: IndexLabel | AnyArrayLike | None = ...,
@@ -1680,6 +1686,8 @@ class DataFrame(NDFrame, OpsMixin, _GetItemHack):
     @property
     def iloc(self) -> _iLocIndexerFrame[Self]: ...
     @property
+    # mypy complains if we use Index[Any] instead of UnknownIndex here, even though
+    # the latter is aliased to the former ¯\_(ツ)_/¯.
     def index(self) -> UnknownIndex: ...
     @index.setter
     def index(self, idx: Index) -> None: ...
@@ -1982,7 +1990,6 @@ class DataFrame(NDFrame, OpsMixin, _GetItemHack):
         self,
         axis: Axis | None = ...,
         skipna: _bool | None = ...,
-        level: None = ...,
         numeric_only: _bool = ...,
         **kwargs: Any,
     ) -> Series: ...
@@ -1990,7 +1997,6 @@ class DataFrame(NDFrame, OpsMixin, _GetItemHack):
         self,
         axis: Axis | None = ...,
         skipna: _bool | None = ...,
-        level: None = ...,
         numeric_only: _bool = ...,
         **kwargs: Any,
     ) -> Series: ...
@@ -2008,7 +2014,7 @@ class DataFrame(NDFrame, OpsMixin, _GetItemHack):
             | Callable[[DataFrame], DataFrame]
             | Callable[[Any], _bool]
         ),
-        other: Scalar | Series[S1] | DataFrame | Callable | NAType | None = ...,
+        other: Scalar | Series | DataFrame | Callable | NAType | None = ...,
         *,
         inplace: Literal[True],
         axis: Axis | None = ...,
@@ -2024,7 +2030,7 @@ class DataFrame(NDFrame, OpsMixin, _GetItemHack):
             | Callable[[DataFrame], DataFrame]
             | Callable[[Any], _bool]
         ),
-        other: Scalar | Series[S1] | DataFrame | Callable | NAType | None = ...,
+        other: Scalar | Series | DataFrame | Callable | NAType | None = ...,
         *,
         inplace: Literal[False] = ...,
         axis: Axis | None = ...,
@@ -2034,7 +2040,6 @@ class DataFrame(NDFrame, OpsMixin, _GetItemHack):
         self,
         axis: Axis | None = ...,
         skipna: _bool | None = ...,
-        level: None = ...,
         numeric_only: _bool = ...,
         **kwargs: Any,
     ) -> Series: ...
@@ -2042,7 +2047,6 @@ class DataFrame(NDFrame, OpsMixin, _GetItemHack):
         self,
         axis: Axis | None = ...,
         skipna: _bool | None = ...,
-        level: None = ...,
         numeric_only: _bool = ...,
         **kwargs: Any,
     ) -> Series: ...
@@ -2145,7 +2149,7 @@ class DataFrame(NDFrame, OpsMixin, _GetItemHack):
     def reindex_like(
         self,
         other: DataFrame,
-        method: _str | FillnaOptions | Literal["nearest"] | None = ...,
+        method: FillnaOptions | Literal["nearest"] | None = ...,
         copy: _bool = ...,
         limit: int | None = ...,
         tolerance: Scalar | AnyArrayLike | Sequence[Scalar] = ...,
@@ -2268,7 +2272,7 @@ class DataFrame(NDFrame, OpsMixin, _GetItemHack):
         replace: _bool = ...,
         weights: _str | ListLike | None = ...,
         random_state: RandomState | None = ...,
-        axis: AxisIndex | None = ...,
+        axis: Axis | None = ...,
         ignore_index: _bool = ...,
     ) -> Self: ...
     def sem(
