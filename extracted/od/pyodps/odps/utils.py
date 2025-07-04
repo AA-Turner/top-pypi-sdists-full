@@ -16,6 +16,7 @@
 
 from __future__ import absolute_import, print_function
 
+import base64
 import bisect
 import calendar
 import codecs
@@ -190,6 +191,8 @@ def hmac_sha1(secret, data):
 
 
 def md5_hexdigest(data):
+    if data is None:
+        return None
     return md5(to_binary(data)).hexdigest()
 
 
@@ -792,6 +795,8 @@ def to_odps_scalar(s):
         return "NULL"
     if isinstance(s, six.string_types):
         return "'%s'" % escape_odps_string(s)
+    elif isinstance(s, (six.binary_type, bytearray)):
+        return "unbase64('%s')" % base64.b64encode(s).decode()
     elif isinstance(s, (datetime, pd_Timestamp)):
         microsec = s.microsecond
         nanosec = getattr(s, "nanosecond", 0)
@@ -1108,23 +1113,49 @@ def with_wait_argument(func):
 
 
 def split_sql_by_semicolon(sql_statement):
+    """
+    Splits a SQL statement into multiple statements based on semicolons (;).
+    The function removes standalone comments but keeps inline comments
+    within SQL statements.
+
+    :param str sql_statement: A string representing the SQL statement to be split.
+    :return: A list of cleaned SQL statements.
+
+    :Example:
+
+    >>> split_sql_by_semicolon('SELECT * FROM table1; SELECT * FROM table2')
+    ['SELECT * FROM table1;', 'SELECT * FROM table2']
+    >>> split_sql_by_semicolon('-- Comment before\\nSELECT col1 /* Inline comment */ FROM table; -- Comment after')
+    ['SELECT col1 /* Inline comment */ FROM table;']
+    """
     sql_statement = sql_statement.replace("\r\n", "\n").replace("\r", "\n")
     left_brackets = {"}": "{", "]": "[", ")": "("}
 
     def cut_statement(stmt_start, stmt_end=None):
         stmt_end = stmt_end or len(sql_statement)
-        parts = []
+        stmt_writer = compat.StringIO()
+
         left = stmt_start
+        has_statement = False
         for comm_start, comm_end in comment_blocks:
             if comm_end <= stmt_start:
                 continue
             if comm_start > stmt_end:
                 break
-            parts.append(sql_statement[left:comm_start])
+
+            segment = sql_statement[left:comm_start]
+            stmt_writer.write(segment)
+            if segment.strip():
+                has_statement = True
+
+            if has_statement:
+                stmt_writer.write(sql_statement[comm_start:comm_end])
             left = comm_end
-        parts.append(sql_statement[left:stmt_end])
-        combined_lines = "".join(parts).splitlines()
-        return "\n".join(line.rstrip() for line in combined_lines).strip()
+
+        stmt_writer.write(sql_statement[left:stmt_end])
+        return "\n".join(
+            line.rstrip() for line in stmt_writer.getvalue().splitlines()
+        ).strip()
 
     start, pos = 0, 0
     statements = []
@@ -1182,10 +1213,61 @@ def split_sql_by_semicolon(sql_statement):
             pos += 2
         else:
             pos += 1
+
+    if comment_sign == "--":
+        # standalone comment without line ending
+        comment_sign = None
+        comment_blocks.append((comment_pos, pos))
+
     part_statement = cut_statement(start)
     if part_statement and part_statement != ";":
         statements.append(part_statement)
     return statements
+
+
+def strip_backquotes(name_str):
+    name_str = name_str.strip()
+    if not name_str.startswith("`") or not name_str.endswith("`"):
+        return name_str
+    return name_str[1:-1].replace("``", "`")
+
+
+def split_backquoted(s, sep=None, maxsplit=-1):
+    if sep:
+        if "`" in sep:
+            raise ValueError("Separator cannot contain backquote")
+        seps = (sep,)
+    else:
+        seps = (" ", "\t", "\n", "\r", "\f")
+
+    results = []
+    pos = 0
+    cur_token_sio = compat.StringIO()
+    quoted = False
+    sep_len = len(sep) if sep else 1
+    while pos < len(s):
+        ch = s[pos]
+        if ch == "`":
+            quoted = not quoted
+            cur_token_sio.write(ch)
+            pos += 1
+        elif (
+            not quoted
+            and (maxsplit < 0 or len(results) < maxsplit)
+            and s[pos : pos + sep_len] in seps
+        ):
+            results.append(cur_token_sio.getvalue())
+            cur_token_sio = compat.StringIO()
+            pos += sep_len
+        else:
+            cur_token_sio.write(ch)
+            pos += 1
+    results.append(cur_token_sio.getvalue())
+    return results
+
+
+def backquote_string(s):
+    return "`%s`" % s.replace("`", "``")
 
 
 _convert_host_hash = (
@@ -1219,7 +1301,13 @@ def get_default_logview_endpoint(default_endpoint, odps_endpoint):
         return default_endpoint
 
 
-def is_job_insight_available(odps_endpoint):
+_host_end_hashes = (
+    "0a5ee4b73431f59ea08959e39fadd567",
+    "a667fa51e0b92db2378e04ae0282e2d6",
+)
+
+
+def is_job_insight_released(odps_endpoint):
     try:
         if odps_endpoint is None:
             return False
@@ -1228,12 +1316,15 @@ def is_job_insight_available(odps_endpoint):
         if parsed_host is None:
             return False
         hashed_host = md5_hexdigest(to_binary(parsed_host))
-        return hashed_host not in _convert_host_hash and (
-            parsed_host.endswith(".aliyun-inc.com")
-            or parsed_host.endswith(".aliyun.com")
-        )
+        host_tail = ".".join(parsed_host.split(".")[-2:])
+        if md5_hexdigest(host_tail) in _host_end_hashes:
+            return hashed_host not in _convert_host_hash
+        elif re.match(r"[^v]\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}", parsed_host):
+            return False
+        else:
+            return True
     except:
-        return False
+        return True
 
 
 def _import_version_function():

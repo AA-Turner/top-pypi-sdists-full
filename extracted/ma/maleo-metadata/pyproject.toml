@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "maleo-metadata"  # PyPI package name
-version = "0.1.47"
+version = "0.1.51"
 description = "MaleoMetadata service package"
 authors = [
     { name = "Agra Bima Yuda", email = "agra@nexmedis.com" }

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: av
-Version: 14.4.0
+Version: 15.0.0
 Summary: Pythonic bindings for FFmpeg's libraries.
 Author-email: WyattBlue <wyattblue@auto-editor.com>, Jeremy Lainé <jeremy.laine@m4x.org>
 License-Expression: BSD-3-Clause

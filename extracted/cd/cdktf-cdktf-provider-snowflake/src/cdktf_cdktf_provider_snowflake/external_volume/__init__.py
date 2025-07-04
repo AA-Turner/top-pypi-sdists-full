@@ -1,7 +1,7 @@
 r'''
 # `snowflake_external_volume`
 
-Refer to the Terraform Registry for docs: [`snowflake_external_volume`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_volume).
+Refer to the Terraform Registry for docs: [`snowflake_external_volume`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/external_volume).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ExternalVolume(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-snowflake.externalVolume.ExternalVolume",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_volume snowflake_external_volume}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/external_volume snowflake_external_volume}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class ExternalVolume(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_volume snowflake_external_volume} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/external_volume snowflake_external_volume} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Identifier for the external volume; must be unique for your account. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_volume#name ExternalVolume#name}
-        :param storage_location: storage_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_volume#storage_location ExternalVolume#storage_location}
-        :param allow_writes: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``default``)) Specifies whether write operations are allowed for the external volume; must be set to TRUE for Iceberg tables that use Snowflake as the catalog. Available options are: "true" or "false". When the value is not set in the configuration the provider will put "default" there which means to use the Snowflake default for this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_volume#allow_writes ExternalVolume#allow_writes}
-        :param comment: Specifies a comment for the external volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_volume#comment ExternalVolume#comment}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_volume#id ExternalVolume#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_volume#timeouts ExternalVolume#timeouts}
+        :param name: Identifier for the external volume; must be unique for your account. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/external_volume#name ExternalVolume#name}
+        :param storage_location: storage_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/external_volume#storage_location ExternalVolume#storage_location}
+        :param allow_writes: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``default``)) Specifies whether write operations are allowed for the external volume; must be set to TRUE for Iceberg tables that use Snowflake as the catalog. Available options are: "true" or "false". When the value is not set in the configuration the provider will put "default" there which means to use the Snowflake default for this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/external_volume#allow_writes ExternalVolume#allow_writes}
+        :param comment: Specifies a comment for the external volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/external_volume#comment ExternalVolume#comment}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/external_volume#id ExternalVolume#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/external_volume#timeouts ExternalVolume#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class ExternalVolume(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ExternalVolume to import.
-        :param import_from_id: The id of the existing ExternalVolume that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_volume#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ExternalVolume that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/external_volume#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ExternalVolume to import is found.
         '''
         if __debug__:
@@ -152,10 +152,10 @@ class ExternalVolume(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_volume#create ExternalVolume#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_volume#delete ExternalVolume#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_volume#read ExternalVolume#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_volume#update ExternalVolume#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/external_volume#create ExternalVolume#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/external_volume#delete ExternalVolume#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/external_volume#read ExternalVolume#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/external_volume#update ExternalVolume#update}.
         '''
         value = ExternalVolumeTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -345,12 +345,12 @@ class ExternalVolumeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Identifier for the external volume; must be unique for your account. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_volume#name ExternalVolume#name}
-        :param storage_location: storage_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_volume#storage_location ExternalVolume#storage_location}
-        :param allow_writes: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``default``)) Specifies whether write operations are allowed for the external volume; must be set to TRUE for Iceberg tables that use Snowflake as the catalog. Available options are: "true" or "false". When the value is not set in the configuration the provider will put "default" there which means to use the Snowflake default for this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_volume#allow_writes ExternalVolume#allow_writes}
-        :param comment: Specifies a comment for the external volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_volume#comment ExternalVolume#comment}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_volume#id ExternalVolume#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_volume#timeouts ExternalVolume#timeouts}
+        :param name: Identifier for the external volume; must be unique for your account. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/external_volume#name ExternalVolume#name}
+        :param storage_location: storage_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/external_volume#storage_location ExternalVolume#storage_location}
+        :param allow_writes: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``default``)) Specifies whether write operations are allowed for the external volume; must be set to TRUE for Iceberg tables that use Snowflake as the catalog. Available options are: "true" or "false". When the value is not set in the configuration the provider will put "default" there which means to use the Snowflake default for this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/external_volume#allow_writes ExternalVolume#allow_writes}
+        :param comment: Specifies a comment for the external volume. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/external_volume#comment ExternalVolume#comment}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/external_volume#id ExternalVolume#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/external_volume#timeouts ExternalVolume#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -468,7 +468,7 @@ class ExternalVolumeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         must be unique for your account. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_volume#name ExternalVolume#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/external_volume#name ExternalVolume#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -480,7 +480,7 @@ class ExternalVolumeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ExternalVolumeStorageLocation"]]:
         '''storage_location block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_volume#storage_location ExternalVolume#storage_location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/external_volume#storage_location ExternalVolume#storage_location}
         '''
         result = self._values.get("storage_location")
         assert result is not None, "Required property 'storage_location' is missing"
@@ -492,7 +492,7 @@ class ExternalVolumeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         must be set to TRUE for Iceberg tables that use Snowflake as the catalog. Available options are: "true" or "false". When the value is not set in the configuration the provider will put "default" there which means to use the Snowflake default for this value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_volume#allow_writes ExternalVolume#allow_writes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/external_volume#allow_writes ExternalVolume#allow_writes}
         '''
         result = self._values.get("allow_writes")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -501,14 +501,14 @@ class ExternalVolumeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def comment(self) -> typing.Optional[builtins.str]:
         '''Specifies a comment for the external volume.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_volume#comment ExternalVolume#comment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/external_volume#comment ExternalVolume#comment}
         '''
         result = self._values.get("comment")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_volume#id ExternalVolume#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/external_volume#id ExternalVolume#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -520,7 +520,7 @@ class ExternalVolumeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ExternalVolumeTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_volume#timeouts ExternalVolume#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/external_volume#timeouts ExternalVolume#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ExternalVolumeTimeouts"], result)
@@ -872,13 +872,13 @@ class ExternalVolumeStorageLocation:
         storage_aws_role_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param storage_base_url: Specifies the base URL for your cloud storage location. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_volume#storage_base_url ExternalVolume#storage_base_url}
-        :param storage_location_name: Name of the storage location. Must be unique for the external volume. Do not use the name ``terraform_provider_sentinel_storage_location`` - this is reserved for the provider for performing update operations. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_volume#storage_location_name ExternalVolume#storage_location_name}
-        :param storage_provider: Specifies the cloud storage provider that stores your data files. Valid values are (case-insensitive): ``GCS`` | ``AZURE`` | ``S3`` | ``S3GOV``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_volume#storage_provider ExternalVolume#storage_provider}
-        :param azure_tenant_id: Specifies the ID for your Office 365 tenant that the allowed and blocked storage accounts belong to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_volume#azure_tenant_id ExternalVolume#azure_tenant_id}
-        :param encryption_kms_key_id: Specifies the ID for the KMS-managed key used to encrypt files. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_volume#encryption_kms_key_id ExternalVolume#encryption_kms_key_id}
-        :param encryption_type: Specifies the encryption type used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_volume#encryption_type ExternalVolume#encryption_type}
-        :param storage_aws_role_arn: Specifies the case-sensitive Amazon Resource Name (ARN) of the AWS identity and access management (IAM) role that grants privileges on the S3 bucket containing your data files. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_volume#storage_aws_role_arn ExternalVolume#storage_aws_role_arn}
+        :param storage_base_url: Specifies the base URL for your cloud storage location. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/external_volume#storage_base_url ExternalVolume#storage_base_url}
+        :param storage_location_name: Name of the storage location. Must be unique for the external volume. Do not use the name ``terraform_provider_sentinel_storage_location`` - this is reserved for the provider for performing update operations. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/external_volume#storage_location_name ExternalVolume#storage_location_name}
+        :param storage_provider: Specifies the cloud storage provider that stores your data files. Valid values are (case-insensitive): ``GCS`` | ``AZURE`` | ``S3`` | ``S3GOV``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/external_volume#storage_provider ExternalVolume#storage_provider}
+        :param azure_tenant_id: Specifies the ID for your Office 365 tenant that the allowed and blocked storage accounts belong to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/external_volume#azure_tenant_id ExternalVolume#azure_tenant_id}
+        :param encryption_kms_key_id: Specifies the ID for the KMS-managed key used to encrypt files. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/external_volume#encryption_kms_key_id ExternalVolume#encryption_kms_key_id}
+        :param encryption_type: Specifies the encryption type used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/external_volume#encryption_type ExternalVolume#encryption_type}
+        :param storage_aws_role_arn: Specifies the case-sensitive Amazon Resource Name (ARN) of the AWS identity and access management (IAM) role that grants privileges on the S3 bucket containing your data files. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/external_volume#storage_aws_role_arn ExternalVolume#storage_aws_role_arn}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__daa5fc9fdfa00a3db78d47e9c415d3f00059bbf0f7c9a18741827815f6a9ee82)
@@ -907,7 +907,7 @@ class ExternalVolumeStorageLocation:
     def storage_base_url(self) -> builtins.str:
         '''Specifies the base URL for your cloud storage location.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_volume#storage_base_url ExternalVolume#storage_base_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/external_volume#storage_base_url ExternalVolume#storage_base_url}
         '''
         result = self._values.get("storage_base_url")
         assert result is not None, "Required property 'storage_base_url' is missing"
@@ -919,7 +919,7 @@ class ExternalVolumeStorageLocation:
 
         Must be unique for the external volume. Do not use the name ``terraform_provider_sentinel_storage_location`` - this is reserved for the provider for performing update operations. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_volume#storage_location_name ExternalVolume#storage_location_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/external_volume#storage_location_name ExternalVolume#storage_location_name}
         '''
         result = self._values.get("storage_location_name")
         assert result is not None, "Required property 'storage_location_name' is missing"
@@ -931,7 +931,7 @@ class ExternalVolumeStorageLocation:
 
         Valid values are (case-insensitive): ``GCS`` | ``AZURE`` | ``S3`` | ``S3GOV``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_volume#storage_provider ExternalVolume#storage_provider}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/external_volume#storage_provider ExternalVolume#storage_provider}
         '''
         result = self._values.get("storage_provider")
         assert result is not None, "Required property 'storage_provider' is missing"
@@ -941,7 +941,7 @@ class ExternalVolumeStorageLocation:
     def azure_tenant_id(self) -> typing.Optional[builtins.str]:
         '''Specifies the ID for your Office 365 tenant that the allowed and blocked storage accounts belong to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_volume#azure_tenant_id ExternalVolume#azure_tenant_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/external_volume#azure_tenant_id ExternalVolume#azure_tenant_id}
         '''
         result = self._values.get("azure_tenant_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -950,7 +950,7 @@ class ExternalVolumeStorageLocation:
     def encryption_kms_key_id(self) -> typing.Optional[builtins.str]:
         '''Specifies the ID for the KMS-managed key used to encrypt files.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_volume#encryption_kms_key_id ExternalVolume#encryption_kms_key_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/external_volume#encryption_kms_key_id ExternalVolume#encryption_kms_key_id}
         '''
         result = self._values.get("encryption_kms_key_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -959,7 +959,7 @@ class ExternalVolumeStorageLocation:
     def encryption_type(self) -> typing.Optional[builtins.str]:
         '''Specifies the encryption type used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_volume#encryption_type ExternalVolume#encryption_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/external_volume#encryption_type ExternalVolume#encryption_type}
         '''
         result = self._values.get("encryption_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -968,7 +968,7 @@ class ExternalVolumeStorageLocation:
     def storage_aws_role_arn(self) -> typing.Optional[builtins.str]:
         '''Specifies the case-sensitive Amazon Resource Name (ARN) of the AWS identity and access management (IAM) role that grants privileges on the S3 bucket containing your data files.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_volume#storage_aws_role_arn ExternalVolume#storage_aws_role_arn}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/external_volume#storage_aws_role_arn ExternalVolume#storage_aws_role_arn}
         '''
         result = self._values.get("storage_aws_role_arn")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1279,10 +1279,10 @@ class ExternalVolumeTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_volume#create ExternalVolume#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_volume#delete ExternalVolume#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_volume#read ExternalVolume#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_volume#update ExternalVolume#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/external_volume#create ExternalVolume#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/external_volume#delete ExternalVolume#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/external_volume#read ExternalVolume#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/external_volume#update ExternalVolume#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d1c0e6c6cceee4328227de5b19e96d6b30f7bc713a8bb3d88d54443f4c4ef990)
@@ -1302,25 +1302,25 @@ class ExternalVolumeTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_volume#create ExternalVolume#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/external_volume#create ExternalVolume#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_volume#delete ExternalVolume#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/external_volume#delete ExternalVolume#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_volume#read ExternalVolume#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/external_volume#read ExternalVolume#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/external_volume#update ExternalVolume#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/external_volume#update ExternalVolume#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

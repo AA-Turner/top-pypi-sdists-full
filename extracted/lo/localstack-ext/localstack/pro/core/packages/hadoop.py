@@ -5,20 +5,23 @@ from xml.etree.ElementTree import Element,SubElement,tostring
 from localstack import config
 from localstack.constants import DEFAULT_AWS_ACCOUNT_ID,MAVEN_REPO_URL
 from localstack.packages import InstallTarget,Package
-from localstack.packages.core import ArchiveDownloadAndExtractInstaller
 from localstack.pro.core.packages.bigdata_common import bigdata_jar_cache_dir,download_and_cache_jar_file
+from localstack.pro.core.packages.core import MirrorArchiveInstaller
 from localstack.pro.core.packages.cve_fixes import HTRACE_NOOP_JAR_URL,CVEFix,FixStrategyDelete,FixStrategyDownloadFile,fix_cves_in_jar_files
 from localstack.pro.core.packages.spark import AWS_SDK_VER
 from localstack.utils.files import rm_rf,save_file
-URL_PATTERN_HADOOP='https://archive.apache.org/dist/hadoop/common/hadoop-{version}/hadoop-{version}.tar.gz'
+HADOOP_MIRROR_URL='https://mirror.lyrahosting.com/apache/hadoop/common/hadoop-{version}/hadoop-{version}.tar.gz'
+HADOOP_ARCHIVE_URL='https://archive.apache.org/dist/hadoop/common/hadoop-{version}/hadoop-{version}.tar.gz'
 AWS_SDK_BUNDLE_JAR=f"aws-java-sdk-bundle-{AWS_SDK_VER}.jar"
 AWS_SDK_BUNDLE_JAR_URL=f"{MAVEN_REPO_URL}/com/amazonaws/aws-java-sdk-bundle/{AWS_SDK_VER}/{AWS_SDK_BUNDLE_JAR}"
 HADOOP_DEFAULT_VERSION='3.3.1'
 HADOOP_VERSIONS=['2.10.2','3.3.1','3.4.0']
-class HadoopInstaller(ArchiveDownloadAndExtractInstaller):
+class HadoopInstaller(MirrorArchiveInstaller):
 	def __init__(A,version):super().__init__(name=_A,version=version,extract_single_directory=True)
 	def _post_process(A,target):B=target;A._write_hadoop_config(B);A._replace_aws_sdk(B);A._apply_cve_fixes(B)
-	def _get_download_url(A):return URL_PATTERN_HADOOP.format(version=A.version)
+	def _get_primary_url(A):return HADOOP_ARCHIVE_URL.format(version=A.version)
+	def _get_mirror_url(A):return HADOOP_MIRROR_URL.format(version=A.version)
+	def _get_checksum_url(A):B=A._get_primary_url();return f"{B}.sha512"
 	def _get_install_marker_path(A,install_dir):return os.path.join(install_dir,'bin',_A)
 	def get_hadoop_home(A):return A.get_installed_dir()
 	def get_hadoop_bin(A):B=A.get_hadoop_home();return A._get_install_marker_path(B)if B else None

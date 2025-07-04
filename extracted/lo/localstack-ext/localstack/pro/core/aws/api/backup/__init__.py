@@ -37,6 +37,7 @@ Region = str
 ReportJobId = str
 ReportPlanDescription = str
 ReportPlanName = str
+RequesterComment = str
 ResourceType = str
 RestoreJobId = str
 String = str
@@ -98,6 +99,10 @@ class BackupVaultEvent(StrEnum):
     BACKUP_PLAN_MODIFIED = "BACKUP_PLAN_MODIFIED"
     S3_BACKUP_OBJECT_FAILED = "S3_BACKUP_OBJECT_FAILED"
     S3_RESTORE_OBJECT_FAILED = "S3_RESTORE_OBJECT_FAILED"
+    CONTINUOUS_BACKUP_INTERRUPTED = "CONTINUOUS_BACKUP_INTERRUPTED"
+    RECOVERY_POINT_INDEX_COMPLETED = "RECOVERY_POINT_INDEX_COMPLETED"
+    RECOVERY_POINT_INDEX_DELETED = "RECOVERY_POINT_INDEX_DELETED"
+    RECOVERY_POINT_INDEXING_FAILED = "RECOVERY_POINT_INDEXING_FAILED"
 
 
 class ConditionType(StrEnum):
@@ -145,11 +150,25 @@ class LegalHoldStatus(StrEnum):
     CANCELED = "CANCELED"
 
 
+class MpaRevokeSessionStatus(StrEnum):
+    PENDING = "PENDING"
+    FAILED = "FAILED"
+
+
+class MpaSessionStatus(StrEnum):
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    FAILED = "FAILED"
+
+
 class RecoveryPointStatus(StrEnum):
     COMPLETED = "COMPLETED"
     PARTIAL = "PARTIAL"
     DELETING = "DELETING"
     EXPIRED = "EXPIRED"
+    AVAILABLE = "AVAILABLE"
+    STOPPED = "STOPPED"
+    CREATING = "CREATING"
 
 
 class RestoreDeletionStatus(StrEnum):
@@ -209,6 +228,7 @@ class VaultState(StrEnum):
 class VaultType(StrEnum):
     BACKUP_VAULT = "BACKUP_VAULT"
     LOGICALLY_AIR_GAPPED_BACKUP_VAULT = "LOGICALLY_AIR_GAPPED_BACKUP_VAULT"
+    RESTORE_ACCESS_BACKUP_VAULT = "RESTORE_ACCESS_BACKUP_VAULT"
 
 
 class AlreadyExistsException(ServiceException):
@@ -337,6 +357,14 @@ class AdvancedBackupSetting(TypedDict, total=False):
 
 
 AdvancedBackupSettings = List[AdvancedBackupSetting]
+
+
+class AssociateBackupVaultMpaApprovalTeamInput(ServiceRequest):
+    BackupVaultName: BackupVaultName
+    MpaApprovalTeamArn: ARN
+    RequesterComment: Optional[RequesterComment]
+
+
 timestamp = datetime
 Long = int
 
@@ -942,6 +970,21 @@ class CreateReportPlanOutput(TypedDict, total=False):
     CreationTime: Optional[timestamp]
 
 
+class CreateRestoreAccessBackupVaultInput(ServiceRequest):
+    SourceBackupVaultArn: ARN
+    BackupVaultName: Optional[BackupVaultName]
+    BackupVaultTags: Optional[Tags]
+    CreatorRequestId: Optional[string]
+    RequesterComment: Optional[RequesterComment]
+
+
+class CreateRestoreAccessBackupVaultOutput(TypedDict, total=False):
+    RestoreAccessBackupVaultArn: Optional[ARN]
+    VaultState: Optional[VaultState]
+    RestoreAccessBackupVaultName: Optional[BackupVaultName]
+    CreationDate: Optional[timestamp]
+
+
 SensitiveStringMap = Dict[String, String]
 RestoreTestingRecoveryPointTypeList = List[RestoreTestingRecoveryPointType]
 
@@ -1168,6 +1211,18 @@ class DescribeBackupVaultInput(ServiceRequest):
     BackupVaultAccountId: Optional[string]
 
 
+class LatestMpaApprovalTeamUpdate(TypedDict, total=False):
+    """Contains information about the latest update to an MPA approval team
+    association.
+    """
+
+    MpaSessionArn: Optional[ARN]
+    Status: Optional[MpaSessionStatus]
+    StatusMessage: Optional[string]
+    InitiationDate: Optional[timestamp]
+    ExpiryDate: Optional[timestamp]
+
+
 class DescribeBackupVaultOutput(TypedDict, total=False):
     BackupVaultName: Optional[string]
     BackupVaultArn: Optional[ARN]
@@ -1181,6 +1236,10 @@ class DescribeBackupVaultOutput(TypedDict, total=False):
     MinRetentionDays: Optional[Long]
     MaxRetentionDays: Optional[Long]
     LockDate: Optional[timestamp]
+    SourceBackupVaultArn: Optional[ARN]
+    MpaApprovalTeamArn: Optional[ARN]
+    MpaSessionArn: Optional[ARN]
+    LatestMpaApprovalTeamUpdate: Optional[LatestMpaApprovalTeamUpdate]
 
 
 class DescribeCopyJobInput(ServiceRequest):
@@ -1252,6 +1311,7 @@ class DescribeRecoveryPointOutput(TypedDict, total=False):
     Status: Optional[RecoveryPointStatus]
     StatusMessage: Optional[string]
     CreationDate: Optional[timestamp]
+    InitiationDate: Optional[timestamp]
     CompletionDate: Optional[timestamp]
     BackupSizeInBytes: Optional[Long]
     CalculatedLifecycle: Optional[CalculatedLifecycle]
@@ -1366,6 +1426,11 @@ class DescribeRestoreJobOutput(TypedDict, total=False):
     ValidationStatusMessage: Optional[string]
     DeletionStatus: Optional[RestoreDeletionStatus]
     DeletionStatusMessage: Optional[string]
+
+
+class DisassociateBackupVaultMpaApprovalTeamInput(ServiceRequest):
+    BackupVaultName: BackupVaultName
+    RequesterComment: Optional[RequesterComment]
 
 
 class DisassociateRecoveryPointFromParentInput(ServiceRequest):
@@ -1608,6 +1673,18 @@ class IndexedRecoveryPoint(TypedDict, total=False):
 
 
 IndexedRecoveryPointList = List[IndexedRecoveryPoint]
+
+
+class LatestRevokeRequest(TypedDict, total=False):
+    """Contains information about the latest request to revoke access to a
+    backup vault.
+    """
+
+    MpaSessionArn: Optional[string]
+    Status: Optional[MpaRevokeSessionStatus]
+    StatusMessage: Optional[string]
+    InitiationDate: Optional[timestamp]
+    ExpiryDate: Optional[timestamp]
 
 
 class LegalHold(TypedDict, total=False):
@@ -1862,6 +1939,7 @@ class RecoveryPointByBackupVault(TypedDict, total=False):
     Status: Optional[RecoveryPointStatus]
     StatusMessage: Optional[string]
     CreationDate: Optional[timestamp]
+    InitiationDate: Optional[timestamp]
     CompletionDate: Optional[timestamp]
     BackupSizeInBytes: Optional[Long]
     CalculatedLifecycle: Optional[CalculatedLifecycle]
@@ -1974,6 +2052,30 @@ ReportPlanList = List[ReportPlan]
 class ListReportPlansOutput(TypedDict, total=False):
     ReportPlans: Optional[ReportPlanList]
     NextToken: Optional[string]
+
+
+class ListRestoreAccessBackupVaultsInput(ServiceRequest):
+    BackupVaultName: BackupVaultName
+    NextToken: Optional[string]
+    MaxResults: Optional[MaxResults]
+
+
+class RestoreAccessBackupVaultListMember(TypedDict, total=False):
+    """Contains information about a restore access backup vault."""
+
+    RestoreAccessBackupVaultArn: Optional[ARN]
+    CreationDate: Optional[timestamp]
+    ApprovalDate: Optional[timestamp]
+    VaultState: Optional[VaultState]
+    LatestRevokeRequest: Optional[LatestRevokeRequest]
+
+
+RestoreAccessBackupVaultList = List[RestoreAccessBackupVaultListMember]
+
+
+class ListRestoreAccessBackupVaultsOutput(TypedDict, total=False):
+    NextToken: Optional[string]
+    RestoreAccessBackupVaults: Optional[RestoreAccessBackupVaultList]
 
 
 class ListRestoreJobSummariesInput(ServiceRequest):
@@ -2176,6 +2278,12 @@ class RestoreTestingSelectionForUpdate(TypedDict, total=False):
     ValidationWindowHours: Optional[integer]
 
 
+class RevokeRestoreAccessBackupVaultInput(ServiceRequest):
+    BackupVaultName: BackupVaultName
+    RestoreAccessBackupVaultArn: ARN
+    RequesterComment: Optional[RequesterComment]
+
+
 class StartBackupJobInput(ServiceRequest):
     BackupVaultName: BackupVaultName
     ResourceArn: ARN
@@ -2355,6 +2463,29 @@ class UpdateRestoreTestingSelectionOutput(TypedDict, total=False):
 class BackupApi:
     service = "backup"
     version = "2018-11-15"
+
+    @handler("AssociateBackupVaultMpaApprovalTeam")
+    def associate_backup_vault_mpa_approval_team(
+        self,
+        context: RequestContext,
+        backup_vault_name: BackupVaultName,
+        mpa_approval_team_arn: ARN,
+        requester_comment: RequesterComment | None = None,
+        **kwargs,
+    ) -> None:
+        """Associates an MPA approval team with a backup vault.
+
+        :param backup_vault_name: The name of the backup vault to associate with the MPA approval team.
+        :param mpa_approval_team_arn: The Amazon Resource Name (ARN) of the MPA approval team to associate
+        with the backup vault.
+        :param requester_comment: A comment provided by the requester explaining the association request.
+        :raises ResourceNotFoundException:
+        :raises InvalidParameterValueException:
+        :raises MissingParameterValueException:
+        :raises InvalidRequestException:
+        :raises ServiceUnavailableException:
+        """
+        raise NotImplementedError
 
     @handler("CancelLegalHold")
     def cancel_legal_hold(
@@ -2604,6 +2735,40 @@ class BackupApi:
         :raises InvalidParameterValueException:
         :raises ServiceUnavailableException:
         :raises MissingParameterValueException:
+        """
+        raise NotImplementedError
+
+    @handler("CreateRestoreAccessBackupVault")
+    def create_restore_access_backup_vault(
+        self,
+        context: RequestContext,
+        source_backup_vault_arn: ARN,
+        backup_vault_name: BackupVaultName | None = None,
+        backup_vault_tags: Tags | None = None,
+        creator_request_id: string | None = None,
+        requester_comment: RequesterComment | None = None,
+        **kwargs,
+    ) -> CreateRestoreAccessBackupVaultOutput:
+        """Creates a restore access backup vault that provides temporary access to
+        recovery points in a logically air-gapped backup vault, subject to MPA
+        approval.
+
+        :param source_backup_vault_arn: The ARN of the source backup vault containing the recovery points to
+        which temporary access is requested.
+        :param backup_vault_name: The name of the backup vault to associate with an MPA approval team.
+        :param backup_vault_tags: Optional tags to assign to the restore access backup vault.
+        :param creator_request_id: A unique string that identifies the request and allows failed requests
+        to be retried without the risk of executing the operation twice.
+        :param requester_comment: A comment explaining the reason for requesting restore access to the
+        backup vault.
+        :returns: CreateRestoreAccessBackupVaultOutput
+        :raises AlreadyExistsException:
+        :raises InvalidParameterValueException:
+        :raises LimitExceededException:
+        :raises MissingParameterValueException:
+        :raises ResourceNotFoundException:
+        :raises InvalidRequestException:
+        :raises ServiceUnavailableException:
         """
         raise NotImplementedError
 
@@ -3083,6 +3248,29 @@ class BackupApi:
         :raises MissingParameterValueException:
         :raises ServiceUnavailableException:
         :raises DependencyFailureException:
+        """
+        raise NotImplementedError
+
+    @handler("DisassociateBackupVaultMpaApprovalTeam")
+    def disassociate_backup_vault_mpa_approval_team(
+        self,
+        context: RequestContext,
+        backup_vault_name: BackupVaultName,
+        requester_comment: RequesterComment | None = None,
+        **kwargs,
+    ) -> None:
+        """Removes the association between an MPA approval team and a backup vault,
+        disabling the MPA approval workflow for restore operations.
+
+        :param backup_vault_name: The name of the backup vault from which to disassociate the MPA approval
+        team.
+        :param requester_comment: An optional comment explaining the reason for disassociating the MPA
+        approval team from the backup vault.
+        :raises ResourceNotFoundException:
+        :raises InvalidParameterValueException:
+        :raises MissingParameterValueException:
+        :raises InvalidRequestException:
+        :raises ServiceUnavailableException:
         """
         raise NotImplementedError
 
@@ -4052,6 +4240,31 @@ class BackupApi:
         """
         raise NotImplementedError
 
+    @handler("ListRestoreAccessBackupVaults")
+    def list_restore_access_backup_vaults(
+        self,
+        context: RequestContext,
+        backup_vault_name: BackupVaultName,
+        next_token: string | None = None,
+        max_results: MaxResults | None = None,
+        **kwargs,
+    ) -> ListRestoreAccessBackupVaultsOutput:
+        """Returns a list of restore access backup vaults associated with a
+        specified backup vault.
+
+        :param backup_vault_name: The name of the backup vault for which to list associated restore access
+        backup vaults.
+        :param next_token: The pagination token from a previous request to retrieve the next set of
+        results.
+        :param max_results: The maximum number of items to return in the response.
+        :returns: ListRestoreAccessBackupVaultsOutput
+        :raises ResourceNotFoundException:
+        :raises InvalidParameterValueException:
+        :raises MissingParameterValueException:
+        :raises ServiceUnavailableException:
+        """
+        raise NotImplementedError
+
     @handler("ListRestoreJobSummaries")
     def list_restore_job_summaries(
         self,
@@ -4248,6 +4461,22 @@ class BackupApi:
         """Returns the tags assigned to the resource, such as a target recovery
         point, backup plan, or backup vault.
 
+        This operation returns results depending on the resource type used in
+        the value for ``resourceArn``. For example, recovery points of Amazon
+        DynamoDB with Advanced Settings have an ARN (Amazon Resource Name) that
+        begins with ``arn:aws:backup``. Recovery points (backups) of DynamoDB
+        without Advanced Settings enabled have an ARN that begins with
+        ``arn:aws:dynamodb``.
+
+        When this operation is called and when you include values of
+        ``resourceArn`` that have an ARN other than ``arn:aws:backup``, it may
+        return one of the exceptions listed below. To prevent this exception,
+        include only values representing resource types that are fully managed
+        by Backup. These have an ARN that begins ``arn:aws:backup`` and they are
+        noted in the `Feature availability by
+        resource <https://docs.aws.amazon.com/aws-backup/latest/devguide/backup-feature-availability.html#features-by-resource>`__
+        table.
+
         :param resource_arn: An Amazon Resource Name (ARN) that uniquely identifies a resource.
         :param next_token: The next item following a partial list of returned items.
         :param max_results: The maximum number of items to be returned.
@@ -4369,6 +4598,31 @@ class BackupApi:
         :raises MissingParameterValueException:
         :raises ResourceNotFoundException:
         :raises ServiceUnavailableException:
+        """
+        raise NotImplementedError
+
+    @handler("RevokeRestoreAccessBackupVault")
+    def revoke_restore_access_backup_vault(
+        self,
+        context: RequestContext,
+        backup_vault_name: BackupVaultName,
+        restore_access_backup_vault_arn: ARN,
+        requester_comment: RequesterComment | None = None,
+        **kwargs,
+    ) -> None:
+        """Revokes access to a restore access backup vault, removing the ability to
+        restore from its recovery points and permanently deleting the vault.
+
+        :param backup_vault_name: The name of the source backup vault associated with the restore access
+        backup vault to be revoked.
+        :param restore_access_backup_vault_arn: The ARN of the restore access backup vault to revoke.
+        :param requester_comment: A comment explaining the reason for revoking access to the restore
+        access backup vault.
+        :raises ResourceNotFoundException:
+        :raises MissingParameterValueException:
+        :raises ServiceUnavailableException:
+        :raises InvalidParameterValueException:
+        :raises InvalidRequestException:
         """
         raise NotImplementedError
 
@@ -4544,10 +4798,25 @@ class BackupApi:
     def stop_backup_job(self, context: RequestContext, backup_job_id: string, **kwargs) -> None:
         """Attempts to cancel a job to create a one-time backup of a resource.
 
-        This action is not supported for the following services: Amazon FSx for
-        Windows File Server, Amazon FSx for Lustre, Amazon FSx for NetApp ONTAP,
-        Amazon FSx for OpenZFS, Amazon DocumentDB (with MongoDB compatibility),
-        Amazon RDS, Amazon Aurora, and Amazon Neptune.
+        This action is not supported for the following services:
+
+        -  Amazon Aurora
+
+        -  Amazon DocumentDB (with MongoDB compatibility)
+
+        -  Amazon FSx for Lustre
+
+        -  Amazon FSx for NetApp ONTAP
+
+        -  Amazon FSx for OpenZFS
+
+        -  Amazon FSx for Windows File Server
+
+        -  Amazon Neptune
+
+        -  SAP HANA databases on Amazon EC2 instances
+
+        -  Amazon RDS
 
         :param backup_job_id: Uniquely identifies a request to Backup to back up a resource.
         :raises MissingParameterValueException:
@@ -4562,14 +4831,9 @@ class BackupApi:
     def tag_resource(
         self, context: RequestContext, resource_arn: ARN, tags: Tags, **kwargs
     ) -> None:
-        """Assigns a set of key-value pairs to a recovery point, backup plan, or
-        backup vault identified by an Amazon Resource Name (ARN).
+        """Assigns a set of key-value pairs to a resource.
 
-        This API is supported for recovery points for resource types including
-        Aurora, Amazon DocumentDB. Amazon EBS, Amazon FSx, Neptune, and Amazon
-        RDS.
-
-        :param resource_arn: An ARN that uniquely identifies a resource.
+        :param resource_arn: The ARN that uniquely identifies the resource.
         :param tags: Key-value pairs that are used to help organize your resources.
         :raises ResourceNotFoundException:
         :raises InvalidParameterValueException:

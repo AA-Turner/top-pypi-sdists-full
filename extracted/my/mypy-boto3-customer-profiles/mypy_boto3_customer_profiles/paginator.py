@@ -19,6 +19,7 @@ Usage::
         ListObjectTypeAttributesPaginator,
         ListRuleBasedMatchesPaginator,
         ListSegmentDefinitionsPaginator,
+        ListUploadJobsPaginator,
     )
 
     session = Session()
@@ -31,6 +32,7 @@ Usage::
     list_object_type_attributes_paginator: ListObjectTypeAttributesPaginator = client.get_paginator("list_object_type_attributes")
     list_rule_based_matches_paginator: ListRuleBasedMatchesPaginator = client.get_paginator("list_rule_based_matches")
     list_segment_definitions_paginator: ListSegmentDefinitionsPaginator = client.get_paginator("list_segment_definitions")
+    list_upload_jobs_paginator: ListUploadJobsPaginator = client.get_paginator("list_upload_jobs")
     ```
 """
 
@@ -56,6 +58,8 @@ from .type_defs import (
     ListRuleBasedMatchesResponseTypeDef,
     ListSegmentDefinitionsRequestPaginateTypeDef,
     ListSegmentDefinitionsResponseTypeDef,
+    ListUploadJobsRequestPaginateTypeDef,
+    ListUploadJobsResponseTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -72,6 +76,7 @@ __all__ = (
     "ListObjectTypeAttributesPaginator",
     "ListRuleBasedMatchesPaginator",
     "ListSegmentDefinitionsPaginator",
+    "ListUploadJobsPaginator",
 )
 
 
@@ -219,4 +224,25 @@ class ListSegmentDefinitionsPaginator(_ListSegmentDefinitionsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/paginator/ListSegmentDefinitions.html#CustomerProfiles.Paginator.ListSegmentDefinitions.paginate)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_customer_profiles/paginators/#listsegmentdefinitionspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListUploadJobsPaginatorBase = Paginator[ListUploadJobsResponseTypeDef]
+else:
+    _ListUploadJobsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListUploadJobsPaginator(_ListUploadJobsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/paginator/ListUploadJobs.html#CustomerProfiles.Paginator.ListUploadJobs)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_customer_profiles/paginators/#listuploadjobspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListUploadJobsRequestPaginateTypeDef]
+    ) -> PageIterator[ListUploadJobsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/paginator/ListUploadJobs.html#CustomerProfiles.Paginator.ListUploadJobs.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_customer_profiles/paginators/#listuploadjobspaginator)
         """

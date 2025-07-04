@@ -56,8 +56,14 @@ use crate::types::types::Var;
 
 /// Compactly represents the identity of a binding, for the purposes of
 /// understanding the calculation stack.
-#[derive(Debug, Clone, Dupe)]
+#[derive(Clone, Dupe)]
 pub struct CalcId(pub Bindings, pub AnyIdx);
+
+impl Debug for CalcId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "CalcId({}, {:?})", self.0.module_info().name(), self.1)
+    }
+}
 
 impl PartialEq for CalcId {
     fn eq(&self, other: &Self) -> bool {
@@ -167,14 +173,16 @@ pub struct Cycle {
 impl Cycle {
     fn new(raw: Vec1<CalcId>) -> Self {
         let detected_at = raw.first().dupe();
-        let (split_at, break_at) = raw.iter().enumerate().min_by_key(|(_, c)| *c).unwrap();
-        if *break_at != detected_at {
-            let (before, at_and_after) = raw.split_at(split_at);
+        let (i_break_at, break_at) = raw.iter().enumerate().min_by_key(|(_, c)| *c).unwrap();
+        let cycle = if *break_at != detected_at {
+            // Split so that `break_at` is the final item in `before`, so that it will wind up at the
+            // bottom of the unwind stack.
+            let (before_and_at, after) = raw.split_at(i_break_at + 1);
             // The raw cycle is in order of recency (current key at the front, entrypoint at the top). This means:
             // - The recursion stack is already in the right order (older frames we will re-encounter at the top)
             // - The unwind stack has to be flipped so that newer frames are at the top
-            let unwind_stack = before.iter().rev().duped().collect();
-            let recursion_stack = at_and_after.iter().duped().collect();
+            let unwind_stack = before_and_at.iter().rev().duped().collect();
+            let recursion_stack = after.iter().duped().collect();
             Cycle {
                 break_at: break_at.dupe(),
                 recursion_stack,
@@ -182,14 +190,86 @@ impl Cycle {
                 detected_at,
             }
         } else {
-            // Short circuit the recursion if we're already at `break_at`
-            let unwind_stack = raw.iter().rev().duped().collect();
+            // Short circuit the recursion if we're already at `break_at`. Make sure that `break_at` is
+            // at the bottom rather than the top of the `unwind_stack` by 'rotating' the iterator one position.
+            let unwind_stack = raw
+                .iter()
+                .skip(1)
+                .chain(raw.iter().take(1))
+                .rev()
+                .duped()
+                .collect();
             Cycle {
                 break_at: break_at.dupe(),
                 recursion_stack: Vec::new(),
                 unwind_stack,
                 detected_at,
             }
+        };
+        assert!(
+            cycle
+                .unwind_stack
+                .first()
+                .is_some_and(|calc_id| *calc_id == cycle.break_at),
+            "The bottom of the unwind stack should always be `break_at`."
+        );
+        cycle
+    }
+
+    /// Do a pre-calculation check, to handle progress recurively traversing
+    /// the cycle until we reach the second instance of `break_at`.
+    ///
+    /// For each cycle participant we encounter, we move it from the
+    /// `recursion_stack` to the `unwind_stack`.
+    ///
+    /// This check only occurs for the most recently detected cycle (i.e.
+    fn pre_calculate_state(&mut self, current: &CalcId) -> CycleState {
+        if *current == self.break_at {
+            CycleState::BreakAt
+        } else if let Some(c) = self.recursion_stack.last()
+            && *current == *c
+        {
+            let c = self.recursion_stack.pop().unwrap();
+            self.unwind_stack.push(c);
+            CycleState::Participant
+        } else {
+            CycleState::NoDetectedCycle
+        }
+    }
+
+    /// Do a post-calculation check, to track progress unwinding the cycle
+    /// back toward the `break_at` as we produce final results.
+    ///
+    /// TODO(stroxler): This check currently only occurs for the most
+    /// recently detected cycle, but this is actually a bug; cycles can
+    /// overlap in arbitrary ways.
+    fn on_calculation_finished(&mut self, current: &CalcId) -> CycleState {
+        if let Some(c) = self.unwind_stack.last() {
+            if current == c {
+                // This is part of the cycle; remove it from the unwind stack.
+                self.unwind_stack.pop();
+                // This is part of the cycle; remove it from the unwind stack.
+                // Check whether this is the break point (we finished the cycle)
+                // or this is an ordinary participant and we have more unwinding
+                // to do.
+                if *current == self.break_at {
+                    CycleState::BreakAt
+                } else {
+                    CycleState::Participant
+                }
+            } else {
+                // There is an active cycle, but the current idx is not participating.
+                //
+                // This case is hit when any cycle participant computes solving additional
+                // dependencies that aren't part of the active cycle.
+                CycleState::NoDetectedCycle
+            }
+        } else {
+            // There is an active cycle, but the current idx is not participating.
+            //
+            // This case is hit if `break_at` computes additional dependencies that aren't
+            // part of the active cycle.
+            CycleState::NoDetectedCycle
         }
     }
 }
@@ -250,54 +330,61 @@ impl Cycles {
         res
     }
 
-    fn on_cycle_completed(&self) {
-        self.0.borrow_mut().pop();
-    }
-
     fn pre_calculate_state(&self, current: &CalcId) -> CycleState {
-        if let Some(active_cycle) = self.0.borrow_mut().last_mut()
-            && let Some(c) = active_cycle.recursion_stack.last()
-            && *current == *c
-        {
-            let c = active_cycle.recursion_stack.pop().unwrap();
-            if active_cycle.recursion_stack.is_empty() {
-                CycleState::BreakAt
-            } else {
-                active_cycle.unwind_stack.push(c);
-                CycleState::Participant
-            }
+        if let Some(active_cycle) = self.0.borrow_mut().last_mut() {
+            active_cycle.pre_calculate_state(current)
         } else {
             CycleState::NoDetectedCycle
         }
     }
 
-    fn post_calculate_state(&self, current: &CalcId) -> CycleState {
-        if let Some(active_cycle) = self.0.borrow_mut().last_mut() {
-            if let Some(c) = active_cycle.unwind_stack.last() {
-                if current == c {
-                    // This is a participant; remove it from the unwind stack.
-                    active_cycle.unwind_stack.pop();
-                    CycleState::Participant
-                } else {
-                    // There is an active cycle, but the current idx is not participating.
-                    //
-                    // This case is hit when any cycle participant computes solving additional
-                    // dependencies that aren't part of the active cycle.
-                    CycleState::NoDetectedCycle
-                }
-            } else if *current == active_cycle.break_at {
-                // We just finished the cycle, time to wrap up
-                CycleState::BreakAt
-            } else {
-                // There is an active cycle, but the current idx is not participating.
-                //
-                // This case is hit if `break_at` computes additional dependencies that aren't
-                // part of the active cycle.
-                CycleState::NoDetectedCycle
-            }
+    /// Handle the completion of a calculation. This might involve progress on
+    /// the unwind stack of one or more cycles.
+    ///
+    /// TODO(stroxler): We currently only look at the most recently detected cycle,
+    /// which is incorrect; we may need to unwind multiple cycles.
+    ///
+    /// Return `true` if there are active cycles after finishing this calculation,
+    /// `false` if there are not.
+    fn on_calculation_finished(&self, current: &CalcId) -> bool {
+        let mut stack = self.0.borrow_mut();
+        let state = if let Some(active_cycle) = stack.last_mut() {
+            active_cycle.on_calculation_finished(current)
         } else {
-            // If the cycle stack is empty, we can't be in a cycle :)
             CycleState::NoDetectedCycle
+        };
+        match state {
+            CycleState::BreakAt => {
+                stack.pop();
+                !stack.is_empty()
+            }
+            CycleState::Participant => true,
+            CycleState::NoDetectedCycle => false,
+        }
+    }
+}
+
+/// Represents thread-local state for the current `AnswersSolver` and any
+/// `AnswersSolver`s waiting for the results that we are currently computing.
+///
+/// This state is initially created by some top-level `AnswersSolver` - when
+/// we're calculating results for bindings, we started at either:
+/// - a solver that is type-checking some module end-to-end, or
+/// - an ad-hoc solver (used in some LSP functionality) solving one specific binding
+///
+/// We'll create a new `AnswersSolver` will change every time we switch modules,
+/// which happens as we resolve types of imported names, but when this happens
+/// we always pass the current `ThreadState`.
+pub struct ThreadState {
+    cycles: Cycles,
+    stack: CalcStack,
+}
+
+impl ThreadState {
+    pub fn new() -> Self {
+        Self {
+            cycles: Cycles::new(),
+            stack: CalcStack::new(),
         }
     }
 }
@@ -305,8 +392,7 @@ impl Cycles {
 pub struct AnswersSolver<'a, Ans: LookupAnswer> {
     answers: &'a Ans,
     current: &'a Answers,
-    stack: &'a CalcStack,
-    cycles: &'a Cycles,
+    thread_state: &'a ThreadState,
     // The base solver is only used to reset the error collector at binding
     // boundaries. Answers code should generally use the error collector passed
     // along the call stack instead.
@@ -328,8 +414,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         uniques: &'a UniqueFactory,
         recurser: &'a Recurser<Var>,
         stdlib: &'a Stdlib,
-        stack: &'a CalcStack,
-        cycles: &'a Cycles,
+        thread_state: &'a ThreadState,
     ) -> AnswersSolver<'a, Ans> {
         AnswersSolver {
             stdlib,
@@ -340,8 +425,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             exports,
             recurser,
             current,
-            stack,
-            cycles,
+            thread_state,
         }
     }
 
@@ -362,7 +446,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     pub fn stack(&self) -> &CalcStack {
-        self.stack
+        &self.thread_state.stack
+    }
+
+    fn cycles(&self) -> &Cycles {
+        &self.thread_state.cycles
     }
 
     pub fn for_display(&self, t: Type) -> Type {
@@ -380,14 +468,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     {
         let current = CalcId(self.bindings().dupe(), K::to_anyidx(idx));
         let calculation = self.get_calculation(idx);
-        self.stack.push(current.dupe());
-        let result = match self.cycles.pre_calculate_state(&current) {
+        self.stack().push(current.dupe());
+        let result = match self.cycles().pre_calculate_state(&current) {
             CycleState::NoDetectedCycle => match calculation.propose_calculation() {
                 ProposalResult::Calculated(v) => v,
                 ProposalResult::CycleBroken(r) => Arc::new(K::promote_recursive(r)),
                 ProposalResult::CycleDetected => {
-                    let current_cycle = self.stack.current_cycle().unwrap();
-                    let break_immediately = self.cycles.on_cycle_detected(current_cycle);
+                    let current_cycle = self.stack().current_cycle().unwrap();
+                    let break_immediately = self.cycles().on_cycle_detected(current_cycle);
                     if break_immediately {
                         self.attempt_to_unwind_cycle_from_here(idx, calculation)
                             .unwrap_or_else(|r| Arc::new(K::promote_recursive(r)))
@@ -416,12 +504,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         self.calculate_and_record_answer(current, idx, calculation)
                     }
                     // Short circuit if another thread has already written an answer or recursive placeholder.
-                    ProposalResult::Calculated(v) => v,
-                    ProposalResult::CycleBroken(r) => Arc::new(K::promote_recursive(r)),
+                    //
+                    // In either case, we needs to treat this as if we finished a calculation to preserve
+                    // the fidelity of the unwind stack.
+                    ProposalResult::Calculated(v) => {
+                        self.cycles().on_calculation_finished(&current);
+                        v
+                    }
+                    ProposalResult::CycleBroken(r) => {
+                        self.cycles().on_calculation_finished(&current);
+                        Arc::new(K::promote_recursive(r))
+                    }
                 }
             }
         };
-        self.stack.pop();
+        self.stack().pop();
         result
     }
 
@@ -449,16 +546,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             K::record_recursive(self, k, &v, r, self.base_errors);
         }
         // Handle cycle unwinding, if applicable.
-        match self.cycles.post_calculate_state(&current) {
-            CycleState::NoDetectedCycle => {}
-            CycleState::Participant => {
-                // TODO: at some point we'll want refactor so that at least some results in a cycle
-                // are isolated until we finish (otherwise we can get data races pinning `Var`s).
-            }
-            CycleState::BreakAt => {
-                self.cycles.on_cycle_completed();
-            }
-        }
+        //
+        // TODO(stroxler): we eventually need to use is-a-cycle-active information to isolate
+        // placeholder values.
+        self.cycles().on_calculation_finished(&current);
         v
     }
 
@@ -511,7 +602,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         {
             self.get(k)
         } else {
-            self.answers.get(module, path, k, self.stack, self.cycles)
+            self.answers.get(module, path, k, self.thread_state)
         }
     }
 

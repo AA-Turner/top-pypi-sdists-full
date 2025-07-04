@@ -24,6 +24,8 @@ EntryPointArgument = str
 EntryPointPath = str
 HiveCliParameters = str
 IAMRoleArn = str
+IdentityCenterApplicationArn = str
+IdentityCenterInstanceArn = str
 ImageDigest = str
 ImageUri = str
 InitScriptPath = str
@@ -47,6 +49,7 @@ RequestIdentityUserArn = str
 ResourceArn = str
 RetryPolicyMaxFailedAttemptsPerHourInteger = int
 SecurityGroupString = str
+ShutdownGracePeriodInSeconds = int
 SparkSubmitParameters = str
 String1024 = str
 String256 = str
@@ -134,6 +137,15 @@ class ValidationException(ServiceException):
     code: str = "ValidationException"
     sender_fault: bool = True
     status_code: int = 400
+
+
+class IdentityCenterConfiguration(TypedDict, total=False):
+    """The IAM Identity Center Configuration that includes the Identify Center
+    instance and application ARNs that provide trusted-identity propagation.
+    """
+
+    identityCenterInstanceArn: Optional[IdentityCenterInstanceArn]
+    identityCenterApplicationArn: Optional[IdentityCenterApplicationArn]
 
 
 class SchedulerConfiguration(TypedDict, total=False):
@@ -323,6 +335,7 @@ Application = TypedDict(
         "monitoringConfiguration": Optional[MonitoringConfiguration],
         "interactiveConfiguration": Optional[InteractiveConfiguration],
         "schedulerConfiguration": Optional[SchedulerConfiguration],
+        "identityCenterConfiguration": Optional[IdentityCenterConfiguration],
     },
     total=False,
 )
@@ -349,6 +362,7 @@ ApplicationStateSet = List[ApplicationState]
 class CancelJobRunRequest(ServiceRequest):
     applicationId: ApplicationId
     jobRunId: JobRunId
+    shutdownGracePeriodInSeconds: Optional[ShutdownGracePeriodInSeconds]
 
 
 class CancelJobRunResponse(TypedDict, total=False):
@@ -363,6 +377,16 @@ class ConfigurationOverrides(TypedDict, total=False):
 
     applicationConfiguration: Optional[ConfigurationList]
     monitoringConfiguration: Optional[MonitoringConfiguration]
+
+
+class IdentityCenterConfigurationInput(TypedDict, total=False):
+    """Specifies the IAM Identity Center configuration used to enable or
+    disable trusted identity propagation. When provided, this configuration
+    determines how the application interacts with IAM Identity Center for
+    user authentication and access control.
+    """
+
+    identityCenterInstanceArn: Optional[IdentityCenterInstanceArn]
 
 
 class ImageConfigurationInput(TypedDict, total=False):
@@ -398,6 +422,7 @@ CreateApplicationRequest = TypedDict(
         "monitoringConfiguration": Optional[MonitoringConfiguration],
         "interactiveConfiguration": Optional[InteractiveConfiguration],
         "schedulerConfiguration": Optional[SchedulerConfiguration],
+        "identityCenterConfiguration": Optional[IdentityCenterConfigurationInput],
     },
     total=False,
 )
@@ -498,6 +523,19 @@ class JobDriver(TypedDict, total=False):
     hive: Optional[Hive]
 
 
+PolicyArnList = List[Arn]
+
+
+class JobRunExecutionIamPolicy(TypedDict, total=False):
+    """Optional IAM policy. The resulting job IAM role permissions will be an
+    intersection of the policies passed and the policy associated with your
+    job execution role.
+    """
+
+    policy: Optional[PolicyDocument]
+    policyArns: Optional[PolicyArnList]
+
+
 class JobRun(TypedDict, total=False):
     """Information about a job run. A job run is a unit of work, such as a
     Spark JAR, Hive query, or SparkSQL query, that you submit to an Amazon
@@ -512,6 +550,7 @@ class JobRun(TypedDict, total=False):
     createdAt: Date
     updatedAt: Date
     executionRole: IAMRoleArn
+    executionIamPolicy: Optional[JobRunExecutionIamPolicy]
     state: JobRunState
     stateDetails: String256
     releaseLabel: ReleaseLabel
@@ -559,19 +598,6 @@ JobRunAttemptSummary = TypedDict(
     total=False,
 )
 JobRunAttempts = List[JobRunAttemptSummary]
-PolicyArnList = List[Arn]
-
-
-class JobRunExecutionIamPolicy(TypedDict, total=False):
-    """Optional IAM policy. The resulting job IAM role permissions will be an
-    intersection of the policies passed and the policy associated with your
-    job execution role.
-    """
-
-    policy: Optional[PolicyDocument]
-    policyArns: Optional[PolicyArnList]
-
-
 JobRunStateSet = List[JobRunState]
 JobRunSummary = TypedDict(
     "JobRunSummary",
@@ -717,6 +743,7 @@ class UpdateApplicationRequest(ServiceRequest):
     runtimeConfiguration: Optional[ConfigurationList]
     monitoringConfiguration: Optional[MonitoringConfiguration]
     schedulerConfiguration: Optional[SchedulerConfiguration]
+    identityCenterConfiguration: Optional[IdentityCenterConfigurationInput]
 
 
 class UpdateApplicationResponse(TypedDict, total=False):
@@ -729,12 +756,19 @@ class EmrServerlessApi:
 
     @handler("CancelJobRun")
     def cancel_job_run(
-        self, context: RequestContext, application_id: ApplicationId, job_run_id: JobRunId, **kwargs
+        self,
+        context: RequestContext,
+        application_id: ApplicationId,
+        job_run_id: JobRunId,
+        shutdown_grace_period_in_seconds: ShutdownGracePeriodInSeconds | None = None,
+        **kwargs,
     ) -> CancelJobRunResponse:
         """Cancels a job run.
 
         :param application_id: The ID of the application on which the job run will be canceled.
         :param job_run_id: The ID of the job run to cancel.
+        :param shutdown_grace_period_in_seconds: The duration in seconds to wait before forcefully terminating the job
+        after cancellation is requested.
         :returns: CancelJobRunResponse
         :raises ValidationException:
         :raises InternalServerException:
@@ -771,6 +805,8 @@ class EmrServerlessApi:
         cases to use when running an application.
         :param scheduler_configuration: The scheduler configuration for batch and streaming jobs running on this
         application.
+        :param identity_center_configuration: The IAM Identity Center Configuration accepts the Identity Center
+        instance parameter required to enable trusted identity propagation.
         :returns: CreateApplicationResponse
         :raises ValidationException:
         :raises InternalServerException:
@@ -1074,6 +1110,7 @@ class EmrServerlessApi:
         runtime_configuration: ConfigurationList | None = None,
         monitoring_configuration: MonitoringConfiguration | None = None,
         scheduler_configuration: SchedulerConfiguration | None = None,
+        identity_center_configuration: IdentityCenterConfigurationInput | None = None,
         **kwargs,
     ) -> UpdateApplicationResponse:
         """Updates a specified application. An application has to be in a stopped
@@ -1100,6 +1137,8 @@ class EmrServerlessApi:
         :param monitoring_configuration: The configuration setting for monitoring.
         :param scheduler_configuration: The scheduler configuration for batch and streaming jobs running on this
         application.
+        :param identity_center_configuration: Specifies the IAM Identity Center configuration used to enable or
+        disable trusted identity propagation.
         :returns: UpdateApplicationResponse
         :raises ValidationException:
         :raises InternalServerException:

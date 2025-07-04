@@ -11,6 +11,7 @@ AdapterPage = str
 AdapterVersion = str
 AdapterVersionStatusMessage = str
 AmazonResourceName = str
+Angle = float
 ClientRequestToken = str
 ErrorCode = str
 Float = float
@@ -602,6 +603,7 @@ class Geometry(TypedDict, total=False):
 
     BoundingBox: Optional[BoundingBox]
     Polygon: Optional[Polygon]
+    RotationAngle: Optional[Angle]
 
 
 class Block(TypedDict, total=False):
@@ -2110,10 +2112,10 @@ class TextractApi:
         S3 bucket. Use DocumentLocation to specify the bucket name and file name
         of the document.
 
-        ``StartTextDetection`` returns a job identifier (``JobId``) that you use
-        to get the results of the operation. When text detection is finished,
-        Amazon Textract publishes a completion status to the Amazon Simple
-        Notification Service (Amazon SNS) topic that you specify in
+        ``StartDocumentTextDetection`` returns a job identifier (``JobId``) that
+        you use to get the results of the operation. When text detection is
+        finished, Amazon Textract publishes a completion status to the Amazon
+        Simple Notification Service (Amazon SNS) topic that you specify in
         ``NotificationChannel``. To get the results of the text detection
         operation, first check that the status value published to the Amazon SNS
         topic is ``SUCCEEDED``. If so, call GetDocumentTextDetection, and pass

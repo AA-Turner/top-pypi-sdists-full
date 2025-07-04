@@ -155,6 +155,11 @@ class RetryAction(StrEnum):
     EXIT = "EXIT"
 
 
+class UserdataType(StrEnum):
+    EKS_BOOTSTRAP_SH = "EKS_BOOTSTRAP_SH"
+    EKS_NODEADM = "EKS_NODEADM"
+
+
 class ClientException(ServiceException):
     """These errors are usually caused by a client action. One example cause is
     using an action or resource on behalf of a user that doesn't have
@@ -346,6 +351,7 @@ class LaunchTemplateSpecificationOverride(TypedDict, total=False):
     launchTemplateName: Optional[String]
     version: Optional[String]
     targetInstanceTypes: Optional[StringList]
+    userdataType: Optional[UserdataType]
 
 
 LaunchTemplateSpecificationOverrideList = List[LaunchTemplateSpecificationOverride]
@@ -369,6 +375,7 @@ class LaunchTemplateSpecification(TypedDict, total=False):
     launchTemplateName: Optional[String]
     version: Optional[String]
     overrides: Optional[LaunchTemplateSpecificationOverrideList]
+    userdataType: Optional[UserdataType]
 
 
 TagsMap = Dict[String, String]

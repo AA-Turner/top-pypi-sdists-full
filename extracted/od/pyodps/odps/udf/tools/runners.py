@@ -1,4 +1,4 @@
-# Copyright 1999-2024 Alibaba Group Holding Ltd.
+# Copyright 1999-2025 Alibaba Group Holding Ltd.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""UDF runners implementing the local run framework."""
+"""
+UDF runners implementing the local test framework. NOT ACTUAL udf runners.
+"""
 
 import csv
 import re
@@ -21,7 +23,7 @@ import sys
 from ... import distcache
 from ... import types as odps_types
 from ... import udf
-from ...utils import to_date, to_milliseconds
+from ...utils import split_backquoted, to_date, to_milliseconds
 from . import utils
 
 __all__ = ["get_csv_runner", "get_table_runner"]
@@ -216,7 +218,7 @@ def _get_table_or_partition(odps_entry, table_desc):
     table_names = []
     table_part = None
     table_cols = None
-    for part in table_desc.split("."):
+    for part in split_backquoted(table_desc, "."):
         part = part.strip()
         if not _table_bracket_re.match(part):
             table_names.append(part)

@@ -4,9 +4,9 @@ _I='neptune'
 _H='transfer'
 _G='mediastore'
 _F='elasticache'
-_E='apigatewayv2'
-_D='apigateway'
-_C='athena'
+_E='athena'
+_D='apigatewayv2'
+_C='apigateway'
 _B='rds'
 _A='s3'
 import logging,os
@@ -20,8 +20,8 @@ from localstack.runtime import hooks
 from localstack.runtime.exceptions import LocalstackExit
 from localstack.utils.bootstrap import API_DEPENDENCIES,Container,get_enabled_apis,get_preloaded_services
 LOG=logging.getLogger(__name__)
-EXTERNAL_PORT_APIS=_D,_E,_C,'cloudfront','codecommit','ecs','ecr',_F,_G,_B,_H,'kafka',_I
-API_DEPENDENCIES.update({'amplify':[_A,'appsync','cognito'],_D:[_E],_C:[_A],'backup':[_A],'docdb':[_B],'ecs':['ecr'],_F:['ec2'],'elb':['elbv2'],'emr':[_C,_A],'glacier':[_A],'glue':[_A,'iam'],'iot':['iotanalytics','iot-data','iotwireless'],'kinesisanalytics':['kinesis','dynamodb'],_I:[_B],_B:['rds-data'],_G:['mediastore-data'],'redshift':['redshift-data'],'timestream':['timestream-write','timestream-query'],_H:[_A]})
+EXTERNAL_PORT_APIS=_C,_D,_E,'cloudfront','codecommit','ecs','ecr',_F,_G,_B,_H,'kafka',_I
+API_DEPENDENCIES.update({'amplify':[_A,'appsync','cognito'],_C:[_D],_D:[_C],_E:[_A],'backup':[_A],'docdb':[_B],'ecs':['ecr'],_F:['ec2'],'elb':['elbv2'],'emr':[_E,_A],'glacier':[_A],'glue':[_A,'iam'],'iot':['iotanalytics','iot-data','iotwireless'],'kinesisanalytics':['kinesis','dynamodb'],_I:[_B],_B:['rds-data'],_G:['mediastore-data'],'redshift':['redshift-data'],'timestream':['timestream-write','timestream-query'],_H:[_A]})
 get_enabled_apis.cache_clear()
 get_preloaded_services.cache_clear()
 def modify_gateway_listen_config(cfg):

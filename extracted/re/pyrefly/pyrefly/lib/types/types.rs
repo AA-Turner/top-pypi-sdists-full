@@ -26,7 +26,6 @@ use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use vec1::Vec1;
 
-use crate::types::callable::BoolKeywords;
 use crate::types::callable::Callable;
 use crate::types::callable::FuncMetadata;
 use crate::types::callable::Function;
@@ -37,6 +36,8 @@ use crate::types::callable::Params;
 use crate::types::class::Class;
 use crate::types::class::ClassKind;
 use crate::types::class::ClassType;
+use crate::types::keywords::DataclassTransformKeywords;
+use crate::types::keywords::KwCall;
 use crate::types::literal::Lit;
 use crate::types::module::Module;
 use crate::types::param_spec::ParamSpec;
@@ -348,7 +349,6 @@ pub enum CalleeKind {
     Callable,
     Function(FunctionKind),
     Class(ClassKind),
-    DataclassTransformDecorator(BoolKeywords),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -646,10 +646,9 @@ pub enum Type {
     /// typing.Self with the class definition it appears in. We store the latter as a ClassType
     /// because of how often we need the type of an instance of the class.
     SelfType(ClassType),
-    /// The result of a `typing.dataclass_transform` call. When used as a decorator, it marks
-    /// whatever it is applied to as having special dataclass-like semantics. See
-    /// https://typing.python.org/en/latest/spec/dataclasses.html#specification.
-    DataclassTransformDecorator(Box<(BoolKeywords, Type)>),
+    /// Wraps the result of a function call whose keyword arguments have typing effects, like
+    /// `typing.dataclass_transform(...)`.
+    KwCall(Box<KwCall>),
     None,
 }
 
@@ -691,7 +690,7 @@ impl Visit for Type {
             Type::TypeAlias(x) => x.visit(f),
             Type::SuperInstance(x) => x.visit(f),
             Type::SelfType(x) => x.visit(f),
-            Type::DataclassTransformDecorator(x) => x.visit(f),
+            Type::KwCall(x) => x.visit(f),
             Type::None => {}
         }
     }
@@ -735,7 +734,7 @@ impl VisitMut for Type {
             Type::TypeAlias(x) => x.visit_mut(f),
             Type::SuperInstance(x) => x.visit_mut(f),
             Type::SelfType(x) => x.visit_mut(f),
-            Type::DataclassTransformDecorator(x) => x.visit_mut(f),
+            Type::KwCall(x) => x.visit_mut(f),
             Type::None => {}
         }
     }
@@ -926,9 +925,7 @@ impl Type {
             Type::ClassDef(c) => Some(CalleeKind::Class(c.kind())),
             Type::Forall(forall) => forall.body.clone().as_type().callee_kind(),
             Type::Overload(overload) => Some(CalleeKind::Function(overload.metadata.kind.clone())),
-            Type::DataclassTransformDecorator(dec) => {
-                Some(CalleeKind::DataclassTransformDecorator((dec.0).clone()))
-            }
+            Type::KwCall(call) => call.return_ty.callee_kind(),
             _ => None,
         }
     }
@@ -1046,7 +1043,7 @@ impl Type {
         self.check_func_metadata(&|meta| meta.flags.has_final_decoration)
     }
 
-    pub fn dataclass_transform_metadata(&self) -> Option<BoolKeywords> {
+    pub fn dataclass_transform_metadata(&self) -> Option<DataclassTransformKeywords> {
         self.check_func_metadata(&|meta| meta.flags.dataclass_transform_metadata.clone())
     }
 

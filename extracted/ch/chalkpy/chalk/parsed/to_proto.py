@@ -509,12 +509,13 @@ class ToProtoConverter:
             if path_elem.parent.is_has_many:
                 converted.df.ClearField("optional_columns")
                 converted.df.ClearField("required_columns")
-                # Selecting only the foreign feature to match
+                # Selecting only the foreign features to match
                 # https://github.com/chalk-ai/chalk-private/blob/a480c8518ee2f4c3a97250741a3513167ab650ae/chalkruntime/chalkruntime/loader/converter.py#L517
-                if path_elem.parent.foreign_join_key is None:
+                if len(path_elem.parent.foreign_join_keys) == 0:
                     raise ValueError(f"has-many feature '{path_elem.parent.fqn}' missing `foreign_join_key` annotation")
-                converted.df.optional_columns.append(
-                    ToProtoConverter.create_feature_reference(path_elem.parent.foreign_join_key)
+                converted.df.optional_columns.extend(
+                    ToProtoConverter.create_feature_reference(foreign_join_key)
+                    for foreign_join_key in path_elem.parent.foreign_join_keys
                 )
             path.append(converted)
 

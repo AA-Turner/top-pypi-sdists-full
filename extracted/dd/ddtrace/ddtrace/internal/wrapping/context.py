@@ -1,6 +1,7 @@
 from abc import ABC
 from contextvars import ContextVar
 from inspect import iscoroutinefunction
+from inspect import isgeneratorfunction
 import sys
 from types import FrameType
 from types import FunctionType
@@ -230,11 +231,14 @@ elif sys.version_info >= (3, 10):
 
     CONTEXT_RETURN.parse(
         r"""
+            pop_block
             load_const                  {context}
             load_method                 $__return__
             rot_three
             rot_three
             call_method                 1
+            rot_two
+            pop_top
         """
     )
 
@@ -258,11 +262,14 @@ elif sys.version_info >= (3, 9):
 
     CONTEXT_RETURN.parse(
         r"""
+            pop_block
             load_const                  {context}
             load_method                 $__return__
             rot_three
             rot_three
             call_method                 1
+            rot_two
+            pop_top
         """
     )
 
@@ -671,9 +678,9 @@ class _UniversalWrappingContext(BaseWrappingContext):
                     pass
                 i += 1
 
-            # Search for the GEN_START instruction
+            # Search for the GEN_START instruction, which needs to stay on top.
             i = 0
-            if sys.version_info >= (3, 10) and iscoroutinefunction(f):
+            if sys.version_info >= (3, 10) and (iscoroutinefunction(f) or isgeneratorfunction(f)):
                 for i, instr in enumerate(bc, 1):
                     try:
                         if instr.name == "GEN_START":

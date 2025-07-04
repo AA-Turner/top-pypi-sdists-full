@@ -81,6 +81,7 @@ from fireworks.control_plane.generated.protos_grpcio.gateway.batch_inference_job
 from fireworks.llm.chat_completion import ChatCompletion, Chat
 from fireworks.llm.completion import Completion
 from fireworks.llm.metrics import Metrics
+from fireworks.llm.responses import Responses
 
 # Type checking imports to avoid circular imports
 if TYPE_CHECKING:
@@ -192,9 +193,10 @@ class LLM:
         self._model = model
         self.chat = Chat(self, self.model)
         self.completions = Completion(self)
+        self.max_retries = max_retries
+        self.responses = Responses(self)
         self.deployment_type: DeploymentTypeLiteral = deployment_type
         self.deployment_strategy = self._compute_deployment_strategy()
-        self.max_retries = max_retries
         self.enable_metrics = enable_metrics
         self._metrics = Metrics()
 

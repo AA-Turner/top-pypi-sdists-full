@@ -1,7 +1,4 @@
 # coding: utf-8
-# Copyright 2025 Daytona Platforms Inc.
-# SPDX-License-Identifier: Apache-2.0
-
 
 """
     Daytona
@@ -25,7 +22,7 @@ from setuptools import setup, find_packages  # noqa: H301
 # prerequisite: setuptools
 # http://pypi.python.org/pypi/setuptools
 NAME = "daytona_api_client"
-VERSION = "0.21.0"
+VERSION = "0.21.7"
 PYTHON_REQUIRES = ">= 3.8"
 REQUIRES = [
     "urllib3 >= 1.25.3, < 3.0.0",

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: prowler
-Version: 5.7.5
+Version: 5.8.0
 Summary: Prowler is an Open Source security tool to perform AWS, GCP and Azure security best practices assessments, audits, incident response, continuous monitoring, hardening and forensics readiness. It contains hundreds of controls covering CIS, NIST 800, NIST CSF, CISA, RBI, FedRAMP, PCI-DSS, GDPR, HIPAA, FFIEC, SOC2, GXP, AWS Well-Architected Framework Security Pillar, AWS Foundational Technical Review (FTR), ENS (Spanish National Security Scheme) and your custom security frameworks.
 License: Apache-2.0
 Author: Toni de la Fuente
@@ -21,6 +21,7 @@ Requires-Dist: azure-mgmt-compute (==34.0.0)
 Requires-Dist: azure-mgmt-containerregistry (==12.0.0)
 Requires-Dist: azure-mgmt-containerservice (==34.1.0)
 Requires-Dist: azure-mgmt-cosmosdb (==9.7.0)
+Requires-Dist: azure-mgmt-databricks (==2.0.0)
 Requires-Dist: azure-mgmt-keyvault (==10.3.1)
 Requires-Dist: azure-mgmt-monitor (==6.0.2)
 Requires-Dist: azure-mgmt-network (==28.1.0)
@@ -33,8 +34,9 @@ Requires-Dist: azure-mgmt-storage (==22.1.1)
 Requires-Dist: azure-mgmt-subscription (==3.1.1)
 Requires-Dist: azure-mgmt-web (==8.0.0)
 Requires-Dist: azure-storage-blob (==12.24.1)
-Requires-Dist: boto3 (==1.35.99)
+Requires-Dist: boto3 (==1.35.49)
 Requires-Dist: botocore (==1.35.99)
+Requires-Dist: checkov (==3.2.445)
 Requires-Dist: colorama (==0.4.6)
 Requires-Dist: cryptography (==44.0.1)
 Requires-Dist: dash (==2.18.2)
@@ -48,12 +50,13 @@ Requires-Dist: microsoft-kiota-abstractions (==1.9.2)
 Requires-Dist: msgraph-sdk (==1.23.0)
 Requires-Dist: numpy (==2.0.2)
 Requires-Dist: pandas (==2.2.3)
-Requires-Dist: py-ocsf-models (==0.3.1)
-Requires-Dist: pydantic (==1.10.21)
+Requires-Dist: py-iam-expand (==0.1.0)
+Requires-Dist: py-ocsf-models (==0.5.0)
+Requires-Dist: pydantic (>=2.0,<3.0)
 Requires-Dist: pygithub (==2.5.0)
 Requires-Dist: python-dateutil (>=2.9.0.post0,<3.0.0)
 Requires-Dist: pytz (==2025.1)
-Requires-Dist: schema (==0.7.7)
+Requires-Dist: schema (==0.7.5)
 Requires-Dist: shodan (==1.31.0)
 Requires-Dist: slack-sdk (==3.34.0)
 Requires-Dist: tabulate (==0.9.0)
@@ -69,7 +72,7 @@ Description-Content-Type: text/markdown
   <img align="center" src="https://github.com/prowler-cloud/prowler/blob/master/docs/img/prowler-logo-white.png#gh-dark-mode-only" width="50%" height="50%">
 </p>
 <p align="center">
-  <b><i>Prowler Open Source</b> is as dynamic and adaptable as the environment it secures. It is trusted by the industry leaders to uphold the highest standards in security.
+  <b><i>Prowler</b> is the Open Cloud Security platform trusted by thousands to automate security and compliance in any cloud environment. With hundreds of ready-to-use checks and compliance frameworks, Prowler delivers real-time, customizable monitoring and seamless integrations, making cloud security simple, scalable, and cost-effective for organizations of any size.
 </p>
 <p align="center">
 <b>Learn more at <a href="https://prowler.com">prowler.com</i></b>
@@ -152,21 +155,27 @@ prowler dashboard
 
 | Provider | Checks | Services | [Compliance Frameworks](https://docs.prowler.com/projects/prowler-open-source/en/latest/tutorials/compliance/) | [Categories](https://docs.prowler.com/projects/prowler-open-source/en/latest/tutorials/misc/#categories) |
 |---|---|---|---|---|
-| AWS | 564 | 82 | 34 | 10 |
-| GCP | 79 | 13 | 7 | 3 |
-| Azure | 140 | 18 | 8 | 3 |
-| Kubernetes | 83 | 7 | 4 | 7 |
-| GitHub | 3 | 2 | 1 | 0 |
-| M365 | 44 | 2 | 2 | 0 |
+| AWS | 567 | 82 | 36 | 10 |
+| GCP | 79 | 13 | 10 | 3 |
+| Azure | 142 | 18 | 10 | 3 |
+| Kubernetes | 83 | 7 | 5 | 7 |
+| GitHub | 16 | 2 | 1 | 0 |
+| M365 | 69 | 7 | 3 | 2 |
 | NHN (Unofficial) | 6 | 2 | 1 | 0 |
 
+> [!Note]
+> The numbers in the table are updated periodically.
+
+> [!Tip]
+> For the most accurate and up-to-date information about checks, services, frameworks, and categories, visit [**Prowler Hub**](https://hub.prowler.com).
+
+> [!Note]
 > Use the following commands to list Prowler's available checks, services, compliance frameworks, and categories: `prowler <provider> --list-checks`, `prowler <provider> --list-services`, `prowler <provider> --list-compliance` and `prowler <provider> --list-categories`.
 
 # 💻 Installation
 
 ## Prowler App
 
-Installing Prowler App
 Prowler App offers flexible installation methods tailored to various environments:
 
 > For detailed instructions on using Prowler App, refer to the [Prowler App Usage Guide](https://docs.prowler.com/projects/prowler-open-source/en/latest/tutorials/prowler-app/).

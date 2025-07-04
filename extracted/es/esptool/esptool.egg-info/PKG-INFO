@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: esptool
-Version: 4.9.0
-Summary: A serial utility to communicate & flash code to Espressif chips.
+Version: 5.0.0
+Summary: A serial utility for flashing, provisioning, and interacting with Espressif SoCs.
 Author: Fredrik Ahlberg (themadinventor), Angus Gratton (projectgus), Espressif Systems
 License: GPLv2+
 Project-URL: Homepage, https://github.com/espressif/esptool/
@@ -18,24 +18,21 @@ Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Topic :: Software Development :: Embedded Systems
 Classifier: Environment :: Console
 Classifier: License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.7
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: bitstring!=4.2.0,>=3.1.6
-Requires-Dist: cryptography>=2.1.4
-Requires-Dist: ecdsa>=0.16.0
+Requires-Dist: cryptography>=43.0.0
 Requires-Dist: pyserial>=3.3
 Requires-Dist: reedsolo<1.8,>=1.5.3
 Requires-Dist: PyYAML>=5.1
 Requires-Dist: intelhex
-Requires-Dist: argcomplete>=3; sys_platform != "win32"
+Requires-Dist: rich_click
+Requires-Dist: click<8.2.0
 Provides-Extra: dev
 Requires-Dist: pyelftools; extra == "dev"
 Requires-Dist: coverage~=6.0; extra == "dev"
@@ -43,28 +40,31 @@ Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-rerunfailures; extra == "dev"
 Requires-Dist: requests; extra == "dev"
-Requires-Dist: commitizen; extra == "dev"
+Requires-Dist: czespressif; extra == "dev"
 Provides-Extra: hsm
 Requires-Dist: python-pkcs11; extra == "hsm"
+Provides-Extra: docs
+Requires-Dist: esp-docs~=1.10; extra == "docs"
+Requires-Dist: sphinx-tabs; extra == "docs"
 Dynamic: license-file
 
-# esptool.py
+# esptool
 
-A Python-based, open-source, platform-independent utility to communicate with the ROM bootloader in Espressif chips.
+A Python-based, open-source, platform-independent serial utility for flashing, provisioning, and interacting with Espressif SoCs.
 
 [![Test esptool](https://github.com/espressif/esptool/actions/workflows/test_esptool.yml/badge.svg?branch=master)](https://github.com/espressif/esptool/actions/workflows/test_esptool.yml) [![Build esptool](https://github.com/espressif/esptool/actions/workflows/build_esptool.yml/badge.svg?branch=master)](https://github.com/espressif/esptool/actions/workflows/build_esptool.yml)
 
 ## Documentation
 
-Visit the [documentation](https://docs.espressif.com/projects/esptool/) or run `esptool.py -h`.
+Visit the [documentation](https://docs.espressif.com/projects/esptool/) or run `esptool -h`.
 
 ## Contribute
 
-If you're interested in contributing to esptool.py, please check the [contributions guide](https://docs.espressif.com/projects/esptool/en/latest/contributing.html).
+If you're interested in contributing to esptool, please check the [contributions guide](https://docs.espressif.com/projects/esptool/en/latest/contributing.html).
 
 ## About
 
-esptool.py was initially created by Fredrik Ahlberg (@[themadinventor](https://github.com/themadinventor/)), and later maintained by Angus Gratton (@[projectgus](https://github.com/projectgus/)). It is now supported by Espressif Systems. It has also received improvements from many members of the community.
+esptool was initially created by Fredrik Ahlberg (@[themadinventor](https://github.com/themadinventor/)), and later maintained by Angus Gratton (@[projectgus](https://github.com/projectgus/)). It is now supported by Espressif Systems. It has also received improvements from many members of the community.
 
 ## License
 

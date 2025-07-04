@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pyone
-Version: 6.10.4
+Version: 7.0.0
 Summary: Python Bindings for OpenNebula XML-RPC API
 Home-page: http://opennebula.io
 Author: Rafael del Valle

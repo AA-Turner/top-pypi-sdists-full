@@ -1,7 +1,7 @@
 r'''
 # `snowflake_authentication_policy`
 
-Refer to the Terraform Registry for docs: [`snowflake_authentication_policy`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/authentication_policy).
+Refer to the Terraform Registry for docs: [`snowflake_authentication_policy`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/authentication_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AuthenticationPolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-snowflake.authenticationPolicy.AuthenticationPolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/authentication_policy snowflake_authentication_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/authentication_policy snowflake_authentication_policy}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class AuthenticationPolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/authentication_policy snowflake_authentication_policy} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/authentication_policy snowflake_authentication_policy} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param database: The database in which to create the authentication policy. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/authentication_policy#database AuthenticationPolicy#database}
-        :param name: Specifies the identifier for the authentication policy. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/authentication_policy#name AuthenticationPolicy#name}
-        :param schema: The schema in which to create the authentication policy. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/authentication_policy#schema AuthenticationPolicy#schema}
-        :param authentication_methods: A list of authentication methods that are allowed during login. This parameter accepts one or more of the following values: ``ALL`` | ``SAML`` | ``PASSWORD`` | ``OAUTH`` | ``KEYPAIR`` Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/authentication_policy#authentication_methods AuthenticationPolicy#authentication_methods}
-        :param client_types: A list of clients that can authenticate with Snowflake. If a client tries to connect, and the client is not one of the valid CLIENT_TYPES, then the login attempt fails. Allowed values are ``ALL`` | ``SNOWFLAKE_UI`` | ``DRIVERS`` | ``SNOWSQL``. The CLIENT_TYPES property of an authentication policy is a best effort method to block user logins based on specific clients. It should not be used as the sole control to establish a security boundary. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/authentication_policy#client_types AuthenticationPolicy#client_types}
-        :param comment: Specifies a comment for the authentication policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/authentication_policy#comment AuthenticationPolicy#comment}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/authentication_policy#id AuthenticationPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param mfa_authentication_methods: A list of authentication methods that enforce multi-factor authentication (MFA) during login. Authentication methods not listed in this parameter do not prompt for multi-factor authentication. Allowed values are ``ALL`` | ``SAML`` | ``PASSWORD``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/authentication_policy#mfa_authentication_methods AuthenticationPolicy#mfa_authentication_methods}
-        :param mfa_enrollment: (Default: ``OPTIONAL``) Determines whether a user must enroll in multi-factor authentication. Allowed values are REQUIRED and OPTIONAL. When REQUIRED is specified, Enforces users to enroll in MFA. If this value is used, then the CLIENT_TYPES parameter must include SNOWFLAKE_UI, because Snowsight is the only place users can enroll in multi-factor authentication (MFA). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/authentication_policy#mfa_enrollment AuthenticationPolicy#mfa_enrollment}
-        :param security_integrations: A list of security integrations the authentication policy is associated with. This parameter has no effect when SAML or OAUTH are not in the AUTHENTICATION_METHODS list. All values in the SECURITY_INTEGRATIONS list must be compatible with the values in the AUTHENTICATION_METHODS list. For example, if SECURITY_INTEGRATIONS contains a SAML security integration, and AUTHENTICATION_METHODS contains OAUTH, then you cannot create the authentication policy. To allow all security integrations use ALL as parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/authentication_policy#security_integrations AuthenticationPolicy#security_integrations}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/authentication_policy#timeouts AuthenticationPolicy#timeouts}
+        :param database: The database in which to create the authentication policy. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/authentication_policy#database AuthenticationPolicy#database}
+        :param name: Specifies the identifier for the authentication policy. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/authentication_policy#name AuthenticationPolicy#name}
+        :param schema: The schema in which to create the authentication policy. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/authentication_policy#schema AuthenticationPolicy#schema}
+        :param authentication_methods: A list of authentication methods that are allowed during login. This parameter accepts one or more of the following values: ``ALL`` | ``SAML`` | ``PASSWORD`` | ``OAUTH`` | ``KEYPAIR`` Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/authentication_policy#authentication_methods AuthenticationPolicy#authentication_methods}
+        :param client_types: A list of clients that can authenticate with Snowflake. If a client tries to connect, and the client is not one of the valid CLIENT_TYPES, then the login attempt fails. Allowed values are ``ALL`` | ``SNOWFLAKE_UI`` | ``DRIVERS`` | ``SNOWSQL``. The CLIENT_TYPES property of an authentication policy is a best effort method to block user logins based on specific clients. It should not be used as the sole control to establish a security boundary. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/authentication_policy#client_types AuthenticationPolicy#client_types}
+        :param comment: Specifies a comment for the authentication policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/authentication_policy#comment AuthenticationPolicy#comment}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/authentication_policy#id AuthenticationPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param mfa_authentication_methods: A list of authentication methods that enforce multi-factor authentication (MFA) during login. Authentication methods not listed in this parameter do not prompt for multi-factor authentication. Allowed values are ``ALL`` | ``SAML`` | ``PASSWORD``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/authentication_policy#mfa_authentication_methods AuthenticationPolicy#mfa_authentication_methods}
+        :param mfa_enrollment: (Default: ``OPTIONAL``) Determines whether a user must enroll in multi-factor authentication. Allowed values are REQUIRED and OPTIONAL. When REQUIRED is specified, Enforces users to enroll in MFA. If this value is used, then the CLIENT_TYPES parameter must include SNOWFLAKE_UI, because Snowsight is the only place users can enroll in multi-factor authentication (MFA). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/authentication_policy#mfa_enrollment AuthenticationPolicy#mfa_enrollment}
+        :param security_integrations: A list of security integrations the authentication policy is associated with. This parameter has no effect when SAML or OAUTH are not in the AUTHENTICATION_METHODS list. All values in the SECURITY_INTEGRATIONS list must be compatible with the values in the AUTHENTICATION_METHODS list. For example, if SECURITY_INTEGRATIONS contains a SAML security integration, and AUTHENTICATION_METHODS contains OAUTH, then you cannot create the authentication policy. To allow all security integrations use ALL as parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/authentication_policy#security_integrations AuthenticationPolicy#security_integrations}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/authentication_policy#timeouts AuthenticationPolicy#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class AuthenticationPolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AuthenticationPolicy to import.
-        :param import_from_id: The id of the existing AuthenticationPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/authentication_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AuthenticationPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/authentication_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AuthenticationPolicy to import is found.
         '''
         if __debug__:
@@ -154,10 +154,10 @@ class AuthenticationPolicy(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/authentication_policy#create AuthenticationPolicy#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/authentication_policy#delete AuthenticationPolicy#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/authentication_policy#read AuthenticationPolicy#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/authentication_policy#update AuthenticationPolicy#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/authentication_policy#create AuthenticationPolicy#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/authentication_policy#delete AuthenticationPolicy#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/authentication_policy#read AuthenticationPolicy#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/authentication_policy#update AuthenticationPolicy#update}.
         '''
         value = AuthenticationPolicyTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -467,17 +467,17 @@ class AuthenticationPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param database: The database in which to create the authentication policy. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/authentication_policy#database AuthenticationPolicy#database}
-        :param name: Specifies the identifier for the authentication policy. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/authentication_policy#name AuthenticationPolicy#name}
-        :param schema: The schema in which to create the authentication policy. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/authentication_policy#schema AuthenticationPolicy#schema}
-        :param authentication_methods: A list of authentication methods that are allowed during login. This parameter accepts one or more of the following values: ``ALL`` | ``SAML`` | ``PASSWORD`` | ``OAUTH`` | ``KEYPAIR`` Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/authentication_policy#authentication_methods AuthenticationPolicy#authentication_methods}
-        :param client_types: A list of clients that can authenticate with Snowflake. If a client tries to connect, and the client is not one of the valid CLIENT_TYPES, then the login attempt fails. Allowed values are ``ALL`` | ``SNOWFLAKE_UI`` | ``DRIVERS`` | ``SNOWSQL``. The CLIENT_TYPES property of an authentication policy is a best effort method to block user logins based on specific clients. It should not be used as the sole control to establish a security boundary. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/authentication_policy#client_types AuthenticationPolicy#client_types}
-        :param comment: Specifies a comment for the authentication policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/authentication_policy#comment AuthenticationPolicy#comment}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/authentication_policy#id AuthenticationPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param mfa_authentication_methods: A list of authentication methods that enforce multi-factor authentication (MFA) during login. Authentication methods not listed in this parameter do not prompt for multi-factor authentication. Allowed values are ``ALL`` | ``SAML`` | ``PASSWORD``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/authentication_policy#mfa_authentication_methods AuthenticationPolicy#mfa_authentication_methods}
-        :param mfa_enrollment: (Default: ``OPTIONAL``) Determines whether a user must enroll in multi-factor authentication. Allowed values are REQUIRED and OPTIONAL. When REQUIRED is specified, Enforces users to enroll in MFA. If this value is used, then the CLIENT_TYPES parameter must include SNOWFLAKE_UI, because Snowsight is the only place users can enroll in multi-factor authentication (MFA). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/authentication_policy#mfa_enrollment AuthenticationPolicy#mfa_enrollment}
-        :param security_integrations: A list of security integrations the authentication policy is associated with. This parameter has no effect when SAML or OAUTH are not in the AUTHENTICATION_METHODS list. All values in the SECURITY_INTEGRATIONS list must be compatible with the values in the AUTHENTICATION_METHODS list. For example, if SECURITY_INTEGRATIONS contains a SAML security integration, and AUTHENTICATION_METHODS contains OAUTH, then you cannot create the authentication policy. To allow all security integrations use ALL as parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/authentication_policy#security_integrations AuthenticationPolicy#security_integrations}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/authentication_policy#timeouts AuthenticationPolicy#timeouts}
+        :param database: The database in which to create the authentication policy. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/authentication_policy#database AuthenticationPolicy#database}
+        :param name: Specifies the identifier for the authentication policy. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/authentication_policy#name AuthenticationPolicy#name}
+        :param schema: The schema in which to create the authentication policy. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/authentication_policy#schema AuthenticationPolicy#schema}
+        :param authentication_methods: A list of authentication methods that are allowed during login. This parameter accepts one or more of the following values: ``ALL`` | ``SAML`` | ``PASSWORD`` | ``OAUTH`` | ``KEYPAIR`` Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/authentication_policy#authentication_methods AuthenticationPolicy#authentication_methods}
+        :param client_types: A list of clients that can authenticate with Snowflake. If a client tries to connect, and the client is not one of the valid CLIENT_TYPES, then the login attempt fails. Allowed values are ``ALL`` | ``SNOWFLAKE_UI`` | ``DRIVERS`` | ``SNOWSQL``. The CLIENT_TYPES property of an authentication policy is a best effort method to block user logins based on specific clients. It should not be used as the sole control to establish a security boundary. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/authentication_policy#client_types AuthenticationPolicy#client_types}
+        :param comment: Specifies a comment for the authentication policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/authentication_policy#comment AuthenticationPolicy#comment}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/authentication_policy#id AuthenticationPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param mfa_authentication_methods: A list of authentication methods that enforce multi-factor authentication (MFA) during login. Authentication methods not listed in this parameter do not prompt for multi-factor authentication. Allowed values are ``ALL`` | ``SAML`` | ``PASSWORD``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/authentication_policy#mfa_authentication_methods AuthenticationPolicy#mfa_authentication_methods}
+        :param mfa_enrollment: (Default: ``OPTIONAL``) Determines whether a user must enroll in multi-factor authentication. Allowed values are REQUIRED and OPTIONAL. When REQUIRED is specified, Enforces users to enroll in MFA. If this value is used, then the CLIENT_TYPES parameter must include SNOWFLAKE_UI, because Snowsight is the only place users can enroll in multi-factor authentication (MFA). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/authentication_policy#mfa_enrollment AuthenticationPolicy#mfa_enrollment}
+        :param security_integrations: A list of security integrations the authentication policy is associated with. This parameter has no effect when SAML or OAUTH are not in the AUTHENTICATION_METHODS list. All values in the SECURITY_INTEGRATIONS list must be compatible with the values in the AUTHENTICATION_METHODS list. For example, if SECURITY_INTEGRATIONS contains a SAML security integration, and AUTHENTICATION_METHODS contains OAUTH, then you cannot create the authentication policy. To allow all security integrations use ALL as parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/authentication_policy#security_integrations AuthenticationPolicy#security_integrations}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/authentication_policy#timeouts AuthenticationPolicy#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -609,7 +609,7 @@ class AuthenticationPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/authentication_policy#database AuthenticationPolicy#database}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/authentication_policy#database AuthenticationPolicy#database}
         '''
         result = self._values.get("database")
         assert result is not None, "Required property 'database' is missing"
@@ -621,7 +621,7 @@ class AuthenticationPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/authentication_policy#name AuthenticationPolicy#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/authentication_policy#name AuthenticationPolicy#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -633,7 +633,7 @@ class AuthenticationPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/authentication_policy#schema AuthenticationPolicy#schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/authentication_policy#schema AuthenticationPolicy#schema}
         '''
         result = self._values.get("schema")
         assert result is not None, "Required property 'schema' is missing"
@@ -645,7 +645,7 @@ class AuthenticationPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This parameter accepts one or more of the following values: ``ALL`` | ``SAML`` | ``PASSWORD`` | ``OAUTH`` | ``KEYPAIR``
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/authentication_policy#authentication_methods AuthenticationPolicy#authentication_methods}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/authentication_policy#authentication_methods AuthenticationPolicy#authentication_methods}
         '''
         result = self._values.get("authentication_methods")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -656,7 +656,7 @@ class AuthenticationPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If a client tries to connect, and the client is not one of the valid CLIENT_TYPES, then the login attempt fails. Allowed values are ``ALL`` | ``SNOWFLAKE_UI`` | ``DRIVERS`` | ``SNOWSQL``. The CLIENT_TYPES property of an authentication policy is a best effort method to block user logins based on specific clients. It should not be used as the sole control to establish a security boundary.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/authentication_policy#client_types AuthenticationPolicy#client_types}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/authentication_policy#client_types AuthenticationPolicy#client_types}
         '''
         result = self._values.get("client_types")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -665,14 +665,14 @@ class AuthenticationPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def comment(self) -> typing.Optional[builtins.str]:
         '''Specifies a comment for the authentication policy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/authentication_policy#comment AuthenticationPolicy#comment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/authentication_policy#comment AuthenticationPolicy#comment}
         '''
         result = self._values.get("comment")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/authentication_policy#id AuthenticationPolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/authentication_policy#id AuthenticationPolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -686,7 +686,7 @@ class AuthenticationPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Authentication methods not listed in this parameter do not prompt for multi-factor authentication. Allowed values are ``ALL`` | ``SAML`` | ``PASSWORD``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/authentication_policy#mfa_authentication_methods AuthenticationPolicy#mfa_authentication_methods}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/authentication_policy#mfa_authentication_methods AuthenticationPolicy#mfa_authentication_methods}
         '''
         result = self._values.get("mfa_authentication_methods")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -697,7 +697,7 @@ class AuthenticationPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Allowed values are REQUIRED and OPTIONAL. When REQUIRED is specified, Enforces users to enroll in MFA. If this value is used, then the CLIENT_TYPES parameter must include SNOWFLAKE_UI, because Snowsight is the only place users can enroll in multi-factor authentication (MFA).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/authentication_policy#mfa_enrollment AuthenticationPolicy#mfa_enrollment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/authentication_policy#mfa_enrollment AuthenticationPolicy#mfa_enrollment}
         '''
         result = self._values.get("mfa_enrollment")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -708,7 +708,7 @@ class AuthenticationPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This parameter has no effect when SAML or OAUTH are not in the AUTHENTICATION_METHODS list. All values in the SECURITY_INTEGRATIONS list must be compatible with the values in the AUTHENTICATION_METHODS list. For example, if SECURITY_INTEGRATIONS contains a SAML security integration, and AUTHENTICATION_METHODS contains OAUTH, then you cannot create the authentication policy. To allow all security integrations use ALL as parameter.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/authentication_policy#security_integrations AuthenticationPolicy#security_integrations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/authentication_policy#security_integrations AuthenticationPolicy#security_integrations}
         '''
         result = self._values.get("security_integrations")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -717,7 +717,7 @@ class AuthenticationPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["AuthenticationPolicyTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/authentication_policy#timeouts AuthenticationPolicy#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/authentication_policy#timeouts AuthenticationPolicy#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["AuthenticationPolicyTimeouts"], result)
@@ -1112,10 +1112,10 @@ class AuthenticationPolicyTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/authentication_policy#create AuthenticationPolicy#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/authentication_policy#delete AuthenticationPolicy#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/authentication_policy#read AuthenticationPolicy#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/authentication_policy#update AuthenticationPolicy#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/authentication_policy#create AuthenticationPolicy#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/authentication_policy#delete AuthenticationPolicy#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/authentication_policy#read AuthenticationPolicy#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/authentication_policy#update AuthenticationPolicy#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__34969fd545703b6d91d3d86b9e174c0e23a4abfef5bb3b2461cddf7fc6950f03)
@@ -1135,25 +1135,25 @@ class AuthenticationPolicyTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/authentication_policy#create AuthenticationPolicy#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/authentication_policy#create AuthenticationPolicy#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/authentication_policy#delete AuthenticationPolicy#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/authentication_policy#delete AuthenticationPolicy#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/authentication_policy#read AuthenticationPolicy#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/authentication_policy#read AuthenticationPolicy#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/authentication_policy#update AuthenticationPolicy#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/authentication_policy#update AuthenticationPolicy#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

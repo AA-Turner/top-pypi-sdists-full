@@ -33,6 +33,7 @@ from .paginator import (
     ListObjectTypeAttributesPaginator,
     ListRuleBasedMatchesPaginator,
     ListSegmentDefinitionsPaginator,
+    ListUploadJobsPaginator,
 )
 from .type_defs import (
     AddProfileKeyRequestTypeDef,
@@ -61,6 +62,8 @@ from .type_defs import (
     CreateSegmentEstimateResponseTypeDef,
     CreateSegmentSnapshotRequestTypeDef,
     CreateSegmentSnapshotResponseTypeDef,
+    CreateUploadJobRequestTypeDef,
+    CreateUploadJobResponseTypeDef,
     DeleteCalculatedAttributeDefinitionRequestTypeDef,
     DeleteDomainLayoutRequestTypeDef,
     DeleteDomainLayoutResponseTypeDef,
@@ -118,6 +121,10 @@ from .type_defs import (
     GetSegmentSnapshotResponseTypeDef,
     GetSimilarProfilesRequestTypeDef,
     GetSimilarProfilesResponseTypeDef,
+    GetUploadJobPathRequestTypeDef,
+    GetUploadJobPathResponseTypeDef,
+    GetUploadJobRequestTypeDef,
+    GetUploadJobResponseTypeDef,
     GetWorkflowRequestTypeDef,
     GetWorkflowResponseTypeDef,
     GetWorkflowStepsRequestTypeDef,
@@ -154,6 +161,8 @@ from .type_defs import (
     ListSegmentDefinitionsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
+    ListUploadJobsRequestTypeDef,
+    ListUploadJobsResponseTypeDef,
     ListWorkflowsRequestTypeDef,
     ListWorkflowsResponseTypeDef,
     MergeProfilesRequestTypeDef,
@@ -168,6 +177,8 @@ from .type_defs import (
     PutProfileObjectTypeResponseTypeDef,
     SearchProfilesRequestTypeDef,
     SearchProfilesResponseTypeDef,
+    StartUploadJobRequestTypeDef,
+    StopUploadJobRequestTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
     UpdateCalculatedAttributeDefinitionRequestTypeDef,
@@ -373,6 +384,16 @@ class CustomerProfilesClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/create_segment_snapshot.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_customer_profiles/client/#create_segment_snapshot)
+        """
+
+    def create_upload_job(
+        self, **kwargs: Unpack[CreateUploadJobRequestTypeDef]
+    ) -> CreateUploadJobResponseTypeDef:
+        """
+        Creates an Upload job to ingest data for segment imports.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/create_upload_job.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_customer_profiles/client/#create_upload_job)
         """
 
     def delete_calculated_attribute_definition(
@@ -678,6 +699,27 @@ class CustomerProfilesClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_customer_profiles/client/#get_similar_profiles)
         """
 
+    def get_upload_job(
+        self, **kwargs: Unpack[GetUploadJobRequestTypeDef]
+    ) -> GetUploadJobResponseTypeDef:
+        """
+        This API retrieves the details of a specific upload job.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/get_upload_job.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_customer_profiles/client/#get_upload_job)
+        """
+
+    def get_upload_job_path(
+        self, **kwargs: Unpack[GetUploadJobPathRequestTypeDef]
+    ) -> GetUploadJobPathResponseTypeDef:
+        """
+        This API retrieves the pre-signed URL and client token for uploading the file
+        associated with the upload job.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/get_upload_job_path.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_customer_profiles/client/#get_upload_job_path)
+        """
+
     def get_workflow(
         self, **kwargs: Unpack[GetWorkflowRequestTypeDef]
     ) -> GetWorkflowResponseTypeDef:
@@ -869,6 +911,16 @@ class CustomerProfilesClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_customer_profiles/client/#list_tags_for_resource)
         """
 
+    def list_upload_jobs(
+        self, **kwargs: Unpack[ListUploadJobsRequestTypeDef]
+    ) -> ListUploadJobsResponseTypeDef:
+        """
+        This API retrieves a list of upload jobs for the specified domain.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/list_upload_jobs.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_customer_profiles/client/#list_upload_jobs)
+        """
+
     def list_workflows(
         self, **kwargs: Unpack[ListWorkflowsRequestTypeDef]
     ) -> ListWorkflowsResponseTypeDef:
@@ -930,6 +982,22 @@ class CustomerProfilesClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/search_profiles.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_customer_profiles/client/#search_profiles)
+        """
+
+    def start_upload_job(self, **kwargs: Unpack[StartUploadJobRequestTypeDef]) -> Dict[str, Any]:
+        """
+        This API starts the processing of an upload job to ingest profile data.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/start_upload_job.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_customer_profiles/client/#start_upload_job)
+        """
+
+    def stop_upload_job(self, **kwargs: Unpack[StopUploadJobRequestTypeDef]) -> Dict[str, Any]:
+        """
+        This API stops the processing of an upload job.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/stop_upload_job.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_customer_profiles/client/#stop_upload_job)
         """
 
     def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
@@ -1071,6 +1139,17 @@ class CustomerProfilesClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_segment_definitions"]
     ) -> ListSegmentDefinitionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_customer_profiles/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_upload_jobs"]
+    ) -> ListUploadJobsPaginator:
         """
         Create a paginator for an operation.
 

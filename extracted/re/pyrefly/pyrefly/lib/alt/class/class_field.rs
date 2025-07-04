@@ -41,8 +41,6 @@ use crate::error::context::TypeCheckKind;
 use crate::error::kind::ErrorKind;
 use crate::types::annotation::Annotation;
 use crate::types::annotation::Qualifier;
-use crate::types::callable::BoolKeywords;
-use crate::types::callable::DataclassKeywords;
 use crate::types::callable::FuncMetadata;
 use crate::types::callable::Function;
 use crate::types::callable::FunctionKind;
@@ -50,6 +48,8 @@ use crate::types::callable::Param;
 use crate::types::callable::Required;
 use crate::types::class::Class;
 use crate::types::class::ClassType;
+use crate::types::keywords::DataclassFieldKeywords;
+use crate::types::keywords::TypeMap;
 use crate::types::literal::Lit;
 use crate::types::literal::LitEnum;
 use crate::types::quantified::Quantified;
@@ -72,9 +72,9 @@ use crate::types::types::Type;
 /// are assigned values in the class body.
 #[derive(Clone, Debug, TypeEq, VisitMut, PartialEq, Eq)]
 pub enum ClassFieldInitialization {
-    /// If this is a dataclass field, BoolKeywords stores the field's dataclass
-    /// flags (which are boolean options that control how fields behave).
-    Class(Option<BoolKeywords>),
+    /// If this is a dataclass field, DataclassFieldKeywords stores the field's
+    /// dataclass flags (which are options that control how fields behave).
+    Class(Option<DataclassFieldKeywords>),
     /// The boolean indicates whether we know the field may have been initialized
     /// outside of the class body or not.
     Instance(bool),
@@ -395,7 +395,7 @@ impl ClassField {
         }
         // Frozen dataclass fields (not methods) are read-only
         if let Some(dm) = metadata.dataclass_metadata() {
-            if dm.kws.is_set(&DataclassKeywords::FROZEN) && dm.fields.contains(name) {
+            if dm.kws.frozen && dm.fields.contains(name) {
                 return Some(ReadOnlyReason::FrozenDataclass);
             }
         }
@@ -418,20 +418,21 @@ impl ClassField {
         }
     }
 
-    fn dataclass_flags_of(&self, kw_only: bool) -> BoolKeywords {
+    fn dataclass_flags_of(&self, kw_only: bool) -> DataclassFieldKeywords {
         match &self.0 {
             ClassFieldInner::Simple { initialization, .. } => {
                 let mut flags = match initialization {
                     ClassFieldInitialization::Class(Some(field_flags)) => field_flags.clone(),
                     ClassFieldInitialization::Class(None) => {
-                        let mut kws = BoolKeywords::new();
-                        kws.set(DataclassKeywords::DEFAULT.0, true);
+                        let mut kws = DataclassFieldKeywords::new();
+                        kws.default = true;
                         kws
                     }
-                    ClassFieldInitialization::Instance(_) => BoolKeywords::new(),
+                    ClassFieldInitialization::Instance(_) => DataclassFieldKeywords::new(),
                 };
-                if kw_only {
-                    flags.set(DataclassKeywords::KW_ONLY.0, true);
+                // If kw_only hasn't been explicitly set to false on the field, set it to true
+                if kw_only && flags.kw_only.is_none() {
+                    flags.kw_only = Some(true);
                 }
                 flags
             }
@@ -587,9 +588,9 @@ impl<T> WithDefiningClass<T> {
 /// The result of processing a raw dataclass member (any annotated assignment in its body).
 pub enum DataclassMember {
     /// A dataclass field
-    Field(ClassField, BoolKeywords),
+    Field(ClassField, DataclassFieldKeywords),
     /// A pseudo-field that only appears as a constructor argument
-    InitVar(ClassField),
+    InitVar(ClassField, DataclassFieldKeywords),
     /// A pseudo-field annotated with KW_ONLY
     KwOnlyMarker,
     /// Anything else
@@ -929,18 +930,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         func_ty.callee_kind(),
                         Some(CalleeKind::Function(FunctionKind::DataclassField))
                     ) {
-                        let mut flags = BoolKeywords::new();
+                        let mut map = TypeMap::new();
                         for kw in keywords {
-                            if let Some(id) = &kw.arg
-                                && (id.id == DataclassKeywords::DEFAULT.0
-                                    || id.id == "default_factory")
-                            {
-                                flags.set(DataclassKeywords::DEFAULT.0, true);
-                            } else {
-                                let val = self.expr_infer(&kw.value, &ignore_errors);
-                                flags.set_keyword(kw.arg.as_ref(), val);
+                            if let Some(name) = &kw.arg {
+                                map.0.insert(
+                                    name.id.clone(),
+                                    self.expr_infer(&kw.value, &ignore_errors),
+                                );
                             }
                         }
+                        let flags = DataclassFieldKeywords::from_type_map(&map);
                         ClassFieldInitialization::Class(Some(flags))
                     } else {
                         ClassFieldInitialization::Class(None)
@@ -954,12 +953,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     /// This is used for dataclass field synthesis; when accessing attributes on dataclass instances,
     /// use `get_instance_attribute` or `get_class_attribute`
-    pub fn get_dataclass_member(&self, cls: &Class, name: &Name, kw_only: bool) -> DataclassMember {
+    pub fn get_dataclass_member(
+        &self,
+        cls: &Class,
+        name: &Name,
+        cls_is_kw_only: bool,
+        seen_kw_only_marker: bool,
+    ) -> DataclassMember {
         // Even though we check that the class member exists before calling this function,
         // it can be None if the class has an invalid MRO.
         let Some(member) = self.get_class_member_impl(cls, name, true) else {
             return DataclassMember::NotAField;
         };
+        let default_to_kw_only = member.defining_class == *cls && cls_is_kw_only;
         let field = &*member.value;
         // A field with type KW_ONLY is a sentinel value that indicates that the remaining
         // fields should be keyword-only params in the generated `__init__`.
@@ -974,9 +980,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         {
             DataclassMember::NotAField // Class variables are not dataclass fields
         } else if field.is_init_var() {
-            DataclassMember::InitVar(field.clone())
+            DataclassMember::InitVar(
+                field.clone(),
+                field.dataclass_flags_of(seen_kw_only_marker || default_to_kw_only),
+            )
         } else {
-            DataclassMember::Field(field.clone(), field.dataclass_flags_of(kw_only))
+            DataclassMember::Field(
+                field.clone(),
+                field.dataclass_flags_of(seen_kw_only_marker || default_to_kw_only),
+            )
         }
     }
 

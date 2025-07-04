@@ -8,7 +8,7 @@ ROOT = os.path.dirname(__file__)
 
 setup(
     name='tencentcloud-sdk-python-mps',
-    install_requires=["tencentcloud-sdk-python-common==3.0.1411"],
+    install_requires=["tencentcloud-sdk-python-common==3.0.1415"],
     version=tencentcloud.__version__,
     description='Tencent Cloud Mps SDK for Python',
     long_description=open('README.rst').read(),

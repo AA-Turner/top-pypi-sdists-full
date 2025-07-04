@@ -15,7 +15,8 @@
 
 from __future__ import annotations
 
-from typing import List, Optional, Sequence, Union
+from typing import List, Optional, Sequence, Union, Any, Literal
+import logging
 
 import neo4j
 from pydantic import ValidationError
@@ -27,7 +28,6 @@ from neo4j_graphrag.experimental.components.pdf_loader import DataLoader
 from neo4j_graphrag.experimental.components.text_splitters.base import TextSplitter
 from neo4j_graphrag.experimental.components.types import (
     LexicalGraphConfig,
-    SchemaEnforcementMode,
 )
 from neo4j_graphrag.experimental.pipeline.config.object_config import ComponentType
 from neo4j_graphrag.experimental.pipeline.config.runner import PipelineRunner
@@ -42,6 +42,9 @@ from neo4j_graphrag.experimental.pipeline.types.schema import (
 )
 from neo4j_graphrag.generation.prompts import ERExtractionTemplate
 from neo4j_graphrag.llm.base import LLMInterface
+from neo4j_graphrag.experimental.components.schema import GraphSchema
+
+logger = logging.getLogger(__name__)
 
 
 class SimpleKGPipeline:
@@ -53,18 +56,29 @@ class SimpleKGPipeline:
         llm (LLMInterface): An instance of an LLM to use for entity and relation extraction.
         driver (neo4j.Driver): A Neo4j driver instance for database connection.
         embedder (Embedder): An instance of an embedder used to generate chunk embeddings from text chunks.
-        entities (Optional[List[Union[str, dict[str, str], SchemaEntity]]]): A list of either:
+        schema (Optional[Union[GraphSchema, dict[str, list]]]): A schema configuration defining node types,
+                                                                relationship types, and graph patterns.
+        entities (Optional[List[Union[str, dict[str, str], NodeType]]]): DEPRECATED. A list of either:
 
             - str: entity labels
-            - dict: following the SchemaEntity schema, ie with label, description and properties keys
+            - dict: following the NodeType schema, ie with label, description and properties keys
 
-        relations (Optional[List[Union[str, dict[str, str], SchemaRelation]]]): A list of either:
+            .. deprecated:: 1.7.1
+                Use schema instead
+
+        relations (Optional[List[Union[str, dict[str, str], RelationshipType]]]): DEPRECATED. A list of either:
 
             - str: relation label
-            - dict: following the SchemaRelation schema, ie with label, description and properties keys
+            - dict: following the RelationshipType schema, ie with label, description and properties keys
 
-        potential_schema (Optional[List[tuple]]): A list of potential schema relationships.
-        enforce_schema (str): Validation of the extracted entities/rels against the provided schema. Defaults to "NONE", where schema enforcement will be ignored even if the schema is provided. Possible values "None" or "STRICT".
+            .. deprecated:: 1.7.1
+                Use schema instead
+
+        potential_schema (Optional[List[tuple]]): DEPRECATED. A list of potential schema relationships.
+
+            .. deprecated:: 1.7.1
+                Use schema instead
+
         from_pdf (bool): Determines whether to include the PdfLoader in the pipeline.
                          If True, expects `file_path` input in `run` methods.
                          If False, expects `text` input in `run` methods.
@@ -85,7 +99,13 @@ class SimpleKGPipeline:
         entities: Optional[Sequence[EntityInputType]] = None,
         relations: Optional[Sequence[RelationInputType]] = None,
         potential_schema: Optional[List[tuple[str, str, str]]] = None,
-        enforce_schema: str = "NONE",
+        schema: Optional[
+            Union[
+                GraphSchema,
+                dict[str, list[Any]],
+                Literal["FREE", "EXTRACTED"],
+            ],
+        ] = None,
         from_pdf: bool = True,
         text_splitter: Optional[TextSplitter] = None,
         pdf_loader: Optional[DataLoader] = None,
@@ -97,24 +117,27 @@ class SimpleKGPipeline:
         neo4j_database: Optional[str] = None,
     ):
         try:
-            config = SimpleKGPipelineConfig(
-                # argument type are fixed in the Config object
-                llm_config=llm,  # type: ignore[arg-type]
-                neo4j_config=driver,  # type: ignore[arg-type]
-                embedder_config=embedder,  # type: ignore[arg-type]
-                entities=entities or [],
-                relations=relations or [],
-                potential_schema=potential_schema,
-                enforce_schema=SchemaEnforcementMode(enforce_schema),
-                from_pdf=from_pdf,
-                pdf_loader=ComponentType(pdf_loader) if pdf_loader else None,
-                kg_writer=ComponentType(kg_writer) if kg_writer else None,
-                text_splitter=ComponentType(text_splitter) if text_splitter else None,
-                on_error=OnError(on_error),
-                prompt_template=prompt_template,
-                perform_entity_resolution=perform_entity_resolution,
-                lexical_graph_config=lexical_graph_config,
-                neo4j_database=neo4j_database,
+            config = SimpleKGPipelineConfig.model_validate(
+                dict(
+                    llm_config=llm,
+                    neo4j_config=driver,
+                    embedder_config=embedder,
+                    entities=entities or [],
+                    relations=relations or [],
+                    potential_schema=potential_schema,
+                    schema=schema,
+                    from_pdf=from_pdf,
+                    pdf_loader=ComponentType(pdf_loader) if pdf_loader else None,
+                    kg_writer=ComponentType(kg_writer) if kg_writer else None,
+                    text_splitter=ComponentType(text_splitter)
+                    if text_splitter
+                    else None,
+                    on_error=OnError(on_error),
+                    prompt_template=prompt_template,
+                    perform_entity_resolution=perform_entity_resolution,
+                    lexical_graph_config=lexical_graph_config,
+                    neo4j_database=neo4j_database,
+                )
             )
         except (ValidationError, ValueError) as e:
             raise PipelineDefinitionError() from e

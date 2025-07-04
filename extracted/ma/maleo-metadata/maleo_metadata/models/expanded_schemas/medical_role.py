@@ -26,14 +26,14 @@ class MaleoMetadataMedicalRoleExpandedSchemas:
     class OptionalListOfExpandedMedicalRoles(BaseModel):
         medical_roles_details:MaleoMetadataMedicalRoleGeneralTypes.OptionalListOfExpandedMedicalRoles = Field(None, description="Medical role's details")
 
-    class StructuredMedicalRole(BaseModel):
-        structured_medical_role:MaleoMetadataMedicalRoleGeneralTypes.StructuredMedicalRole = Field(..., description="Medical role")
+    # class StructuredMedicalRole(BaseModel):
+    #     structured_medical_role:MaleoMetadataMedicalRoleGeneralTypes.StructuredMedicalRole = Field(..., description="Medical role")
 
-    class OptionalStructuredMedicalRole(BaseModel):
-        structured_medical_role:MaleoMetadataMedicalRoleGeneralTypes.OptionalStructuredMedicalRole = Field(None, description="Medical role")
+    # class OptionalStructuredMedicalRole(BaseModel):
+    #     structured_medical_role:MaleoMetadataMedicalRoleGeneralTypes.OptionalStructuredMedicalRole = Field(None, description="Medical role")
 
-    class ListOfStructuredMedicalRoles(BaseModel):
-        structured_medical_role:MaleoMetadataMedicalRoleGeneralTypes.ListOfStructuredMedicalRoles = Field([], description="Medical roles")
+    # class ListOfStructuredMedicalRoles(BaseModel):
+    #     structured_medical_role:MaleoMetadataMedicalRoleGeneralTypes.ListOfStructuredMedicalRoles = Field([], description="Medical roles")
 
-    class OptionalListOfStructuredMedicalRoles(BaseModel):
-        structured_medical_role:MaleoMetadataMedicalRoleGeneralTypes.OptionalListOfStructuredMedicalRoles = Field(None, description="Medical roles")
+    # class OptionalListOfStructuredMedicalRoles(BaseModel):
+    #     structured_medical_role:MaleoMetadataMedicalRoleGeneralTypes.OptionalListOfStructuredMedicalRoles = Field(None, description="Medical roles")

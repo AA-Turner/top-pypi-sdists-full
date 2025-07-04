@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: starlake-airflow
-Version: 0.3.4
+Version: 0.3.5.1
 Summary: Starlake Python Distribution For Airflow
 Author: Stéphane Manciot
 Author-email: stephane.manciot@gmail.com
 License: Apache 2.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: starlake-orchestration>=0.3.5
+Requires-Dist: starlake-orchestration>=0.3.6
 Provides-Extra: airflow
 Requires-Dist: airflow>=2.10.0; extra == "airflow"
 Provides-Extra: shell

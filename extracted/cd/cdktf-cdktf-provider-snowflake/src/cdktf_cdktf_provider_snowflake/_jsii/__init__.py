@@ -33,9 +33,9 @@ import constructs._jsii
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
     "@cdktf/provider-snowflake",
-    "15.1.0",
+    "15.2.0",
     __name__[0:-6],
-    "provider-snowflake@15.1.0.jsii.tgz",
+    "provider-snowflake@15.2.0.jsii.tgz",
 )
 
 __all__ = [

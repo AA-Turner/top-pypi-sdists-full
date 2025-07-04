@@ -58,7 +58,7 @@ impl ByteTokenizer {
         if let Some(n) = hft.get_normalizer() {
             let n = match n {
                 NormalizerWrapper::Sequence(x) => NormalizerWrapper::Sequence(Sequence::new(
-                    x.get_normalizers()
+                    x.as_ref()
                         .iter()
                         .filter_map(|n| match n {
                             NormalizerWrapper::Prepend(_) => None,
@@ -171,7 +171,7 @@ impl ByteTokenizer {
                     match bytes {
                         Ok(b) => b,
                         Err(e) => {
-                            log::warn!("error: {} for {:?}", e, tok_name);
+                            log::warn!("error: {e} for {tok_name:?}");
                             continue;
                         }
                     }
@@ -180,7 +180,7 @@ impl ByteTokenizer {
                 };
                 res.token_bytes[tok_id as usize] = bytes;
             } else {
-                log::warn!("missing token: {}", tok_id);
+                log::warn!("missing token: {tok_id}");
             }
         }
 

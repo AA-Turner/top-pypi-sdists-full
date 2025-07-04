@@ -214,23 +214,6 @@ def foo() -> int:
     }
 
     #[test]
-    fn test_parameter_annotation() -> anyhow::Result<()> {
-        // Test parameter type annotation
-        // TODO: Figure out how to get the parameter type inferred here, too
-        assert_annotations(
-            r#"
-def greet(name):
-    return "Hello, " + name
-"#,
-            r#"
-def greet(name) -> str:
-    return "Hello, " + name
-"#,
-        );
-        Ok(())
-    }
-
-    #[test]
     fn test_boolean_literal() -> anyhow::Result<()> {
         // Test boolean return type
         assert_annotations(
@@ -281,6 +264,46 @@ def greet(name) -> str:
     example(1, 2, 3)
     x = 2
     example("a", "b", x)
+    "#,
+        );
+        Ok(())
+    }
+
+    #[test]
+
+    fn test_default_parameters() -> anyhow::Result<()> {
+        assert_annotations(
+            r#"
+    def example(a, b, c = None):
+        return c
+    example(1, 2, 3)
+    x = 2
+    example("a", "b", x)
+    "#,
+            r#"
+    def example(a: int | str, b: int | str, c: int | None = None):
+        return c
+    example(1, 2, 3)
+    x = 2
+    example("a", "b", x)
+    "#,
+        );
+        Ok(())
+    }
+
+    #[test]
+
+    fn test_default_parameters_infer_default_type() -> anyhow::Result<()> {
+        assert_annotations(
+            r#"
+    def example(c = 1):
+        return c
+    example("a")
+    "#,
+            r#"
+    def example(c: int | str = 1):
+        return c
+    example("a")
     "#,
         );
         Ok(())

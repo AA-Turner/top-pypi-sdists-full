@@ -90,7 +90,7 @@ class Tables(Iterable):
             for table in tables:
                 yield table
 
-    def _run_table_sql(self, query, task_name=None, hints=None, wait=True):
+    def _run_table_sql(self, query, task_name=None, hints=None, wait=True, **inst_kw):
         from .tasks import SQLTask
 
         task = SQLTask(name=task_name, query=query)
@@ -104,7 +104,13 @@ class Tables(Iterable):
         if self._parent.project.odps.quota_name:
             hints["odps.task.wlm.quota"] = self._parent.project.odps.quota_name
         task.update_sql_settings(hints)
-        instance = self._parent.project.instances.create(task=task)
+
+        instance_project = inst_kw.pop("instance_project", inst_kw.pop("project", None))
+        if instance_project is not None:
+            proj = self._parent.project.parent[instance_project]
+        else:
+            proj = self._parent.project
+        instance = proj.instances.create(task=task, **inst_kw)
 
         if wait:
             instance.wait_for_success()
@@ -180,15 +186,24 @@ class Tables(Iterable):
         if if_exists:
             buf.write("IF EXISTS ")
         if schema_name is not None:
-            buf.write("%s.%s.`%s`" % (project_name, schema_name, table_name))
+            buf.write(
+                "%s.%s.%s"
+                % (project_name, schema_name, utils.backquote_string(table_name))
+            )
         else:
-            buf.write("%s.`%s`" % (project_name, table_name))
+            buf.write("%s.%s" % (project_name, utils.backquote_string(table_name)))
 
         return buf.getvalue()
 
     @utils.with_wait_argument
     def delete(
-        self, table_name, if_exists=False, async_=False, hints=None, table_type=None
+        self,
+        table_name,
+        if_exists=False,
+        async_=False,
+        hints=None,
+        table_type=None,
+        **inst_kw
     ):
         if isinstance(table_name, Table):
             table_name = table_name.name
@@ -199,5 +214,5 @@ class Tables(Iterable):
 
         del self[table_name]  # release table in cache
         return self._run_table_sql(
-            sql, task_name="SQLDropTableTask", hints=hints, wait=not async_
+            sql, task_name="SQLDropTableTask", hints=hints, wait=not async_, **inst_kw
         )

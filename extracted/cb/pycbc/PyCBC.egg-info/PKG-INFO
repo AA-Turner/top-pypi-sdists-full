@@ -1,9 +1,9 @@
 Metadata-Version: 2.1
 Name: PyCBC
-Version: 2.8.3
+Version: 2.9.0
 Summary: Core library to analyze gravitational-wave data, find signals, and study their parameters.
 Home-page: http://pycbc.org/
-Download-URL: https://github.com/gwastro/pycbc/tarball/v2.8.3
+Download-URL: https://github.com/gwastro/pycbc/tarball/v2.9.0
 Author: The PyCBC team
 Author-email: alex.nitz@gmail.org
 Keywords: ligo,physics,gravity,signal processing,gravitational waves

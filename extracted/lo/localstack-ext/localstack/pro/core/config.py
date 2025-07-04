@@ -53,6 +53,8 @@ DISABLE_TRANSPARENT_ENDPOINT_INJECTION = localstack_config.is_env_true(
 ENFORCE_IAM = localstack_config.is_env_true("ENFORCE_IAM")
 IAM_SOFT_MODE = localstack_config.is_env_true("IAM_SOFT_MODE")
 
+DOCKER_GLOBAL_IMAGE_PREFIX = os.environ.get("DOCKER_GLOBAL_IMAGE_PREFIX", "").strip()
+
 # endpoint URL for kube cluster (defaults to https://<docker_bridge_ip>:6443)
 KUBE_ENDPOINT = os.environ.get("KUBE_ENDPOINT", "")
 
@@ -242,6 +244,15 @@ APIGW_ENABLE_NEXT_GEN_WEBSOCKETS_INVOCATION = localstack_config.is_env_true(
     "APIGW_ENABLE_NEXT_GEN_WEBSOCKETS_INVOCATION"
 )
 
+# set the wait time of kubernetes for pod startup
+K8S_WAIT_FOR_POD_READY_TIMEOUT = os.environ.get("K8S_WAIT_FOR_POD_READY_TIMEOUT", "")
+
+# set the wait time for kubernetes deployment rollout
+K8S_WAIT_FOR_DEPLOYMENT_READY_TIMEOUT = os.environ.get("K8S_WAIT_FOR_DEPLOYMENT_READY_TIMEOUT", "")
+
+# set the wait time for kubernetes service to be ready
+K8S_WAIT_FOR_SERVICE_READY_TIMEOUT = os.environ.get("K8S_WAIT_FOR_SERVICE_READY_TIMEOUT", "")
+
 # CLI file path to the auth cache populated by `localstack auth`
 AUTH_CACHE_PATH = os.path.join(localstack_config.CONFIG_DIR, "auth.json")
 
@@ -260,7 +271,7 @@ BEDROCK_PULL_MODELS = {
 } | {DEFAULT_BEDROCK_MODEL}
 
 # Glue job executor to use
-GLUE_JOB_EXECUTOR = os.environ.get("GLUE_JOB_EXECUTOR", "local").strip()
+GLUE_JOB_EXECUTOR = os.environ.get("GLUE_JOB_EXECUTOR") or localstack_config.CONTAINER_RUNTIME
 GLUE_JOB_EXECUTOR_PROVIDER = os.environ.get("GLUE_JOB_EXECUTOR_PROVIDER", "v1").strip()
 
 
@@ -347,6 +358,9 @@ CODEPIPELINE_GH_TOKEN = os.environ.get("CODEPIPELINE_GH_TOKEN")
 # Flag to remove a codebuild container after a build is completed. True by default
 CODEBUILD_REMOVE_CONTAINERS = localstack_config.is_env_not_false("CODEBUILD_REMOVE_CONTAINERS")
 
+# Flag that allows CodeBuild to use a user-provided image for the local build
+CODEBUILD_ENABLE_CUSTOM_IMAGES = localstack_config.is_env_true("CODEBUILD_ENABLE_CUSTOM_IMAGES")
+
 # Controls the snapshot granularity of the run. The lower the interval, the more snapshot metamodels are created
 COMMIT_INTERVAL_SECS = os.environ.get("COMMIT_INTERVAL_SECS", 10)
 
@@ -396,6 +410,7 @@ localstack_config.CONFIG_ENV_VARS += [
     "AUTO_SSL_CERTS",
     "AUTOSTART_UTIL_CONTAINERS",
     "CI_PROJECT",
+    "CODEBUILD_ENABLE_CUSTOM_IMAGES",
     "CODEBUILD_REMOVE_CONTAINERS",
     "CODEPIPELINE_GH_TOKEN",
     "CLOUDFRONT_STATIC_PORTS",

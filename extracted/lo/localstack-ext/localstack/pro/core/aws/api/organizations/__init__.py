@@ -119,6 +119,7 @@ class ConstraintViolationExceptionReason(StrEnum):
     DELEGATED_ADMINISTRATOR_EXISTS_FOR_THIS_SERVICE = (
         "DELEGATED_ADMINISTRATOR_EXISTS_FOR_THIS_SERVICE"
     )
+    POLICY_TYPE_ENABLED_FOR_THIS_SERVICE = "POLICY_TYPE_ENABLED_FOR_THIS_SERVICE"
     MASTER_ACCOUNT_MISSING_BUSINESS_LICENSE = "MASTER_ACCOUNT_MISSING_BUSINESS_LICENSE"
     CANNOT_CLOSE_MANAGEMENT_ACCOUNT = "CANNOT_CLOSE_MANAGEMENT_ACCOUNT"
     CLOSE_ACCOUNT_QUOTA_EXCEEDED = "CLOSE_ACCOUNT_QUOTA_EXCEEDED"
@@ -166,6 +167,7 @@ class EffectivePolicyType(StrEnum):
     AISERVICES_OPT_OUT_POLICY = "AISERVICES_OPT_OUT_POLICY"
     CHATBOT_POLICY = "CHATBOT_POLICY"
     DECLARATIVE_POLICY_EC2 = "DECLARATIVE_POLICY_EC2"
+    SECURITYHUB_POLICY = "SECURITYHUB_POLICY"
 
 
 class HandshakeConstraintViolationExceptionReason(StrEnum):
@@ -267,6 +269,7 @@ class PolicyType(StrEnum):
     AISERVICES_OPT_OUT_POLICY = "AISERVICES_OPT_OUT_POLICY"
     CHATBOT_POLICY = "CHATBOT_POLICY"
     DECLARATIVE_POLICY_EC2 = "DECLARATIVE_POLICY_EC2"
+    SECURITYHUB_POLICY = "SECURITYHUB_POLICY"
 
 
 class PolicyTypeStatus(StrEnum):
@@ -586,9 +589,19 @@ class ConstraintViolationException(ServiceException):
     -  POLICY_NUMBER_LIMIT_EXCEEDED: You attempted to exceed the number of
        policies that you can have in an organization.
 
-    -  SERVICE_ACCESS_NOT_ENABLED: You attempted to register a delegated
-       administrator before you enabled service access. Call the
-       ``EnableAWSServiceAccess`` API first.
+    -  POLICY_TYPE_ENABLED_FOR_THIS_SERVICE: You attempted to disable
+       service access before you disabled the policy type (for example,
+       SECURITYHUB_POLICY). To complete this operation, you must first
+       disable the policy type.
+
+    -  SERVICE_ACCESS_NOT_ENABLED:
+
+       -  You attempted to register a delegated administrator before you
+          enabled service access. Call the ``EnableAWSServiceAccess`` API
+          first.
+
+       -  You attempted to enable a policy type before you enabled service
+          access. Call the ``EnableAWSServiceAccess`` API first.
 
     -  TAG_POLICY_VIOLATION: You attempted to create or update a resource
        with tags that are not compliant with the tag policy requirements for
@@ -742,9 +755,7 @@ class HandshakeConstraintViolationException(ServiceException):
 
     -  ORGANIZATION_FROM_DIFFERENT_SELLER_OF_RECORD: The request failed
        because the account is from a different marketplace than the accounts
-       in the organization. For example, accounts with India addresses must
-       be associated with the AISPL marketplace. All accounts in an
-       organization must be from the same marketplace.
+       in the organization.
 
     -  ORGANIZATION_MEMBERSHIP_CHANGE_RATE_LIMIT_EXCEEDED: You attempted to
        change the membership of an account too quickly after its previous
@@ -1903,9 +1914,10 @@ class OrganizationsApi:
 
         -  `AISERVICES_OPT_OUT_POLICY <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_ai-opt-out.html>`__
 
+        -  `SECURITYHUB_POLICY <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_security_hub.html>`__
+
         This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator for an
-        Amazon Web Services service.
+        account or by a member account that is a delegated administrator.
 
         :param policy_id: The unique identifier (ID) of the policy that you want to attach to the
         target.
@@ -2387,8 +2399,7 @@ class OrganizationsApi:
         ``organizations:TagResource`` permission.
 
         This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator for an
-        Amazon Web Services service.
+        account or by a member account that is a delegated administrator.
 
         :param content: The policy text content to add to the new policy.
         :param description: An optional description to assign to the policy.
@@ -2485,8 +2496,7 @@ class OrganizationsApi:
         units (OUs), roots, and accounts.
 
         This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator for an
-        Amazon Web Services service.
+        account or by a member account that is a delegated administrator.
 
         :param policy_id: The unique identifier (ID) of the policy that you want to delete.
         :raises AccessDeniedException:
@@ -2505,7 +2515,7 @@ class OrganizationsApi:
     def delete_resource_policy(self, context: RequestContext, **kwargs) -> None:
         """Deletes the resource policy from your organization.
 
-        You can only call this operation from the organization's management
+        This operation can be called only from the organization's management
         account.
 
         :raises AccessDeniedException:
@@ -2569,8 +2579,7 @@ class OrganizationsApi:
         """Retrieves Organizations-related information about the specified account.
 
         This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator for an
-        Amazon Web Services service.
+        account or by a member account that is a delegated administrator.
 
         :param account_id: The unique identifier (ID) of the Amazon Web Services account that you
         want information about.
@@ -2592,8 +2601,7 @@ class OrganizationsApi:
         account.
 
         This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator for an
-        Amazon Web Services service.
+        account or by a member account that is a delegated administrator.
 
         :param create_account_request_id: Specifies the ``Id`` value that uniquely identifies the
         ``CreateAccount`` request.
@@ -2703,8 +2711,7 @@ class OrganizationsApi:
         """Retrieves information about an organizational unit (OU).
 
         This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator for an
-        Amazon Web Services service.
+        account or by a member account that is a delegated administrator.
 
         :param organizational_unit_id: The unique identifier (ID) of the organizational unit that you want
         details about.
@@ -2725,8 +2732,7 @@ class OrganizationsApi:
         """Retrieves information about a policy.
 
         This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator for an
-        Amazon Web Services service.
+        account or by a member account that is a delegated administrator.
 
         :param policy_id: The unique identifier (ID) of the policy that you want details about.
         :returns: DescribePolicyResponse
@@ -2747,8 +2753,7 @@ class OrganizationsApi:
         """Retrieves information about a resource policy.
 
         This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator for an
-        Amazon Web Services service.
+        account or by a member account that is a delegated administrator.
 
         :returns: DescribeResourcePolicyResponse
         :raises AccessDeniedException:
@@ -2786,8 +2791,7 @@ class OrganizationsApi:
         list <https://docs.aws.amazon.com/organizations/latest/userguide/SCP_strategies.html#orgs_policies_denylist>`__".
 
         This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator for an
-        Amazon Web Services service.
+        account or by a member account that is a delegated administrator.
 
         :param policy_id: The unique identifier (ID) of the policy you want to detach.
         :param target_id: The unique identifier (ID) of the root, OU, or account that you want to
@@ -2910,8 +2914,7 @@ class OrganizationsApi:
         specified root, and then use this operation.
 
         This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator for an
-        Amazon Web Services service.
+        account or by a member account that is a delegated administrator.
 
         To view the status of available policy types in the organization, use
         DescribeOrganization.
@@ -2960,9 +2963,8 @@ class OrganizationsApi:
         services <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_integrate_services.html>`__
         in the *Organizations User Guide*.
 
-        You can only call this operation from the organization's management
-        account and only if the organization has `enabled all
-        features <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_org_support-all-features.html>`__.
+        This operation can be called only from the organization's management
+        account.
 
         :param service_principal: The service principal name of the Amazon Web Services service for which
         you want to enable integration with your organization.
@@ -3041,8 +3043,7 @@ class OrganizationsApi:
         this operation.
 
         This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator for an
-        Amazon Web Services service.
+        account or by a member account that is a delegated administrator.
 
         You can enable a policy type in a root only if that policy type is
         available in the organization. To view the status of available policy
@@ -3082,21 +3083,11 @@ class OrganizationsApi:
         invitation is implemented as a Handshake whose details are in the
         response.
 
-        -  You can invite Amazon Web Services accounts only from the same seller
-           as the management account. For example, if your organization's
-           management account was created by Amazon Internet Services Pvt. Ltd
-           (AISPL), an Amazon Web Services seller in India, you can invite only
-           other AISPL accounts to your organization. You can't combine accounts
-           from AISPL and Amazon Web Services or from any other Amazon Web
-           Services seller. For more information, see `Consolidated billing in
-           India <https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/useconsolidatedbilling-India.html>`__.
-
-        -  If you receive an exception that indicates that you exceeded your
-           account limits for the organization or that the operation failed
-           because your organization is still initializing, wait one hour and
-           then try again. If the error persists after an hour, contact `Amazon
-           Web Services
-           Support <https://console.aws.amazon.com/support/home#/>`__.
+        If you receive an exception that indicates that you exceeded your
+        account limits for the organization or that the operation failed because
+        your organization is still initializing, wait one hour and then try
+        again. If the error persists after an hour, contact `Amazon Web Services
+        Support <https://console.aws.amazon.com/support/home#/>`__.
 
         If the request includes tags, then the requester must have the
         ``organizations:TagResource`` permission.
@@ -3169,12 +3160,6 @@ class OrganizationsApi:
            must first change the delegated administrator account to another
            account that is remaining in the organization.
 
-        -  You can leave an organization only after you enable IAM user access
-           to billing in your account. For more information, see `About IAM
-           access to the Billing and Cost Management
-           console <https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/grantaccess.html#ControllingAccessWebsite-Activate>`__
-           in the *Amazon Web Services Billing and Cost Management User Guide*.
-
         -  After the account leaves the organization, all tags that were
            attached to the account object in the organization are deleted.
            Amazon Web Services accounts outside of an organization do not
@@ -3221,8 +3206,7 @@ class OrganizationsApi:
         in the *Organizations User Guide*.
 
         This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator for an
-        Amazon Web Services service.
+        account or by a member account that is a delegated administrator.
 
         :param next_token: The parameter for receiving additional results if you receive a
         ``NextToken`` response in a previous request.
@@ -3258,8 +3242,7 @@ class OrganizationsApi:
         when there are no more results to display.
 
         This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator for an
-        Amazon Web Services service.
+        account or by a member account that is a delegated administrator.
 
         :param next_token: The parameter for receiving additional results if you receive a
         ``NextToken`` response in a previous request.
@@ -3297,8 +3280,7 @@ class OrganizationsApi:
         when there are no more results to display.
 
         This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator for an
-        Amazon Web Services service.
+        account or by a member account that is a delegated administrator.
 
         :param parent_id: The unique identifier (ID) for the parent root or organization unit (OU)
         whose accounts you want to list.
@@ -3338,8 +3320,7 @@ class OrganizationsApi:
         when there are no more results to display.
 
         This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator for an
-        Amazon Web Services service.
+        account or by a member account that is a delegated administrator.
 
         :param parent_id: The unique identifier (ID) for the parent root or OU whose children you
         want to list.
@@ -3377,8 +3358,7 @@ class OrganizationsApi:
         when there are no more results to display.
 
         This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator for an
-        Amazon Web Services service.
+        account or by a member account that is a delegated administrator.
 
         :param states: A list of one or more states that you want included in the response.
         :param next_token: The parameter for receiving additional results if you receive a
@@ -3408,8 +3388,7 @@ class OrganizationsApi:
         administrators in this organization.
 
         This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator for an
-        Amazon Web Services service.
+        account or by a member account that is a delegated administrator.
 
         :param service_principal: Specifies a service principal name.
         :param next_token: The parameter for receiving additional results if you receive a
@@ -3440,8 +3419,7 @@ class OrganizationsApi:
         a delegated administrator.
 
         This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator for an
-        Amazon Web Services service.
+        account or by a member account that is a delegated administrator.
 
         :param account_id: The account ID number of a delegated administrator account in the
         organization.
@@ -3527,8 +3505,7 @@ class OrganizationsApi:
         when there are no more results to display.
 
         This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator for an
-        Amazon Web Services service.
+        account or by a member account that is a delegated administrator.
 
         :param filter: A filter of the handshakes that you want included in the response.
         :param next_token: The parameter for receiving additional results if you receive a
@@ -3564,8 +3541,7 @@ class OrganizationsApi:
         when there are no more results to display.
 
         This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator for an
-        Amazon Web Services service.
+        account or by a member account that is a delegated administrator.
 
         :param parent_id: The unique identifier (ID) of the root or OU whose child OUs you want to
         list.
@@ -3604,8 +3580,7 @@ class OrganizationsApi:
         when there are no more results to display.
 
         This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator for an
-        Amazon Web Services service.
+        account or by a member account that is a delegated administrator.
 
         In the current release, a child can have only a single parent.
 
@@ -3644,8 +3619,7 @@ class OrganizationsApi:
         when there are no more results to display.
 
         This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator for an
-        Amazon Web Services service.
+        account or by a member account that is a delegated administrator.
 
         :param filter: Specifies the type of policy that you want to include in the response.
         :param next_token: The parameter for receiving additional results if you receive a
@@ -3683,8 +3657,7 @@ class OrganizationsApi:
         when there are no more results to display.
 
         This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator for an
-        Amazon Web Services service.
+        account or by a member account that is a delegated administrator.
 
         :param target_id: The unique identifier (ID) of the root, organizational unit, or account
         whose policies you want to list.
@@ -3721,8 +3694,7 @@ class OrganizationsApi:
         when there are no more results to display.
 
         This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator for an
-        Amazon Web Services service.
+        account or by a member account that is a delegated administrator.
 
         Policy types can be enabled and disabled in roots. This is distinct from
         whether they're available in the organization. When you enable all
@@ -3765,8 +3737,7 @@ class OrganizationsApi:
         -  Policy (any type)
 
         This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator for an
-        Amazon Web Services service.
+        account or by a member account that is a delegated administrator.
 
         :param resource_id: The ID of the resource with the tags to list.
         :param next_token: The parameter for receiving additional results if you receive a
@@ -3800,8 +3771,7 @@ class OrganizationsApi:
         when there are no more results to display.
 
         This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator for an
-        Amazon Web Services service.
+        account or by a member account that is a delegated administrator.
 
         :param policy_id: The unique identifier (ID) of the policy whose attachments you want to
         know.
@@ -3863,8 +3833,8 @@ class OrganizationsApi:
     ) -> PutResourcePolicyResponse:
         """Creates or updates a resource policy.
 
-        You can only call this operation from the organization's management
-        account.
+        This operation can be called only from the organization's management
+        account..
 
         :param content: If provided, the new content for the resource policy.
         :param tags: A list of tags that you want to attach to the newly created resource
@@ -3991,8 +3961,7 @@ class OrganizationsApi:
         -  Policy (any type)
 
         This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator for an
-        Amazon Web Services service.
+        account or by a member account that is a delegated administrator.
 
         :param resource_id: The ID of the resource to add a tag to.
         :param tags: A list of tags to add to the specified resource.
@@ -4024,8 +3993,7 @@ class OrganizationsApi:
         -  Policy (any type)
 
         This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator for an
-        Amazon Web Services service.
+        account or by a member account that is a delegated administrator.
 
         :param resource_id: The ID of the resource to remove a tag from.
         :param tag_keys: The list of keys for tags to remove from the specified resource.
@@ -4084,8 +4052,7 @@ class OrganizationsApi:
         change a policy's type.
 
         This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator for an
-        Amazon Web Services service.
+        account or by a member account that is a delegated administrator.
 
         :param policy_id: The unique identifier (ID) of the policy that you want to update.
         :param name: If provided, the new name for the policy.

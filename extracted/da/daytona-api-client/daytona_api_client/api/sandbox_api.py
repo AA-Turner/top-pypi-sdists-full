@@ -1,7 +1,4 @@
 # coding: utf-8
-# Copyright 2025 Daytona Platforms Inc.
-# SPDX-License-Identifier: Apache-2.0
-
 
 """
     Daytona
@@ -1813,6 +1810,9 @@ class SandboxApi:
         ] = None,
         verbose: Annotated[Optional[StrictBool], Field(description="Include verbose output")] = None,
         labels: Annotated[Optional[StrictStr], Field(description="JSON encoded labels to filter by")] = None,
+        include_errored_deleted: Annotated[
+            Optional[StrictBool], Field(description="Include errored and deleted sandboxes")
+        ] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1832,6 +1832,8 @@ class SandboxApi:
         :type verbose: bool
         :param labels: JSON encoded labels to filter by
         :type labels: str
+        :param include_errored_deleted: Include errored and deleted sandboxes
+        :type include_errored_deleted: bool
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1858,6 +1860,7 @@ class SandboxApi:
             x_daytona_organization_id=x_daytona_organization_id,
             verbose=verbose,
             labels=labels,
+            include_errored_deleted=include_errored_deleted,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1882,6 +1885,9 @@ class SandboxApi:
         ] = None,
         verbose: Annotated[Optional[StrictBool], Field(description="Include verbose output")] = None,
         labels: Annotated[Optional[StrictStr], Field(description="JSON encoded labels to filter by")] = None,
+        include_errored_deleted: Annotated[
+            Optional[StrictBool], Field(description="Include errored and deleted sandboxes")
+        ] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1901,6 +1907,8 @@ class SandboxApi:
         :type verbose: bool
         :param labels: JSON encoded labels to filter by
         :type labels: str
+        :param include_errored_deleted: Include errored and deleted sandboxes
+        :type include_errored_deleted: bool
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1927,6 +1935,7 @@ class SandboxApi:
             x_daytona_organization_id=x_daytona_organization_id,
             verbose=verbose,
             labels=labels,
+            include_errored_deleted=include_errored_deleted,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1951,6 +1960,9 @@ class SandboxApi:
         ] = None,
         verbose: Annotated[Optional[StrictBool], Field(description="Include verbose output")] = None,
         labels: Annotated[Optional[StrictStr], Field(description="JSON encoded labels to filter by")] = None,
+        include_errored_deleted: Annotated[
+            Optional[StrictBool], Field(description="Include errored and deleted sandboxes")
+        ] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1970,6 +1982,8 @@ class SandboxApi:
         :type verbose: bool
         :param labels: JSON encoded labels to filter by
         :type labels: str
+        :param include_errored_deleted: Include errored and deleted sandboxes
+        :type include_errored_deleted: bool
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1996,6 +2010,7 @@ class SandboxApi:
             x_daytona_organization_id=x_daytona_organization_id,
             verbose=verbose,
             labels=labels,
+            include_errored_deleted=include_errored_deleted,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2013,6 +2028,7 @@ class SandboxApi:
         x_daytona_organization_id,
         verbose,
         labels,
+        include_errored_deleted,
         _request_auth,
         _content_type,
         _headers,
@@ -2036,6 +2052,9 @@ class SandboxApi:
 
         if labels is not None:
             _query_params.append(("labels", labels))
+
+        if include_errored_deleted is not None:
+            _query_params.append(("includeErroredDeleted", include_errored_deleted))
 
         # process the header parameters
         if x_daytona_organization_id is not None:
@@ -2870,7 +2889,7 @@ class SandboxApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> None:
+    ) -> Sandbox:
         """Start sandbox
 
 
@@ -2910,7 +2929,7 @@ class SandboxApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": None,
+            "200": "Sandbox",
         }
         response_data = self.api_client.call_api(*_param, _request_timeout=_request_timeout)
         response_data.read()
@@ -2935,7 +2954,7 @@ class SandboxApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> ApiResponse[None]:
+    ) -> ApiResponse[Sandbox]:
         """Start sandbox
 
 
@@ -2975,7 +2994,7 @@ class SandboxApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": None,
+            "200": "Sandbox",
         }
         response_data = self.api_client.call_api(*_param, _request_timeout=_request_timeout)
         response_data.read()
@@ -3040,7 +3059,7 @@ class SandboxApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": None,
+            "200": "Sandbox",
         }
         response_data = self.api_client.call_api(*_param, _request_timeout=_request_timeout)
         return response_data.response
@@ -3074,6 +3093,10 @@ class SandboxApi:
             _header_params["X-Daytona-Organization-ID"] = x_daytona_organization_id
         # process the form parameters
         # process the body parameter
+
+        # set the HTTP header `Accept`
+        if "Accept" not in _header_params:
+            _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
         _auth_settings: List[str] = ["bearer", "oauth2"]

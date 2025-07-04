@@ -33,7 +33,10 @@ from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
 from typing_extensions import Callable, Dict, Required, TypedDict, override
 
 import litellm
-from litellm.types.llms.base import BaseLiteLLMOpenAIResponseObject
+from litellm.types.llms.base import (
+    BaseLiteLLMOpenAIResponseObject,
+    LiteLLMPydanticObjectBase,
+)
 
 from ..litellm_core_utils.core_helpers import map_finish_reason
 from .guardrails import GuardrailEventHooks
@@ -61,28 +64,6 @@ else:
 
 def _generate_id():  # private helper function
     return "chatcmpl-" + str(uuid.uuid4())
-
-
-class LiteLLMPydanticObjectBase(BaseModel):
-    """
-    Implements default functions, all pydantic objects should have.
-    """
-
-    def json(self, **kwargs):  # type: ignore
-        try:
-            return self.model_dump(**kwargs)  # noqa
-        except Exception:
-            # if using pydantic v1
-            return self.dict(**kwargs)
-
-    def fields_set(self):
-        try:
-            return self.model_fields_set  # noqa
-        except Exception:
-            # if using pydantic v1
-            return self.__fields_set__
-
-    model_config = ConfigDict(protected_namespaces=())
 
 
 class LiteLLMCommonStrings(Enum):
@@ -929,13 +910,18 @@ class Usage(CompletionUsage):
 
     server_tool_use: Optional[ServerToolUse] = None
 
+    prompt_tokens_details: Optional[PromptTokensDetailsWrapper] = None
+    """Breakdown of tokens used in the prompt."""
+
     def __init__(
         self,
         prompt_tokens: Optional[int] = None,
         completion_tokens: Optional[int] = None,
         total_tokens: Optional[int] = None,
         reasoning_tokens: Optional[int] = None,
-        prompt_tokens_details: Optional[Union[PromptTokensDetailsWrapper, dict]] = None,
+        prompt_tokens_details: Optional[
+            Union[PromptTokensDetailsWrapper, PromptTokensDetails, dict]
+        ] = None,
         completion_tokens_details: Optional[
             Union[CompletionTokensDetailsWrapper, dict]
         ] = None,
@@ -963,12 +949,17 @@ class Usage(CompletionUsage):
 
         # handle prompt_tokens_details
         _prompt_tokens_details: Optional[PromptTokensDetailsWrapper] = None
+
         if prompt_tokens_details:
             if isinstance(prompt_tokens_details, dict):
                 _prompt_tokens_details = PromptTokensDetailsWrapper(
                     **prompt_tokens_details
                 )
             elif isinstance(prompt_tokens_details, PromptTokensDetails):
+                _prompt_tokens_details = PromptTokensDetailsWrapper(
+                    **prompt_tokens_details.model_dump()
+                )
+            elif isinstance(prompt_tokens_details, PromptTokensDetailsWrapper):
                 _prompt_tokens_details = prompt_tokens_details
 
         ## DEEPSEEK MAPPING ##

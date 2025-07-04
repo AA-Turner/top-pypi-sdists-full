@@ -1,10 +1,11 @@
 import warnings
-from typing import Union, Type
+from types import TracebackType
+from typing import TypeAlias, Any
 
 from testfixtures import Comparison, SequenceComparison, compare
 
 
-WarningOrType = Union[Warning, Type[Warning]]
+WarningOrType: TypeAlias = Warning | type[Warning]
 
 
 class ShouldWarn(warnings.catch_warnings):
@@ -42,19 +43,28 @@ class ShouldWarn(warnings.catch_warnings):
     """
 
     _empty_okay = False
+    recorded: list[warnings.WarningMessage]
 
-    def __init__(self, *expected: WarningOrType, order_matters: bool = True, **filters):
+    def __init__(
+            self, *expected: WarningOrType, order_matters: bool = True, **filters: Any
+    ) -> None:
         super(ShouldWarn, self).__init__(record=True)
         self.order_matters = order_matters
         self.expected = [Comparison(e) for e in expected]
         self.filters = filters
 
-    def __enter__(self):
-        self.recorded = super(ShouldWarn, self).__enter__()
+    def __enter__(self) -> list[warnings.WarningMessage]:
+        # We pass `record=True` above, so the following will *always* return a list:
+        self.recorded = super(ShouldWarn, self).__enter__()  # type: ignore[assignment]
         warnings.filterwarnings("always", **self.filters)
         return self.recorded
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+            self,
+            exc_type: type[BaseException] | None,
+            exc_val: BaseException | None,
+            exc_tb: TracebackType | None,
+    ) -> None:
         super(ShouldWarn, self).__exit__(exc_type, exc_val, exc_tb)
         if not self.recorded and self._empty_okay:
             return
@@ -74,5 +84,5 @@ class ShouldNotWarn(ShouldWarn):
 
     _empty_okay = True
 
-    def __init__(self):
+    def __init__(self) -> None:
         super(ShouldNotWarn, self).__init__()

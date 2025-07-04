@@ -138,11 +138,19 @@ class Column(object):
         sio = six.StringIO()
         if self.generate_expression:
             sio.write(
-                u"  %s AS `%s`" % (utils.to_text(self.generate_expression), self.name)
+                u"  %s AS %s"
+                % (
+                    utils.to_text(self.generate_expression),
+                    utils.backquote_string(self.name),
+                )
             )
         else:
             sio.write(
-                u"  `%s` %s" % (utils.to_text(self.name), utils.to_text(self.type))
+                u"  %s %s"
+                % (
+                    utils.to_text(utils.backquote_string(self.name)),
+                    utils.to_text(self.type),
+                )
             )
             if not self.nullable and not options.sql.ignore_fields_not_null:
                 sio.write(u" NOT NULL")
@@ -1804,7 +1812,8 @@ class Struct(CompositeDataType):
     @property
     def name(self):
         parts = ",".join(
-            "`%s`:%s" % (k, v.name) for k, v in six.iteritems(self.field_types)
+            "%s:%s" % (utils.backquote_string(k), v.name)
+            for k, v in six.iteritems(self.field_types)
         )
         return "{0}<{1}>".format(type(self).__name__.lower(), parts)
 
@@ -1852,7 +1861,7 @@ class Struct(CompositeDataType):
             if isinstance(type_tuple, tuple):
                 return type_tuple
             else:
-                return tuple(v.strip().strip("`") for v in type_tuple.split(":", 1))
+                return tuple(_split_struct_kv(type_tuple))
 
         return cls(conv_type_tuple(a) for a in args)
 
@@ -1925,6 +1934,13 @@ class Json(DataType):
         return value
 
 
+@_primitive_doc
+class Geography(OdpsPrimitive):
+    __slots__ = ()
+    _type_id = 14
+    _max_length = 8 * 1024 * 1024  # 8M
+
+
 tinyint = Tinyint()
 smallint = Smallint()
 int_ = Int()
@@ -1941,6 +1957,7 @@ interval_day_time = IntervalDayTime()
 interval_year_month = IntervalYearMonth()
 date = Date()
 json = Json()
+geography = Geography()
 
 _odps_primitive_data_types = dict(
     [
@@ -1962,6 +1979,7 @@ _odps_primitive_data_types = dict(
             interval_day_time,
             interval_year_month,
             json,
+            geography,
         )
     ]
 )
@@ -1977,23 +1995,31 @@ _composite_handlers = dict(
 )
 
 
+def _split_struct_kv(kv_str):
+    parts = utils.split_backquoted(kv_str, ":", 1)
+    if len(parts) > 2 or len(parts) <= 0:
+        raise ValueError("Invalid type string: %s" % kv_str)
+
+    parts[-1] = parts[-1].strip()
+    if len(parts) > 1:
+        parts[0] = utils.strip_backquotes(parts[0])
+    return parts
+
+
 def parse_composite_types(type_str, handlers=None):
     handlers = handlers or _composite_handlers
 
     def _create_composite_type(typ, *args):
-        prefix = None
-        if ":" in typ:
-            prefix, typ = typ.split(":")
-            prefix = prefix.strip().strip("`")
-            typ = typ.strip()
+        parts = _split_struct_kv(typ)
+        typ = parts[-1]
         if typ not in handlers:
             raise ValueError("Composite type %s not supported." % typ.upper())
         ctype = handlers[typ].parse_composite(args)
 
-        if prefix is None:
+        if len(parts) == 1:
             return ctype
         else:
-            return prefix, ctype
+            return parts[0], ctype
 
     token_stack = []
     bracket_stack = []

@@ -5,9 +5,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import warnings
-from collections.abc import Generator
+from collections.abc import Generator, Iterable
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Final, Iterable, final
+from typing import TYPE_CHECKING, Any, Final, final
 
 from bleak.backends.device import BLEDevice
 from bleak.backends.scanner import AdvertisementData
@@ -550,7 +550,6 @@ class BaseHaRemoteScanner(BaseHaScanner):
                 address,
                 local_name,
                 {**self._details, **details},
-                rssi,  # deprecated, will be removed in newer bleak
             )
             info.manufacturer_data = manufacturer_data
             info.service_data = service_data
@@ -569,10 +568,6 @@ class BaseHaRemoteScanner(BaseHaScanner):
             # change.
             #
             # https://github.com/hbldh/bleak/blob/222618b7747f0467dbb32bd3679f8cfaa19b1668/bleak/backends/scanner.py#L203
-            #
-            # _rssi is deprecated, will be removed in newer bleak
-            # pylint: disable-next=protected-access
-            info.device._rssi = rssi
             if prev_name is not None and (
                 prev_name is local_name
                 or not local_name

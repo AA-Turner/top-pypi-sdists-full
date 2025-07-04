@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xarray
-Version: 2025.6.1
+Version: 2025.7.0
 Summary: N-D labeled arrays and datasets in Python
 Author-email: xarray Developers <xarray@googlegroups.com>
 License-Expression: Apache-2.0
@@ -14,41 +14,40 @@ Classifier: Operating System :: OS Independent
 Classifier: Intended Audience :: Science/Research
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: numpy>=1.24
-Requires-Dist: packaging>=23.2
-Requires-Dist: pandas>=2.1
+Requires-Dist: numpy>=1.26
+Requires-Dist: packaging>=24.1
+Requires-Dist: pandas>=2.2
 Provides-Extra: accel
-Requires-Dist: scipy; extra == "accel"
+Requires-Dist: scipy>=1.13; extra == "accel"
 Requires-Dist: bottleneck; extra == "accel"
-Requires-Dist: numbagg; extra == "accel"
-Requires-Dist: numba>=0.54; extra == "accel"
-Requires-Dist: flox; extra == "accel"
+Requires-Dist: numbagg>=0.8; extra == "accel"
+Requires-Dist: numba>=0.59; extra == "accel"
+Requires-Dist: flox>=0.9; extra == "accel"
 Requires-Dist: opt_einsum; extra == "accel"
 Provides-Extra: complete
 Requires-Dist: xarray[accel,etc,io,parallel,viz]; extra == "complete"
 Provides-Extra: io
-Requires-Dist: netCDF4; extra == "io"
+Requires-Dist: netCDF4>=1.6.0; extra == "io"
 Requires-Dist: h5netcdf; extra == "io"
-Requires-Dist: scipy; extra == "io"
-Requires-Dist: pydap; python_version < "3.10" and extra == "io"
-Requires-Dist: zarr; extra == "io"
+Requires-Dist: pydap; extra == "io"
+Requires-Dist: scipy>=1.13; extra == "io"
+Requires-Dist: zarr>=2.18; extra == "io"
 Requires-Dist: fsspec; extra == "io"
 Requires-Dist: cftime; extra == "io"
 Requires-Dist: pooch; extra == "io"
 Provides-Extra: etc
-Requires-Dist: sparse; extra == "etc"
+Requires-Dist: sparse>=0.15; extra == "etc"
 Provides-Extra: parallel
 Requires-Dist: dask[complete]; extra == "parallel"
 Provides-Extra: viz
-Requires-Dist: cartopy; extra == "viz"
+Requires-Dist: cartopy>=0.23; extra == "viz"
 Requires-Dist: matplotlib; extra == "viz"
 Requires-Dist: nc-time-axis; extra == "viz"
 Requires-Dist: seaborn; extra == "viz"

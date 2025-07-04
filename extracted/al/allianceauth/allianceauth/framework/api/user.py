@@ -10,24 +10,39 @@ from allianceauth.authentication.models import CharacterOwnership
 from allianceauth.eveonline.models import EveCharacter
 
 
-def get_all_characters_from_user(user: User) -> list:
+def get_all_characters_from_user(user: User, main_first: bool = False) -> list:
     """
-    Get all characters from a user or an empty list
-    when no characters are found for the user or the user is None
+    Get all characters from a user
+    This function retrieves all characters associated with a given user, optionally ordering them
+    with the main character first.
+    If the user is None, an empty list is returned.
 
-    :param user:
-    :type user:
-    :return:
-    :rtype:
+    :param user: The user whose characters are to be retrieved
+    :type user: User
+    :param main_first: If True, the main character will be listed first
+    :type main_first: bool
+    :return: A list of EveCharacter objects associated with the user
+    :rtype: list[EveCharacter]
     """
 
     if user is None:
         return []
 
     try:
-        characters = [
-            char.character for char in CharacterOwnership.objects.filter(user=user)
-        ]
+        if main_first:
+            characters = [
+                char.character
+                for char in CharacterOwnership.objects.filter(user=user).order_by(
+                    "-character__userprofile", "character__character_name"
+                )
+            ]
+        else:
+            characters = [
+                char.character
+                for char in CharacterOwnership.objects.filter(user=user).order_by(
+                    "character__character_name"
+                )
+            ]
     except AttributeError:
         return []
 

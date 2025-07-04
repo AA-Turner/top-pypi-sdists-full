@@ -1473,7 +1473,7 @@ class DescribeCapacityReservationInput(ServiceRequest):
 
 
 class ZonalCapacityReservationState(TypedDict, total=False):
-    """The capacity reservation status for each availability zone."""
+    """The capacity reservation status for each Availability Zone."""
 
     State: Optional[CapacityReservationStatus]
     AvailabilityZone: Optional[ZoneName]
@@ -2013,10 +2013,10 @@ class Elbv2Api:
         If the certificate in already in the certificate list, the call is
         successful but the certificate is not added again.
 
-        For more information, see `HTTPS
-        listeners <https://docs.aws.amazon.com/elasticloadbalancing/latest/application/create-https-listener.html>`__
-        in the *Application Load Balancers Guide* or `TLS
-        listeners <https://docs.aws.amazon.com/elasticloadbalancing/latest/network/create-tls-listener.html>`__
+        For more information, see `SSL
+        certificates <https://docs.aws.amazon.com/elasticloadbalancing/latest/application/https-listener-certificates.html>`__
+        in the *Application Load Balancers Guide* or `Server
+        certificates <https://docs.aws.amazon.com/elasticloadbalancing/latest/network/tls-listener-certificates.html>`__
         in the *Network Load Balancers Guide*.
 
         :param listener_arn: The Amazon Resource Name (ARN) of the listener.
@@ -2329,6 +2329,9 @@ class Elbv2Api:
     ) -> CreateTrustStoreOutput:
         """Creates a trust store.
 
+        For more information, see `Mutual TLS for Application Load
+        Balancers <https://docs.aws.amazon.com/elasticloadbalancing/latest/application/mutual-authentication.html>`__.
+
         :param name: The name of the trust store.
         :param ca_certificates_bundle_s3_bucket: The Amazon S3 bucket for the ca certificates bundle.
         :param ca_certificates_bundle_s3_key: The Amazon S3 path for the ca certificates bundle.
@@ -2468,15 +2471,15 @@ class Elbv2Api:
         For more information, see the following:
 
         -  `Deregistration
-           delay <https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-target-groups.html#deregistration-delay>`__
+           delay <https://docs.aws.amazon.com/elasticloadbalancing/latest/application/edit-target-group-attributes.html#deregistration-delay>`__
            in the *Application Load Balancers User Guide*
 
         -  `Deregistration
-           delay <https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-target-groups.html#deregistration-delay>`__
+           delay <https://docs.aws.amazon.com/elasticloadbalancing/latest/network/edit-target-group-attributes.html#deregistration-delay>`__
            in the *Network Load Balancers User Guide*
 
         -  `Deregistration
-           delay <https://docs.aws.amazon.com/elasticloadbalancing/latest/gateway/target-groups.html#deregistration-delay>`__
+           delay <https://docs.aws.amazon.com/elasticloadbalancing/latest/gateway/edit-target-group-attributes.html#deregistration-delay>`__
            in the *Gateway Load Balancers User Guide*
 
         Note: If the specified target does not exist, the action returns
@@ -2560,9 +2563,9 @@ class Elbv2Api:
         ``IsDefault`` set to false).
 
         For more information, see `SSL
-        certificates <https://docs.aws.amazon.com/elasticloadbalancing/latest/application/create-https-listener.html#https-listener-certificates>`__
+        certificates <https://docs.aws.amazon.com/elasticloadbalancing/latest/application/https-listener-certificates.html>`__
         in the *Application Load Balancers Guide* or `Server
-        certificates <https://docs.aws.amazon.com/elasticloadbalancing/latest/network/create-tls-listener.html#tls-listener-certificate>`__
+        certificates <https://docs.aws.amazon.com/elasticloadbalancing/latest/network/tls-listener-certificates.html>`__
         in the *Network Load Balancers Guide*.
 
         :param listener_arn: The Amazon Resource Names (ARN) of the listener.
@@ -2685,9 +2688,9 @@ class Elbv2Api:
         negotiation.
 
         For more information, see `Security
-        policies <https://docs.aws.amazon.com/elasticloadbalancing/latest/application/create-https-listener.html#describe-ssl-policies>`__
-        in the *Application Load Balancers Guide* or `Security
-        policies <https://docs.aws.amazon.com/elasticloadbalancing/latest/network/create-tls-listener.html#describe-ssl-policies>`__
+        policies <https://docs.aws.amazon.com/elasticloadbalancing/latest/application/describe-ssl-policies.html>`__
+        in the *Application Load Balancers Guide* and `Security
+        policies <https://docs.aws.amazon.com/elasticloadbalancing/latest/network/describe-ssl-policies.html>`__
         in the *Network Load Balancers Guide*.
 
         :param names: The names of the policies.
@@ -3188,10 +3191,16 @@ class Elbv2Api:
         each EC2 instance or IP address with the same target group multiple
         times using different ports.
 
-        With a Network Load Balancer, you can't register instances by instance
-        ID if they have the following instance types: C1, CC1, CC2, CG1, CG2,
-        CR1, CS1, G1, G2, HI1, HS1, M1, M2, M3, and T1. You can register
-        instances of these types by IP address.
+        For more information, see the following:
+
+        -  `Register targets for your Application Load
+           Balancer <https://docs.aws.amazon.com/elasticloadbalancing/latest/application/target-group-register-targets.html>`__
+
+        -  `Register targets for your Network Load
+           Balancer <https://docs.aws.amazon.com/elasticloadbalancing/latest/network/target-group-register-targets.html>`__
+
+        -  `Register targets for your Gateway Load
+           Balancer <https://docs.aws.amazon.com/elasticloadbalancing/latest/gateway/target-group-register-targets.html>`__
 
         :param target_group_arn: The Amazon Resource Name (ARN) of the target group.
         :param targets: The targets.

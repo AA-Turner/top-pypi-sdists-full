@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: certora-cli-alpha-master
-Version: 20250702.23.1.549405
+Version: 20250703.22.51.513143
 Summary: Runner for the Certora Prover
 Home-page: https://pypi.org/project/certora-cli-alpha-master
 Author: Certora
@@ -38,4 +38,4 @@ Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary
 
-Commit 1e86162.                    Build and Run scripts for executing the Certora Prover on Solidity smart contracts.
+Commit 7dc6790.                    Build and Run scripts for executing the Certora Prover on Solidity smart contracts.

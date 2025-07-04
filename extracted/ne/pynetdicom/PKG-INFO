@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pynetdicom
-Version: 3.0.1
+Version: 3.0.3
 Summary: A Python implementation of the DICOM networking protocol
 Keywords: dicom,networking,pydicom
 Author: pynetdicom contributors
@@ -31,6 +31,7 @@ Requires-Dist: mypy >= 1.11 ; extra == "dev"
 Requires-Dist: pyfakefs >=5.3 ; extra == "dev"
 Requires-Dist: pytest >=7.4 ; extra == "dev"
 Requires-Dist: pytest-cov >=4.1 ; extra == "dev"
+Requires-Dist: pytest-xdist >= 3.7 ; extra == "dev"
 Requires-Dist: ruff >=0.1 ; extra == "dev"
 Requires-Dist: sqlalchemy >=2.0 ; extra == "dev"
 Requires-Dist: numpydoc >=1.6 ; extra == "docs"
@@ -42,6 +43,7 @@ Requires-Dist: coverage >=7.3 ; extra == "tests"
 Requires-Dist: pyfakefs >=5.3 ; extra == "tests"
 Requires-Dist: pytest >=7.4 ; extra == "tests"
 Requires-Dist: pytest-cov >=4.1 ; extra == "tests"
+Requires-Dist: pytest-xdist >= 3.7 ; extra == "tests"
 Requires-Dist: sqlalchemy >=2.0 ; extra == "tests"
 Project-URL: documentation, https://pydicom.github.io/pynetdicom
 Project-URL: homepage, https://github.com/pydicom/pynetdicom

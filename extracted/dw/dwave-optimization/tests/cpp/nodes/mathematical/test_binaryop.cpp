@@ -206,6 +206,71 @@ TEMPLATE_TEST_CASE("BinaryOpNode", "",
             }
         }
     }
+
+    GIVEN("Two dynamic arrays of the same size operated on") {
+        auto dyn_ptr = graph.emplace_node<DynamicArrayTestingNode>(
+                std::initializer_list<ssize_t>{-1, 2}, 0, 1000, true);
+
+        auto a_ptr = graph.emplace_node<BasicIndexingNode>(dyn_ptr, Slice(), 0);
+        graph.emplace_node<ArrayValidationNode>(a_ptr);
+        auto b_ptr = graph.emplace_node<BasicIndexingNode>(dyn_ptr, Slice(), 1);
+        graph.emplace_node<ArrayValidationNode>(b_ptr);
+
+        auto p_ptr = graph.emplace_node<BinaryOpNode<TestType>>(a_ptr, b_ptr);
+
+        graph.emplace_node<ArrayValidationNode>(p_ptr);
+
+        THEN("The shape is also a 1D array") {
+            CHECK(p_ptr->ndim() == 1);
+            CHECK(p_ptr->size() == Array::DYNAMIC_SIZE);
+        }
+
+        THEN("a and b are the operands") {
+            CHECK(std::ranges::equal(p_ptr->operands(), std::vector<Array*>{a_ptr, b_ptr}));
+        }
+
+        WHEN("We make a state") {
+            auto state = graph.initialize_state();
+
+            THEN("The product has the value and shape we expect") {
+                CHECK(p_ptr->size(state) == 0);
+                CHECK(p_ptr->shape(state).size() == 1);
+            }
+
+            AND_WHEN("We grow the arrays") {
+                dyn_ptr->grow(state, {1, 2});
+                graph.propagate(state);
+
+                THEN("The output has the values we expect") {
+                    CHECK(p_ptr->size(state) == 1);
+                    CHECK(p_ptr->shape(state).size() == 1);
+
+                    for (int i = 0; i < p_ptr->size(state); ++i) {
+                        CHECK(p_ptr->view(state)[i] ==
+                              func(a_ptr->view(state)[i], b_ptr->view(state)[i]));
+                    }
+                }
+            }
+
+            AND_WHEN("We grow and shrink and grow the arrays") {
+                dyn_ptr->grow(state, {1, 2});
+                dyn_ptr->shrink(state);
+                dyn_ptr->grow(state, {3, 666, 555, 6});
+
+                graph.propagate(state);
+
+                THEN("The output has the values we expect") {
+                    CHECK(p_ptr->size(state) == 2);
+                    CHECK(p_ptr->shape(state).size() == 1);
+
+                    for (int i = 0; i < p_ptr->size(state); ++i) {
+                        CHECK(p_ptr->view(state)[i] ==
+                              func(a_ptr->view(state)[i], b_ptr->view(state)[i]));
+                    }
+                }
+            }
+        }
+    }
 }
 
 TEST_CASE("BinaryOpNode - LessEqualNode") {
@@ -684,6 +749,19 @@ TEST_CASE("BinaryOpNode - SubtractNode") {
             CHECK(z_ptr->min() == -9);
             CHECK(z_ptr->integral());
         }
+    }
+
+    // smoke test for checking predecessor sizeinfo
+    GIVEN("x = Set(10), y = x[1:][-1:], z = x[:-1][-1:]") {
+        auto x_ptr = graph.emplace_node<SetNode>(10);
+        auto y_ptr = graph.emplace_node<BasicIndexingNode>(
+                graph.emplace_node<BasicIndexingNode>(x_ptr, Slice(1, std::nullopt)),
+                Slice(-1, std::nullopt));
+        auto z_ptr = graph.emplace_node<BasicIndexingNode>(
+                graph.emplace_node<BasicIndexingNode>(x_ptr, Slice(std::nullopt, -1)),
+                Slice(-1, std::nullopt));
+
+        THEN("We can create y - z") { graph.emplace_node<SubtractNode>(y_ptr, z_ptr); }
     }
 }
 

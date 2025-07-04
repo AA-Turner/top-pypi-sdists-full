@@ -1,3 +1,4 @@
+import asyncio
 from fastapi import FastAPI, APIRouter
 from fastapi.exceptions import RequestValidationError
 from google.oauth2.service_account import Credentials
@@ -64,8 +65,6 @@ class ServiceManager:
 
         self._load_keys()
         self._initialize_loggers()
-        self._initialize_cache()
-        self._initialize_cloud_storage()
         self._initialize_database()
         self._initialize_foundation()
 
@@ -152,7 +151,25 @@ class ServiceManager:
     def loggers(self) -> Loggers:
         return self._loggers
 
-    def _initialize_cache(self) -> None:
+    async def _clear_cache(self) -> None:
+        prefixes = [
+            self.configurations.service.key,
+            f"google-cloud-storage:{self.configurations.service.key}"
+        ]
+        for prefix in prefixes:
+            async for key in self._redis.scan_iter(f"{prefix}*"):
+                await self._redis.delete(key)
+
+    async def check_redis_connection(self) -> bool:
+        try:
+            await self._redis.ping()
+            self._loggers.application.info("Redis connection check successful.")
+            return True
+        except RedisError as e:
+            self._loggers.application.error(f"Redis connection check failed: {e}", exc_info=True)
+            return False
+
+    async def initialize_cache(self) -> None:
         self._redis = Redis(
             host=self.configurations.cache.redis.host,
             port=self.configurations.cache.redis.port,
@@ -161,7 +178,9 @@ class ServiceManager:
             decode_responses=self.configurations.cache.redis.decode_responses,
             health_check_interval=self.configurations.cache.redis.health_check_interval
         )
+        await self.check_redis_connection()
         self._cache = CacheManagers(redis=self._redis)
+        await self._clear_cache()
 
     @property
     def redis(self) -> Redis:
@@ -171,16 +190,7 @@ class ServiceManager:
     def cache(self) -> CacheManagers:
         return self._cache
 
-    def check_redis_connection(self) -> bool:
-        try:
-            self._redis.ping()
-            self._loggers.application.info("Redis connection check successful.")
-            return True
-        except RedisError as e:
-            self._loggers.application.error(f"Redis connection check failed: {e}", exc_info=True)
-            return False
-
-    def _initialize_cloud_storage(self) -> None:
+    def initialize_cloud_storage(self) -> None:
         environment = (
             BaseEnums.EnvironmentType.STAGING
             if self._settings.ENVIRONMENT == BaseEnums.EnvironmentType.LOCAL

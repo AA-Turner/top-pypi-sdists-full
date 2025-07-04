@@ -105,6 +105,7 @@ class CapacityTypes(StrEnum):
 
 class Category(StrEnum):
     UPGRADE_READINESS = "UPGRADE_READINESS"
+    MISCONFIGURATION = "MISCONFIGURATION"
 
 
 class ClusterIssueCode(StrEnum):
@@ -725,13 +726,13 @@ AddonInfo = TypedDict(
 
 
 class AddonPodIdentityAssociations(TypedDict, total=False):
-    """A type of Pod Identity Association owned by an Amazon EKS Add-on.
+    """A type of EKS Pod Identity association owned by an Amazon EKS add-on.
 
-    Each EKS Pod Identity Association maps a role to a service account in a
-    namespace in the cluster.
+    Each association maps a role to a service account in a namespace in the
+    cluster.
 
     For more information, see `Attach an IAM Role to an Amazon EKS add-on
-    using Pod
+    using EKS Pod
     Identity <https://docs.aws.amazon.com/eks/latest/userguide/add-ons-iam.html>`__
     in the *Amazon EKS User Guide*.
     """
@@ -744,7 +745,7 @@ AddonPodIdentityAssociationsList = List[AddonPodIdentityAssociations]
 
 
 class AddonPodIdentityConfiguration(TypedDict, total=False):
-    """Information about how to configure IAM for an Addon."""
+    """Information about how to configure IAM for an add-on."""
 
     serviceAccount: Optional[String]
     recommendedManagedPolicies: Optional[StringList]
@@ -951,7 +952,7 @@ class RemotePodNetwork(TypedDict, total=False):
     It must satisfy the following requirements:
 
     -  Each block must be within an ``IPv4`` RFC-1918 network range. Minimum
-       allowed size is /24, maximum allowed size is /8. Publicly-routable
+       allowed size is /32, maximum allowed size is /8. Publicly-routable
        addresses aren't supported.
 
     -  Each block cannot overlap with the range of the VPC CIDR blocks for
@@ -977,7 +978,7 @@ class RemoteNodeNetwork(TypedDict, total=False):
     It must satisfy the following requirements:
 
     -  Each block must be within an ``IPv4`` RFC-1918 network range. Minimum
-       allowed size is /24, maximum allowed size is /8. Publicly-routable
+       allowed size is /32, maximum allowed size is /8. Publicly-routable
        addresses aren't supported.
 
     -  Each block cannot overlap with the range of the VPC CIDR blocks for
@@ -1656,6 +1657,8 @@ class CreatePodIdentityAssociationRequest(ServiceRequest):
     roleArn: String
     clientRequestToken: Optional[String]
     tags: Optional[TagMap]
+    disableSessionTags: Optional[BoxedBoolean]
+    targetRoleArn: Optional[String]
 
 
 class PodIdentityAssociation(TypedDict, total=False):
@@ -1674,6 +1677,9 @@ class PodIdentityAssociation(TypedDict, total=False):
     createdAt: Optional[Timestamp]
     modifiedAt: Optional[Timestamp]
     ownerArn: Optional[String]
+    disableSessionTags: Optional[BoxedBoolean]
+    targetRoleArn: Optional[String]
+    externalId: Optional[String]
 
 
 class CreatePodIdentityAssociationResponse(TypedDict, total=False):
@@ -2370,6 +2376,8 @@ class UpdatePodIdentityAssociationRequest(ServiceRequest):
     associationId: String
     roleArn: Optional[String]
     clientRequestToken: Optional[String]
+    disableSessionTags: Optional[BoxedBoolean]
+    targetRoleArn: Optional[String]
 
 
 class UpdatePodIdentityAssociationResponse(TypedDict, total=False):
@@ -2554,7 +2562,7 @@ class EksApi:
         idempotency of the request.
         :param tags: Metadata that assists with categorization and organization.
         :param configuration_values: The set of configuration values for the add-on that's created.
-        :param pod_identity_associations: An array of Pod Identity Assocations to be created.
+        :param pod_identity_associations: An array of EKS Pod Identity associations to be created.
         :returns: CreateAddonResponse
         :raises InvalidParameterException:
         :raises InvalidRequestException:
@@ -2611,8 +2619,9 @@ class EksApi:
         You can use the ``endpointPublicAccess`` and ``endpointPrivateAccess``
         parameters to enable or disable public and private access to your
         cluster's Kubernetes API server endpoint. By default, public access is
-        enabled, and private access is disabled. For more information, see
-        `Amazon EKS Cluster Endpoint Access
+        enabled, and private access is disabled. The endpoint domain name and IP
+        address family depends on the value of the ``ipFamily`` for the cluster.
+        For more information, see `Amazon EKS Cluster Endpoint Access
         Control <https://docs.aws.amazon.com/eks/latest/userguide/cluster-endpoint.html>`__
         in the *Amazon EKS User Guide* .
 
@@ -2877,30 +2886,50 @@ class EksApi:
         role_arn: String,
         client_request_token: String | None = None,
         tags: TagMap | None = None,
+        disable_session_tags: BoxedBoolean | None = None,
+        target_role_arn: String | None = None,
         **kwargs,
     ) -> CreatePodIdentityAssociationResponse:
         """Creates an EKS Pod Identity association between a service account in an
         Amazon EKS cluster and an IAM role with *EKS Pod Identity*. Use EKS Pod
-        Identity to give temporary IAM credentials to pods and the credentials
+        Identity to give temporary IAM credentials to Pods and the credentials
         are rotated automatically.
 
         Amazon EKS Pod Identity associations provide the ability to manage
         credentials for your applications, similar to the way that Amazon EC2
         instance profiles provide credentials to Amazon EC2 instances.
 
-        If a pod uses a service account that has an association, Amazon EKS sets
-        environment variables in the containers of the pod. The environment
+        If a Pod uses a service account that has an association, Amazon EKS sets
+        environment variables in the containers of the Pod. The environment
         variables configure the Amazon Web Services SDKs, including the Command
         Line Interface, to use the EKS Pod Identity credentials.
 
-        Pod Identity is a simpler method than *IAM roles for service accounts*,
-        as this method doesn't use OIDC identity providers. Additionally, you
-        can configure a role for Pod Identity once, and reuse it across
-        clusters.
+        EKS Pod Identity is a simpler method than *IAM roles for service
+        accounts*, as this method doesn't use OIDC identity providers.
+        Additionally, you can configure a role for EKS Pod Identity once, and
+        reuse it across clusters.
 
-        :param cluster_name: The name of the cluster to create the association in.
+        Similar to Amazon Web Services IAM behavior, EKS Pod Identity
+        associations are eventually consistent, and may take several seconds to
+        be effective after the initial API call returns successfully. You must
+        design your applications to account for these potential delays. We
+        recommend that you don’t include association create/updates in the
+        critical, high-availability code paths of your application. Instead,
+        make changes in a separate initialization or setup routine that you run
+        less frequently.
+
+        You can set a *target IAM role* in the same or a different account for
+        advanced scenarios. With a target role, EKS Pod Identity automatically
+        performs two role assumptions in sequence: first assuming the role in
+        the association that is in this account, then using those credentials to
+        assume the target IAM role. This process provides your Pod with
+        temporary credentials that have the permissions defined in the target
+        role, allowing secure access to resources in another Amazon Web Services
+        account.
+
+        :param cluster_name: The name of the cluster to create the EKS Pod Identity association in.
         :param namespace: The name of the Kubernetes namespace inside the cluster to create the
-        association in.
+        EKS Pod Identity association in.
         :param service_account: The name of the Kubernetes service account inside the cluster to
         associate the IAM credentials with.
         :param role_arn: The Amazon Resource Name (ARN) of the IAM role to associate with the
@@ -2908,6 +2937,10 @@ class EksApi:
         :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the
         idempotency of the request.
         :param tags: Metadata that assists with categorization and organization.
+        :param disable_session_tags: Disable the automatic sessions tags that are appended by EKS Pod
+        Identity.
+        :param target_role_arn: The Amazon Resource Name (ARN) of the target IAM role to associate with
+        the service account.
         :returns: CreatePodIdentityAssociationResponse
         :raises ServerException:
         :raises ResourceNotFoundException:
@@ -3628,7 +3661,18 @@ class EksApi:
     ) -> ListInsightsResponse:
         """Returns a list of all insights checked for against the specified
         cluster. You can filter which insights are returned by category,
-        associated Kubernetes version, and status.
+        associated Kubernetes version, and status. The default filter lists all
+        categories and every status.
+
+        The following lists the available categories:
+
+        -  ``UPGRADE_READINESS``: Amazon EKS identifies issues that could impact
+           your ability to upgrade to new versions of Kubernetes. These are
+           called upgrade insights.
+
+        -  ``MISCONFIGURATION``: Amazon EKS identifies misconfiguration in your
+           EKS Hybrid Nodes setup that could impair functionality of your
+           cluster or workloads. These are called configuration insights.
 
         :param cluster_name: The name of the Amazon EKS cluster associated with the insights.
         :param filter: The criteria to filter your list of insights for your cluster.
@@ -3884,7 +3928,7 @@ class EksApi:
         :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the
         idempotency of the request.
         :param configuration_values: The set of configuration values for the add-on that's created.
-        :param pod_identity_associations: An array of Pod Identity Assocations to be updated.
+        :param pod_identity_associations: An array of EKS Pod Identity associations to be updated.
         :returns: UpdateAddonResponse
         :raises InvalidParameterException:
         :raises InvalidRequestException:
@@ -3933,8 +3977,8 @@ class EksApi:
         -  You can also use this API operation to enable or disable public and
            private access to your cluster's Kubernetes API server endpoint. By
            default, public access is enabled, and private access is disabled.
-           For more information, see `Amazon EKS cluster endpoint access
-           control <https://docs.aws.amazon.com/eks/latest/userguide/cluster-endpoint.html>`__
+           For more information, see `Cluster API server
+           endpoint <https://docs.aws.amazon.com/eks/latest/userguide/cluster-endpoint.html>`__
            in the *Amazon EKS User Guide* .
 
         -  You can also use this API operation to choose different subnets and
@@ -4182,19 +4226,44 @@ class EksApi:
         association_id: String,
         role_arn: String | None = None,
         client_request_token: String | None = None,
+        disable_session_tags: BoxedBoolean | None = None,
+        target_role_arn: String | None = None,
         **kwargs,
     ) -> UpdatePodIdentityAssociationResponse:
-        """Updates a EKS Pod Identity association. Only the IAM role can be
-        changed; an association can't be moved between clusters, namespaces, or
-        service accounts. If you need to edit the namespace or service account,
-        you need to delete the association and then create a new association
-        with your desired settings.
+        """Updates a EKS Pod Identity association. In an update, you can change the
+        IAM role, the target IAM role, or ``disableSessionTags``. You must
+        change at least one of these in an update. An association can't be moved
+        between clusters, namespaces, or service accounts. If you need to edit
+        the namespace or service account, you need to delete the association and
+        then create a new association with your desired settings.
+
+        Similar to Amazon Web Services IAM behavior, EKS Pod Identity
+        associations are eventually consistent, and may take several seconds to
+        be effective after the initial API call returns successfully. You must
+        design your applications to account for these potential delays. We
+        recommend that you don’t include association create/updates in the
+        critical, high-availability code paths of your application. Instead,
+        make changes in a separate initialization or setup routine that you run
+        less frequently.
+
+        You can set a *target IAM role* in the same or a different account for
+        advanced scenarios. With a target role, EKS Pod Identity automatically
+        performs two role assumptions in sequence: first assuming the role in
+        the association that is in this account, then using those credentials to
+        assume the target IAM role. This process provides your Pod with
+        temporary credentials that have the permissions defined in the target
+        role, allowing secure access to resources in another Amazon Web Services
+        account.
 
         :param cluster_name: The name of the cluster that you want to update the association in.
         :param association_id: The ID of the association to be updated.
-        :param role_arn: The new IAM role to change the.
+        :param role_arn: The new IAM role to change in the association.
         :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the
         idempotency of the request.
+        :param disable_session_tags: Disable the automatic sessions tags that are appended by EKS Pod
+        Identity.
+        :param target_role_arn: The Amazon Resource Name (ARN) of the target IAM role to associate with
+        the service account.
         :returns: UpdatePodIdentityAssociationResponse
         :raises ServerException:
         :raises ResourceNotFoundException:

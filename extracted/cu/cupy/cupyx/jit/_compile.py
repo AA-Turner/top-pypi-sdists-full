@@ -67,7 +67,7 @@ class _JitCompileError(Exception):
 
 
 def transpile_function_wrapper(func):
-    def new_func(node: ast.AST, *args, **kwargs):
+    def new_func(node, *args, **kwargs):
         try:
             return func(node, *args, **kwargs)
         except _JitCompileError:
@@ -528,11 +528,6 @@ def _transpile_stmt(
             'Nested functions are not supported currently.')
     if isinstance(stmt, ast.Return):
         value = _transpile_expr(stmt.value, env)
-
-        if isinstance(value, Constant) and value.obj is None:
-            # `return None` or `return` without value
-            return ['return;']
-
         value = Data.init(value, env)
         t = value.ctype
         if env.ret_type is None:
@@ -691,7 +686,7 @@ def _transpile_expr(expr: ast.expr, env: Environment) -> _internal_types.Expr:
 
 
 def _transpile_expr_internal(
-        expr: Optional[ast.expr],
+        expr: ast.expr,
         env: Environment,
 ) -> _internal_types.Expr:
     if isinstance(expr, ast.BoolOp):
@@ -794,11 +789,8 @@ def _transpile_expr_internal(
 
         raise TypeError(f"Invalid function call '{func.__name__}'.")
 
-    if expr is None:
-        return Constant(None)
     if isinstance(expr, ast.Constant):
         return Constant(expr.value)
-
     if isinstance(expr, ast.Subscript):
         array = _transpile_expr(expr.value, env)
         index = _transpile_expr(expr.slice, env)

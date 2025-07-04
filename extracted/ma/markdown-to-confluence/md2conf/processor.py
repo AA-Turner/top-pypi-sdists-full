@@ -131,15 +131,11 @@ class Processor:
         Synchronizes a single Markdown document with its corresponding Confluence page.
         """
 
-        page_id, document = ConfluenceDocument.create(
-            path, self.options, self.root_dir, self.site, self.page_metadata
-        )
+        page_id, document = ConfluenceDocument.create(path, self.options, self.root_dir, self.site, self.page_metadata)
         self._update_page(page_id, document, path)
 
     @abstractmethod
-    def _synchronize_tree(
-        self, node: DocumentNode, page_id: Optional[ConfluencePageID]
-    ) -> None:
+    def _synchronize_tree(self, node: DocumentNode, page_id: Optional[ConfluencePageID]) -> None:
         """
         Creates the cross-reference index and synchronizes the directory tree structure with the Confluence page hierarchy.
 
@@ -150,17 +146,13 @@ class Processor:
         ...
 
     @abstractmethod
-    def _update_page(
-        self, page_id: ConfluencePageID, document: ConfluenceDocument, path: Path
-    ) -> None:
+    def _update_page(self, page_id: ConfluencePageID, document: ConfluenceDocument, path: Path) -> None:
         """
         Saves the document as Confluence Storage Format XHTML.
         """
         ...
 
-    def _index_directory(
-        self, local_dir: Path, parent: Optional[DocumentNode]
-    ) -> DocumentNode:
+    def _index_directory(self, local_dir: Path, parent: Optional[DocumentNode]) -> DocumentNode:
         """
         Indexes Markdown files in a directory hierarchy recursively.
         """
@@ -176,21 +168,21 @@ class Processor:
                 continue
 
             if entry.is_file():
-                files.append(Path(local_dir) / entry.name)
+                files.append(local_dir / entry.name)
             elif entry.is_dir():
-                directories.append(Path(local_dir) / entry.name)
+                directories.append(local_dir / entry.name)
 
         # make page act as parent node
         parent_doc: Optional[Path] = None
-        if (Path(local_dir) / "index.md") in files:
-            parent_doc = Path(local_dir) / "index.md"
-        elif (Path(local_dir) / "README.md") in files:
-            parent_doc = Path(local_dir) / "README.md"
-        elif (Path(local_dir) / f"{local_dir.name}.md") in files:
-            parent_doc = Path(local_dir) / f"{local_dir.name}.md"
+        if (local_dir / "index.md") in files:
+            parent_doc = local_dir / "index.md"
+        elif (local_dir / "README.md") in files:
+            parent_doc = local_dir / "README.md"
+        elif (local_dir / f"{local_dir.name}.md") in files:
+            parent_doc = local_dir / f"{local_dir.name}.md"
 
         if parent_doc is None and self.options.keep_hierarchy:
-            parent_doc = Path(local_dir) / "index.md"
+            parent_doc = local_dir / "index.md"
 
             # create a blank page for directory entry
             with open(parent_doc, "w"):
@@ -206,13 +198,7 @@ class Processor:
                 parent.add_child(node)
             parent = node
         elif parent is None:
-            # create new top-level node
-            if self.options.root_page_id is not None:
-                page_id = self.options.root_page_id.page_id
-                parent = DocumentNode(local_dir, page_id=page_id)
-            else:
-                # local use only, raises error with remote synchronization
-                parent = DocumentNode(local_dir, page_id=None)
+            raise ArgumentError(f"root page requires corresponding top-level Markdown document in {local_dir}")
 
         for file in files:
             node = self._index_file(file)
@@ -254,9 +240,7 @@ class ProcessorFactory:
     options: ConfluenceDocumentOptions
     site: ConfluenceSiteMetadata
 
-    def __init__(
-        self, options: ConfluenceDocumentOptions, site: ConfluenceSiteMetadata
-    ) -> None:
+    def __init__(self, options: ConfluenceDocumentOptions, site: ConfluenceSiteMetadata) -> None:
         self.options = options
         self.site = site
 
@@ -283,9 +267,7 @@ class Converter:
         else:
             raise ArgumentError(f"expected: valid file or directory path; got: {path}")
 
-    def process_directory(
-        self, local_dir: Path, root_dir: Optional[Path] = None
-    ) -> None:
+    def process_directory(self, local_dir: Path, root_dir: Optional[Path] = None) -> None:
         """
         Recursively scans a directory hierarchy for Markdown files, and processes each, resolving cross-references.
         """

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: torchio
-Version: 0.20.16
+Version: 0.20.17
 Summary: Tools for medical image processing with PyTorch
 Project-URL: Homepage, http://torchio.rtfd.io
 Project-URL: Source, https://github.com/TorchIO-project/torchio

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dda
-Version: 0.18.0
+Version: 0.19.0
 Summary: Tool for developing on the Datadog Agent platform
 Project-URL: Homepage, https://github.com/DataDog/datadog-agent-dev
 Project-URL: Documentation, https://datadoghq.dev/datadog-agent/setup/
@@ -28,6 +28,7 @@ Requires-Dist: msgspec~=0.18
 Requires-Dist: packaging
 Requires-Dist: platformdirs~=4.3
 Requires-Dist: psutil~=7.0
+Requires-Dist: pyjson5~=1.6.9
 Requires-Dist: pywinpty~=2.0.15; sys_platform == 'win32'
 Requires-Dist: rich-click~=1.8.9
 Requires-Dist: rich~=14.0

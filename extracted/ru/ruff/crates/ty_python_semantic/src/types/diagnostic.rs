@@ -307,7 +307,7 @@ declare_lint! {
     ///     d: bytes
     /// ```
     pub(crate) static DUPLICATE_KW_ONLY = {
-        summary: "detects dataclass definitions with more than once usages of `KW_ONLY`",
+        summary: "detects dataclass definitions with more than one usage of `KW_ONLY`",
         status: LintStatus::preview("1.0.0"),
         default_level: Level::Error,
     }
@@ -1561,7 +1561,7 @@ declare_lint! {
 }
 
 /// A collection of type check diagnostics.
-#[derive(Default, Eq, PartialEq)]
+#[derive(Default, Eq, PartialEq, get_size2::GetSize)]
 pub struct TypeCheckDiagnostics {
     diagnostics: Vec<Diagnostic>,
     used_suppressions: FxHashSet<FileSuppressionId>,

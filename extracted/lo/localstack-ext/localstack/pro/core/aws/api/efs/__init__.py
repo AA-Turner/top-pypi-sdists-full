@@ -19,6 +19,7 @@ ErrorMessage = str
 FileSystemArn = str
 FileSystemId = str
 IpAddress = str
+Ipv6Address = str
 KmsKeyId = str
 Marker = str
 MaxItems = int
@@ -46,6 +47,12 @@ VpcId = str
 class DeletionMode(StrEnum):
     ALL_CONFIGURATIONS = "ALL_CONFIGURATIONS"
     LOCAL_CONFIGURATION_ONLY = "LOCAL_CONFIGURATION_ONLY"
+
+
+class IpAddressType(StrEnum):
+    IPV4_ONLY = "IPV4_ONLY"
+    IPV6_ONLY = "IPV6_ONLY"
+    DUAL_STACK = "DUAL_STACK"
 
 
 class LifeCycleState(StrEnum):
@@ -347,7 +354,7 @@ class NetworkInterfaceLimitExceeded(ServiceException):
     for the specific Amazon Web Services Region. Either delete some network
     interfaces or request that the account quota be raised. For more
     information, see `Amazon VPC
-    Quotas <https://docs.aws.amazon.com/AmazonVPC/latest/UserGuide/VPC_Appendix_Limits.html>`__
+    Quotas <https://docs.aws.amazon.com/vpc/latest/userguide/amazon-vpc-limits.html>`__
     in the *Amazon VPC User Guide* (see the **Network interfaces per
     Region** entry in the **Network interfaces** table).
     """
@@ -370,9 +377,7 @@ class NoFreeAddressesInSubnet(ServiceException):
 
 
 class PolicyNotFound(ServiceException):
-    """Returned if the default file system policy is in effect for the EFS file
-    system specified.
-    """
+    """Returned if ``no backup`` is specified for a One Zone EFS file system."""
 
     code: str = "PolicyNotFound"
     sender_fault: bool = False
@@ -403,8 +408,12 @@ class ReplicationNotFound(ServiceException):
 
 
 class SecurityGroupLimitExceeded(ServiceException):
-    """Returned if the size of ``SecurityGroups`` specified in the request is
-    greater than five.
+    """Returned if the number of ``SecurityGroups`` specified in the request is
+    greater than the limit, which is based on account quota. Either delete
+    some security groups or request that the account quota be raised. For
+    more information, see `Amazon VPC
+    Quotas <https://docs.aws.amazon.com/vpc/latest/userguide/amazon-vpc-limits.html>`__
+    in the *Amazon VPC User Guide* (see the **Security Groups** table).
     """
 
     code: str = "SecurityGroupLimitExceeded"
@@ -622,6 +631,8 @@ class CreateMountTargetRequest(ServiceRequest):
     FileSystemId: FileSystemId
     SubnetId: SubnetId
     IpAddress: Optional[IpAddress]
+    Ipv6Address: Optional[Ipv6Address]
+    IpAddressType: Optional[IpAddressType]
     SecurityGroups: Optional[SecurityGroups]
 
 
@@ -849,6 +860,7 @@ class MountTargetDescription(TypedDict, total=False):
     SubnetId: SubnetId
     LifeCycleState: LifeCycleState
     IpAddress: Optional[IpAddress]
+    Ipv6Address: Optional[Ipv6Address]
     NetworkInterfaceId: Optional[NetworkInterfaceId]
     AvailabilityZoneId: Optional[AvailabilityZoneId]
     AvailabilityZoneName: Optional[AvailabilityZoneName]
@@ -1032,12 +1044,13 @@ class EfsApi:
         identity information provided by the NFS client. The file system path is
         exposed as the access point's root directory. Applications using the
         access point can only access data in the application's own directory and
-        any subdirectories. To learn more, see `Mounting a file system using EFS
-        access
+        any subdirectories. A file system can have a maximum of 10,000 access
+        points unless you request an increase. To learn more, see `Mounting a
+        file system using EFS access
         points <https://docs.aws.amazon.com/efs/latest/ug/efs-access-points.html>`__.
 
         If multiple requests to create access points on the same file system are
-        sent in quick succession, and the file system is near the limit of 1,000
+        sent in quick succession, and the file system is near the limit of
         access points, you may experience a throttling response for these
         requests. This is to ensure that the file system does not exceed the
         stated access point limit.
@@ -1189,6 +1202,8 @@ class EfsApi:
         file_system_id: FileSystemId,
         subnet_id: SubnetId,
         ip_address: IpAddress | None = None,
+        ipv6_address: Ipv6Address | None = None,
+        ip_address_type: IpAddressType | None = None,
         security_groups: SecurityGroups | None = None,
         **kwargs,
     ) -> MountTargetDescription:
@@ -1291,12 +1306,12 @@ class EfsApi:
         We recommend that you create a mount target in each of the Availability
         Zones. There are cost considerations for using a file system in an
         Availability Zone through a mount target created in another Availability
-        Zone. For more information, see `Amazon
-        EFS <http://aws.amazon.com/efs/>`__. In addition, by always using a
-        mount target local to the instance's Availability Zone, you eliminate a
-        partial failure scenario. If the Availability Zone in which your mount
-        target is created goes down, then you can't access your file system
-        through that mount target.
+        Zone. For more information, see `Amazon EFS
+        pricing <http://aws.amazon.com/efs/pricing/>`__. In addition, by always
+        using a mount target local to the instance's Availability Zone, you
+        eliminate a partial failure scenario. If the Availability Zone in which
+        your mount target is created goes down, then you can't access your file
+        system through that mount target.
 
         This operation requires permissions for the following action on the file
         system:
@@ -1314,8 +1329,12 @@ class EfsApi:
 
         :param file_system_id: The ID of the file system for which to create the mount target.
         :param subnet_id: The ID of the subnet to add the mount target in.
-        :param ip_address: Valid IPv4 address within the address range of the specified subnet.
-        :param security_groups: Up to five VPC security group IDs, of the form ``sg-xxxxxxxx``.
+        :param ip_address: If the IP address type for the mount target is IPv4, then specify the
+        IPv4 address within the address range of the specified subnet.
+        :param ipv6_address: If the IP address type for the mount target is IPv6, then specify the
+        IPv6 address within the address range of the specified subnet.
+        :param ip_address_type: Specify the type of IP address of the mount target you are creating.
+        :param security_groups: VPC security group IDs, of the form ``sg-xxxxxxxx``.
         :returns: MountTargetDescription
         :raises BadRequest:
         :raises InternalServerError:
@@ -1734,7 +1753,7 @@ class EfsApi:
         self, context: RequestContext, file_system_id: FileSystemId, **kwargs
     ) -> LifecycleConfigurationDescription:
         """Returns the current ``LifecycleConfiguration`` object for the specified
-        Amazon EFS file system. Lifecycle management uses the
+        EFS file system. Lifecycle management uses the
         ``LifecycleConfiguration`` object to identify when to move files between
         storage classes. For a file system without a ``LifecycleConfiguration``
         object, the call returns an empty array in the response.
@@ -1933,7 +1952,7 @@ class EfsApi:
            network interface.
 
         :param mount_target_id: The ID of the mount target whose security groups you want to modify.
-        :param security_groups: An array of up to five VPC security group IDs.
+        :param security_groups: An array of VPC security group IDs.
         :raises BadRequest:
         :raises InternalServerError:
         :raises MountTargetNotFound:

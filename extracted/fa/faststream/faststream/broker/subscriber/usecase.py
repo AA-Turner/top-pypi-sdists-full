@@ -199,7 +199,7 @@ class SubscriberUsecase(
         self.running = True
 
     @abstractmethod
-    async def close(self) -> None:
+    async def stop(self) -> None:
         """Close the handler.
 
         Blocks event loop up to graceful_timeout seconds.
@@ -307,14 +307,17 @@ class SubscriberUsecase(
 
         except StopConsume:
             # Stop handler at StopConsume exception
-            await self.close()
+            await self.stop()
 
         except SystemExit:
             # Stop handler at `exit()` call
-            await self.close()
-
-            if app := context.get("app"):
-                app.exit()
+            try:
+                await self.stop()
+            finally:
+                # Ensure that app.exit() is called on a shutdown request
+                # even if the consumer close operation threw an error.
+                if app := context.get("app"):
+                    app.exit()
 
         except Exception:  # nosec B110
             # All other exceptions were logged by CriticalLogMiddleware

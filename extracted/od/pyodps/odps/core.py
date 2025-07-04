@@ -29,16 +29,16 @@ from .tempobj import clean_stored_objects
 DEFAULT_ENDPOINT = "http://service.odps.aliyun.com/api"
 DEFAULT_REGION_NAME = "cn"
 LOGVIEW_HOST_DEFAULT = "http://logview.aliyun.com"
-JOB_INSIGHT_HOST_DEFAULT = "https://maxcompute.console.aliyun.com"
 
 _ALTER_TABLE_REGEX = re.compile(
     r"^\s*(drop|alter)\s+table\s*(|if\s+exists)\s+(?P<table_name>[^\s;]+)", re.I
 )
 _ENDPOINT_HOST_WITH_REGION_REGEX = re.compile(
-    r"service\.([^\.]+)\.(odps|maxcompute)\.aliyun(|-inc)\.com", re.I
+    r"service\.([^\.]+)\.([a-z]{4,10})\.[a-z]{6}(|-inc)\.com", re.I
 )
 
 _logview_host_cache = dict()
+_jobinsight_host_cache = dict()
 
 
 def _wrap_model_func(func):
@@ -58,8 +58,6 @@ class ODPS(object):
     Main entrance to ODPS.
 
     Convenient operations on ODPS objects are provided.
-    Please refer to `ODPS docs <https://help.aliyun.com/document_detail/27818.html>`_
-    for more details.
 
     Generally, basic operations such as ``list``, ``get``, ``exist``, ``create``, ``delete``
     are provided for each ODPS object.
@@ -69,8 +67,8 @@ class ODPS(object):
     or ``SignatureNotMatch`` error will throw. If `tunnel_endpoint` is not set, the tunnel API will
     route service URL automatically.
 
-    :param access_id: Aliyun Access ID
-    :param secret_access_key: Aliyun Access Key
+    :param access_id: Cloud Access ID
+    :param secret_access_key: Cloud Access Key
     :param project: default project name
     :param endpoint: Rest service URL
     :param tunnel_endpoint: Tunnel service URL
@@ -215,9 +213,8 @@ class ODPS(object):
             or self.get_logview_host()
         )
         self._job_insight_host = (
-            JOB_INSIGHT_HOST_DEFAULT
-            if utils.is_job_insight_available(self.endpoint)
-            or options.use_legacy_logview is False
+            self.get_job_insight_host()
+            if options.use_legacy_logview is not True
             else None
         )
 
@@ -268,7 +265,7 @@ class ODPS(object):
         )
         if utils.str_to_bool(os.environ.get("PYODPS_PICKLE_ACCOUNT") or "false"):
             params.update(dict(account=self.account))
-        elif isinstance(self.account, accounts.AliyunAccount):
+        elif isinstance(self.account, accounts.CloudAccount):
             params.update(
                 dict(
                     access_id=self.account.access_id,
@@ -308,8 +305,8 @@ class ODPS(object):
         """
         Creates a new ODPS entry object with a new account information
 
-        :param access_id: Aliyun Access ID of the new account
-        :param secret_access_key: Aliyun Access Key of the new account
+        :param access_id: Cloud Access ID of the new account
+        :param secret_access_key: Cloud Access Key of the new account
         :param account: new account object, if `access_id` and `secret_access_key` not supplied
         :param app_account: Application account, instance of `odps.accounts.AppAccount`
             used for dual authentication
@@ -318,7 +315,7 @@ class ODPS(object):
         """
         if access_id is not None and secret_access_key is not None:
             assert account is None
-            account = accounts.AliyunAccount(access_id, secret_access_key)
+            account = accounts.CloudAccount(access_id, secret_access_key)
 
         params = dict(
             project=self.project,
@@ -428,7 +425,7 @@ class ODPS(object):
         """
         List projects.
 
-        :param owner: Aliyun account, the owner which listed projects belong to
+        :param owner: Cloud account, the owner which listed projects belong to
         :param user: name of the user who has access to listed projects
         :param group: name of the group listed projects belong to
         :param prefix: prefix of names of listed projects
@@ -549,7 +546,7 @@ class ODPS(object):
 
         :param project: project name, if not provided, will be the default project
         :param str prefix: the listed schemas start with this **prefix**
-        :param str owner: Aliyun account, the owner which listed tables belong to
+        :param str owner: account ID, the owner which listed tables belong to
         :return: schemas
         """
         project = self.get_project(name=project)
@@ -613,7 +610,7 @@ class ODPS(object):
             return self.get_project(project)
 
     def _split_object_dots(self, name):
-        parts = [x.strip() for x in name.split(".")]
+        parts = [x.strip() for x in utils.split_backquoted(name, ".")]
         if len(parts) == 1:
             project, schema, name = None, None, parts[0]
         elif len(parts) == 2:
@@ -625,8 +622,7 @@ class ODPS(object):
                 schema = None
         else:
             project, schema, name = parts
-        if name.startswith("`") and name.endswith("`"):
-            name = name.strip("`")
+        name = utils.strip_backquotes(name)
         return project, schema, name
 
     def list_tables(
@@ -645,7 +641,7 @@ class ODPS(object):
 
         :param str project: project name, if not provided, will be the default project
         :param str prefix: the listed tables start with this **prefix**
-        :param str owner: Aliyun account, the owner which listed tables belong to
+        :param str owner: Cloud account, the owner which listed tables belong to
         :param str schema: schema name, if not provided, will be the default schema
         :param str type: type of the table
         :param bool extended: if True, load extended information for table
@@ -890,7 +886,7 @@ class ODPS(object):
 
         :param project: project name, if not provided, will be the default project
         :param str prefix: the listed resources start with this **prefix**
-        :param str owner: Aliyun account, the owner which listed tables belong to
+        :param str owner: Cloud account, the owner which listed tables belong to
         :param str schema: schema name, if not provided, will be the default schema
         :return: resources
         :rtype: generator
@@ -1069,7 +1065,7 @@ class ODPS(object):
 
         :param str project: project name, if not provided, will be the default project
         :param str prefix: the listed functions start with this **prefix**
-        :param str owner: Aliyun account, the owner which listed tables belong to
+        :param str owner: Cloud account, the owner which listed tables belong to
         :param str schema: schema name, if not provided, will be the default schema
         :return: functions
         :rtype: generator
@@ -1447,7 +1443,7 @@ class ODPS(object):
 
         :param str project: project name, if not provided, will be the default project
         :param str schema: schema name, if not provided, will be the default schema
-        :param str owner: Aliyun account
+        :param str owner: account ID
         :return: volumes
         :rtype: list
         """
@@ -1888,7 +1884,7 @@ class ODPS(object):
         List xflows of a project which can be filtered by the xflow owner.
 
         :param str project: project name, if not provided, will be the default project
-        :param str owner: Aliyun account
+        :param str owner: account ID
         :return: xflows
         :rtype: list
         """
@@ -2073,7 +2069,7 @@ class ODPS(object):
 
         :param project: project name, if not provided, will be the default project
         :param prefix: prefix of offline model's name
-        :param owner: Aliyun account
+        :param owner: account ID
         :return: offline models
         :rtype: list
         """
@@ -2160,6 +2156,29 @@ class ODPS(object):
             )
         _logview_host_cache[self.endpoint] = logview_host
         return logview_host
+
+    def get_job_insight_host(self):
+        if self.endpoint in _jobinsight_host_cache:
+            return _jobinsight_host_cache[self.endpoint]
+
+        job_insight_released = utils.is_job_insight_released(self.endpoint)
+        # when use_legacy_logview is enforced as False, we still use job insight
+        if not job_insight_released and options.use_legacy_logview is not False:
+            return None
+
+        jobinsight_host = self._get_job_insight_from_request()
+        if jobinsight_host:
+            _jobinsight_host_cache[self.endpoint] = jobinsight_host
+        return jobinsight_host
+
+    def _get_job_insight_from_request(self):
+        try:
+            jobinsight_host = utils.to_str(
+                self.rest.get(self.endpoint + "/webconsole/host").content
+            )
+            return jobinsight_host.strip() or None
+        except:
+            return None
 
     def get_logview_address(
         self, instance_id, hours=None, project=None, use_legacy=None
@@ -2412,7 +2431,7 @@ class ODPS(object):
 
     @classmethod
     def _build_account(cls, access_id, secret_access_key):
-        return accounts.AliyunAccount(access_id, secret_access_key)
+        return accounts.CloudAccount(access_id, secret_access_key)
 
     def to_global(self, overwritable=False):
         options.is_global_account_overwritable = overwritable

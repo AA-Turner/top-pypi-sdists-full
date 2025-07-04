@@ -26,6 +26,7 @@ from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
+    CreateHubContentPresignedUrlsPaginator,
     ListActionsPaginator,
     ListAlgorithmsPaginator,
     ListAliasesPaginator,
@@ -161,6 +162,8 @@ from .type_defs import (
     CreateFeatureGroupResponseTypeDef,
     CreateFlowDefinitionRequestTypeDef,
     CreateFlowDefinitionResponseTypeDef,
+    CreateHubContentPresignedUrlsRequestTypeDef,
+    CreateHubContentPresignedUrlsResponseTypeDef,
     CreateHubContentReferenceRequestTypeDef,
     CreateHubContentReferenceResponseTypeDef,
     CreateHubRequestTypeDef,
@@ -650,6 +653,8 @@ from .type_defs import (
     StartNotebookInstanceInputTypeDef,
     StartPipelineExecutionRequestTypeDef,
     StartPipelineExecutionResponseTypeDef,
+    StartSessionRequestTypeDef,
+    StartSessionResponseTypeDef,
     StopAutoMLJobRequestTypeDef,
     StopCompilationJobRequestTypeDef,
     StopEdgeDeploymentStageRequestTypeDef,
@@ -1120,6 +1125,16 @@ class SageMakerClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/create_hub.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sagemaker/client/#create_hub)
+        """
+
+    def create_hub_content_presigned_urls(
+        self, **kwargs: Unpack[CreateHubContentPresignedUrlsRequestTypeDef]
+    ) -> CreateHubContentPresignedUrlsResponseTypeDef:
+        """
+        Creates presigned URLs for accessing hub content artifacts.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/create_hub_content_presigned_urls.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sagemaker/client/#create_hub_content_presigned_urls)
         """
 
     def create_hub_content_reference(
@@ -3825,6 +3840,17 @@ class SageMakerClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sagemaker/client/#start_pipeline_execution)
         """
 
+    def start_session(
+        self, **kwargs: Unpack[StartSessionRequestTypeDef]
+    ) -> StartSessionResponseTypeDef:
+        """
+        Initiates a remote connection session between a local integrated development
+        environments (IDEs) and a remote SageMaker space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/start_session.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sagemaker/client/#start_session)
+        """
+
     def stop_auto_ml_job(
         self, **kwargs: Unpack[StopAutoMLJobRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -4422,6 +4448,17 @@ class SageMakerClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/update_workteam.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sagemaker/client/#update_workteam)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["create_hub_content_presigned_urls"]
+    ) -> CreateHubContentPresignedUrlsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sagemaker/client/#get_paginator)
         """
 
     @overload  # type: ignore[override]

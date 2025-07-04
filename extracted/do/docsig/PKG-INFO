@@ -1,27 +1,28 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: docsig
-Version: 0.69.4
+Version: 0.70.0
 Summary: Check signature params for proper documentation
-Home-page: https://pypi.org/project/docsig/
 License: MIT
 Keywords: check,docs,docstring,params,signature
 Author: jshwi
 Author-email: stephen@jshwisolutions.com
 Maintainer: jshwi
 Maintainer-email: stephen@jshwisolutions.com
-Requires-Python: >=3.8.1,<4.0.0
+Requires-Python: >=3.9,<4.0
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Requires-Dist: Sphinx (>=7.0.0,<8.0.0)
 Requires-Dist: astroid (>=3.0.1,<4.0.0)
 Requires-Dist: pathspec (>=0.12.1,<0.13.0)
 Requires-Dist: tomli (>=2.0.1,<3.0.0)
 Requires-Dist: wcmatch (>=8.5.2,<11.0.0)
 Project-URL: Documentation, https://docsig.readthedocs.io/en/latest
+Project-URL: Homepage, https://pypi.org/project/docsig/
 Project-URL: Repository, https://github.com/jshwi/docsig
 Description-Content-Type: text/x-rst
 
@@ -34,7 +35,7 @@ Description-Content-Type: text/x-rst
 
 |
 
-|License| |PyPI| |CI| |CodeQL| |pre-commit.ci status| |codecov.io| |readthedocs.org| |python3.8| |Black| |isort| |docformatter| |pylint| |Security Status| |Known Vulnerabilities| |docsig|
+|License| |PyPI| |CI| |CodeQL| |pre-commit.ci status| |codecov.io| |readthedocs.org| |python3.9| |Black| |isort| |docformatter| |pylint| |Security Status| |Known Vulnerabilities| |docsig|
 
 .. |License| image:: https://img.shields.io/badge/License-MIT-yellow.svg
    :target: https://opensource.org/licenses/MIT
@@ -57,9 +58,9 @@ Description-Content-Type: text/x-rst
 .. |readthedocs.org| image:: https://readthedocs.org/projects/docsig/badge/?version=latest
    :target: https://docsig.readthedocs.io/en/latest/?badge=latest
    :alt: readthedocs.org
-.. |python3.8| image:: https://img.shields.io/badge/python-3.8-blue.svg
-   :target: https://www.python.org/downloads/release/python-380
-   :alt: python3.8
+.. |python3.9| image:: https://img.shields.io/badge/python-3.9-blue.svg
+   :target: https://www.python.org/downloads/release/python-390
+   :alt: python3.9
 .. |Black| image:: https://img.shields.io/badge/code%20style-black-000000.svg
    :target: https://github.com/psf/black
    :alt: Black
@@ -180,7 +181,7 @@ ensure your installation has registered `docsig`
 .. code-block:: console
 
     $ flake8 --version
-    7.1.0 (docsig: 0.69.4, mccabe: 0.7.0, pycodestyle: 2.12.0, pyflakes: 3.2.0) CPython 3.8.13 on Darwin
+    7.1.2 (docsig: 0.70.0, mccabe: 0.7.0, pycodestyle: 2.12.1, pyflakes: 3.2.0) CPython 3.9.6 on Darwin
 
 And now use `flake8` to lint your files
 
@@ -266,7 +267,7 @@ Standalone
 
     repos:
       - repo: https://github.com/jshwi/docsig
-        rev: v0.69.4
+        rev: v0.70.0
         hooks:
           - id: docsig
             args:
@@ -285,7 +286,7 @@ or integrated with ``flake8``
         hooks:
           - id: flake8
             additional_dependencies:
-              - docsig==0.69.4
+              - docsig==0.70.0
             args:
               - "--sig-check-class"
               - "--sig-check-dunders"

@@ -5,6 +5,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::iter;
+
 use dupe::Dupe;
 use pyrefly_python::dunder;
 use pyrefly_util::prelude::VecExt;
@@ -24,16 +26,15 @@ use crate::alt::expr::TypeOrExpr;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorContext;
 use crate::error::kind::ErrorKind;
-use crate::types::callable::BoolKeywords;
 use crate::types::callable::Callable;
-use crate::types::callable::FuncFlags;
 use crate::types::callable::FuncMetadata;
 use crate::types::callable::Function;
 use crate::types::callable::FunctionKind;
 use crate::types::callable::Params;
 use crate::types::class::ClassType;
+use crate::types::keywords::KwCall;
+use crate::types::keywords::TypeMap;
 use crate::types::literal::Lit;
-use crate::types::tuple::Tuple;
 use crate::types::type_var::Restriction;
 use crate::types::typed_dict::TypedDict;
 use crate::types::types::AnyStyle;
@@ -187,27 +188,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::Type(box Type::ClassType(cls)) | Type::Type(box Type::SelfType(cls)) => {
                 Some(CallTarget::new(Target::Class(cls)))
             }
-            Type::Type(box Type::Tuple(Tuple::Unbounded(element))) => {
-                Some(CallTarget::new(Target::Class(self.stdlib.tuple(*element))))
-            }
-            Type::Type(box Type::Tuple(Tuple::Concrete(elements))) => {
-                Some(CallTarget::new(Target::Class(if elements.is_empty() {
-                    self.stdlib.tuple(Type::Any(AnyStyle::Implicit))
-                } else {
-                    self.stdlib.tuple(self.unions(elements))
-                })))
-            }
-            Type::Type(box Type::Tuple(Tuple::Unpacked(box (
-                prefix,
-                Type::Tuple(Tuple::Unbounded(middle)),
-                suffix,
-            )))) => {
-                let mut elements = prefix;
-                elements.push(*middle);
-                elements.extend(suffix);
-                Some(CallTarget::new(Target::Class(
-                    self.stdlib.tuple(self.unions(elements)),
-                )))
+            Type::Type(box Type::Tuple(tuple)) => {
+                Some(CallTarget::new(Target::Class(self.erase_tuple_type(tuple))))
             }
             Type::Type(box Type::Quantified(quantified)) => {
                 Some(CallTarget::new(Target::Callable(Callable {
@@ -257,7 +239,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // TODO: handle constraints
                 Restriction::Constraints(_) | Restriction::Unrestricted => None,
             },
-            Type::DataclassTransformDecorator(dec) => self.as_call_target((*dec).1),
+            Type::KwCall(call) => self.as_call_target(call.return_ty),
             _ => None,
         }
     }
@@ -432,8 +414,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let (overrides_new, dunder_new_has_errors) =
             if let Some(new_method) = self.get_dunder_new(&cls) {
                 let cls_ty = Type::type_form(instance_ty.clone());
-                let mut full_args = vec![CallArg::ty(&cls_ty, range)];
-                full_args.extend_from_slice(args);
+                let full_args = iter::once(CallArg::ty(&cls_ty, range))
+                    .chain(args.iter().cloned())
+                    .collect::<Vec<_>>();
                 let dunder_new_errors = self.error_collector();
                 let ret = self.call_infer(
                     self.as_call_target_or_error(
@@ -462,9 +445,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             } else {
                 (false, false)
             };
+
         // If the class overrides `object.__new__` but not `object.__init__`, the `__init__` call
         // always succeeds at runtime, so we skip analyzing it.
-        if let Some(init_method) = self.get_dunder_init(&cls, !overrides_new) {
+        // If we have Any as a base class, we shouldn't fall back to `object.__init__`.
+        let get_object_init = !overrides_new
+            && !self
+                .get_metadata_for_class(cls.class_object())
+                .has_base_any();
+
+        if let Some(init_method) = self.get_dunder_init(&cls, get_object_init) {
             let dunder_init_errors = self.error_collector();
             self.call_infer(
                 self.as_call_target_or_error(
@@ -544,14 +534,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         context: Option<&dyn Fn() -> ErrorContext>,
         hint: Option<Type>,
     ) -> Type {
-        let kind = call_target.target.function_metadata().map(|m| &m.kind);
-        let mut is_dataclass = false;
-        let mut is_dataclass_transform = false;
-        match kind {
-            Some(FunctionKind::Dataclass(_)) => is_dataclass = true,
-            Some(FunctionKind::DataclassTransform) => is_dataclass_transform = true,
-            _ => {}
-        }
+        // Does this call target correspond to a function whose keyword arguments we should save?
+        let kw_metadata = {
+            let metadata = call_target.target.function_metadata();
+            if let Some(m) = metadata
+                && (matches!(
+                    m.kind,
+                    FunctionKind::Dataclass | FunctionKind::DataclassTransform
+                ) || m.flags.dataclass_transform_metadata.is_some())
+            {
+                Some(m.clone())
+            } else {
+                None
+            }
+        };
         let res = match call_target.target {
             Target::Class(cls) => {
                 if let Some(hint) = hint {
@@ -691,21 +687,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
         };
         self.solver().finish_quantified(&call_target.qs);
-        if is_dataclass && let Type::Callable(c) = res {
-            let mut kws = BoolKeywords::new();
+        if let Some(func_metadata) = kw_metadata {
+            let mut kws = TypeMap::new();
             for kw in keywords {
-                kws.set_keyword(kw.arg, kw.value.infer(self, errors));
+                if let Some(name) = kw.arg {
+                    kws.0.insert(name.id.clone(), kw.value.infer(self, errors));
+                }
             }
-            Type::Function(Box::new(Function {
-                signature: *c,
-                metadata: FuncMetadata {
-                    kind: FunctionKind::Dataclass(Box::new(kws)),
-                    flags: FuncFlags::default(),
-                },
+            Type::KwCall(Box::new(KwCall {
+                func_metadata,
+                keywords: kws,
+                return_ty: res,
             }))
-        } else if is_dataclass_transform {
-            // TODO(rechen): store the keyword arguments.
-            Type::DataclassTransformDecorator(Box::new((BoolKeywords::new(), res)))
         } else {
             res
         }

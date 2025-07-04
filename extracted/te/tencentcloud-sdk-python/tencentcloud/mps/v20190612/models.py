@@ -19014,10 +19014,14 @@ class CreateQualityControlTemplateRequest(AbstractModel):
         :type QualityControlItemSet: list of QualityControlItemConfig
         :param _Comment: 媒体质检模板描述信息，长度限制：256 个字符。
         :type Comment: str
+        :param _RecordFormat: 录制文件格式。可选值：
+<li>PNG: PNG图片</li>
+        :type RecordFormat: str
         """
         self._Name = None
         self._QualityControlItemSet = None
         self._Comment = None
+        self._RecordFormat = None
 
     @property
     def Name(self):
@@ -19052,6 +19056,18 @@ class CreateQualityControlTemplateRequest(AbstractModel):
     def Comment(self, Comment):
         self._Comment = Comment
 
+    @property
+    def RecordFormat(self):
+        """录制文件格式。可选值：
+<li>PNG: PNG图片</li>
+        :rtype: str
+        """
+        return self._RecordFormat
+
+    @RecordFormat.setter
+    def RecordFormat(self, RecordFormat):
+        self._RecordFormat = RecordFormat
+
 
     def _deserialize(self, params):
         self._Name = params.get("Name")
@@ -19062,6 +19078,7 @@ class CreateQualityControlTemplateRequest(AbstractModel):
                 obj._deserialize(item)
                 self._QualityControlItemSet.append(obj)
         self._Comment = params.get("Comment")
+        self._RecordFormat = params.get("RecordFormat")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -39458,6 +39475,9 @@ class LiveStreamAsrFullTextRecognitionResult(AbstractModel):
         :param _SteadyState: 稳态标记。
 注意：此字段可能返回 null，表示取不到有效值。
         :type SteadyState: bool
+        :param _UserId: websocket与trtc识别结果的UserId
+注意：此字段可能返回 null，表示取不到有效值。
+        :type UserId: str
         """
         self._Text = None
         self._StartPtsTime = None
@@ -39466,6 +39486,7 @@ class LiveStreamAsrFullTextRecognitionResult(AbstractModel):
         self._StartTime = None
         self._EndTime = None
         self._SteadyState = None
+        self._UserId = None
 
     @property
     def Text(self):
@@ -39547,6 +39568,18 @@ class LiveStreamAsrFullTextRecognitionResult(AbstractModel):
     def SteadyState(self, SteadyState):
         self._SteadyState = SteadyState
 
+    @property
+    def UserId(self):
+        """websocket与trtc识别结果的UserId
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._UserId
+
+    @UserId.setter
+    def UserId(self, UserId):
+        self._UserId = UserId
+
 
     def _deserialize(self, params):
         self._Text = params.get("Text")
@@ -39556,6 +39589,7 @@ class LiveStreamAsrFullTextRecognitionResult(AbstractModel):
         self._StartTime = params.get("StartTime")
         self._EndTime = params.get("EndTime")
         self._SteadyState = params.get("SteadyState")
+        self._UserId = params.get("UserId")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -40542,6 +40576,9 @@ class LiveStreamTransTextRecognitionResult(AbstractModel):
         :param _SteadyState: 稳态标记。
 注意：此字段可能返回 null，表示取不到有效值。
         :type SteadyState: bool
+        :param _UserId: websocket与trtc实时翻译的UserId
+注意：此字段可能返回 null，表示取不到有效值。
+        :type UserId: str
         """
         self._Text = None
         self._StartPtsTime = None
@@ -40551,6 +40588,7 @@ class LiveStreamTransTextRecognitionResult(AbstractModel):
         self._StartTime = None
         self._EndTime = None
         self._SteadyState = None
+        self._UserId = None
 
     @property
     def Text(self):
@@ -40643,6 +40681,18 @@ class LiveStreamTransTextRecognitionResult(AbstractModel):
     def SteadyState(self, SteadyState):
         self._SteadyState = SteadyState
 
+    @property
+    def UserId(self):
+        """websocket与trtc实时翻译的UserId
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._UserId
+
+    @UserId.setter
+    def UserId(self, UserId):
+        self._UserId = UserId
+
 
     def _deserialize(self, params):
         self._Text = params.get("Text")
@@ -40653,6 +40703,7 @@ class LiveStreamTransTextRecognitionResult(AbstractModel):
         self._StartTime = params.get("StartTime")
         self._EndTime = params.get("EndTime")
         self._SteadyState = params.get("SteadyState")
+        self._UserId = params.get("UserId")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -41375,7 +41426,7 @@ class MediaAnimatedGraphicsItem(AbstractModel):
         :type Storage: :class:`tencentcloud.mps.v20190612.models.TaskOutputStorage`
         :param _Path: 转动图的文件路径。
         :type Path: str
-        :param _Definition: 转动图模板 ID，参见[转动图参数模板](https://cloud.tencent.com/document/product/862/37042#.E9.A2.84.E7.BD.AE.E8.BD.AC.E5.8A.A8.E5.9B.BE.E6.A8.A1.E6.9D.BF)。
+        :param _Definition: 转动图模板 ID，参见[转动图参数模板](https://cloud.tencent.com/document/product/862/77168#.E8.BD.AC.E5.8A.A8.E5.9B.BE.E6.A8.A1.E6.9D.BF.5B.5D(id.3Amove))。
         :type Definition: int
         :param _Container: 动图格式，如 gif。
         :type Container: str
@@ -41430,7 +41481,7 @@ class MediaAnimatedGraphicsItem(AbstractModel):
 
     @property
     def Definition(self):
-        """转动图模板 ID，参见[转动图参数模板](https://cloud.tencent.com/document/product/862/37042#.E9.A2.84.E7.BD.AE.E8.BD.AC.E5.8A.A8.E5.9B.BE.E6.A8.A1.E6.9D.BF)。
+        """转动图模板 ID，参见[转动图参数模板](https://cloud.tencent.com/document/product/862/77168#.E8.BD.AC.E5.8A.A8.E5.9B.BE.E6.A8.A1.E6.9D.BF.5B.5D(id.3Amove))。
         :rtype: int
         """
         return self._Definition
@@ -46855,11 +46906,15 @@ class ModifyQualityControlTemplateRequest(AbstractModel):
         :type Comment: str
         :param _QualityControlItemSet: 媒体质检配置参数。
         :type QualityControlItemSet: list of QualityControlItemConfig
+        :param _RecordFormat: 录制文件格式。可选值：
+<li>PNG: PNG图片</li>
+        :type RecordFormat: str
         """
         self._Definition = None
         self._Name = None
         self._Comment = None
         self._QualityControlItemSet = None
+        self._RecordFormat = None
 
     @property
     def Definition(self):
@@ -46905,6 +46960,18 @@ class ModifyQualityControlTemplateRequest(AbstractModel):
     def QualityControlItemSet(self, QualityControlItemSet):
         self._QualityControlItemSet = QualityControlItemSet
 
+    @property
+    def RecordFormat(self):
+        """录制文件格式。可选值：
+<li>PNG: PNG图片</li>
+        :rtype: str
+        """
+        return self._RecordFormat
+
+    @RecordFormat.setter
+    def RecordFormat(self, RecordFormat):
+        self._RecordFormat = RecordFormat
+
 
     def _deserialize(self, params):
         self._Definition = params.get("Definition")
@@ -46916,6 +46983,7 @@ class ModifyQualityControlTemplateRequest(AbstractModel):
                 obj = QualityControlItemConfig()
                 obj._deserialize(item)
                 self._QualityControlItemSet.append(obj)
+        self._RecordFormat = params.get("RecordFormat")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -51597,7 +51665,13 @@ class ProcessLiveStreamRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _Url: 直播流 URL（必须是直播文件地址，支持 rtmp，hls 和 flv 等）。
+        :param _Url: 直播流 URL（必须是直播文件地址，支持 rtmp，hls 和 flv, trtc 等）。
+trtc地址如下：
+ trtc: //trtc.rtc.qq.com/mps/`<roomid>`?sdkappid=`<sdkappid>`&userid=`<userid>`&usersig=<`usersig>`
+`<roomid>` 为trtc的房间号id, 为数字
+`<sdkappid>` 为trtc的sdk app id
+`<userid>` 为服务进入房间的用户id,可以区分谁是机器人
+<`usersig>` 为trtc 用户的签名
         :type Url: str
         :param _TaskNotifyConfig: 任务的事件通知信息，用于指定直播流处理的结果。
         :type TaskNotifyConfig: :class:`tencentcloud.mps.v20190612.models.LiveStreamTaskNotifyConfig`
@@ -51638,7 +51712,13 @@ class ProcessLiveStreamRequest(AbstractModel):
 
     @property
     def Url(self):
-        """直播流 URL（必须是直播文件地址，支持 rtmp，hls 和 flv 等）。
+        """直播流 URL（必须是直播文件地址，支持 rtmp，hls 和 flv, trtc 等）。
+trtc地址如下：
+ trtc: //trtc.rtc.qq.com/mps/`<roomid>`?sdkappid=`<sdkappid>`&userid=`<userid>`&usersig=<`usersig>`
+`<roomid>` 为trtc的房间号id, 为数字
+`<sdkappid>` 为trtc的sdk app id
+`<userid>` 为服务进入房间的用户id,可以区分谁是机器人
+<`usersig>` 为trtc 用户的签名
         :rtype: str
         """
         return self._Url
@@ -54003,8 +54083,11 @@ class RawWatermarkParameter(AbstractModel):
         :param _Type: 水印类型，可选值：
 <li>image：图片水印。</li>
         :type Type: str
-        :param _CoordinateOrigin: 原点位置，目前仅支持：
+        :param _CoordinateOrigin: 原点位置，可选值：
 <li>TopLeft：表示坐标原点位于视频图像左上角，水印原点为图片或文字的左上角。</li>
+<li>TopRight：表示坐标原点位于视频图像的右上角，水印原点为图片或文字的右上角；</li>
+<li>BottomLeft：表示坐标原点位于视频图像的左下角，水印原点为图片或文字的左下角；</li>
+<li>BottomRight：表示坐标原点位于视频图像的右下角，水印原点为图片或文字的右下角。</li>
 默认值：TopLeft。
         :type CoordinateOrigin: str
         :param _XPos: 水印原点距离视频图像坐标原点的水平位置。支持 %、px 两种格式：
@@ -54040,8 +54123,11 @@ class RawWatermarkParameter(AbstractModel):
 
     @property
     def CoordinateOrigin(self):
-        """原点位置，目前仅支持：
+        """原点位置，可选值：
 <li>TopLeft：表示坐标原点位于视频图像左上角，水印原点为图片或文字的左上角。</li>
+<li>TopRight：表示坐标原点位于视频图像的右上角，水印原点为图片或文字的右上角；</li>
+<li>BottomLeft：表示坐标原点位于视频图像的左下角，水印原点为图片或文字的左下角；</li>
+<li>BottomRight：表示坐标原点位于视频图像的右下角，水印原点为图片或文字的右下角。</li>
 默认值：TopLeft。
         :rtype: str
         """

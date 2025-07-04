@@ -16,6 +16,7 @@ use pyrefly_util::lined_buffer::LinedBuffer;
 use ruff_text_size::TextRange;
 use ruff_text_size::TextSize;
 
+use crate::error::kind::ErrorKind;
 use crate::module::ignore::Ignore;
 use crate::module::module_path::ModulePath;
 
@@ -99,27 +100,18 @@ impl ModuleInfo {
         self.0.name
     }
 
-    pub fn is_ignored(&self, source_range: &DisplayRange) -> bool {
-        // Extend the range of the error to include comment lines before it.
-        // This makes it so that the preceding ignore could "see through" comments.
-        let start_line = {
-            let mut start_line = source_range.start.line;
-            while let Some(earlier_line) = start_line.decrement() {
-                let earlier_line_content = &self
-                    .lined_buffer()
-                    .content_in_line_range(earlier_line, earlier_line)
-                    .trim();
-                if Ignore::get_suppression_kind(earlier_line_content).is_some() {
-                    break;
-                } else if earlier_line_content.starts_with('#') {
-                    start_line = earlier_line;
-                } else {
-                    break;
-                }
-            }
-            start_line
-        };
-        self.0.ignore.is_ignored(start_line, source_range.end.line)
+    pub fn is_ignored(
+        &self,
+        source_range: &DisplayRange,
+        error_kind: ErrorKind,
+        permissive_ignores: bool,
+    ) -> bool {
+        self.0.ignore.is_ignored(
+            source_range.start.line,
+            source_range.end.line,
+            error_kind,
+            permissive_ignores,
+        )
     }
 
     pub fn ignore(&self) -> &Ignore {

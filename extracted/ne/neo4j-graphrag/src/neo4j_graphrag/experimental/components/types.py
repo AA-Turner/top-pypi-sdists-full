@@ -14,13 +14,16 @@
 #  limitations under the License.
 from __future__ import annotations
 
+import logging
 import uuid
-from enum import Enum
 from typing import Any, Dict, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 
 from neo4j_graphrag.experimental.pipeline.component import DataModel
+
+
+logger = logging.getLogger(__name__)
 
 
 class DocumentInfo(DataModel):
@@ -80,7 +83,7 @@ class Neo4jNode(BaseModel):
     """Represents a Neo4j node.
 
     Attributes:
-        id (str): The element ID of the node.
+        id (str): The ID of the node. This ID is used to refer to the node for relationship creation.
         label (str): The label of the node.
         properties (dict[str, Any]): A dictionary of properties attached to the node.
         embedding_properties (Optional[dict[str, list[float]]]): A list of embedding properties attached to the node.
@@ -91,14 +94,9 @@ class Neo4jNode(BaseModel):
     properties: dict[str, Any] = {}
     embedding_properties: Optional[dict[str, list[float]]] = None
 
-    @field_validator("properties", "embedding_properties")
-    @classmethod
-    def check_for_id_properties(
-        cls, v: Optional[dict[str, Any]]
-    ) -> Optional[dict[str, Any]]:
-        if v and "id" in v.keys():
-            raise TypeError("'id' as a property name is not allowed")
-        return v
+    @property
+    def token(self) -> str:
+        return self.label
 
 
 class Neo4jRelationship(BaseModel):
@@ -117,6 +115,10 @@ class Neo4jRelationship(BaseModel):
     type: str
     properties: dict[str, Any] = {}
     embedding_properties: Optional[dict[str, list[float]]] = None
+
+    @property
+    def token(self) -> str:
+        return self.type
 
 
 class Neo4jGraph(DataModel):
@@ -167,12 +169,15 @@ class LexicalGraphConfig(BaseModel):
     def lexical_graph_node_labels(self) -> tuple[str, ...]:
         return self.document_node_label, self.chunk_node_label
 
+    @property
+    def lexical_graph_relationship_types(self) -> tuple[str, ...]:
+        return (
+            self.chunk_to_document_relationship_type,
+            self.next_chunk_relationship_type,
+            self.node_to_chunk_relationship_type,
+        )
+
 
 class GraphResult(DataModel):
     graph: Neo4jGraph
     config: LexicalGraphConfig
-
-
-class SchemaEnforcementMode(str, Enum):
-    NONE = "NONE"
-    STRICT = "STRICT"

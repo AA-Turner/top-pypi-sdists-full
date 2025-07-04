@@ -1,7 +1,7 @@
 r'''
 # `snowflake_shared_database`
 
-Refer to the Terraform Registry for docs: [`snowflake_shared_database`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database).
+Refer to the Terraform Registry for docs: [`snowflake_shared_database`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SharedDatabase(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-snowflake.sharedDatabase.SharedDatabase",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database snowflake_shared_database}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database snowflake_shared_database}.'''
 
     def __init__(
         self,
@@ -78,29 +78,29 @@ class SharedDatabase(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database snowflake_shared_database} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database snowflake_shared_database} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param from_share: A fully qualified path to a share from which the database will be created. A fully qualified path follows the format of ``"<organization_name>"."<account_name>"."<share_name>"``. For more information about this resource, see `docs <./share>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#from_share SharedDatabase#from_share}
-        :param name: Specifies the identifier for the database; must be unique for your account. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#name SharedDatabase#name}
-        :param catalog: The database parameter that specifies the default catalog to use for Iceberg tables. For more information, see `CATALOG <https://docs.snowflake.com/en/sql-reference/parameters#catalog>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#catalog SharedDatabase#catalog}
-        :param comment: Specifies a comment for the database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#comment SharedDatabase#comment}
-        :param default_ddl_collation: Specifies a default collation specification for all schemas and tables added to the database. It can be overridden on schema or table level. For more information, see `collation specification <https://docs.snowflake.com/en/sql-reference/collation#label-collation-specification>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#default_ddl_collation SharedDatabase#default_ddl_collation}
-        :param enable_console_output: If true, enables stdout/stderr fast path logging for anonymous stored procedures. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#enable_console_output SharedDatabase#enable_console_output}
-        :param external_volume: The database parameter that specifies the default external volume to use for Iceberg tables. For more information, see `EXTERNAL_VOLUME <https://docs.snowflake.com/en/sql-reference/parameters#external-volume>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#external_volume SharedDatabase#external_volume}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#id SharedDatabase#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param log_level: Specifies the severity level of messages that should be ingested and made available in the active event table. Valid options are: [TRACE DEBUG INFO WARN ERROR FATAL OFF]. Messages at the specified level (and at more severe levels) are ingested. For more information, see `LOG_LEVEL <https://docs.snowflake.com/en/sql-reference/parameters.html#label-log-level>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#log_level SharedDatabase#log_level}
-        :param quoted_identifiers_ignore_case: If true, the case of quoted identifiers is ignored. For more information, see `QUOTED_IDENTIFIERS_IGNORE_CASE <https://docs.snowflake.com/en/sql-reference/parameters#quoted-identifiers-ignore-case>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#quoted_identifiers_ignore_case SharedDatabase#quoted_identifiers_ignore_case}
-        :param replace_invalid_characters: Specifies whether to replace invalid UTF-8 characters with the Unicode replacement character (�) in query results for an Iceberg table. You can only set this parameter for tables that use an external Iceberg catalog. For more information, see `REPLACE_INVALID_CHARACTERS <https://docs.snowflake.com/en/sql-reference/parameters#replace-invalid-characters>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#replace_invalid_characters SharedDatabase#replace_invalid_characters}
-        :param storage_serialization_policy: The storage serialization policy for Iceberg tables that use Snowflake as the catalog. Valid options are: [COMPATIBLE OPTIMIZED]. COMPATIBLE: Snowflake performs encoding and compression of data files that ensures interoperability with third-party compute engines. OPTIMIZED: Snowflake performs encoding and compression of data files that ensures the best table performance within Snowflake. For more information, see `STORAGE_SERIALIZATION_POLICY <https://docs.snowflake.com/en/sql-reference/parameters#storage-serialization-policy>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#storage_serialization_policy SharedDatabase#storage_serialization_policy}
-        :param suspend_task_after_num_failures: How many times a task must fail in a row before it is automatically suspended. 0 disables auto-suspending. For more information, see `SUSPEND_TASK_AFTER_NUM_FAILURES <https://docs.snowflake.com/en/sql-reference/parameters#suspend-task-after-num-failures>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#suspend_task_after_num_failures SharedDatabase#suspend_task_after_num_failures}
-        :param task_auto_retry_attempts: Maximum automatic retries allowed for a user task. For more information, see `TASK_AUTO_RETRY_ATTEMPTS <https://docs.snowflake.com/en/sql-reference/parameters#task-auto-retry-attempts>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#task_auto_retry_attempts SharedDatabase#task_auto_retry_attempts}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#timeouts SharedDatabase#timeouts}
-        :param trace_level: Controls how trace events are ingested into the event table. Valid options are: ``ALWAYS`` | ``ON_EVENT`` | ``PROPAGATE`` | ``OFF``. For information about levels, see `TRACE_LEVEL <https://docs.snowflake.com/en/sql-reference/parameters.html#label-trace-level>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#trace_level SharedDatabase#trace_level}
-        :param user_task_managed_initial_warehouse_size: The initial size of warehouse to use for managed warehouses in the absence of history. For more information, see `USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE <https://docs.snowflake.com/en/sql-reference/parameters#user-task-managed-initial-warehouse-size>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#user_task_managed_initial_warehouse_size SharedDatabase#user_task_managed_initial_warehouse_size}
-        :param user_task_minimum_trigger_interval_in_seconds: Minimum amount of time between Triggered Task executions in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#user_task_minimum_trigger_interval_in_seconds SharedDatabase#user_task_minimum_trigger_interval_in_seconds}
-        :param user_task_timeout_ms: User task execution timeout in milliseconds. For more information, see `USER_TASK_TIMEOUT_MS <https://docs.snowflake.com/en/sql-reference/parameters#user-task-timeout-ms>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#user_task_timeout_ms SharedDatabase#user_task_timeout_ms}
+        :param from_share: A fully qualified path to a share from which the database will be created. A fully qualified path follows the format of ``"<organization_name>"."<account_name>"."<share_name>"``. For more information about this resource, see `docs <./share>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#from_share SharedDatabase#from_share}
+        :param name: Specifies the identifier for the database; must be unique for your account. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#name SharedDatabase#name}
+        :param catalog: The database parameter that specifies the default catalog to use for Iceberg tables. For more information, see `CATALOG <https://docs.snowflake.com/en/sql-reference/parameters#catalog>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#catalog SharedDatabase#catalog}
+        :param comment: Specifies a comment for the database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#comment SharedDatabase#comment}
+        :param default_ddl_collation: Specifies a default collation specification for all schemas and tables added to the database. It can be overridden on schema or table level. For more information, see `collation specification <https://docs.snowflake.com/en/sql-reference/collation#label-collation-specification>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#default_ddl_collation SharedDatabase#default_ddl_collation}
+        :param enable_console_output: If true, enables stdout/stderr fast path logging for anonymous stored procedures. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#enable_console_output SharedDatabase#enable_console_output}
+        :param external_volume: The database parameter that specifies the default external volume to use for Iceberg tables. For more information, see `EXTERNAL_VOLUME <https://docs.snowflake.com/en/sql-reference/parameters#external-volume>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#external_volume SharedDatabase#external_volume}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#id SharedDatabase#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param log_level: Specifies the severity level of messages that should be ingested and made available in the active event table. Valid options are: [TRACE DEBUG INFO WARN ERROR FATAL OFF]. Messages at the specified level (and at more severe levels) are ingested. For more information, see `LOG_LEVEL <https://docs.snowflake.com/en/sql-reference/parameters.html#label-log-level>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#log_level SharedDatabase#log_level}
+        :param quoted_identifiers_ignore_case: If true, the case of quoted identifiers is ignored. For more information, see `QUOTED_IDENTIFIERS_IGNORE_CASE <https://docs.snowflake.com/en/sql-reference/parameters#quoted-identifiers-ignore-case>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#quoted_identifiers_ignore_case SharedDatabase#quoted_identifiers_ignore_case}
+        :param replace_invalid_characters: Specifies whether to replace invalid UTF-8 characters with the Unicode replacement character (�) in query results for an Iceberg table. You can only set this parameter for tables that use an external Iceberg catalog. For more information, see `REPLACE_INVALID_CHARACTERS <https://docs.snowflake.com/en/sql-reference/parameters#replace-invalid-characters>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#replace_invalid_characters SharedDatabase#replace_invalid_characters}
+        :param storage_serialization_policy: The storage serialization policy for Iceberg tables that use Snowflake as the catalog. Valid options are: [COMPATIBLE OPTIMIZED]. COMPATIBLE: Snowflake performs encoding and compression of data files that ensures interoperability with third-party compute engines. OPTIMIZED: Snowflake performs encoding and compression of data files that ensures the best table performance within Snowflake. For more information, see `STORAGE_SERIALIZATION_POLICY <https://docs.snowflake.com/en/sql-reference/parameters#storage-serialization-policy>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#storage_serialization_policy SharedDatabase#storage_serialization_policy}
+        :param suspend_task_after_num_failures: How many times a task must fail in a row before it is automatically suspended. 0 disables auto-suspending. For more information, see `SUSPEND_TASK_AFTER_NUM_FAILURES <https://docs.snowflake.com/en/sql-reference/parameters#suspend-task-after-num-failures>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#suspend_task_after_num_failures SharedDatabase#suspend_task_after_num_failures}
+        :param task_auto_retry_attempts: Maximum automatic retries allowed for a user task. For more information, see `TASK_AUTO_RETRY_ATTEMPTS <https://docs.snowflake.com/en/sql-reference/parameters#task-auto-retry-attempts>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#task_auto_retry_attempts SharedDatabase#task_auto_retry_attempts}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#timeouts SharedDatabase#timeouts}
+        :param trace_level: Controls how trace events are ingested into the event table. Valid options are: ``ALWAYS`` | ``ON_EVENT`` | ``PROPAGATE`` | ``OFF``. For information about levels, see `TRACE_LEVEL <https://docs.snowflake.com/en/sql-reference/parameters.html#label-trace-level>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#trace_level SharedDatabase#trace_level}
+        :param user_task_managed_initial_warehouse_size: The initial size of warehouse to use for managed warehouses in the absence of history. For more information, see `USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE <https://docs.snowflake.com/en/sql-reference/parameters#user-task-managed-initial-warehouse-size>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#user_task_managed_initial_warehouse_size SharedDatabase#user_task_managed_initial_warehouse_size}
+        :param user_task_minimum_trigger_interval_in_seconds: Minimum amount of time between Triggered Task executions in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#user_task_minimum_trigger_interval_in_seconds SharedDatabase#user_task_minimum_trigger_interval_in_seconds}
+        :param user_task_timeout_ms: User task execution timeout in milliseconds. For more information, see `USER_TASK_TIMEOUT_MS <https://docs.snowflake.com/en/sql-reference/parameters#user-task-timeout-ms>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#user_task_timeout_ms SharedDatabase#user_task_timeout_ms}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -157,7 +157,7 @@ class SharedDatabase(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SharedDatabase to import.
-        :param import_from_id: The id of the existing SharedDatabase that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SharedDatabase that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SharedDatabase to import is found.
         '''
         if __debug__:
@@ -178,10 +178,10 @@ class SharedDatabase(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#create SharedDatabase#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#delete SharedDatabase#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#read SharedDatabase#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#update SharedDatabase#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#create SharedDatabase#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#delete SharedDatabase#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#read SharedDatabase#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#update SharedDatabase#update}.
         '''
         value = SharedDatabaseTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -690,25 +690,25 @@ class SharedDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param from_share: A fully qualified path to a share from which the database will be created. A fully qualified path follows the format of ``"<organization_name>"."<account_name>"."<share_name>"``. For more information about this resource, see `docs <./share>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#from_share SharedDatabase#from_share}
-        :param name: Specifies the identifier for the database; must be unique for your account. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#name SharedDatabase#name}
-        :param catalog: The database parameter that specifies the default catalog to use for Iceberg tables. For more information, see `CATALOG <https://docs.snowflake.com/en/sql-reference/parameters#catalog>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#catalog SharedDatabase#catalog}
-        :param comment: Specifies a comment for the database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#comment SharedDatabase#comment}
-        :param default_ddl_collation: Specifies a default collation specification for all schemas and tables added to the database. It can be overridden on schema or table level. For more information, see `collation specification <https://docs.snowflake.com/en/sql-reference/collation#label-collation-specification>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#default_ddl_collation SharedDatabase#default_ddl_collation}
-        :param enable_console_output: If true, enables stdout/stderr fast path logging for anonymous stored procedures. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#enable_console_output SharedDatabase#enable_console_output}
-        :param external_volume: The database parameter that specifies the default external volume to use for Iceberg tables. For more information, see `EXTERNAL_VOLUME <https://docs.snowflake.com/en/sql-reference/parameters#external-volume>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#external_volume SharedDatabase#external_volume}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#id SharedDatabase#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param log_level: Specifies the severity level of messages that should be ingested and made available in the active event table. Valid options are: [TRACE DEBUG INFO WARN ERROR FATAL OFF]. Messages at the specified level (and at more severe levels) are ingested. For more information, see `LOG_LEVEL <https://docs.snowflake.com/en/sql-reference/parameters.html#label-log-level>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#log_level SharedDatabase#log_level}
-        :param quoted_identifiers_ignore_case: If true, the case of quoted identifiers is ignored. For more information, see `QUOTED_IDENTIFIERS_IGNORE_CASE <https://docs.snowflake.com/en/sql-reference/parameters#quoted-identifiers-ignore-case>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#quoted_identifiers_ignore_case SharedDatabase#quoted_identifiers_ignore_case}
-        :param replace_invalid_characters: Specifies whether to replace invalid UTF-8 characters with the Unicode replacement character (�) in query results for an Iceberg table. You can only set this parameter for tables that use an external Iceberg catalog. For more information, see `REPLACE_INVALID_CHARACTERS <https://docs.snowflake.com/en/sql-reference/parameters#replace-invalid-characters>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#replace_invalid_characters SharedDatabase#replace_invalid_characters}
-        :param storage_serialization_policy: The storage serialization policy for Iceberg tables that use Snowflake as the catalog. Valid options are: [COMPATIBLE OPTIMIZED]. COMPATIBLE: Snowflake performs encoding and compression of data files that ensures interoperability with third-party compute engines. OPTIMIZED: Snowflake performs encoding and compression of data files that ensures the best table performance within Snowflake. For more information, see `STORAGE_SERIALIZATION_POLICY <https://docs.snowflake.com/en/sql-reference/parameters#storage-serialization-policy>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#storage_serialization_policy SharedDatabase#storage_serialization_policy}
-        :param suspend_task_after_num_failures: How many times a task must fail in a row before it is automatically suspended. 0 disables auto-suspending. For more information, see `SUSPEND_TASK_AFTER_NUM_FAILURES <https://docs.snowflake.com/en/sql-reference/parameters#suspend-task-after-num-failures>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#suspend_task_after_num_failures SharedDatabase#suspend_task_after_num_failures}
-        :param task_auto_retry_attempts: Maximum automatic retries allowed for a user task. For more information, see `TASK_AUTO_RETRY_ATTEMPTS <https://docs.snowflake.com/en/sql-reference/parameters#task-auto-retry-attempts>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#task_auto_retry_attempts SharedDatabase#task_auto_retry_attempts}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#timeouts SharedDatabase#timeouts}
-        :param trace_level: Controls how trace events are ingested into the event table. Valid options are: ``ALWAYS`` | ``ON_EVENT`` | ``PROPAGATE`` | ``OFF``. For information about levels, see `TRACE_LEVEL <https://docs.snowflake.com/en/sql-reference/parameters.html#label-trace-level>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#trace_level SharedDatabase#trace_level}
-        :param user_task_managed_initial_warehouse_size: The initial size of warehouse to use for managed warehouses in the absence of history. For more information, see `USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE <https://docs.snowflake.com/en/sql-reference/parameters#user-task-managed-initial-warehouse-size>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#user_task_managed_initial_warehouse_size SharedDatabase#user_task_managed_initial_warehouse_size}
-        :param user_task_minimum_trigger_interval_in_seconds: Minimum amount of time between Triggered Task executions in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#user_task_minimum_trigger_interval_in_seconds SharedDatabase#user_task_minimum_trigger_interval_in_seconds}
-        :param user_task_timeout_ms: User task execution timeout in milliseconds. For more information, see `USER_TASK_TIMEOUT_MS <https://docs.snowflake.com/en/sql-reference/parameters#user-task-timeout-ms>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#user_task_timeout_ms SharedDatabase#user_task_timeout_ms}
+        :param from_share: A fully qualified path to a share from which the database will be created. A fully qualified path follows the format of ``"<organization_name>"."<account_name>"."<share_name>"``. For more information about this resource, see `docs <./share>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#from_share SharedDatabase#from_share}
+        :param name: Specifies the identifier for the database; must be unique for your account. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#name SharedDatabase#name}
+        :param catalog: The database parameter that specifies the default catalog to use for Iceberg tables. For more information, see `CATALOG <https://docs.snowflake.com/en/sql-reference/parameters#catalog>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#catalog SharedDatabase#catalog}
+        :param comment: Specifies a comment for the database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#comment SharedDatabase#comment}
+        :param default_ddl_collation: Specifies a default collation specification for all schemas and tables added to the database. It can be overridden on schema or table level. For more information, see `collation specification <https://docs.snowflake.com/en/sql-reference/collation#label-collation-specification>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#default_ddl_collation SharedDatabase#default_ddl_collation}
+        :param enable_console_output: If true, enables stdout/stderr fast path logging for anonymous stored procedures. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#enable_console_output SharedDatabase#enable_console_output}
+        :param external_volume: The database parameter that specifies the default external volume to use for Iceberg tables. For more information, see `EXTERNAL_VOLUME <https://docs.snowflake.com/en/sql-reference/parameters#external-volume>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#external_volume SharedDatabase#external_volume}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#id SharedDatabase#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param log_level: Specifies the severity level of messages that should be ingested and made available in the active event table. Valid options are: [TRACE DEBUG INFO WARN ERROR FATAL OFF]. Messages at the specified level (and at more severe levels) are ingested. For more information, see `LOG_LEVEL <https://docs.snowflake.com/en/sql-reference/parameters.html#label-log-level>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#log_level SharedDatabase#log_level}
+        :param quoted_identifiers_ignore_case: If true, the case of quoted identifiers is ignored. For more information, see `QUOTED_IDENTIFIERS_IGNORE_CASE <https://docs.snowflake.com/en/sql-reference/parameters#quoted-identifiers-ignore-case>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#quoted_identifiers_ignore_case SharedDatabase#quoted_identifiers_ignore_case}
+        :param replace_invalid_characters: Specifies whether to replace invalid UTF-8 characters with the Unicode replacement character (�) in query results for an Iceberg table. You can only set this parameter for tables that use an external Iceberg catalog. For more information, see `REPLACE_INVALID_CHARACTERS <https://docs.snowflake.com/en/sql-reference/parameters#replace-invalid-characters>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#replace_invalid_characters SharedDatabase#replace_invalid_characters}
+        :param storage_serialization_policy: The storage serialization policy for Iceberg tables that use Snowflake as the catalog. Valid options are: [COMPATIBLE OPTIMIZED]. COMPATIBLE: Snowflake performs encoding and compression of data files that ensures interoperability with third-party compute engines. OPTIMIZED: Snowflake performs encoding and compression of data files that ensures the best table performance within Snowflake. For more information, see `STORAGE_SERIALIZATION_POLICY <https://docs.snowflake.com/en/sql-reference/parameters#storage-serialization-policy>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#storage_serialization_policy SharedDatabase#storage_serialization_policy}
+        :param suspend_task_after_num_failures: How many times a task must fail in a row before it is automatically suspended. 0 disables auto-suspending. For more information, see `SUSPEND_TASK_AFTER_NUM_FAILURES <https://docs.snowflake.com/en/sql-reference/parameters#suspend-task-after-num-failures>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#suspend_task_after_num_failures SharedDatabase#suspend_task_after_num_failures}
+        :param task_auto_retry_attempts: Maximum automatic retries allowed for a user task. For more information, see `TASK_AUTO_RETRY_ATTEMPTS <https://docs.snowflake.com/en/sql-reference/parameters#task-auto-retry-attempts>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#task_auto_retry_attempts SharedDatabase#task_auto_retry_attempts}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#timeouts SharedDatabase#timeouts}
+        :param trace_level: Controls how trace events are ingested into the event table. Valid options are: ``ALWAYS`` | ``ON_EVENT`` | ``PROPAGATE`` | ``OFF``. For information about levels, see `TRACE_LEVEL <https://docs.snowflake.com/en/sql-reference/parameters.html#label-trace-level>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#trace_level SharedDatabase#trace_level}
+        :param user_task_managed_initial_warehouse_size: The initial size of warehouse to use for managed warehouses in the absence of history. For more information, see `USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE <https://docs.snowflake.com/en/sql-reference/parameters#user-task-managed-initial-warehouse-size>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#user_task_managed_initial_warehouse_size SharedDatabase#user_task_managed_initial_warehouse_size}
+        :param user_task_minimum_trigger_interval_in_seconds: Minimum amount of time between Triggered Task executions in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#user_task_minimum_trigger_interval_in_seconds SharedDatabase#user_task_minimum_trigger_interval_in_seconds}
+        :param user_task_timeout_ms: User task execution timeout in milliseconds. For more information, see `USER_TASK_TIMEOUT_MS <https://docs.snowflake.com/en/sql-reference/parameters#user-task-timeout-ms>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#user_task_timeout_ms SharedDatabase#user_task_timeout_ms}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -865,7 +865,7 @@ class SharedDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         A fully qualified path follows the format of ``"<organization_name>"."<account_name>"."<share_name>"``. For more information about this resource, see `docs <./share>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#from_share SharedDatabase#from_share}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#from_share SharedDatabase#from_share}
         '''
         result = self._values.get("from_share")
         assert result is not None, "Required property 'from_share' is missing"
@@ -877,7 +877,7 @@ class SharedDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         must be unique for your account. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#name SharedDatabase#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#name SharedDatabase#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -887,7 +887,7 @@ class SharedDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def catalog(self) -> typing.Optional[builtins.str]:
         '''The database parameter that specifies the default catalog to use for Iceberg tables. For more information, see `CATALOG <https://docs.snowflake.com/en/sql-reference/parameters#catalog>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#catalog SharedDatabase#catalog}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#catalog SharedDatabase#catalog}
         '''
         result = self._values.get("catalog")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -896,7 +896,7 @@ class SharedDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def comment(self) -> typing.Optional[builtins.str]:
         '''Specifies a comment for the database.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#comment SharedDatabase#comment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#comment SharedDatabase#comment}
         '''
         result = self._values.get("comment")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -907,7 +907,7 @@ class SharedDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         It can be overridden on schema or table level. For more information, see `collation specification <https://docs.snowflake.com/en/sql-reference/collation#label-collation-specification>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#default_ddl_collation SharedDatabase#default_ddl_collation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#default_ddl_collation SharedDatabase#default_ddl_collation}
         '''
         result = self._values.get("default_ddl_collation")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -918,7 +918,7 @@ class SharedDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true, enables stdout/stderr fast path logging for anonymous stored procedures.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#enable_console_output SharedDatabase#enable_console_output}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#enable_console_output SharedDatabase#enable_console_output}
         '''
         result = self._values.get("enable_console_output")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -927,14 +927,14 @@ class SharedDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def external_volume(self) -> typing.Optional[builtins.str]:
         '''The database parameter that specifies the default external volume to use for Iceberg tables. For more information, see `EXTERNAL_VOLUME <https://docs.snowflake.com/en/sql-reference/parameters#external-volume>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#external_volume SharedDatabase#external_volume}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#external_volume SharedDatabase#external_volume}
         '''
         result = self._values.get("external_volume")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#id SharedDatabase#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#id SharedDatabase#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -948,7 +948,7 @@ class SharedDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Valid options are: [TRACE DEBUG INFO WARN ERROR FATAL OFF]. Messages at the specified level (and at more severe levels) are ingested. For more information, see `LOG_LEVEL <https://docs.snowflake.com/en/sql-reference/parameters.html#label-log-level>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#log_level SharedDatabase#log_level}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#log_level SharedDatabase#log_level}
         '''
         result = self._values.get("log_level")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -959,7 +959,7 @@ class SharedDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true, the case of quoted identifiers is ignored. For more information, see `QUOTED_IDENTIFIERS_IGNORE_CASE <https://docs.snowflake.com/en/sql-reference/parameters#quoted-identifiers-ignore-case>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#quoted_identifiers_ignore_case SharedDatabase#quoted_identifiers_ignore_case}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#quoted_identifiers_ignore_case SharedDatabase#quoted_identifiers_ignore_case}
         '''
         result = self._values.get("quoted_identifiers_ignore_case")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -972,7 +972,7 @@ class SharedDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         You can only set this parameter for tables that use an external Iceberg catalog. For more information, see `REPLACE_INVALID_CHARACTERS <https://docs.snowflake.com/en/sql-reference/parameters#replace-invalid-characters>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#replace_invalid_characters SharedDatabase#replace_invalid_characters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#replace_invalid_characters SharedDatabase#replace_invalid_characters}
         '''
         result = self._values.get("replace_invalid_characters")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -983,7 +983,7 @@ class SharedDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Valid options are: [COMPATIBLE OPTIMIZED]. COMPATIBLE: Snowflake performs encoding and compression of data files that ensures interoperability with third-party compute engines. OPTIMIZED: Snowflake performs encoding and compression of data files that ensures the best table performance within Snowflake. For more information, see `STORAGE_SERIALIZATION_POLICY <https://docs.snowflake.com/en/sql-reference/parameters#storage-serialization-policy>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#storage_serialization_policy SharedDatabase#storage_serialization_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#storage_serialization_policy SharedDatabase#storage_serialization_policy}
         '''
         result = self._values.get("storage_serialization_policy")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -994,7 +994,7 @@ class SharedDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         0 disables auto-suspending. For more information, see `SUSPEND_TASK_AFTER_NUM_FAILURES <https://docs.snowflake.com/en/sql-reference/parameters#suspend-task-after-num-failures>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#suspend_task_after_num_failures SharedDatabase#suspend_task_after_num_failures}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#suspend_task_after_num_failures SharedDatabase#suspend_task_after_num_failures}
         '''
         result = self._values.get("suspend_task_after_num_failures")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1003,7 +1003,7 @@ class SharedDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def task_auto_retry_attempts(self) -> typing.Optional[jsii.Number]:
         '''Maximum automatic retries allowed for a user task. For more information, see `TASK_AUTO_RETRY_ATTEMPTS <https://docs.snowflake.com/en/sql-reference/parameters#task-auto-retry-attempts>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#task_auto_retry_attempts SharedDatabase#task_auto_retry_attempts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#task_auto_retry_attempts SharedDatabase#task_auto_retry_attempts}
         '''
         result = self._values.get("task_auto_retry_attempts")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1012,7 +1012,7 @@ class SharedDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["SharedDatabaseTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#timeouts SharedDatabase#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#timeouts SharedDatabase#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["SharedDatabaseTimeouts"], result)
@@ -1023,7 +1023,7 @@ class SharedDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Valid options are: ``ALWAYS`` | ``ON_EVENT`` | ``PROPAGATE`` | ``OFF``. For information about levels, see `TRACE_LEVEL <https://docs.snowflake.com/en/sql-reference/parameters.html#label-trace-level>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#trace_level SharedDatabase#trace_level}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#trace_level SharedDatabase#trace_level}
         '''
         result = self._values.get("trace_level")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1034,7 +1034,7 @@ class SharedDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         For more information, see `USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE <https://docs.snowflake.com/en/sql-reference/parameters#user-task-managed-initial-warehouse-size>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#user_task_managed_initial_warehouse_size SharedDatabase#user_task_managed_initial_warehouse_size}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#user_task_managed_initial_warehouse_size SharedDatabase#user_task_managed_initial_warehouse_size}
         '''
         result = self._values.get("user_task_managed_initial_warehouse_size")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1045,7 +1045,7 @@ class SharedDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[jsii.Number]:
         '''Minimum amount of time between Triggered Task executions in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#user_task_minimum_trigger_interval_in_seconds SharedDatabase#user_task_minimum_trigger_interval_in_seconds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#user_task_minimum_trigger_interval_in_seconds SharedDatabase#user_task_minimum_trigger_interval_in_seconds}
         '''
         result = self._values.get("user_task_minimum_trigger_interval_in_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1054,7 +1054,7 @@ class SharedDatabaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def user_task_timeout_ms(self) -> typing.Optional[jsii.Number]:
         '''User task execution timeout in milliseconds. For more information, see `USER_TASK_TIMEOUT_MS <https://docs.snowflake.com/en/sql-reference/parameters#user-task-timeout-ms>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#user_task_timeout_ms SharedDatabase#user_task_timeout_ms}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#user_task_timeout_ms SharedDatabase#user_task_timeout_ms}
         '''
         result = self._values.get("user_task_timeout_ms")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1091,10 +1091,10 @@ class SharedDatabaseTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#create SharedDatabase#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#delete SharedDatabase#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#read SharedDatabase#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#update SharedDatabase#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#create SharedDatabase#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#delete SharedDatabase#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#read SharedDatabase#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#update SharedDatabase#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__994de696892007a7df036ec8b2b2d2ccf700b59906d6f68f1c191b8a461ea9d2)
@@ -1114,25 +1114,25 @@ class SharedDatabaseTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#create SharedDatabase#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#create SharedDatabase#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#delete SharedDatabase#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#delete SharedDatabase#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#read SharedDatabase#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#read SharedDatabase#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/shared_database#update SharedDatabase#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/shared_database#update SharedDatabase#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -1,4 +1,3 @@
-import gc
 import io
 import json
 import unittest
@@ -11,7 +10,6 @@ from cupy.cuda import memory_hooks
 class TestDebugPrintHook(unittest.TestCase):
 
     def setUp(self):
-        gc.collect()
         self.io = io.StringIO()
         self.hook = memory_hooks.DebugPrintHook(file=self.io)
         self.pool = memory.MemoryPool()

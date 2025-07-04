@@ -1088,16 +1088,21 @@ class Feature(Generic[_TPrim, _TRich]):
         return join
 
     @property
-    def foreign_join_key(self) -> Optional[Feature]:
+    def foreign_join_keys(self) -> list[Feature]:
         j = self.join
         if j is None:
-            return None
+            return []
 
-        if j.lhs is not None and j.rhs is not None and isinstance(j.lhs, Feature) and isinstance(j.rhs, Feature):
-            if j.lhs.namespace != self.namespace:
-                return j.lhs
-            return j.rhs
-        return None
+        def _foreign_join_keys_recursive(j: Filter):
+            if j.operation == "and" and isinstance(j.lhs, Filter) and isinstance(j.rhs, Filter):
+                return [*_foreign_join_keys_recursive(j.lhs), *_foreign_join_keys_recursive(j.rhs)]
+            if j.lhs is not None and j.rhs is not None and isinstance(j.lhs, Feature) and isinstance(j.rhs, Feature):
+                if j.lhs.namespace != self.namespace:
+                    return [j.lhs]
+                return [j.rhs]
+            return []
+
+        return _foreign_join_keys_recursive(j)
 
     @property
     def joined_class(self) -> Optional[Type[Features]]:

@@ -163,6 +163,7 @@ use ruff_source_file::LineIndex;
 use ruff_source_file::OneIndexed;
 use ruff_source_file::SourceLocation;
 use ruff_text_size::Ranged;
+use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
@@ -182,6 +183,7 @@ use crate::module::module_info::TextRangeWithModuleInfo;
 use crate::module::module_path::ModulePath;
 use crate::module::module_path::ModulePathDetails;
 use crate::state::handle::Handle;
+use crate::state::lsp::FindDefinitionItem;
 use crate::state::require::Require;
 use crate::state::semantic_tokens::SemanticTokensLegends;
 use crate::state::state::CommittingTransaction;
@@ -348,7 +350,8 @@ struct PythonInfo {
 
 impl PythonInfo {
     fn new(interpreter: PathBuf) -> Self {
-        let env = PythonEnvironment::get_interpreter_env(&interpreter);
+        // TODO(connernilsen): propagate the error somehow
+        let env = PythonEnvironment::get_interpreter_env(&interpreter).0;
         Self { interpreter, env }
     }
 }
@@ -822,6 +825,21 @@ fn module_info_to_uri_with_document_content_provider(module_info: &ModuleInfo) -
 enum ProcessEvent {
     Continue,
     Exit,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PyreflyClientConfig {
+    disable_type_errors: Option<bool>,
+    disable_language_services: Option<bool>,
+    extra_paths: Option<Vec<PathBuf>>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LspConfig {
+    python_path: Option<String>,
+    pyrefly: Option<PyreflyClientConfig>,
 }
 
 impl Server {
@@ -1358,10 +1376,9 @@ impl Server {
 
         let mut version_info = self.version_info.lock();
         let old_version = version_info.get(&file_path).unwrap_or(&0);
-        if version <= *old_version {
+        if version < *old_version {
             return Err(anyhow::anyhow!(
-                "Expected version in didChange notification to be greater than: {:?}",
-                old_version
+                "Unexpected version in didChange notification: {version:?} is less than {old_version:?}"
             ));
         }
         version_info.insert(file_path.clone(), version);
@@ -1498,6 +1515,7 @@ impl Server {
         let path = uri.to_file_path().unwrap();
         self.workspaces.get_with(path.clone(), |workspace| {
             if workspace.disable_language_services {
+                eprintln!("Skipping request - language services disabled");
                 None
             } else {
                 let module_path = if self.open_files.read().contains_key(&path) {
@@ -1507,6 +1525,25 @@ impl Server {
                 };
                 Some(Self::handle_from_module_path(&self.state, module_path))
             }
+        })
+    }
+
+    fn to_lsp_location(&self, location: &TextRangeWithModuleInfo) -> Option<Location> {
+        let TextRangeWithModuleInfo {
+            module_info: definition_module_info,
+            range,
+        } = location;
+        let uri = match &self.initialize_params.initialization_options {
+            Some(serde_json::Value::Object(map))
+                if (map.get("supportContentsAsUri") == Some(&serde_json::Value::Bool(true))) =>
+            {
+                module_info_to_uri_with_document_content_provider(definition_module_info)?
+            }
+            Some(_) | None => module_info_to_uri(definition_module_info)?,
+        };
+        Some(Location {
+            uri,
+            range: definition_module_info.lined_buffer().to_lsp_range(*range),
         })
     }
 
@@ -1521,22 +1558,18 @@ impl Server {
         let range = info
             .lined_buffer()
             .from_lsp_position(params.text_document_position_params.position);
-        let TextRangeWithModuleInfo {
-            module_info: definition_module_info,
-            range,
-        } = transaction.goto_definition(&handle, range)?;
-        let uri = match &self.initialize_params.initialization_options {
-            Some(serde_json::Value::Object(map))
-                if (map.get("supportContentsAsUri") == Some(&serde_json::Value::Bool(true))) =>
-            {
-                module_info_to_uri_with_document_content_provider(&definition_module_info)?
-            }
-            Some(_) | None => module_info_to_uri(&definition_module_info)?,
-        };
-        Some(GotoDefinitionResponse::Scalar(Location {
-            uri,
-            range: definition_module_info.lined_buffer().to_lsp_range(range),
-        }))
+        let targets = transaction.goto_definition(&handle, range);
+        let mut lsp_targets = targets
+            .into_iter()
+            .filter_map(|t| self.to_lsp_location(&t))
+            .collect::<Vec<_>>();
+        if lsp_targets.is_empty() {
+            None
+        } else if lsp_targets.len() == 1 {
+            Some(GotoDefinitionResponse::Scalar(lsp_targets.pop().unwrap()))
+        } else {
+            Some(GotoDefinitionResponse::Array(lsp_targets))
+        }
     }
 
     fn completion(
@@ -1642,8 +1675,15 @@ impl Server {
             return self.send_response(new_response::<Option<V>>(request_id, Ok(None)));
         };
         let position = info.lined_buffer().from_lsp_position(position);
-        let Some((definition_kind, definition, _docstring)) =
-            transaction.find_definition(&handle, position, false)
+        let Some(FindDefinitionItem {
+            metadata,
+            location,
+            docstring: _,
+        }) = transaction
+            .find_definition(&handle, position, false)
+            // TODO: handle more than 1 definition
+            .into_iter()
+            .next()
         else {
             ide_transaction_manager.save(transaction);
             return self.send_response(new_response::<Option<V>>(request_id, Ok(None)));
@@ -1662,8 +1702,8 @@ impl Server {
             Self::validate_in_memory_for_transaction(&state, &open_files, transaction.as_mut());
             match transaction.find_global_references_from_definition(
                 handle.sys_info(),
-                definition_kind,
-                definition,
+                metadata,
+                location,
             ) {
                 Ok(global_references) => {
                     let mut locations = Vec::new();
@@ -1787,16 +1827,21 @@ impl Server {
         let t = transaction.get_type_at(&handle, range)?;
         let mut kind_formatted: String = "".to_owned();
         let mut docstring_formatted: String = "".to_owned();
-        if let Some((definition_metadata, text_range_with_module_info, docstring)) =
-            transaction.find_definition(&handle, range, true)
+        if let Some(FindDefinitionItem {
+            metadata,
+            location,
+            docstring,
+        }) = transaction
+            .find_definition(&handle, range, true)
+            // TODO: handle more than 1 definition
+            .into_iter()
+            .next()
         {
-            if let Some(symbol_kind) = definition_metadata.symbol_kind() {
+            if let Some(symbol_kind) = metadata.symbol_kind() {
                 kind_formatted = format!(
                     "{} {}: ",
                     &symbol_kind.display_for_hover(),
-                    text_range_with_module_info
-                        .module_info
-                        .code_at(text_range_with_module_info.range)
+                    location.module_info.code_at(location.range)
                 );
             }
             if let Some(docstring) = docstring {
@@ -2052,44 +2097,28 @@ impl Server {
         {
             let mut modified = false;
             for (i, id) in request.items.iter().enumerate() {
-                match response.get(i) {
-                    Some(serde_json::Value::Object(map)) => {
-                        if let Some(serde_json::Value::String(python_path)) = map.get("pythonPath")
-                        {
-                            self.update_pythonpath(&mut modified, &id.scope_uri, python_path);
-                        }
-                        if let Some(serde_json::Value::Object(pyrefly_settings)) =
-                            map.get("pyrefly")
-                        {
-                            if let Some(serde_json::Value::Array(search_paths)) =
-                                pyrefly_settings.get("extraPaths")
-                            {
-                                let paths: Vec<PathBuf> = search_paths
-                                    .iter()
-                                    .map(|path| serde_json::from_value(path.clone()).unwrap())
-                                    .collect();
-                                self.update_search_paths(&mut modified, &id.scope_uri, paths);
-                            }
-                            if let Some(serde_json::Value::Bool(disable_language_services)) =
-                                pyrefly_settings.get("disableLanguageServices")
-                            {
-                                self.update_disable_language_services(
-                                    &id.scope_uri,
-                                    *disable_language_services,
-                                );
-                            }
-                            if let Some(serde_json::Value::Bool(disable_language_services)) =
-                                pyrefly_settings.get("disableTypeErrors")
-                            {
-                                self.update_disable_type_errors(
-                                    &id.scope_uri,
-                                    *disable_language_services,
-                                );
-                            }
-                        }
+                let config: LspConfig = if let Some(value) = response.get(i) {
+                    serde_json::from_value(value.clone()).unwrap_or_default()
+                } else {
+                    continue;
+                };
+
+                if let Some(python_path) = config.python_path {
+                    self.update_pythonpath(&mut modified, &id.scope_uri, &python_path);
+                }
+
+                if let Some(pyrefly) = config.pyrefly {
+                    if let Some(extra_paths) = pyrefly.extra_paths {
+                        self.update_search_paths(&mut modified, &id.scope_uri, extra_paths);
                     }
-                    _ => {
-                        // Non-map value or no configuration returned for request
+                    if let Some(disable_language_services) = pyrefly.disable_language_services {
+                        self.update_disable_language_services(
+                            &id.scope_uri,
+                            disable_language_services,
+                        );
+                    }
+                    if let Some(disable_type_errors) = pyrefly.disable_type_errors {
+                        self.update_disable_type_errors(&id.scope_uri, disable_type_errors);
                     }
                 }
             }

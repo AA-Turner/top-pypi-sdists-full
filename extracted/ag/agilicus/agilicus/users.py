@@ -1208,7 +1208,8 @@ def _get_support_request(apiclient, request_id, org_id=None, **kwargs):
 
 def list_support_requests(ctx, **kwargs):
     apiclient = context.get_apiclient_from_ctx(ctx)
-    update_org_from_input_or_ctx(kwargs, ctx, **kwargs)
+    if kwargs.get("supporting_user_org_id", None) is None:
+        update_org_from_input_or_ctx(kwargs, ctx, **kwargs)
     input_helpers.pop_item_if_none(kwargs)
     query_results = apiclient.user_api.list_support_requests(**kwargs)
     return query_results.support_requests

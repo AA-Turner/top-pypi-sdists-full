@@ -1,6 +1,6 @@
 [project]
 name = "llguidance"
-version = "1.0.0"
+version = "1.0.1"
 description = "Bindings for the Low-level Guidance (llguidance) Rust library for use within Guidance"
 requires-python = ">=3.9"
 license = "MIT"
@@ -24,5 +24,4 @@ python-source = "python"
 module-name = "llguidance._lib"
 manifest-path = "python_ext/Cargo.toml"
 sdist-generator = "git"
-# strip = true
 # features = ["llguidance/logging"]

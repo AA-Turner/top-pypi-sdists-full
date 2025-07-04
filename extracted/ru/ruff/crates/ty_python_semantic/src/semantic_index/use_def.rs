@@ -247,7 +247,7 @@ use crate::semantic_index::place::{
     FileScopeId, PlaceExpr, PlaceExprWithFlags, ScopeKind, ScopedPlaceId,
 };
 use crate::semantic_index::predicate::{
-    Predicate, Predicates, PredicatesBuilder, ScopedPredicateId, StarImportPlaceholderPredicate,
+    Predicate, PredicateOrLiteral, Predicates, PredicatesBuilder, ScopedPredicateId,
 };
 use crate::semantic_index::reachability_constraints::{
     ReachabilityConstraints, ReachabilityConstraintsBuilder, ScopedReachabilityConstraintId,
@@ -259,7 +259,7 @@ use crate::types::{IntersectionBuilder, Truthiness, Type, infer_narrowing_constr
 mod place_state;
 
 /// Applicable definitions and constraints for every use of a name.
-#[derive(Debug, PartialEq, Eq, salsa::Update)]
+#[derive(Debug, PartialEq, Eq, salsa::Update, get_size2::GetSize)]
 pub(crate) struct UseDefMap<'db> {
     /// Array of [`Definition`] in this scope. Only the first entry should be [`DefinitionState::Undefined`];
     /// this represents the implicit "unbound"/"undeclared" definition of every place.
@@ -549,9 +549,10 @@ impl<'db> UseDefMap<'db> {
 ///
 /// There is a unique ID for each distinct [`EagerSnapshotKey`] in the file.
 #[newtype_index]
+#[derive(get_size2::GetSize)]
 pub(crate) struct ScopedEagerSnapshotId;
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, get_size2::GetSize)]
 pub(crate) struct EagerSnapshotKey {
     /// The enclosing scope containing the bindings
     pub(crate) enclosing_scope: FileScopeId,
@@ -680,7 +681,7 @@ impl<'db> Iterator for DeclarationsIterator<'_, 'db> {
 
 impl std::iter::FusedIterator for DeclarationsIterator<'_, '_> {}
 
-#[derive(Debug, PartialEq, Eq, salsa::Update)]
+#[derive(Debug, PartialEq, Eq, salsa::Update, get_size2::GetSize)]
 struct ReachableDefinitions {
     bindings: Bindings,
     declarations: Declarations,
@@ -804,11 +805,25 @@ impl<'db> UseDefMapBuilder<'db> {
         );
     }
 
-    pub(super) fn add_predicate(&mut self, predicate: Predicate<'db>) -> ScopedPredicateId {
-        self.predicates.add_predicate(predicate)
+    pub(super) fn add_predicate(
+        &mut self,
+        predicate: PredicateOrLiteral<'db>,
+    ) -> ScopedPredicateId {
+        match predicate {
+            PredicateOrLiteral::Predicate(predicate) => self.predicates.add_predicate(predicate),
+            PredicateOrLiteral::Literal(true) => ScopedPredicateId::ALWAYS_TRUE,
+            PredicateOrLiteral::Literal(false) => ScopedPredicateId::ALWAYS_FALSE,
+        }
     }
 
     pub(super) fn record_narrowing_constraint(&mut self, predicate: ScopedPredicateId) {
+        if predicate == ScopedPredicateId::ALWAYS_TRUE
+            || predicate == ScopedPredicateId::ALWAYS_FALSE
+        {
+            // No need to record a narrowing constraint for `True` or `False`.
+            return;
+        }
+
         let narrowing_constraint = predicate.into();
         for state in &mut self.place_states {
             state
@@ -828,7 +843,7 @@ impl<'db> UseDefMapBuilder<'db> {
     /// This method exists solely for handling `*`-import reachability constraints.
     ///
     /// The reason why we add reachability constraints for [`Definition`]s created by `*` imports
-    /// is laid out in the doc-comment for [`StarImportPlaceholderPredicate`]. But treating these
+    /// is laid out in the doc-comment for `StarImportPlaceholderPredicate`. But treating these
     /// reachability constraints in the use-def map the same way as all other reachability constraints
     /// was shown to lead to [significant regressions] for small codebases where typeshed
     /// dominates. (Although `*` imports are not common generally, they are used in several
@@ -856,12 +871,10 @@ impl<'db> UseDefMapBuilder<'db> {
     /// [significant regressions]: https://github.com/astral-sh/ruff/pull/17286#issuecomment-2786755746
     pub(super) fn record_and_negate_star_import_reachability_constraint(
         &mut self,
-        star_import: StarImportPlaceholderPredicate<'db>,
+        reachability_id: ScopedReachabilityConstraintId,
         symbol: ScopedPlaceId,
         pre_definition_state: PlaceState,
     ) {
-        let predicate_id = self.add_predicate(star_import.into());
-        let reachability_id = self.reachability_constraints.add_atom(predicate_id);
         let negated_reachability_id = self
             .reachability_constraints
             .add_not_constraint(reachability_id);

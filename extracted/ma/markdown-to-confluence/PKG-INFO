@@ -1,15 +1,16 @@
 Metadata-Version: 2.4
 Name: markdown-to-confluence
-Version: 0.4.0
+Version: 0.4.1
 Summary: Publish Markdown files to Confluence wiki
-Home-page: https://github.com/hunyadi/md2conf
-Author: Levente Hunyadi
-Author-email: hunyadi@gmail.com
-License: MIT
+Author-email: Levente Hunyadi <hunyadi@gmail.com>
+Maintainer-email: Levente Hunyadi <hunyadi@gmail.com>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/hunyadi/md2conf
+Project-URL: Source, https://github.com/hunyadi/md2conf
+Keywords: markdown,converter,confluence
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: End Users/Desktop
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
@@ -17,21 +18,26 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Typing :: Typed
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: json_strong_typing>=0.3.9
-Requires-Dist: lxml>=5.4
-Requires-Dist: types-lxml>=2025.3.30
+Requires-Dist: lxml>=6.0
 Requires-Dist: markdown>=3.8
-Requires-Dist: types-markdown>=3.8
 Requires-Dist: pymdown-extensions>=10.16
 Requires-Dist: PyYAML>=6.0
-Requires-Dist: types-PyYAML>=6.0
 Requires-Dist: requests>=2.32
-Requires-Dist: types-requests>=2.32
 Requires-Dist: typing_extensions>=4.14; python_version < "3.12"
+Provides-Extra: dev
+Requires-Dist: markdown_doc>=0.1.4; python_version >= "3.10" and extra == "dev"
+Requires-Dist: types-lxml>=2025.3.30; extra == "dev"
+Requires-Dist: types-markdown>=3.8; extra == "dev"
+Requires-Dist: types-PyYAML>=6.0; extra == "dev"
+Requires-Dist: types-requests>=2.32; extra == "dev"
+Requires-Dist: mypy>=1.16; extra == "dev"
+Requires-Dist: ruff>=0.12; extra == "dev"
 Dynamic: license-file
 
 # Publish Markdown files to Confluence wiki
@@ -325,6 +331,22 @@ tags: ["markdown", "md", "wiki"]
 Any previously assigned labels are discarded. As per Confluence terminology, new labels have the `prefix` of `global`.
 
 If a document has no `tags` attribute, existing Confluence labels are left intact.
+
+### Content properties
+
+The front-matter attribute `properties` in a Markdown document allows setting Confluence content properties on a page. Confluence content properties are a way to store structured metadata in the form of key-value pairs directly on Confluence content. The values in content properties are represented as JSON objects.
+
+Some content properties have special meaning to Confluence. For example, the following properties cause Confluence to display a wiki page with content confined to a fixed width in regular view mode, and taking the full page width in draft mode:
+
+```yaml
+---
+properties:
+  content-appearance-published: fixed-width
+  content-appearance-draft: full-width
+---
+```
+
+The attribute `properties` is parsed as a dictionary with keys of type string and values of type JSON. *md2conf* passes JSON values to Confluence REST API unchanged.
 
 ### Converting diagrams
 

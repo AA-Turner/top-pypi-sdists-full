@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: fds.sdk.utils
-Version: 2.1.1
+Version: 2.1.2
 Summary: Utilities for interacting with FactSet APIs.
 License: Apache-2.0
 Keywords: FactSet,API,SDK
@@ -14,7 +14,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: joserfc (>=0.9,<1.1)
+Requires-Dist: joserfc (>=0.9,<1.2)
 Requires-Dist: oauthlib (>=3.2.2,<4.0.0)
 Requires-Dist: requests (>=2.28.2,<3.0.0)
 Requires-Dist: requests-oauthlib (>=2.0.0,<3.0.0)

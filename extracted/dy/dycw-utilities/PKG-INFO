@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dycw-utilities
-Version: 0.139.7
+Version: 0.139.9
 Author-email: Derek Wan <d.wan@icloud.com>
 License-File: LICENSE
 Requires-Python: >=3.12
@@ -12,10 +12,10 @@ Provides-Extra: logging
 Requires-Dist: coloredlogs<15.1,>=15.0.1; extra == 'logging'
 Provides-Extra: test
 Requires-Dist: dycw-pytest-only<2.2,>=2.1.1; extra == 'test'
-Requires-Dist: hypothesis<6.136,>=6.135.16; extra == 'test'
+Requires-Dist: hypothesis<6.136,>=6.135.24; extra == 'test'
 Requires-Dist: pudb<2025.2,>=2025.1; extra == 'test'
 Requires-Dist: pytest-asyncio<1.1,>=1.0.0; extra == 'test'
-Requires-Dist: pytest-cov<6.2,>=6.1.1; extra == 'test'
+Requires-Dist: pytest-cov<6.3,>=6.2.1; extra == 'test'
 Requires-Dist: pytest-instafail<0.6,>=0.5.0; extra == 'test'
 Requires-Dist: pytest-lazy-fixtures<1.2,>=1.1.4; extra == 'test'
 Requires-Dist: pytest-randomly<3.17,>=3.16.0; extra == 'test'
@@ -24,8 +24,8 @@ Requires-Dist: pytest-repeat<0.10,>=0.9.4; extra == 'test'
 Requires-Dist: pytest-rerunfailures<16,>=15.1; extra == 'test'
 Requires-Dist: pytest-rng<1.1,>=1.0.0; extra == 'test'
 Requires-Dist: pytest-timeout<2.5,>=2.4.0; extra == 'test'
-Requires-Dist: pytest-xdist<3.8,>=3.7.0; extra == 'test'
-Requires-Dist: pytest<8.4,>=8.3.5; extra == 'test'
+Requires-Dist: pytest-xdist<3.9,>=3.8.0; extra == 'test'
+Requires-Dist: pytest<8.5,>=8.4.1; extra == 'test'
 Description-Content-Type: text/markdown
 
 [![PyPI version](https://badge.fury.io/py/dycw-utilities.svg)](https://badge.fury.io/py/dycw-utilities)

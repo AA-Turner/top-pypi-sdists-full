@@ -41,7 +41,6 @@ use crate::types::module::Module;
 use crate::types::quantified::Quantified;
 use crate::types::quantified::QuantifiedKind;
 use crate::types::read_only::ReadOnlyReason;
-use crate::types::tuple::Tuple;
 use crate::types::type_var::Restriction;
 use crate::types::typed_dict::TypedDict;
 use crate::types::types::AnyStyle;
@@ -56,7 +55,7 @@ enum LookupResult {
     /// The attribute was not found. Callers can use fallback behavior, for
     /// example looking up a different attribute.
     NotFound(NotFound),
-    /// There was a Pyre-internal error
+    /// There was a Pyrefly-internal error
     InternalError(InternalError),
 }
 
@@ -1575,33 +1574,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::TypedDict(td) | Type::PartialTypedDict(td) => {
                 Some(AttributeBase::TypedDict(td.clone()))
             }
-            Type::Tuple(Tuple::Unbounded(element)) => {
-                Some(AttributeBase::ClassInstance(self.stdlib.tuple(*element)))
-            }
-            Type::Tuple(Tuple::Concrete(elements)) => {
-                Some(AttributeBase::ClassInstance(if elements.is_empty() {
-                    self.stdlib.tuple(Type::Any(AnyStyle::Implicit))
-                } else {
-                    self.stdlib.tuple(self.unions(elements))
-                }))
-            }
-            Type::Tuple(Tuple::Unpacked(box (
-                prefix,
-                Type::Tuple(Tuple::Unbounded(middle)),
-                suffix,
-            ))) => {
-                let mut elements = prefix;
-                elements.push(*middle);
-                elements.extend(suffix);
-                Some(AttributeBase::ClassInstance(
-                    self.stdlib.tuple(self.unions(elements)),
-                ))
-            }
-            // TODO(yangdanny): Can we do better here? There might be some information
-            // in the unpacked bit that would be useful.
-            Type::Tuple(Tuple::Unpacked(_)) => Some(AttributeBase::ClassInstance(
-                self.stdlib.tuple(Type::any_implicit()),
-            )),
+            Type::Tuple(tuple) => Some(AttributeBase::ClassInstance(self.erase_tuple_type(tuple))),
             Type::LiteralString => Some(AttributeBase::ClassInstance(self.stdlib.str().clone())),
             Type::Literal(Lit::Enum(lit_enum)) => Some(AttributeBase::EnumLiteral(
                 lit_enum.class,
@@ -1648,9 +1621,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             )),
             Type::Never(_) => Some(AttributeBase::Never),
             _ if ty.is_property_getter() => Some(AttributeBase::Property(ty)),
-            Type::Callable(_) | Type::DataclassTransformDecorator(_) => Some(
-                AttributeBase::ClassInstance(self.stdlib.function_type().clone()),
-            ),
+            Type::Callable(_) => Some(AttributeBase::ClassInstance(
+                self.stdlib.function_type().clone(),
+            )),
+            Type::KwCall(call) => self.as_attribute_base_no_union(call.return_ty),
             Type::Function(box Function {
                 signature: _,
                 metadata,
@@ -1887,16 +1861,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    /// List all the attributes available from a type. Used to power completion.
-    /// Not all usages need types, so we can skip type computation with `include_types=false`.
-    pub fn completions(
+    // `base` is expected to be neither a union nor an intersection type
+    // if this precondition doesn't hold, the function won't crash but it
+    // will also not find an answer.
+    pub fn completions_no_union_intersection(
         &self,
         base: Type,
         expected_attribute_name: Option<&Name>,
         include_types: bool,
     ) -> Vec<AttrInfo> {
         let mut res = Vec::new();
-        // TODO: expose attributes shared across all union members
         if let Some(base) = self.as_attribute_base_no_union(base) {
             match &base {
                 AttributeBase::ClassInstance(class) | AttributeBase::EnumLiteral(class, _, _) => {
@@ -1955,6 +1929,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
         }
         res
+    }
+
+    /// List all the attributes available from a type. Used to power completion.
+    /// Not all usages need types, so we can skip type computation with `include_types=false`.
+    pub fn completions(
+        &self,
+        base: Type,
+        expected_attribute_name: Option<&Name>,
+        include_types: bool,
+    ) -> Vec<AttrInfo> {
+        // TODO:
+        // - If `base` is a union, expose only attributes shared by all members
+        // - If `base` is an intersection, expose all possible attributes for any members
+        self.completions_no_union_intersection(base, expected_attribute_name, include_types)
     }
 }
 

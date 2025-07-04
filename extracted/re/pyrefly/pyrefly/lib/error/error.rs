@@ -40,7 +40,6 @@ pub struct Error {
     /// The rest of the error message after the first line.
     /// Note that this is formatted for pretty-printing, with two spaces at the beginning and after every newline.
     msg_details: Option<Box<str>>,
-    is_ignored: bool,
 }
 
 impl Ranged for Error {
@@ -178,7 +177,6 @@ impl Error {
         error_kind: ErrorKind,
     ) -> Self {
         let display_range = module_info.display_range(range);
-        let is_ignored = module_info.is_ignored(&display_range);
         let msg_has_details = msg.len() > 1;
         let mut msg = msg.into_iter();
         let msg_header = msg.next().unwrap().into_boxed_str();
@@ -194,7 +192,6 @@ impl Error {
             error_kind,
             msg_header,
             msg_details,
-            is_ignored,
         }
     }
 
@@ -222,8 +219,9 @@ impl Error {
         }
     }
 
-    pub fn is_ignored(&self) -> bool {
-        self.is_ignored
+    pub fn is_ignored(&self, permissive_ignores: bool) -> bool {
+        self.module_info
+            .is_ignored(&self.display_range, self.error_kind, permissive_ignores)
     }
 
     pub fn error_kind(&self) -> ErrorKind {

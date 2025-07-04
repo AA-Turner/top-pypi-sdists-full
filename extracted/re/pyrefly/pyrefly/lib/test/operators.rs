@@ -351,6 +351,22 @@ def f(x: Any):
 );
 
 testcase!(
+    bug = "PyTorch TODO: First assert_type should be Any as well",
+    test_binop_on_any,
+    r#"
+from typing import Any, assert_type
+
+def f(x: Any):
+    assert_type(1 + x, Any)
+    assert_type(x < 10, Any)
+
+def f2(x: int | Any):
+    assert_type(1 + x, int | Any)
+    assert_type(x < 10,  bool | Any )
+    "#,
+);
+
+testcase!(
     test_comparison_return_type,
     r#"
 from typing import Literal, assert_type

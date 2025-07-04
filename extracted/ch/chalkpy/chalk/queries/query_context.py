@@ -20,7 +20,6 @@ class ChalkContext:
     >>> from chalk import ChalkContext, online
     >>> import requests
     >>> import json
-    ...
     >>> @features
     ... class User:
     ...     id: int

@@ -1,6 +1,6 @@
 [project]
 name = "bleak-esphome"
-version = "2.16.0"
+version = "3.1.0"
 description = "Bleak backend of ESPHome"
 authors = [{ name = "J. Nick Koston", email = "bluetooth@koston.org" }]
 license.text = "MIT"
@@ -34,9 +34,9 @@ script = "build_ext.py"
 [tool.poetry.dependencies]
 python = ">=3.11,<3.14"
 aioesphomeapi = ">=30.1.0"
-bleak = ">=0.21.1"
+bleak = ">=1"
 bluetooth-data-tools = ">=1.18.0"
-habluetooth = ">=3.42.0"
+habluetooth = ">=4"
 lru-dict = ">=1.2.0"
 bleak-retry-connector = ">=3.8.0"
 
@@ -45,7 +45,7 @@ pytest = ">=7,<9"
 pytest-cov = ">=3,<7"
 pytest-codspeed = "^3.1.0"
 zeroconf = ">=0.136.2,<0.148.0"
-pytest-asyncio = "^0.26.0"
+pytest-asyncio = "^1.0.0"
 
 [tool.poetry.group.docs]
 optional = true
@@ -97,8 +97,10 @@ exclude_lines = [
 ]
 
 [tool.ruff]
-target-version = "py38"
+target-version = "py311"
 line-length = 88
+
+[tool.ruff.lint]
 ignore = [
     "D203", # 1 blank line required before class docstring
     "D212", # Multi-line docstring summary should start at the first line
@@ -120,7 +122,7 @@ select = [
     "RUF", # ruff specific
 ]
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 "tests/**/*" = [
     "D100",
     "D101",
@@ -133,7 +135,7 @@ select = [
 "conftest.py" = ["D100"]
 "docs/conf.py" = ["D100"]
 
-[tool.ruff.isort]
+[tool.ruff.lint.isort]
 known-first-party = ["bleak_esphome", "tests"]
 
 [tool.mypy]

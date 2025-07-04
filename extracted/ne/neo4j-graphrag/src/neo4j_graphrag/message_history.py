@@ -25,7 +25,9 @@ from neo4j_graphrag.types import (
     Neo4jMessageHistoryModel,
 )
 
-CREATE_SESSION_NODE_QUERY = "MERGE (s:`{node_label}` {{id:$session_id}})"
+CREATE_SESSION_NODE_QUERY = (
+    "MERGE (s:`{node_label}` {{id:$session_id, createdAt: datetime()}})"
+)
 
 DELETE_SESSION_AND_MESSAGES_QUERY = (
     "MATCH (s:`{node_label}`) "
@@ -56,7 +58,7 @@ ADD_MESSAGE_QUERY = (
     "MATCH (s:`{node_label}`) WHERE s.id = $session_id "
     "OPTIONAL MATCH (s)-[lm:LAST_MESSAGE]->(last_message) "
     "CREATE (s)-[:LAST_MESSAGE]->(new:Message) "
-    "SET new += {{role:$role, content:$content}} "
+    "SET new += {{role:$role, content:$content, createdAt: datetime()}} "
     "WITH new, lm, last_message WHERE last_message IS NOT NULL "
     "CREATE (last_message)-[:NEXT]->(new) "
     "DELETE lm"
@@ -146,8 +148,8 @@ class Neo4jMessageHistory(MessageHistory):
     Args:
         session_id (Union[str, int]): Unique identifier for the chat session.
         driver (neo4j.Driver): Neo4j driver instance.
-        node_label (str, optional): Label used for session nodes in Neo4j. Defaults to "Session".
         window (Optional[PositiveInt], optional): Number of previous messages to return when retrieving messages.
+        database (Optional[str], optional): Neo4j database name.
 
     """
 
@@ -156,21 +158,25 @@ class Neo4jMessageHistory(MessageHistory):
         session_id: Union[str, int],
         driver: neo4j.Driver,
         window: Optional[PositiveInt] = None,
+        database: Optional[str] = None,
     ) -> None:
         validated_data = Neo4jMessageHistoryModel(
             session_id=session_id,
             driver_model=Neo4jDriverModel(driver=driver),
             window=window,
+            database=database,
         )
         self._driver = validated_data.driver_model.driver
         self._session_id = validated_data.session_id
         self._window = (
             "" if validated_data.window is None else validated_data.window - 1
         )
+        self._database = validated_data.database
         # Create session node
         self._driver.execute_query(
             query_=CREATE_SESSION_NODE_QUERY.format(node_label="Session"),
             parameters_={"session_id": self._session_id},
+            database_=self._database,
         )
 
     @property
@@ -178,6 +184,7 @@ class Neo4jMessageHistory(MessageHistory):
         result = self._driver.execute_query(
             query_=GET_MESSAGES_QUERY.format(node_label="Session", window=self._window),
             parameters_={"session_id": self._session_id},
+            database_=self._database,
         )
         messages = [
             LLMMessage(
@@ -208,6 +215,7 @@ class Neo4jMessageHistory(MessageHistory):
                 "content": message["content"],
                 "session_id": self._session_id,
             },
+            database_=self._database,
         )
 
     def clear(self, delete_session_node: bool = False) -> None:
@@ -220,9 +228,11 @@ class Neo4jMessageHistory(MessageHistory):
             self._driver.execute_query(
                 query_=DELETE_SESSION_AND_MESSAGES_QUERY.format(node_label="Session"),
                 parameters_={"session_id": self._session_id},
+                database_=self._database,
             )
         else:
             self._driver.execute_query(
                 query_=DELETE_MESSAGES_QUERY.format(node_label="Session"),
                 parameters_={"session_id": self._session_id},
+                database_=self._database,
             )

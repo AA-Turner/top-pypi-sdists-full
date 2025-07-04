@@ -18,7 +18,7 @@ pub(crate) use implicit_globals::{
     module_type_implicit_global_declaration, module_type_implicit_global_symbol,
 };
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, get_size2::GetSize)]
 pub(crate) enum Boundness {
     Bound,
     PossiblyUnbound,
@@ -50,7 +50,7 @@ impl Boundness {
 /// possibly_unbound:  Place::Type(Type::IntLiteral(2), Boundness::PossiblyUnbound),
 /// non_existent:      Place::Unbound,
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq, salsa::Update)]
+#[derive(Debug, Clone, PartialEq, Eq, salsa::Update, get_size2::GetSize)]
 pub(crate) enum Place<'db> {
     Type(Type<'db>, Boundness),
     Unbound,
@@ -60,10 +60,6 @@ impl<'db> Place<'db> {
     /// Constructor that creates a `Place` with boundness [`Boundness::Bound`].
     pub(crate) fn bound(ty: impl Into<Type<'db>>) -> Self {
         Place::Type(ty.into(), Boundness::Bound)
-    }
-
-    pub(crate) fn possibly_unbound(ty: impl Into<Type<'db>>) -> Self {
-        Place::Type(ty.into(), Boundness::PossiblyUnbound)
     }
 
     /// Constructor that creates a [`Place`] with a [`crate::types::TodoType`] type
@@ -239,29 +235,28 @@ pub(crate) fn class_symbol<'db>(
 ) -> PlaceAndQualifiers<'db> {
     place_table(db, scope)
         .place_id_by_name(name)
-        .map(|symbol| {
-            let symbol_and_quals = place_by_id(
+        .map(|place| {
+            let place_and_quals = place_by_id(
                 db,
                 scope,
-                symbol,
+                place,
                 RequiresExplicitReExport::No,
                 ConsideredDefinitions::EndOfScope,
             );
 
-            if symbol_and_quals.is_class_var() {
-                // For declared class vars we do not need to check if they have bindings,
-                // we just trust the declaration.
-                return symbol_and_quals;
+            if !place_and_quals.place.is_unbound() {
+                // Trust the declared type if we see a class-level declaration
+                return place_and_quals;
             }
 
             if let PlaceAndQualifiers {
                 place: Place::Type(ty, _),
                 qualifiers,
-            } = symbol_and_quals
+            } = place_and_quals
             {
                 // Otherwise, we need to check if the symbol has bindings
                 let use_def = use_def_map(db, scope);
-                let bindings = use_def.end_of_scope_bindings(symbol);
+                let bindings = use_def.end_of_scope_bindings(place);
                 let inferred = place_from_bindings_impl(db, bindings, RequiresExplicitReExport::No);
 
                 // TODO: we should not need to calculate inferred type second time. This is a temporary
@@ -329,7 +324,7 @@ pub(crate) fn imported_symbol<'db>(
     requires_explicit_reexport: Option<RequiresExplicitReExport>,
 ) -> PlaceAndQualifiers<'db> {
     let requires_explicit_reexport = requires_explicit_reexport.unwrap_or_else(|| {
-        if file.is_stub(db.upcast()) {
+        if file.is_stub(db) {
             RequiresExplicitReExport::Yes
         } else {
             RequiresExplicitReExport::No
@@ -497,7 +492,7 @@ pub(crate) type PlaceFromDeclarationsResult<'db> =
 /// that this comes with a [`CLASS_VAR`] type qualifier.
 ///
 /// [`CLASS_VAR`]: crate::types::TypeQualifiers::CLASS_VAR
-#[derive(Debug, Clone, PartialEq, Eq, salsa::Update)]
+#[derive(Debug, Clone, PartialEq, Eq, salsa::Update, get_size2::GetSize)]
 pub(crate) struct PlaceAndQualifiers<'db> {
     pub(crate) place: Place<'db>,
     pub(crate) qualifiers: TypeQualifiers,
@@ -625,7 +620,7 @@ fn place_cycle_initial<'db>(
     Place::bound(Type::Never).into()
 }
 
-#[salsa::tracked(cycle_fn=place_cycle_recover, cycle_initial=place_cycle_initial)]
+#[salsa::tracked(cycle_fn=place_cycle_recover, cycle_initial=place_cycle_initial, heap_size=get_size2::GetSize::get_heap_size)]
 fn place_by_id<'db>(
     db: &'db dyn Db,
     scope: ScopeId<'db>,
@@ -717,7 +712,7 @@ fn place_by_id<'db>(
                 .expr
                 .is_name_and(|name| matches!(name, "__slots__" | "TYPE_CHECKING"));
 
-            if scope.file(db).is_stub(db.upcast()) {
+            if scope.file(db).is_stub(db) {
                 // We generally trust module-level undeclared places in stubs and do not union
                 // with `Unknown`. If we don't do this, simple aliases like `IOError = OSError` in
                 // stubs would result in `IOError` being a union of `OSError` and `Unknown`, which
@@ -1312,7 +1307,7 @@ mod implicit_globals {
     /// Conceptually this function could be a `Set` rather than a list,
     /// but the number of symbols declared in this scope is likely to be very small,
     /// so the cost of hashing the names is likely to be more expensive than it's worth.
-    #[salsa::tracked(returns(deref))]
+    #[salsa::tracked(returns(deref), heap_size=get_size2::GetSize::get_heap_size)]
     fn module_type_symbols<'db>(db: &'db dyn Db) -> smallvec::SmallVec<[ast::name::Name; 8]> {
         let Some(module_type) = KnownClass::ModuleType
             .to_class_literal(db)

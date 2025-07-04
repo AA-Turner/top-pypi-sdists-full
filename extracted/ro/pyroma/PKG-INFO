@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pyroma
-Version: 4.3.2
+Version: 4.3.3
 Summary: Test your project's packaging friendliness
 Home-page: https://github.com/regebro/pyroma
 Author: Lennart Regebro
@@ -35,6 +35,7 @@ Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: setuptools>=60; extra == "test"
 Requires-Dist: zest.releaser[recommended]; extra == "test"
+Dynamic: license-file
 
 pyroma
 ======
@@ -173,6 +174,13 @@ Contributors:
 
 Changelog
 =========
+
+4.3.3 (2025-07-03)
+------------------
+
+- Licensing specifications are less flexible than I thought.
+  Updated to reflect that.
+
 
 4.3.2 (2025-07-02)
 ------------------

@@ -568,30 +568,6 @@ def f(x: Iterable[int]):
 );
 
 testcase!(
-    test_ignore,
-    r#"
-x: int = "1"  # type: ignore
-
-# type: ignore
-y: int = "2"
-
-z: int = "3"  # E: `Literal['3']` is not assignable to `int`
-"#,
-);
-
-testcase!(
-    bug = "An ignore comment should attach to either the current line or next line, but not both",
-    test_ignore_attachment,
-    r#"
-# type: ignore
-w: int = "0"
-
-x: int = "1"  # type: ignore
-y: int = "2"  # TODO: this error should not be suppressed
-"#,
-);
-
-testcase!(
     test_complex,
     r#"
 z: complex =  3 + 4j
@@ -1291,6 +1267,22 @@ assert_type(round(0.123456789), int)
 );
 
 testcase!(
+    test_aug_assign_star_no_panic,
+    r#"
+# This used to panic: see https://github.com/facebook/pyrefly/issues/454
+*a += 0  # E: Parse error: Invalid augmented assignment target  # E: Could not find name `a`
+    "#,
+);
+
+testcase!(
+    test_debug,
+    r#"
+from typing import assert_type
+assert_type(__debug__, bool)
+    "#,
+);
+
+testcase!(
     test_invalid_assignment_no_panic,
     r#"
 -a=a=  # E: Parse error: Invalid assignment target  # E: Parse error: Expected an expression
@@ -1492,13 +1484,12 @@ def f(x: MyException):
 );
 
 testcase!(
-    bug = "Mapping.get with a default gives the wrong answer",
     test_mapping_get,
     r#"
 from typing import assert_type
 import os
 compiler = os.environ.get("CXX", "cl")
-assert_type(compiler, str) # E: assert_type(str | Any, str) failed
+assert_type(compiler, str)
 "#,
 );
 
@@ -1521,5 +1512,25 @@ def g() -> int: return 42
 
 def op(b: bool):
     assert_type((f if b else g)(), str | int)
+"#,
+);
+
+testcase!(
+    test_invalid_base,
+    r#"
+class C(Invalid): # E: Could not find name `Invalid`
+    pass
+
+def f(x: C):
+    x.unknown
+    C("test")
+"#,
+);
+
+testcase!(
+    test_just_def,
+    r#"
+# Used to crash https://github.com/facebook/pyrefly/issues/620
+def # E: # E:
 "#,
 );

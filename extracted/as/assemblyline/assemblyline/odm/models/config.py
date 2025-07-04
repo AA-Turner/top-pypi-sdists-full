@@ -178,7 +178,6 @@ DEFAULT_INTERNAL = {
     "signup": DEFAULT_SIGNUP
 }
 
-
 @odm.model(index=False, store=False, description="App provider")
 class AppProvider(odm.Model):
     access_token_url: str = odm.Keyword(description="URL used to get the access token")
@@ -248,7 +247,12 @@ class OAuthProvider(odm.Model):
     validate_token_with_secret: bool = odm.Boolean(
         default=False, description="Should we send the client secret while validating the access token?")
     identity_id_field: str = odm.Keyword(default='oid', description="Field to fetch the managed identity ID from.")
-
+    openid_connect_discovery_url: str = odm.Optional(
+        odm.Keyword(), description="URL for connecting to the OpenID configuration JSON."
+    )
+    groups_id_token_field: str = odm.Keyword(
+        default="groups", description="Name of the field in the id token that contains the list of groups."
+    )
 
 DEFAULT_OAUTH_PROVIDER_AZURE = {
     "access_token_url": 'https://login.microsoftonline.com/common/oauth2/token',
@@ -287,6 +291,13 @@ DEFAULT_OAUTH_PROVIDERS = {
     'auth0': DEFAULT_OAUTH_PROVIDER_AUTH_ZERO,
     'azure_ad': DEFAULT_OAUTH_PROVIDER_AZURE,
     'google': DEFAULT_OAUTH_PROVIDER_GOOGLE,
+}
+
+OPEN_ID_CONFIGURATION_TO_OAUTH_PROVIDER_MAP = {
+    "authorization_endpoint": "authorize_url",
+    "issuer": "api_base_url",
+    "token_endpoint": "access_token_url",
+    "jwks_uri": "jwks_uri",
 }
 
 
@@ -1848,6 +1859,7 @@ class FileSource(odm.Model):
                                      default=[], description="List of services that will be auto-selected when using this source.")
     verify: bool = odm.Boolean(default=True, description="Should the download function Verify SSL connections?")
     password: str = odm.Optional(odm.Text(description="Password to use for the downloaded file (ie. password-protected zip)"))
+    metadata: Dict[str, str] = odm.Optional(odm.Mapping(odm.Text()), description="Metadata to append to submission based on source")
 
 
 EXAMPLE_FILE_SOURCE_VT = {

@@ -140,6 +140,7 @@ _stringMin1Max2048PatternArnAZSecretsmanagerWD12SecretAZAZ09 = str
 _stringMin1Max256 = str
 _stringMin1Max50 = str
 _stringMin1Max50PatternAZAZ09 = str
+_stringMin1PatternArnAwsUsGovCnKmsAZ26EastWestCentralNorthSouthEastWest1912D12KeyAFAF098AFAF094AFAF094AFAF094AFAF0912MrkAFAF0932 = str
 _stringMin24Max512PatternAZaZ0902 = str
 _stringMin32Max32Pattern09aFAF32 = str
 _stringMin36Max36Pattern09aFAF809aFAF409aFAF409aFAF409aFAF12 = str
@@ -1099,6 +1100,7 @@ class DvbddsHandling(StrEnum):
     NONE = "NONE"
     SPECIFIED = "SPECIFIED"
     NO_DISPLAY_WINDOW = "NO_DISPLAY_WINDOW"
+    SPECIFIED_OPTIMAL = "SPECIFIED_OPTIMAL"
 
 
 class DynamicAudioSelectorType(StrEnum):
@@ -2249,6 +2251,11 @@ class MovReference(StrEnum):
 class Mp3RateControlMode(StrEnum):
     CBR = "CBR"
     VBR = "VBR"
+
+
+class Mp4C2paManifest(StrEnum):
+    INCLUDE = "INCLUDE"
+    EXCLUDE = "EXCLUDE"
 
 
 class Mp4CslgAtom(StrEnum):
@@ -4372,11 +4379,16 @@ class Mp4Settings(TypedDict, total=False):
     """
 
     AudioDuration: Optional[CmfcAudioDuration]
+    C2paManifest: Optional[Mp4C2paManifest]
+    CertificateSecret: Optional[_stringMin1Max2048PatternArnAZSecretsmanagerWD12SecretAZAZ09]
     CslgAtom: Optional[Mp4CslgAtom]
     CttsVersion: Optional[_integerMin0Max1]
     FreeSpaceBox: Optional[Mp4FreeSpaceBox]
     MoovPlacement: Optional[Mp4MoovPlacement]
     Mp4MajorBrand: Optional[_string]
+    SigningKmsKey: Optional[
+        _stringMin1PatternArnAwsUsGovCnKmsAZ26EastWestCentralNorthSouthEastWest1912D12KeyAFAF098AFAF094AFAF094AFAF094AFAF0912MrkAFAF0932
+    ]
 
 
 class MovSettings(TypedDict, total=False):

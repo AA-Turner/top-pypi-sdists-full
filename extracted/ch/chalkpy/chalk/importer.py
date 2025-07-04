@@ -327,11 +327,11 @@ def _get_has_many_class(
     if joined_class is None:
         raise ChalkParseError(f"has-many feature '{has_many_feature_name}' is not joined to a class")
 
-    foreign_join_key = underlying.foreign_join_key
-    if foreign_join_key is None:
+    foreign_join_keys = underlying.foreign_join_keys
+    if len(foreign_join_keys) == 0:
         raise ChalkParseError(f"has-many feature '{has_many_feature_name}' is missing a foreign join key")
 
-    group_by_features: list[Feature] = [foreign_join_key]
+    group_by_features: list[Feature] = foreign_join_keys
     for group_name in group_names:
         joined_feature_wrapper = getattr(joined_class, group_name, None)
         if joined_feature_wrapper is None:
@@ -1170,7 +1170,7 @@ def import_all_python_files_from_dir(
                 start = time.perf_counter()
                 importlib.import_module(module_path)
                 end = time.perf_counter()
-                _import_logger.info(f"Imported '{module_path}' in {end-start} seconds")
+                _import_logger.debug(f"Imported '{module_path}' in {end-start} seconds")
             except Exception as e:
                 if not LSPErrorBuilder.promote_exception(e):
                     ex_type, ex_value, ex_traceback = sys.exc_info()

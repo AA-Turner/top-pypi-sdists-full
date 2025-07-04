@@ -5,7 +5,6 @@ import pytest
 from testfixtures import Comparison as C, ShouldRaise, should_raise
 from unittest import TestCase
 
-from ..compat import PY_311_PLUS
 from ..shouldraise import ShouldAssert
 
 
@@ -37,6 +36,22 @@ class TestShouldAssert:
                 -foo
                 +bar
                 +assert False""")
+
+    def test_show_whitespace(self):
+        try:
+            with ShouldAssert('foo ', show_whitespace=True):
+                assert False, ' foo'
+        except AssertionError as e:
+            assert str(e) == dedent(
+                """\
+                --- expected
+                +++ actual
+                @@ -1 +1,2 @@
+                -'foo '
+                +' foo\\n'
+                +'assert False'"""
+            )
+
 
 
 class TestShouldRaise(TestCase):
@@ -207,7 +222,7 @@ class TestShouldRaise(TestCase):
 
     def test_import_errors_1(self):
         with ShouldRaise(ModuleNotFoundError("No module named 'textfixtures'")):
-            import textfixtures.foo.bar
+            import textfixtures.foo.bar  # type: ignore[import-not-found]
 
     def test_import_errors_2(self):
         with ShouldRaise(ImportError('X')):
@@ -303,12 +318,10 @@ class TestShouldRaise(TestCase):
             with ShouldRaise(MessageError('foo')):
                 raise MessageError('foo', None)
 
-    @pytest.mark.skipif(not PY_311_PLUS, reason="requires python3.11 or higher")
     def test_exception_group_okay(self):
         with ShouldRaise(ExceptionGroup('foo', [Exception('bar')])):
             raise ExceptionGroup('foo', [Exception('bar')])
 
-    @pytest.mark.skipif(not PY_311_PLUS, reason="requires python3.11 or higher")
     def test_exception_group_different(self):
         with ShouldAssert(
                 "exception group not as expected:\n\n"

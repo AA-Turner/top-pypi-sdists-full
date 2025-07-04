@@ -1,7 +1,7 @@
 r'''
 # `data_snowflake_image_repositories`
 
-Refer to the Terraform Registry for docs: [`data_snowflake_image_repositories`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/image_repositories).
+Refer to the Terraform Registry for docs: [`data_snowflake_image_repositories`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/data-sources/image_repositories).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataSnowflakeImageRepositories(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-snowflake.dataSnowflakeImageRepositories.DataSnowflakeImageRepositories",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/image_repositories snowflake_image_repositories}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/data-sources/image_repositories snowflake_image_repositories}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class DataSnowflakeImageRepositories(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/image_repositories snowflake_image_repositories} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/data-sources/image_repositories snowflake_image_repositories} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/image_repositories#id DataSnowflakeImageRepositories#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param in_: in block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/image_repositories#in DataSnowflakeImageRepositories#in}
-        :param like: Filters the output with **case-insensitive** pattern, with support for SQL wildcard characters (``%`` and ``_``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/image_repositories#like DataSnowflakeImageRepositories#like}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/data-sources/image_repositories#id DataSnowflakeImageRepositories#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param in_: in block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/data-sources/image_repositories#in DataSnowflakeImageRepositories#in}
+        :param like: Filters the output with **case-insensitive** pattern, with support for SQL wildcard characters (``%`` and ``_``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/data-sources/image_repositories#like DataSnowflakeImageRepositories#like}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class DataSnowflakeImageRepositories(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataSnowflakeImageRepositories to import.
-        :param import_from_id: The id of the existing DataSnowflakeImageRepositories that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/image_repositories#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataSnowflakeImageRepositories that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/data-sources/image_repositories#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataSnowflakeImageRepositories to import is found.
         '''
         if __debug__:
@@ -129,9 +129,9 @@ class DataSnowflakeImageRepositories(
         schema: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param account: Returns records for the entire account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/image_repositories#account DataSnowflakeImageRepositories#account}
-        :param database: Returns records for the current database in use or for a specified database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/image_repositories#database DataSnowflakeImageRepositories#database}
-        :param schema: Returns records for the current schema in use or a specified schema. Use fully qualified name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/image_repositories#schema DataSnowflakeImageRepositories#schema}
+        :param account: Returns records for the entire account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/data-sources/image_repositories#account DataSnowflakeImageRepositories#account}
+        :param database: Returns records for the current database in use or for a specified database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/data-sources/image_repositories#database DataSnowflakeImageRepositories#database}
+        :param schema: Returns records for the current schema in use or a specified schema. Use fully qualified name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/data-sources/image_repositories#schema DataSnowflakeImageRepositories#schema}
         '''
         value = DataSnowflakeImageRepositoriesIn(
             account=account, database=database, schema=schema
@@ -255,9 +255,9 @@ class DataSnowflakeImageRepositoriesConfig(_cdktf_9a9027ec.TerraformMetaArgument
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/image_repositories#id DataSnowflakeImageRepositories#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param in_: in block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/image_repositories#in DataSnowflakeImageRepositories#in}
-        :param like: Filters the output with **case-insensitive** pattern, with support for SQL wildcard characters (``%`` and ``_``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/image_repositories#like DataSnowflakeImageRepositories#like}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/data-sources/image_repositories#id DataSnowflakeImageRepositories#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param in_: in block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/data-sources/image_repositories#in DataSnowflakeImageRepositories#in}
+        :param like: Filters the output with **case-insensitive** pattern, with support for SQL wildcard characters (``%`` and ``_``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/data-sources/image_repositories#like DataSnowflakeImageRepositories#like}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -363,7 +363,7 @@ class DataSnowflakeImageRepositoriesConfig(_cdktf_9a9027ec.TerraformMetaArgument
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/image_repositories#id DataSnowflakeImageRepositories#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/data-sources/image_repositories#id DataSnowflakeImageRepositories#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -375,7 +375,7 @@ class DataSnowflakeImageRepositoriesConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def in_(self) -> typing.Optional["DataSnowflakeImageRepositoriesIn"]:
         '''in block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/image_repositories#in DataSnowflakeImageRepositories#in}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/data-sources/image_repositories#in DataSnowflakeImageRepositories#in}
         '''
         result = self._values.get("in_")
         return typing.cast(typing.Optional["DataSnowflakeImageRepositoriesIn"], result)
@@ -384,7 +384,7 @@ class DataSnowflakeImageRepositoriesConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def like(self) -> typing.Optional[builtins.str]:
         '''Filters the output with **case-insensitive** pattern, with support for SQL wildcard characters (``%`` and ``_``).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/image_repositories#like DataSnowflakeImageRepositories#like}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/data-sources/image_repositories#like DataSnowflakeImageRepositories#like}
         '''
         result = self._values.get("like")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -749,9 +749,9 @@ class DataSnowflakeImageRepositoriesIn:
         schema: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param account: Returns records for the entire account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/image_repositories#account DataSnowflakeImageRepositories#account}
-        :param database: Returns records for the current database in use or for a specified database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/image_repositories#database DataSnowflakeImageRepositories#database}
-        :param schema: Returns records for the current schema in use or a specified schema. Use fully qualified name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/image_repositories#schema DataSnowflakeImageRepositories#schema}
+        :param account: Returns records for the entire account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/data-sources/image_repositories#account DataSnowflakeImageRepositories#account}
+        :param database: Returns records for the current database in use or for a specified database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/data-sources/image_repositories#database DataSnowflakeImageRepositories#database}
+        :param schema: Returns records for the current schema in use or a specified schema. Use fully qualified name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/data-sources/image_repositories#schema DataSnowflakeImageRepositories#schema}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__77a66733493017cf7a2513a4ae79aee9e0269dc582f880767d1bd859bace91ee)
@@ -772,7 +772,7 @@ class DataSnowflakeImageRepositoriesIn:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Returns records for the entire account.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/image_repositories#account DataSnowflakeImageRepositories#account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/data-sources/image_repositories#account DataSnowflakeImageRepositories#account}
         '''
         result = self._values.get("account")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -781,7 +781,7 @@ class DataSnowflakeImageRepositoriesIn:
     def database(self) -> typing.Optional[builtins.str]:
         '''Returns records for the current database in use or for a specified database.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/image_repositories#database DataSnowflakeImageRepositories#database}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/data-sources/image_repositories#database DataSnowflakeImageRepositories#database}
         '''
         result = self._values.get("database")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -790,7 +790,7 @@ class DataSnowflakeImageRepositoriesIn:
     def schema(self) -> typing.Optional[builtins.str]:
         '''Returns records for the current schema in use or a specified schema. Use fully qualified name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/image_repositories#schema DataSnowflakeImageRepositories#schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/data-sources/image_repositories#schema DataSnowflakeImageRepositories#schema}
         '''
         result = self._values.get("schema")
         return typing.cast(typing.Optional[builtins.str], result)

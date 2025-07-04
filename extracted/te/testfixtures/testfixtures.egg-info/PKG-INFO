@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: testfixtures
-Version: 8.3.0
+Version: 9.0.0
 Summary: A collection of helpers and mock objects for unit tests and doc tests.
 Home-page: https://github.com/Simplistix/testfixtures
 Author: Chris Withers
@@ -8,15 +8,17 @@ Author-email: chris@simplistix.co.uk
 License: MIT
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Requires-Python: >=3.7
+Requires-Python: >=3.11
 License-File: LICENSE.txt
 Provides-Extra: test
+Requires-Dist: django-stubs; extra == "test"
 Requires-Dist: mypy; extra == "test"
+Requires-Dist: mypy-zope; extra == "test"
 Requires-Dist: pytest>=7.1; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
 Requires-Dist: pytest-django; extra == "test"
+Requires-Dist: types-mock; extra == "test"
 Requires-Dist: django; extra == "test"
 Requires-Dist: sybil>=6; extra == "test"
 Requires-Dist: twisted; extra == "test"
@@ -30,6 +32,16 @@ Provides-Extra: build
 Requires-Dist: setuptools-git; extra == "build"
 Requires-Dist: wheel; extra == "build"
 Requires-Dist: twine; extra == "build"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-python
+Dynamic: summary
 
 Testfixtures
 ============

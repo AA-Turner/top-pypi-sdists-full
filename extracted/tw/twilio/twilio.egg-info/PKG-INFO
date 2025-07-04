@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: twilio
-Version: 9.6.3
+Version: 9.6.4
 Summary: Twilio API client and TwiML generator
 Home-page: https://github.com/twilio/twilio-python/
 Author: Twilio
@@ -16,6 +16,8 @@ Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Communications :: Telephony
@@ -64,6 +66,8 @@ This library supports the following Python implementations:
 - Python 3.9
 - Python 3.10
 - Python 3.11
+- Python 3.12
+- Python 3.13
 
 ## Installation
 

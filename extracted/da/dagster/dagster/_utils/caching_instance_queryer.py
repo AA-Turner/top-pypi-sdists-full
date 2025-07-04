@@ -13,9 +13,12 @@ from dagster._core.definitions.declarative_automation.legacy.valid_asset_subset 
     ValidAssetSubset,
 )
 from dagster._core.definitions.events import AssetKey, AssetKeyPartitionKey
-from dagster._core.definitions.partition import PartitionsDefinition, PartitionsSubset
-from dagster._core.definitions.time_window_partitions import (
+from dagster._core.definitions.partitions.definition import (
+    PartitionsDefinition,
     TimeWindowPartitionsDefinition,
+)
+from dagster._core.definitions.partitions.subset import PartitionsSubset
+from dagster._core.definitions.partitions.utils import (
     get_time_partition_key,
     get_time_partitions_def,
 )
@@ -39,6 +42,9 @@ from dagster._time import get_current_datetime
 from dagster._utils.cached_method import cached_method
 
 if TYPE_CHECKING:
+    from dagster._core.definitions.partitions.definition.partitions_definition import (
+        PartitionsDefinition,
+    )
     from dagster._core.execution.asset_backfill import AssetBackfillData
     from dagster._core.storage.event_log import EventLogRecord
     from dagster._core.storage.event_log.base import AssetRecord

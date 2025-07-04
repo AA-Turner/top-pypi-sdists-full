@@ -36,7 +36,9 @@ from cupyx import jit
 
 def _get_typename(dtype):
     typename = get_typename(dtype)
-    if typename == 'float16':
+    if cupy.dtype(dtype).kind == 'c':
+        typename = 'thrust::' + typename
+    elif typename == 'float16':
         if runtime.is_hip:
             # 'half' in name_expressions weirdly raises
             # HIPRTC_ERROR_NAME_EXPRESSION_NOT_VALID in getLoweredName() on

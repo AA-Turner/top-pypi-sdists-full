@@ -244,6 +244,8 @@ class OSFamily(StrEnum):
     WINDOWS_SERVER_2004_CORE = "WINDOWS_SERVER_2004_CORE"
     WINDOWS_SERVER_2022_CORE = "WINDOWS_SERVER_2022_CORE"
     WINDOWS_SERVER_2022_FULL = "WINDOWS_SERVER_2022_FULL"
+    WINDOWS_SERVER_2025_CORE = "WINDOWS_SERVER_2025_CORE"
+    WINDOWS_SERVER_2025_FULL = "WINDOWS_SERVER_2025_FULL"
     WINDOWS_SERVER_20H2_CORE = "WINDOWS_SERVER_20H2_CORE"
     LINUX = "LINUX"
 
@@ -1296,6 +1298,46 @@ class HealthCheck(TypedDict, total=False):
     continue its lifecycle regardless of its health status. For tasks that
     are part of a service, if the task reports as unhealthy then the task
     will be stopped and the service scheduler will replace it.
+
+    When a container health check fails for a task that is part of a
+    service, the following process occurs:
+
+    #. The task is marked as ``UNHEALTHY``.
+
+    #. The unhealthy task will be stopped, and during the stopping process,
+       it will go through the following states:
+
+       -  ``DEACTIVATING`` - In this state, Amazon ECS performs additional
+          steps before stopping the task. For example, for tasks that are
+          part of services configured to use Elastic Load Balancing target
+          groups, target groups will be deregistered in this state.
+
+       -  ``STOPPING`` - The task is in the process of being stopped.
+
+       -  ``DEPROVISIONING`` - Resources associated with the task are being
+          cleaned up.
+
+       -  ``STOPPED`` - The task has been completely stopped.
+
+    #. After the old task stops, a new task will be launched to ensure
+       service operation, and the new task will go through the following
+       lifecycle:
+
+       -  ``PROVISIONING`` - Resources required for the task are being
+          provisioned.
+
+       -  ``PENDING`` - The task is waiting to be placed on a container
+          instance.
+
+       -  ``ACTIVATING`` - In this state, Amazon ECS pulls container images,
+          creates containers, configures task networking, registers load
+          balancer target groups, and configures service discovery status.
+
+       -  ``RUNNING`` - The task is running and performing its work.
+
+    For more detailed information about task lifecycle states, see `Task
+    lifecycle <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-lifecycle-explanation.html>`__
+    in the *Amazon Elastic Container Service Developer Guide*.
 
     The following are notes about container health check support:
 
@@ -3750,7 +3792,7 @@ class EcsApi:
         You can attach Amazon EBS volumes to Amazon ECS tasks by configuring the
         volume when creating or updating a service. ``volumeConfigurations`` is
         only supported for REPLICA service and not DAEMON service. For more
-        infomation, see `Amazon EBS
+        information, see `Amazon EBS
         volumes <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ebs-volumes.html#ebs-volume-types>`__
         in the *Amazon Elastic Container Service Developer Guide*.
 
@@ -5249,7 +5291,7 @@ class EcsApi:
         place tasks manually on specific container instances.
 
         You can attach Amazon EBS volumes to Amazon ECS tasks by configuring the
-        volume when creating or updating a service. For more infomation, see
+        volume when creating or updating a service. For more information, see
         `Amazon EBS
         volumes <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ebs-volumes.html#ebs-volume-types>`__
         in the *Amazon Elastic Container Service Developer Guide*.
@@ -5372,7 +5414,7 @@ class EcsApi:
         in the *Amazon Elastic Container Service Developer Guide*.
 
         You can attach Amazon EBS volumes to Amazon ECS tasks by configuring the
-        volume when creating or updating a service. For more infomation, see
+        volume when creating or updating a service. For more information, see
         `Amazon EBS
         volumes <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ebs-volumes.html#ebs-volume-types>`__
         in the *Amazon Elastic Container Service Developer Guide*.
@@ -5851,13 +5893,13 @@ class EcsApi:
 
         You can attach Amazon EBS volumes to Amazon ECS tasks by configuring the
         volume when starting or running a task, or when creating or updating a
-        service. For more infomation, see `Amazon EBS
+        service. For more information, see `Amazon EBS
         volumes <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ebs-volumes.html#ebs-volume-types>`__
         in the *Amazon Elastic Container Service Developer Guide*. You can
         update your volume configurations and trigger a new deployment.
         ``volumeConfigurations`` is only supported for REPLICA service and not
         DAEMON service. If you leave ``volumeConfigurations`` ``null``, it
-        doesn't trigger a new deployment. For more infomation on volumes, see
+        doesn't trigger a new deployment. For more information on volumes, see
         `Amazon EBS
         volumes <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ebs-volumes.html#ebs-volume-types>`__
         in the *Amazon Elastic Container Service Developer Guide*.
@@ -5886,7 +5928,7 @@ class EcsApi:
 
         You can attach Amazon EBS volumes to Amazon ECS tasks by configuring the
         volume when starting or running a task, or when creating or updating a
-        service. For more infomation, see `Amazon EBS
+        service. For more information, see `Amazon EBS
         volumes <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ebs-volumes.html#ebs-volume-types>`__
         in the *Amazon Elastic Container Service Developer Guide*.
 
@@ -5971,18 +6013,6 @@ class EcsApi:
            (based on the previous steps), favoring container instances with the
            largest number of running tasks for this service.
 
-        You must have a service-linked role when you update any of the following
-        service properties:
-
-        -  ``loadBalancers``,
-
-        -  ``serviceRegistries``
-
-        For more information about the role see the ``CreateService`` request
-        parameter
-        ```role`` <https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_CreateService.html#ECS-CreateService-request-role>`__
-        .
-
         :param service: The name of the service to update.
         :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that
         your service runs on.
@@ -5990,7 +6020,7 @@ class EcsApi:
         your service.
         :param task_definition: The ``family`` and ``revision`` (``family:revision``) or full ARN of the
         task definition to run in your service.
-        :param capacity_provider_strategy: The capacity provider strategy to update the service to use.
+        :param capacity_provider_strategy: The details of a capacity provider strategy.
         :param deployment_configuration: Optional deployment parameters that control how many tasks run during
         the deployment and the ordering of stopping and starting tasks.
         :param availability_zone_rebalancing: Indicates whether to use Availability Zone rebalancing for the service.
@@ -6007,11 +6037,12 @@ class EcsApi:
         containers.
         :param enable_ecs_managed_tags: Determines whether to turn on Amazon ECS managed tags for the tasks in
         the service.
-        :param load_balancers: A list of Elastic Load Balancing load balancer objects.
+        :param load_balancers: You must have a service-linked role when you update this property
+
+        A list of Elastic Load Balancing load balancer objects.
         :param propagate_tags: Determines whether to propagate the tags from the task definition or the
         service to the task.
-        :param service_registries: The details for the service discovery registries to assign to this
-        service.
+        :param service_registries: You must have a service-linked role when you update this property.
         :param service_connect_configuration: The configuration for this service to discover and connect to services,
         and be discovered by, and connected from, other services within a
         namespace.

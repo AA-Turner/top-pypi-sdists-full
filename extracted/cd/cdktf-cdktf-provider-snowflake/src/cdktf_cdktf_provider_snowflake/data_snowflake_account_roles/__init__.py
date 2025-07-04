@@ -1,7 +1,7 @@
 r'''
 # `data_snowflake_account_roles`
 
-Refer to the Terraform Registry for docs: [`data_snowflake_account_roles`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/account_roles).
+Refer to the Terraform Registry for docs: [`data_snowflake_account_roles`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/data-sources/account_roles).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataSnowflakeAccountRoles(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-snowflake.dataSnowflakeAccountRoles.DataSnowflakeAccountRoles",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/account_roles snowflake_account_roles}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/data-sources/account_roles snowflake_account_roles}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class DataSnowflakeAccountRoles(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/account_roles snowflake_account_roles} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/data-sources/account_roles snowflake_account_roles} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/account_roles#id DataSnowflakeAccountRoles#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param in_class: Filters the SHOW GRANTS output by class name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/account_roles#in_class DataSnowflakeAccountRoles#in_class}
-        :param like: Filters the output with **case-insensitive** pattern, with support for SQL wildcard characters (``%`` and ``_``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/account_roles#like DataSnowflakeAccountRoles#like}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/data-sources/account_roles#id DataSnowflakeAccountRoles#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param in_class: Filters the SHOW GRANTS output by class name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/data-sources/account_roles#in_class DataSnowflakeAccountRoles#in_class}
+        :param like: Filters the output with **case-insensitive** pattern, with support for SQL wildcard characters (``%`` and ``_``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/data-sources/account_roles#like DataSnowflakeAccountRoles#like}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class DataSnowflakeAccountRoles(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataSnowflakeAccountRoles to import.
-        :param import_from_id: The id of the existing DataSnowflakeAccountRoles that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/account_roles#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataSnowflakeAccountRoles that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/data-sources/account_roles#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataSnowflakeAccountRoles to import is found.
         '''
         if __debug__:
@@ -576,9 +576,9 @@ class DataSnowflakeAccountRolesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/account_roles#id DataSnowflakeAccountRoles#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param in_class: Filters the SHOW GRANTS output by class name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/account_roles#in_class DataSnowflakeAccountRoles#in_class}
-        :param like: Filters the output with **case-insensitive** pattern, with support for SQL wildcard characters (``%`` and ``_``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/account_roles#like DataSnowflakeAccountRoles#like}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/data-sources/account_roles#id DataSnowflakeAccountRoles#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param in_class: Filters the SHOW GRANTS output by class name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/data-sources/account_roles#in_class DataSnowflakeAccountRoles#in_class}
+        :param like: Filters the output with **case-insensitive** pattern, with support for SQL wildcard characters (``%`` and ``_``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/data-sources/account_roles#like DataSnowflakeAccountRoles#like}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -682,7 +682,7 @@ class DataSnowflakeAccountRolesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/account_roles#id DataSnowflakeAccountRoles#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/data-sources/account_roles#id DataSnowflakeAccountRoles#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -694,7 +694,7 @@ class DataSnowflakeAccountRolesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def in_class(self) -> typing.Optional[builtins.str]:
         '''Filters the SHOW GRANTS output by class name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/account_roles#in_class DataSnowflakeAccountRoles#in_class}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/data-sources/account_roles#in_class DataSnowflakeAccountRoles#in_class}
         '''
         result = self._values.get("in_class")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -703,7 +703,7 @@ class DataSnowflakeAccountRolesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def like(self) -> typing.Optional[builtins.str]:
         '''Filters the output with **case-insensitive** pattern, with support for SQL wildcard characters (``%`` and ``_``).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/account_roles#like DataSnowflakeAccountRoles#like}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/data-sources/account_roles#like DataSnowflakeAccountRoles#like}
         '''
         result = self._values.get("like")
         return typing.cast(typing.Optional[builtins.str], result)

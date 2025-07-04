@@ -419,6 +419,8 @@ __all__ = (
     "SyncInputJobAttachmentsSessionActionDefinitionTypeDef",
     "TagResourceRequestTypeDef",
     "TaskParameterValueTypeDef",
+    "TaskRunManifestPropertiesRequestTypeDef",
+    "TaskRunManifestPropertiesResponseTypeDef",
     "TaskRunSessionActionDefinitionSummaryTypeDef",
     "TaskRunSessionActionDefinitionTypeDef",
     "TaskSearchSummaryTypeDef",
@@ -503,6 +505,7 @@ TaskParameterValueTypeDef = TypedDict(
         "float": NotRequired[str],
         "string": NotRequired[str],
         "path": NotRequired[str],
+        "chunkInt": NotRequired[str],
     },
 )
 
@@ -947,6 +950,10 @@ class GetSessionActionRequestTypeDef(TypedDict):
     queueId: str
     jobId: str
     sessionActionId: str
+
+class TaskRunManifestPropertiesResponseTypeDef(TypedDict):
+    outputManifestPath: NotRequired[str]
+    outputManifestHash: NotRequired[str]
 
 class GetSessionRequestTypeDef(TypedDict):
     farmId: str
@@ -1404,10 +1411,6 @@ ServiceManagedEc2InstanceMarketOptionsTypeDef = TypedDict(
 class SyncInputJobAttachmentsSessionActionDefinitionSummaryTypeDef(TypedDict):
     stepId: NotRequired[str]
 
-class TaskRunSessionActionDefinitionSummaryTypeDef(TypedDict):
-    stepId: str
-    taskId: NotRequired[str]
-
 class SyncInputJobAttachmentsSessionActionDefinitionTypeDef(TypedDict):
     stepId: NotRequired[str]
 
@@ -1442,6 +1445,10 @@ class StepAttributeCapabilityTypeDef(TypedDict):
 class TagResourceRequestTypeDef(TypedDict):
     resourceArn: str
     tags: NotRequired[Mapping[str, str]]
+
+class TaskRunManifestPropertiesRequestTypeDef(TypedDict):
+    outputManifestPath: NotRequired[str]
+    outputManifestHash: NotRequired[str]
 
 class UntagResourceRequestTypeDef(TypedDict):
     resourceArn: str
@@ -1543,6 +1550,11 @@ class AssignedTaskRunSessionActionDefinitionTypeDef(TypedDict):
     stepId: str
     parameters: Dict[str, TaskParameterValueTypeDef]
     taskId: NotRequired[str]
+
+class TaskRunSessionActionDefinitionSummaryTypeDef(TypedDict):
+    stepId: str
+    taskId: NotRequired[str]
+    parameters: NotRequired[Dict[str, TaskParameterValueTypeDef]]
 
 class TaskRunSessionActionDefinitionTypeDef(TypedDict):
     stepId: str
@@ -1881,15 +1893,6 @@ DateTimeFilterExpressionTypeDef = TypedDict(
 class FixedBudgetScheduleTypeDef(TypedDict):
     startTime: TimestampTypeDef
     endTime: TimestampTypeDef
-
-class UpdatedSessionActionInfoTypeDef(TypedDict):
-    completedStatus: NotRequired[CompletedStatusType]
-    processExitCode: NotRequired[int]
-    progressMessage: NotRequired[str]
-    startedAt: NotRequired[TimestampTypeDef]
-    endedAt: NotRequired[TimestampTypeDef]
-    updatedAt: NotRequired[TimestampTypeDef]
-    progressPercent: NotRequired[float]
 
 class StepSummaryTypeDef(TypedDict):
     stepId: str
@@ -2242,14 +2245,6 @@ class SearchSortExpressionTypeDef(TypedDict):
     fieldSort: NotRequired[FieldSortExpressionTypeDef]
     parameterSort: NotRequired[ParameterSortExpressionTypeDef]
 
-class SessionActionDefinitionSummaryTypeDef(TypedDict):
-    envEnter: NotRequired[EnvironmentEnterSessionActionDefinitionSummaryTypeDef]
-    envExit: NotRequired[EnvironmentExitSessionActionDefinitionSummaryTypeDef]
-    taskRun: NotRequired[TaskRunSessionActionDefinitionSummaryTypeDef]
-    syncInputJobAttachments: NotRequired[
-        SyncInputJobAttachmentsSessionActionDefinitionSummaryTypeDef
-    ]
-
 class StartSessionsStatisticsAggregationRequestTypeDef(TypedDict):
     farmId: str
     resourceIds: SessionsStatisticsResourcesTypeDef
@@ -2278,6 +2273,16 @@ class StatisticsTypeDef(TypedDict):
 class StepRequiredCapabilitiesTypeDef(TypedDict):
     attributes: List[StepAttributeCapabilityTypeDef]
     amounts: List[StepAmountCapabilityTypeDef]
+
+class UpdatedSessionActionInfoTypeDef(TypedDict):
+    completedStatus: NotRequired[CompletedStatusType]
+    processExitCode: NotRequired[int]
+    progressMessage: NotRequired[str]
+    startedAt: NotRequired[TimestampTypeDef]
+    endedAt: NotRequired[TimestampTypeDef]
+    updatedAt: NotRequired[TimestampTypeDef]
+    progressPercent: NotRequired[float]
+    manifests: NotRequired[Sequence[TaskRunManifestPropertiesRequestTypeDef]]
 
 class WorkerCapabilitiesTypeDef(TypedDict):
     amounts: Sequence[WorkerAmountCapabilityTypeDef]
@@ -2313,6 +2318,14 @@ class AssignedSessionActionDefinitionTypeDef(TypedDict):
     taskRun: NotRequired[AssignedTaskRunSessionActionDefinitionTypeDef]
     syncInputJobAttachments: NotRequired[
         AssignedSyncInputJobAttachmentsSessionActionDefinitionTypeDef
+    ]
+
+class SessionActionDefinitionSummaryTypeDef(TypedDict):
+    envEnter: NotRequired[EnvironmentEnterSessionActionDefinitionSummaryTypeDef]
+    envExit: NotRequired[EnvironmentExitSessionActionDefinitionSummaryTypeDef]
+    taskRun: NotRequired[TaskRunSessionActionDefinitionSummaryTypeDef]
+    syncInputJobAttachments: NotRequired[
+        SyncInputJobAttachmentsSessionActionDefinitionSummaryTypeDef
     ]
 
 class SessionActionDefinitionTypeDef(TypedDict):
@@ -2413,12 +2426,6 @@ class SearchFilterExpressionTypeDef(TypedDict):
 
 class BudgetScheduleTypeDef(TypedDict):
     fixed: NotRequired[FixedBudgetScheduleTypeDef]
-
-class UpdateWorkerScheduleRequestTypeDef(TypedDict):
-    farmId: str
-    fleetId: str
-    workerId: str
-    updatedSessionActions: NotRequired[Mapping[str, UpdatedSessionActionInfoTypeDef]]
 
 class ListStepsResponseTypeDef(TypedDict):
     steps: List[StepSummaryTypeDef]
@@ -2558,15 +2565,6 @@ class StepSearchSummaryTypeDef(TypedDict):
     endedAt: NotRequired[datetime]
     parameterSpace: NotRequired[ParameterSpaceTypeDef]
 
-class SessionActionSummaryTypeDef(TypedDict):
-    sessionActionId: str
-    status: SessionActionStatusType
-    definition: SessionActionDefinitionSummaryTypeDef
-    startedAt: NotRequired[datetime]
-    endedAt: NotRequired[datetime]
-    workerUpdatedAt: NotRequired[datetime]
-    progressPercent: NotRequired[float]
-
 class GetSessionsStatisticsAggregationResponseTypeDef(TypedDict):
     statistics: List[StatisticsTypeDef]
     status: SessionsStatisticsAggregationStatusType
@@ -2595,6 +2593,12 @@ class GetStepResponseTypeDef(TypedDict):
     description: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class UpdateWorkerScheduleRequestTypeDef(TypedDict):
+    farmId: str
+    fleetId: str
+    workerId: str
+    updatedSessionActions: NotRequired[Mapping[str, UpdatedSessionActionInfoTypeDef]]
+
 class ServiceManagedEc2FleetConfigurationOutputTypeDef(TypedDict):
     instanceCapabilities: ServiceManagedEc2InstanceCapabilitiesOutputTypeDef
     instanceMarketOptions: ServiceManagedEc2InstanceMarketOptionsTypeDef
@@ -2609,6 +2613,16 @@ class AssignedSessionActionTypeDef(TypedDict):
     sessionActionId: str
     definition: AssignedSessionActionDefinitionTypeDef
 
+class SessionActionSummaryTypeDef(TypedDict):
+    sessionActionId: str
+    status: SessionActionStatusType
+    definition: SessionActionDefinitionSummaryTypeDef
+    startedAt: NotRequired[datetime]
+    endedAt: NotRequired[datetime]
+    workerUpdatedAt: NotRequired[datetime]
+    progressPercent: NotRequired[float]
+    manifests: NotRequired[List[TaskRunManifestPropertiesResponseTypeDef]]
+
 class GetSessionActionResponseTypeDef(TypedDict):
     sessionActionId: str
     status: SessionActionStatusType
@@ -2621,6 +2635,7 @@ class GetSessionActionResponseTypeDef(TypedDict):
     progressMessage: str
     definition: SessionActionDefinitionTypeDef
     acquiredLimits: List[AcquiredLimitTypeDef]
+    manifests: List[TaskRunManifestPropertiesResponseTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateJobRequestTypeDef(TypedDict):
@@ -2686,11 +2701,6 @@ class SearchStepsResponseTypeDef(TypedDict):
     totalResults: int
     ResponseMetadata: ResponseMetadataTypeDef
 
-class ListSessionActionsResponseTypeDef(TypedDict):
-    sessionActions: List[SessionActionSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
 class FleetConfigurationOutputTypeDef(TypedDict):
     customerManaged: NotRequired[CustomerManagedFleetConfigurationOutputTypeDef]
     serviceManagedEc2: NotRequired[ServiceManagedEc2FleetConfigurationOutputTypeDef]
@@ -2704,6 +2714,11 @@ class AssignedSessionTypeDef(TypedDict):
     jobId: str
     sessionActions: List[AssignedSessionActionTypeDef]
     logConfiguration: LogConfigurationTypeDef
+
+class ListSessionActionsResponseTypeDef(TypedDict):
+    sessionActions: List[SessionActionSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 class SearchJobsRequestTypeDef(TypedDict):
     farmId: str

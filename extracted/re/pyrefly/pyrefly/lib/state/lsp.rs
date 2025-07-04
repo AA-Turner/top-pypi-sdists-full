@@ -44,6 +44,7 @@ use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use ruff_text_size::TextSize;
 use starlark_map::ordered_set::OrderedSet;
+use starlark_map::small_map::SmallMap;
 
 use crate::alt::attr::AttrDefinition;
 use crate::alt::attr::AttrInfo;
@@ -78,7 +79,7 @@ use crate::types::types::Type;
 const INITIAL_GAS: Gas = Gas::new(100);
 const MIN_CHARACTERS_TYPED_AUTOIMPORT: usize = 3;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum DefinitionMetadata {
     Attribute(Name),
     Module,
@@ -358,6 +359,13 @@ impl IdentifierWithContext {
             context: IdentifierContext::Expr(expr_name.ctx),
         }
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct FindDefinitionItem {
+    pub metadata: DefinitionMetadata,
+    pub location: TextRangeWithModuleInfo,
+    pub docstring: Option<DocString>,
 }
 
 impl<'a> Transaction<'a> {
@@ -891,16 +899,29 @@ impl<'a> Transaction<'a> {
         )
     }
 
+    // This is for cases where we are 100% certain that `identifier` points to a "real" name
+    // definition at a known context (e.g. `identifier is the name of a function or class`).
+    // If we are not certain (e.g. `identifier` is imported from another module so it's "real"
+    // definition could be somewhere else), use `find_definition_for_name_def()` instead.
+    fn find_definition_for_simple_def(
+        &self,
+        handle: &Handle,
+        identifier: &Identifier,
+        symbol_kind: SymbolKind,
+    ) -> Option<FindDefinitionItem> {
+        Some(FindDefinitionItem {
+            metadata: DefinitionMetadata::Variable(Some(symbol_kind)),
+            location: TextRangeWithModuleInfo::new(self.get_module_info(handle)?, identifier.range),
+            docstring: None,
+        })
+    }
+
     fn find_definition_for_name_def(
         &self,
         handle: &Handle,
         name: &Identifier,
         jump_through_renamed_import: bool,
-    ) -> Option<(
-        DefinitionMetadata,
-        TextRangeWithModuleInfo,
-        Option<DocString>,
-    )> {
+    ) -> Option<FindDefinitionItem> {
         let def_key = Key::Definition(ShortIdentifier::new(name));
         if !self.get_bindings(handle)?.is_valid_key(&def_key) {
             return None;
@@ -915,11 +936,11 @@ impl<'a> Transaction<'a> {
         ) = self.key_to_export(handle, &def_key, jump_through_renamed_import, INITIAL_GAS)?;
         let module_info = self.get_module_info(&handle)?;
         let name = Name::new(module_info.code_at(location));
-        Some((
-            DefinitionMetadata::VariableOrAttribute(name, symbol_kind),
-            TextRangeWithModuleInfo::new(module_info, location),
+        Some(FindDefinitionItem {
+            metadata: DefinitionMetadata::VariableOrAttribute(name, symbol_kind),
+            location: TextRangeWithModuleInfo::new(module_info, location),
             docstring,
-        ))
+        })
     }
 
     fn find_definition_for_name_use(
@@ -927,11 +948,7 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         name: &Identifier,
         jump_through_renamed_import: bool,
-    ) -> Option<(
-        DefinitionMetadata,
-        TextRangeWithModuleInfo,
-        Option<DocString>,
-    )> {
+    ) -> Option<FindDefinitionItem> {
         let use_key = Key::BoundName(ShortIdentifier::new(name));
         if !self.get_bindings(handle)?.is_valid_key(&use_key) {
             return None;
@@ -944,11 +961,11 @@ impl<'a> Transaction<'a> {
                 docstring,
             },
         ) = self.key_to_export(handle, &use_key, jump_through_renamed_import, INITIAL_GAS)?;
-        Some((
-            DefinitionMetadata::Variable(symbol_kind),
-            TextRangeWithModuleInfo::new(self.get_module_info(&handle)?, location),
+        Some(FindDefinitionItem {
+            metadata: DefinitionMetadata::Variable(symbol_kind),
+            location: TextRangeWithModuleInfo::new(self.get_module_info(&handle)?, location),
             docstring,
-        ))
+        })
     }
 
     fn find_definition_for_attribute(
@@ -956,40 +973,135 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         base_range: TextRange,
         name: &Identifier,
-    ) -> Option<(
-        DefinitionMetadata,
-        TextRangeWithModuleInfo,
-        Option<DocString>,
-    )> {
-        let base_type = self.get_answers(handle)?.get_type_trace(base_range)?;
-        self.ad_hoc_solve(handle, |solver| {
-            let items = solver.completions(base_type.arc_clone(), Some(name.id()), false);
-            items.into_iter().find_map(|x| {
-                if &x.name == name.id() {
-                    let (definition, docstring) =
-                        self.resolve_attribute_definition(handle, &x.name, x.definition?)?;
-                    Some((DefinitionMetadata::Attribute(x.name), definition, docstring))
-                } else {
-                    None
+    ) -> Vec<FindDefinitionItem> {
+        if let Some(answers) = self.get_answers(handle)
+            && let Some(base_type) = answers.get_type_trace(base_range)
+        {
+            self.ad_hoc_solve(handle, |solver| {
+                let find_definition_for_base_type = |ty: Type| {
+                    solver
+                        .completions_no_union_intersection(ty, Some(name.id()), false)
+                        .into_iter()
+                        .find_map(|x| {
+                            if &x.name == name.id() {
+                                let (definition, docstring) = self.resolve_attribute_definition(
+                                    handle,
+                                    &x.name,
+                                    x.definition?,
+                                )?;
+                                Some(FindDefinitionItem {
+                                    metadata: DefinitionMetadata::Attribute(x.name),
+                                    location: definition,
+                                    docstring,
+                                })
+                            } else {
+                                None
+                            }
+                        })
+                };
+                match base_type.arc_clone() {
+                    Type::Union(tys) | Type::Intersect(tys) => tys
+                        .into_iter()
+                        .filter_map(&find_definition_for_base_type)
+                        .collect(),
+                    ty => find_definition_for_base_type(ty).map_or(vec![], |item| vec![item]),
                 }
             })
+            .unwrap_or_default()
+        } else {
+            vec![]
+        }
+    }
+
+    fn find_definition_for_imported_module(
+        &self,
+        handle: &Handle,
+        module_name: ModuleName,
+    ) -> Option<FindDefinitionItem> {
+        // TODO: Handle relative import (via ModuleName::new_maybe_relative)
+        let handle = self.import_handle(handle, module_name, None).ok()?;
+        Some(FindDefinitionItem {
+            metadata: DefinitionMetadata::Module,
+            location: TextRangeWithModuleInfo::new(
+                self.get_module_info(&handle)?,
+                TextRange::default(),
+            ),
+            docstring: self.get_module_docstring(&handle),
         })
-        .flatten()
+    }
+
+    fn find_definition_for_keyword_argument(
+        &self,
+        handle: &Handle,
+        identifier: &Identifier,
+        callee_kind: &CalleeKind,
+    ) -> Vec<FindDefinitionItem> {
+        // NOTE(grievejia): There might be a better way to compute this that doesn't require 2 containing node
+        // traversal, once we gain access to the callee function def from callee_kind directly.
+        let callee_locations = self.get_callee_location(handle, callee_kind);
+        if callee_locations.is_empty() {
+            return vec![];
+        }
+
+        // Group all locations by their containing module, so later we could avoid reparsing
+        // the same module multiple times.
+        let location_count = callee_locations.len();
+        let mut modules_to_ranges: SmallMap<ModuleInfo, Vec<TextRange>> =
+            SmallMap::with_capacity(location_count);
+        for TextRangeWithModuleInfo { module_info, range } in callee_locations.into_iter() {
+            modules_to_ranges
+                .entry(module_info)
+                .or_default()
+                .push(range)
+        }
+
+        let mut results: Vec<FindDefinitionItem> = Vec::with_capacity(location_count);
+        for (module_info, ranges) in modules_to_ranges.into_iter() {
+            let ast = {
+                let handle = Handle::new(
+                    module_info.name(),
+                    module_info.path().dupe(),
+                    handle.sys_info().dupe(),
+                );
+                self.get_ast(&handle).unwrap_or_else(|| {
+                    // We may not have the AST available for the handle if it's not opened -- in that case,
+                    // Re-parse the module to get the AST.
+                    Ast::parse(module_info.contents()).0.into()
+                })
+            };
+
+            for range in ranges.into_iter() {
+                let refined_param_range =
+                    self.refine_param_location_for_callee(ast.as_ref(), range, identifier);
+                // TODO(grievejia): Should we filter out unrefinable ranges here?
+                results.push(FindDefinitionItem {
+                    metadata: DefinitionMetadata::Variable(Some(SymbolKind::Variable)),
+                    location: TextRangeWithModuleInfo::new(
+                        module_info.dupe(),
+                        refined_param_range.unwrap_or(range),
+                    ),
+                    docstring: None,
+                })
+            }
+        }
+        results
     }
 
     fn get_callee_location(
         &self,
         handle: &Handle,
         callee_kind: &CalleeKind,
-    ) -> Option<TextRangeWithModuleInfo> {
-        let (_, location, _) = match callee_kind {
-            CalleeKind::Function(name) => self.find_definition_for_name_use(handle, name, true),
+    ) -> Vec<TextRangeWithModuleInfo> {
+        let defs = match callee_kind {
+            CalleeKind::Function(name) => self
+                .find_definition_for_name_use(handle, name, true)
+                .map_or(vec![], |item| vec![item]),
             CalleeKind::Method(base_range, name) => {
                 self.find_definition_for_attribute(handle, *base_range, name)
             }
-            CalleeKind::Unknown => None,
-        }?;
-        Some(location)
+            CalleeKind::Unknown => vec![],
+        };
+        defs.into_iter().map(|item| item.location).collect()
     }
 
     /// Find the definition, metadata and optionally the docstring for the given position.
@@ -998,11 +1110,7 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         position: TextSize,
         jump_through_renamed_import: bool,
-    ) -> Option<(
-        DefinitionMetadata,
-        TextRangeWithModuleInfo,
-        Option<DocString>,
-    )> {
+    ) -> Vec<FindDefinitionItem> {
         match self.identifier_at(handle, position) {
             Some(IdentifierWithContext {
                 identifier: id,
@@ -1011,11 +1119,16 @@ impl<'a> Transaction<'a> {
                 match expr_context {
                     ExprContext::Store => {
                         // This is a variable definition
+                        // Can't use `find_definition_for_simple_def()` here because not all assignments
+                        // are guaranteed defs: they might be a modification to a name defined somewhere
+                        // else.
                         self.find_definition_for_name_def(handle, &id, jump_through_renamed_import)
+                            .map_or(vec![], |item| vec![item])
                     }
                     ExprContext::Load | ExprContext::Del | ExprContext::Invalid => {
                         // This is a usage of the variable
                         self.find_definition_for_name_use(handle, &id, jump_through_renamed_import)
+                            .map_or(vec![], |item| vec![item])
                     }
                 }
             }
@@ -1025,102 +1138,61 @@ impl<'a> Transaction<'a> {
                     IdentifierContext::ImportedModule {
                         name: module_name, ..
                     },
-            }) => {
-                // TODO: Handle relative import (via ModuleName::new_maybe_relative)
-                let handle = self.import_handle(handle, module_name, None).ok()?;
-                Some((
-                    DefinitionMetadata::Module,
-                    TextRangeWithModuleInfo::new(
-                        self.get_module_info(&handle)?,
-                        TextRange::default(),
-                    ),
-                    self.get_module_docstring(&handle),
-                ))
-            }
+            }) => self
+                .find_definition_for_imported_module(handle, module_name)
+                .map_or(vec![], |item| vec![item]),
             Some(IdentifierWithContext {
                 identifier: _,
                 context:
                     IdentifierContext::ImportedName {
                         name_after_import, ..
                     },
-            }) => self.find_definition_for_name_def(
-                handle,
-                &name_after_import,
-                jump_through_renamed_import,
-            ),
+            }) => self
+                .find_definition_for_name_def(
+                    handle,
+                    &name_after_import,
+                    jump_through_renamed_import,
+                )
+                .map_or(vec![], |item| vec![item]),
             Some(IdentifierWithContext {
                 identifier,
                 context: IdentifierContext::FunctionDef,
-            }) => Some((
-                DefinitionMetadata::Variable(Some(SymbolKind::Function)),
-                TextRangeWithModuleInfo::new(self.get_module_info(handle)?, identifier.range),
-                None,
-            )),
+            }) => self
+                .find_definition_for_simple_def(handle, &identifier, SymbolKind::Function)
+                .map_or(vec![], |item| vec![item]),
             Some(IdentifierWithContext {
                 identifier,
                 context: IdentifierContext::ClassDef,
-            }) => Some((
-                DefinitionMetadata::Variable(Some(SymbolKind::Class)),
-                TextRangeWithModuleInfo::new(self.get_module_info(handle)?, identifier.range),
-                None,
-            )),
+            }) => self
+                .find_definition_for_simple_def(handle, &identifier, SymbolKind::Class)
+                .map_or(vec![], |item| vec![item]),
             Some(IdentifierWithContext {
                 identifier,
                 context: IdentifierContext::Parameter,
-            }) => Some((
-                DefinitionMetadata::Variable(Some(SymbolKind::Parameter)),
-                TextRangeWithModuleInfo::new(self.get_module_info(handle)?, identifier.range),
-                None,
-            )),
+            }) => self
+                .find_definition_for_simple_def(handle, &identifier, SymbolKind::Parameter)
+                .map_or(vec![], |item| vec![item]),
             Some(IdentifierWithContext {
                 identifier,
                 context: IdentifierContext::TypeParameter,
-            }) => Some((
-                DefinitionMetadata::Variable(Some(SymbolKind::TypeParameter)),
-                TextRangeWithModuleInfo::new(self.get_module_info(handle)?, identifier.range),
-                None,
-            )),
+            }) => self
+                .find_definition_for_simple_def(handle, &identifier, SymbolKind::TypeParameter)
+                .map_or(vec![], |item| vec![item]),
             Some(IdentifierWithContext {
                 identifier,
                 context: IdentifierContext::ExceptionHandler | IdentifierContext::PatternMatch(_),
-            }) => Some((
-                DefinitionMetadata::Variable(Some(SymbolKind::Variable)),
-                TextRangeWithModuleInfo::new(self.get_module_info(handle)?, identifier.range),
-                None,
-            )),
+            }) => self
+                .find_definition_for_simple_def(handle, &identifier, SymbolKind::Variable)
+                .map_or(vec![], |item| vec![item]),
             Some(IdentifierWithContext {
                 identifier,
                 context: IdentifierContext::KeywordArgument(callee_kind),
-            }) => {
-                // NOTE(grievejia): There might be a better way to compute this that doesn't require 2 containing node
-                // traversal, once we gain access to the callee function def from callee_kind directly.
-                let TextRangeWithModuleInfo { module_info, range } =
-                    self.get_callee_location(handle, &callee_kind)?;
-                let ast = {
-                    let handle = Handle::new(
-                        module_info.name(),
-                        module_info.path().dupe(),
-                        handle.sys_info().dupe(),
-                    );
-                    self.get_ast(&handle).unwrap_or_else(|| {
-                        // We may not have the AST available for the handle if it's not opened -- in that case,
-                        // Re-parse the module to get the AST.
-                        Ast::parse(module_info.contents()).0.into()
-                    })
-                };
-                let refined_param_range =
-                    self.refine_param_location_for_callee(ast.as_ref(), range, &identifier);
-                Some((
-                    DefinitionMetadata::Variable(Some(SymbolKind::Variable)),
-                    TextRangeWithModuleInfo::new(module_info, refined_param_range.unwrap_or(range)),
-                    None,
-                ))
-            }
+            }) => self.find_definition_for_keyword_argument(handle, &identifier, &callee_kind),
             Some(IdentifierWithContext {
                 identifier,
                 context: IdentifierContext::Attribute { base_range, .. },
             }) => self.find_definition_for_attribute(handle, base_range, &identifier),
-            None => None,
+            None => vec![],
         }
     }
 
@@ -1128,8 +1200,9 @@ impl<'a> Transaction<'a> {
         &self,
         handle: &Handle,
         position: TextSize,
-    ) -> Option<TextRangeWithModuleInfo> {
-        self.find_definition(handle, position, true).map(|x| x.1)
+    ) -> Vec<TextRangeWithModuleInfo> {
+        self.find_definition(handle, position, true)
+            .into_map(|item| item.location)
     }
 
     /// This function should not be used for user-facing go-to-definition. However, it is exposed to
@@ -1140,7 +1213,10 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         position: TextSize,
     ) -> Option<TextRangeWithModuleInfo> {
-        self.find_definition(handle, position, false).map(|x| x.1)
+        self.find_definition(handle, position, false)
+            .into_iter()
+            .next()
+            .map(|item| item.location)
     }
 
     /// Produce code actions that makes edits local to the file.
@@ -1185,14 +1261,18 @@ impl<'a> Transaction<'a> {
     }
 
     pub fn find_local_references(&self, handle: &Handle, position: TextSize) -> Vec<TextRange> {
-        if let Some((definition_kind, definition, _docstring)) =
-            self.find_definition(handle, position, false)
-        {
-            self.local_references_from_definition(handle, definition_kind, definition)
-                .unwrap_or_default()
-        } else {
-            Vec::new()
-        }
+        self.find_definition(handle, position, false)
+            .into_iter()
+            .filter_map(
+                |FindDefinitionItem {
+                     metadata,
+                     location,
+                     docstring: _,
+                 }| {
+                    self.local_references_from_definition(handle, metadata, location)
+                },
+            )
+            .concat()
     }
 
     fn local_references_from_definition(
@@ -1425,7 +1505,9 @@ impl<'a> Transaction<'a> {
     pub fn completion(&self, handle: &Handle, position: TextSize) -> Vec<CompletionItem> {
         let mut results = self.completion_unsorted_opt(handle, position);
         for item in &mut results {
-            let sort_text = if item.label.starts_with("__") {
+            let sort_text = if item.additional_text_edits.is_some() {
+                "3"
+            } else if item.label.starts_with("__") {
                 "2"
             } else if item.label.as_str().starts_with("_") {
                 "1"
@@ -1436,6 +1518,7 @@ impl<'a> Transaction<'a> {
             item.sort_text = Some(sort_text);
         }
         results.sort_by(|item1, item2| item1.sort_text.cmp(&item2.sort_text));
+        results.dedup_by(|item1, item2| item1.label == item2.label && item1.detail == item2.detail);
         results
     }
 
@@ -1644,6 +1727,25 @@ impl<'a> Transaction<'a> {
         Vec::new()
     }
 
+    fn filter_parameters(
+        &self,
+        param_with_default: ParameterWithDefault,
+        handle: &Handle,
+    ) -> Option<ParameterAnnotation> {
+        if param_with_default.name() == "self" || param_with_default.name() == "cls" {
+            return None;
+        }
+        let ty = match param_with_default.default() {
+            Some(expr) => self.get_type_trace(handle, expr.range()),
+            None => None,
+        };
+        Some(ParameterAnnotation {
+            text_size: param_with_default.parameter.range().end(),
+            ty,
+            has_annotation: param_with_default.annotation().is_some(),
+        })
+    }
+
     pub fn infer_parameter_annotations(
         &self,
         handle: &Handle,
@@ -1665,18 +1767,7 @@ impl<'a> Transaction<'a> {
                 }
                 result
             }
-            fn filter_parameters(
-                param_with_default: ParameterWithDefault,
-            ) -> Option<ParameterAnnotation> {
-                if param_with_default.name() == "self" || param_with_default.name() == "cls" {
-                    return None;
-                }
-                Some(ParameterAnnotation {
-                    text_size: param_with_default.range().end(),
-                    ty: None,
-                    has_annotation: param_with_default.annotation().is_some(),
-                })
-            }
+
             fn zip_types(
                 inferred_types: Vec<Vec<Type>>,
                 function_arguments: Vec<ParameterAnnotation>,
@@ -1685,8 +1776,11 @@ impl<'a> Transaction<'a> {
                 function_arguments
                     .into_iter()
                     .zip(zipped_inferred_types)
-                    .map(|(arg, ty)| {
+                    .map(|(arg, mut ty)| {
                         let mut arg = arg;
+                        if let Some(default_type) = arg.ty {
+                            ty.push(default_type)
+                        }
                         if ty.len() == 1 {
                             arg.ty = Some(ty[0].clone());
                         } else {
@@ -1706,8 +1800,12 @@ impl<'a> Transaction<'a> {
                     if let Binding::Function(key_function, _, _) = binding {
                         let binding_func = bindings.get(*key_function);
                         let args = binding_func.def.parameters.args.clone();
-                        let func_args: Vec<ParameterAnnotation> =
-                            args.into_iter().filter_map(filter_parameters).collect();
+                        let func_args: Vec<ParameterAnnotation> = args
+                            .into_iter()
+                            .filter_map(|param_with_default| {
+                                self.filter_parameters(param_with_default, handle)
+                            })
+                            .collect();
                         let references =
                             self.collect_references(handle, idx, bindings.clone(), transaction);
                         let ranges: Vec<&TextRange> =

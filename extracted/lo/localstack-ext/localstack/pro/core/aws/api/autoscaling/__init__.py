@@ -36,6 +36,7 @@ HealthCheckGracePeriod = int
 HeartbeatTimeout = int
 HonorCooldown = bool
 IncludeDeletedGroups = bool
+IncludeInstances = bool
 InstanceMetadataHttpPutResponseHopLimit = int
 InstanceProtected = bool
 InstancesToUpdate = int
@@ -1046,6 +1047,7 @@ Filters = List[Filter]
 
 class AutoScalingGroupNamesType(ServiceRequest):
     AutoScalingGroupNames: Optional[AutoScalingGroupNames]
+    IncludeInstances: Optional[IncludeInstances]
     NextToken: Optional[XmlString]
     MaxRecords: Optional[MaxRecords]
     Filters: Optional[Filters]
@@ -3085,6 +3087,7 @@ class AutoscalingApi:
         self,
         context: RequestContext,
         auto_scaling_group_names: AutoScalingGroupNames | None = None,
+        include_instances: IncludeInstances | None = None,
         next_token: XmlString | None = None,
         max_records: MaxRecords | None = None,
         filters: Filters | None = None,
@@ -3106,6 +3109,8 @@ class AutoscalingApi:
         API.
 
         :param auto_scaling_group_names: The names of the Auto Scaling groups.
+        :param include_instances: Specifies whether to include information about Amazon EC2 instances in
+        the response.
         :param next_token: The token for the next set of items to return.
         :param max_records: The maximum number of items to return with this call.
         :param filters: One or more filters to limit the results based on specific tags.

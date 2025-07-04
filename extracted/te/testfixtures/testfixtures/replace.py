@@ -1,21 +1,19 @@
 import os
+import warnings
 from contextlib import contextmanager
 from functools import partial
 from gc import get_referrers, get_referents
 from operator import setitem, getitem
-from types import ModuleType, MethodType
-from typing import Any, TypeVar, Callable, Dict, Tuple
+from types import ModuleType, MethodType, TracebackType
+from typing import Any, TypeVar, Callable, Tuple, Generic, Self, Iterator
 
-from testfixtures.resolve import resolve, not_there, Resolved, classmethod_type, class_type, Setter
 from testfixtures.utils import wrap, extend_docstring
+from .resolve import resolve, not_there, Resolved, classmethod_type, class_type, Key
 
-import warnings
-
-# Should be Literal[setattr, getattr] but Python 3.8 only.
 Accessor = Callable[[Any, str], Any]
 
 
-def not_same_descriptor(x, y, descriptor):
+def not_same_descriptor(x: Any, y: Any, descriptor: type[classmethod] | type[staticmethod]) -> bool:
     return isinstance(x, descriptor) and not isinstance(y, descriptor)
 
 
@@ -29,10 +27,10 @@ class Replacer:
     dependencies.
     """
 
-    def __init__(self):
-        self.originals: Dict[Tuple[int, Setter, str], Tuple[Any, Resolved]] = {}
+    def __init__(self) -> None:
+        self.originals: dict[Key, Tuple[Any, Resolved]] = {}
 
-    def _replace(self, resolved: Resolved, value):
+    def _replace(self, resolved: Resolved, value: Any) -> None:
         if value is not_there:
             if resolved.setter is setattr:
                 try:
@@ -44,7 +42,7 @@ class Replacer:
                     del resolved.container[resolved.name]
                 except KeyError:
                     pass
-        else:
+        elif resolved.setter is not None:
             resolved.setter(resolved.container, resolved.name, value)
 
     def __call__(
@@ -52,9 +50,9 @@ class Replacer:
             target: Any,
             replacement: R,
             strict: bool = True,
-            container: Any = None,
-            accessor: Accessor = None,
-            name: str = None,
+            container: Any | None = None,
+            accessor: Accessor | None = None,
+            name: str | None = None,
             sep: str = '.',
     ) -> R:
         """
@@ -126,7 +124,7 @@ class Replacer:
                 resolved.found = not_there
 
 
-        replacement_to_use = replacement
+        replacement_to_use: Any = replacement
 
         if isinstance(resolved.container, type):
 
@@ -135,10 +133,10 @@ class Replacer:
                 resolved.found = resolved.container.__dict__[resolved.name]
 
             if not_same_descriptor(resolved.found, replacement, classmethod):
-                replacement_to_use = classmethod(replacement)
+                replacement_to_use = classmethod(replacement)  # type: ignore[arg-type]
 
             elif not_same_descriptor(resolved.found, replacement, staticmethod):
-                replacement_to_use = staticmethod(replacement)
+                replacement_to_use = staticmethod(replacement)  # type: ignore[arg-type]
 
         self._replace(resolved, replacement_to_use)
         key = resolved.key()
@@ -147,7 +145,7 @@ class Replacer:
         return replacement
 
     def replace(self, target: Any, replacement: Any, strict: bool = True,
-                container: Any = None, accessor: Accessor = None, name: str = None) -> None:
+                container: Any | None = None, accessor: Accessor | None = None, name: str | None = None) -> None:
         """
         Replace the specified target with the supplied replacement.
         """
@@ -164,7 +162,9 @@ class Replacer:
         self(os.environ, name=name, accessor=getitem, strict=False,
              replacement=not_there if replacement is not_there else str(replacement))
 
-    def _find_container(self, attribute, name: str, break_on_static: bool):
+    def _find_container(
+            self, attribute: Callable, name: str | None, break_on_static: bool
+    ) -> tuple[Any, Any]:
         for referrer in get_referrers(attribute):
             if break_on_static and isinstance(referrer, staticmethod):
                 return None, referrer
@@ -175,7 +175,7 @@ class Replacer:
                             return container, None
         return None, None
 
-    def on_class(self, attribute: Callable, replacement: Any, name: str = None) -> None:
+    def on_class(self, attribute: Callable, replacement: Any, name: str | None = None) -> None:
         """
         This method provides a convenient way to replace methods, static methods and class
         methods on their classes.
@@ -203,7 +203,7 @@ class Replacer:
 
         self(container, name=name, accessor=getattr, replacement=replacement)
 
-    def in_module(self, target: Any, replacement: Any, module: ModuleType = None) -> None:
+    def in_module(self, target: Any, replacement: Any, module: ModuleType | None = None) -> None:
         """
         This method provides a convenient way to replace targets that are module globals,
         particularly functions or other objects with a ``__name__`` attribute.
@@ -225,13 +225,18 @@ class Replacer:
             self._replace(resolved, resolved.found)
             del self.originals[id_]
 
-    def __enter__(self):
+    def __enter__(self) -> Self:
         return self
 
-    def __exit__(self, type, value, traceback):
+    def __exit__(
+            self,
+            exc_type: type[BaseException] | None,
+            value: BaseException | None,
+            traceback: TracebackType | None,
+    ) -> None:
         self.restore()
 
-    def __del__(self):
+    def __del__(self) -> None:
         if self.originals:
             # no idea why coverage misses the following statement
             # it's covered by test_replace.TestReplace.test_replacer_del
@@ -243,7 +248,7 @@ class Replacer:
 
 def replace(
         target: Any, replacement: Any, strict: bool = True,
-        container: Any = None, accessor: Accessor = None, name: str = None, sep: str ='.'
+        container: Any | None = None, accessor: Accessor | None = None, name: str | None = None, sep: str ='.'
 ) -> Callable[[Callable], Callable]:
     """
     A decorator to replace a target object for the duration of a test
@@ -257,7 +262,7 @@ def replace(
 
 
 @contextmanager
-def replace_in_environ(name: str, replacement: Any):
+def replace_in_environ(name: str, replacement: Any) -> Iterator[None]:
     """
     This context manager provides a quick way to use :meth:`Replacer.in_environ`.
     """
@@ -267,7 +272,9 @@ def replace_in_environ(name: str, replacement: Any):
 
 
 @contextmanager
-def replace_on_class(attribute: Callable, replacement: Any, name: str = None):
+def replace_on_class(
+        attribute: Callable, replacement: Any, name: str | None = None
+) -> Iterator[None]:
     """
     This context manager provides a quick way to use :meth:`Replacer.on_class`.
     """
@@ -277,7 +284,9 @@ def replace_on_class(attribute: Callable, replacement: Any, name: str = None):
 
 
 @contextmanager
-def replace_in_module(target: Any, replacement: Any, module: ModuleType = None):
+def replace_in_module(
+        target: Any, replacement: Any, module: ModuleType | None = None
+) -> Iterator[None]:
     """
     This context manager provides a quick way to use :meth:`Replacer.in_module`.
     """
@@ -286,21 +295,21 @@ def replace_in_module(target: Any, replacement: Any, module: ModuleType = None):
         yield
 
 
-class Replace:
+class Replace(Generic[R]):
     """
     A context manager that uses a :class:`Replacer` to replace a single target.
     """
 
     def __init__(
             self, target: Any, replacement: R, strict: bool = True,
-            container: Any = None, accessor: Accessor = None, name: str = None, sep: str ='.'
+            container: Any | None = None, accessor: Accessor | None = None, name: str | None = None, sep: str ='.'
     ):
         self.target = target
         self.replacement = replacement
         self.strict = strict
         self.container: Any = container
-        self.accessor: Accessor = accessor
-        self.name: str = name
+        self.accessor = accessor
+        self.name = name
         self.sep: str = sep
         self._replacer = Replacer()
 
@@ -315,7 +324,12 @@ class Replace:
             self.sep,
         )
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+            self,
+            exc_type: type[BaseException] | None,
+            value: BaseException | None,
+            traceback: TracebackType | None,
+    ) -> None:
         self._replacer.restore()
 
 

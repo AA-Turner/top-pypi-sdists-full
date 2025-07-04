@@ -28,15 +28,15 @@ class MaleoMetadataMedicalRoleServiceParametersTransfers:
         BaseParameterSchemas.OptionalListOfIds
     ): pass
 
-    class GetStructuredMultipleQuery(
-        BaseServiceParametersTransfers.GetPaginatedMultipleQuery,
-        BaseParameterSchemas.OptionalListOfNames,
-        BaseParameterSchemas.OptionalListOfKeys,
-        BaseParameterSchemas.OptionalListOfCodes,
-        MaleoMetadataMedicalRoleSchemas.OptionalListOfParentIds,
-        BaseParameterSchemas.OptionalListOfUuids,
-        BaseParameterSchemas.OptionalListOfIds
-    ): pass
+    # class GetStructuredMultipleQuery(
+    #     BaseServiceParametersTransfers.GetPaginatedMultipleQuery,
+    #     BaseParameterSchemas.OptionalListOfNames,
+    #     BaseParameterSchemas.OptionalListOfKeys,
+    #     BaseParameterSchemas.OptionalListOfCodes,
+    #     MaleoMetadataMedicalRoleSchemas.OptionalListOfParentIds,
+    #     BaseParameterSchemas.OptionalListOfUuids,
+    #     BaseParameterSchemas.OptionalListOfIds
+    # ): pass
 
     class GetMultiple(
         BaseServiceParametersTransfers.GetPaginatedMultiple,
@@ -52,12 +52,12 @@ class MaleoMetadataMedicalRoleServiceParametersTransfers:
         BaseParameterSchemas.OptionalListOfIds
     ): pass
 
-    class GetStructuredMultiple(
-        BaseServiceParametersTransfers.GetPaginatedMultiple,
-        BaseParameterSchemas.OptionalListOfNames,
-        BaseParameterSchemas.OptionalListOfKeys,
-        BaseParameterSchemas.OptionalListOfCodes,
-        MaleoMetadataMedicalRoleSchemas.OptionalListOfParentIds,
-        BaseParameterSchemas.OptionalListOfUuids,
-        BaseParameterSchemas.OptionalListOfIds
-    ): pass
+    # class GetStructuredMultiple(
+    #     BaseServiceParametersTransfers.GetPaginatedMultiple,
+    #     BaseParameterSchemas.OptionalListOfNames,
+    #     BaseParameterSchemas.OptionalListOfKeys,
+    #     BaseParameterSchemas.OptionalListOfCodes,
+    #     MaleoMetadataMedicalRoleSchemas.OptionalListOfParentIds,
+    #     BaseParameterSchemas.OptionalListOfUuids,
+    #     BaseParameterSchemas.OptionalListOfIds
+    # ): pass

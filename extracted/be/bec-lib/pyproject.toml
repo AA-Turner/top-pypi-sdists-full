@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "bec_lib"
-version = "3.48.0"
+version = "3.49.0"
 description = "BEC library"
 requires-python = ">=3.10"
 classifiers = [
@@ -53,12 +53,12 @@ dev = [
     "Jinja2~=3.1",
     "copier~=9.7",
     "typer~=0.15",
-    "watchdog~=6.0",
 ]
 
 [project.scripts]
 bec-channel-monitor = "bec_lib.channel_monitor:channel_monitor_launch"
 bec-log-monitor = "bec_lib.channel_monitor:log_monitor_launch"
+bec-plugin-manager = "bec_lib.utils.plugin_manager.main:main"
 
 [project.entry-points.pytest11]
 bec_lib_fixtures = "bec_lib.tests.fixtures"

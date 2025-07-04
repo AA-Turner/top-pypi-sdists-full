@@ -897,6 +897,8 @@ class IbmDb2zOsDataProviderSettings(TypedDict, total=False):
     DatabaseName: Optional[String]
     SslMode: Optional[DmsSslModeValue]
     CertificateArn: Optional[String]
+    S3Path: Optional[String]
+    S3AccessRoleArn: Optional[String]
 
 
 class IbmDb2LuwDataProviderSettings(TypedDict, total=False):
@@ -907,6 +909,8 @@ class IbmDb2LuwDataProviderSettings(TypedDict, total=False):
     DatabaseName: Optional[String]
     SslMode: Optional[DmsSslModeValue]
     CertificateArn: Optional[String]
+    S3Path: Optional[String]
+    S3AccessRoleArn: Optional[String]
 
 
 class MariaDbDataProviderSettings(TypedDict, total=False):
@@ -916,6 +920,8 @@ class MariaDbDataProviderSettings(TypedDict, total=False):
     Port: Optional[IntegerOptional]
     SslMode: Optional[DmsSslModeValue]
     CertificateArn: Optional[String]
+    S3Path: Optional[String]
+    S3AccessRoleArn: Optional[String]
 
 
 class DocDbDataProviderSettings(TypedDict, total=False):
@@ -936,6 +942,8 @@ class MicrosoftSqlServerDataProviderSettings(TypedDict, total=False):
     DatabaseName: Optional[String]
     SslMode: Optional[DmsSslModeValue]
     CertificateArn: Optional[String]
+    S3Path: Optional[String]
+    S3AccessRoleArn: Optional[String]
 
 
 class OracleDataProviderSettings(TypedDict, total=False):
@@ -951,6 +959,8 @@ class OracleDataProviderSettings(TypedDict, total=False):
     SecretsManagerOracleAsmAccessRoleArn: Optional[String]
     SecretsManagerSecurityDbEncryptionSecretId: Optional[String]
     SecretsManagerSecurityDbEncryptionAccessRoleArn: Optional[String]
+    S3Path: Optional[String]
+    S3AccessRoleArn: Optional[String]
 
 
 class MySqlDataProviderSettings(TypedDict, total=False):
@@ -960,6 +970,8 @@ class MySqlDataProviderSettings(TypedDict, total=False):
     Port: Optional[IntegerOptional]
     SslMode: Optional[DmsSslModeValue]
     CertificateArn: Optional[String]
+    S3Path: Optional[String]
+    S3AccessRoleArn: Optional[String]
 
 
 class PostgreSqlDataProviderSettings(TypedDict, total=False):
@@ -970,6 +982,8 @@ class PostgreSqlDataProviderSettings(TypedDict, total=False):
     DatabaseName: Optional[String]
     SslMode: Optional[DmsSslModeValue]
     CertificateArn: Optional[String]
+    S3Path: Optional[String]
+    S3AccessRoleArn: Optional[String]
 
 
 class RedshiftDataProviderSettings(TypedDict, total=False):
@@ -978,6 +992,8 @@ class RedshiftDataProviderSettings(TypedDict, total=False):
     ServerName: Optional[String]
     Port: Optional[IntegerOptional]
     DatabaseName: Optional[String]
+    S3Path: Optional[String]
+    S3AccessRoleArn: Optional[String]
 
 
 class DataProviderSettings(TypedDict, total=False):
@@ -999,6 +1015,7 @@ class CreateDataProviderMessage(ServiceRequest):
     DataProviderName: Optional[String]
     Description: Optional[String]
     Engine: String
+    Virtual: Optional[BooleanOptional]
     Settings: DataProviderSettings
     Tags: Optional[TagList]
 
@@ -1011,6 +1028,7 @@ class DataProvider(TypedDict, total=False):
     DataProviderCreationTime: Optional[Iso8601DateTime]
     Description: Optional[String]
     Engine: Optional[String]
+    Virtual: Optional[BooleanOptional]
     Settings: Optional[DataProviderSettings]
 
 
@@ -3156,6 +3174,7 @@ class ModifyDataProviderMessage(ServiceRequest):
     DataProviderName: Optional[String]
     Description: Optional[String]
     Engine: Optional[String]
+    Virtual: Optional[BooleanOptional]
     ExactSettings: Optional[BooleanOptional]
     Settings: Optional[DataProviderSettings]
 
@@ -3600,7 +3619,14 @@ class DmsApi:
         data: StartRecommendationsRequestEntryList | None = None,
         **kwargs,
     ) -> BatchStartRecommendationsResponse:
-        """Starts the analysis of up to 20 source databases to recommend target
+        """End of support notice: On May 20, 2026, Amazon Web Services will end
+        support for Amazon Web Services DMS Fleet Advisor;. After May 20, 2026,
+        you will no longer be able to access the Amazon Web Services DMS Fleet
+        Advisor; console or Amazon Web Services DMS Fleet Advisor; resources.
+        For more information, see `Amazon Web Services DMS Fleet Advisor end of
+        support <https://docs.aws.amazon.com/dms/latest/userguide/dms_fleet.advisor-end-of-support.html>`__.
+
+        Starts the analysis of up to 20 source databases to recommend target
         engines for each source database. This is a batch version of
         `StartRecommendations <https://docs.aws.amazon.com/dms/latest/APIReference/API_StartRecommendations.html>`__.
 
@@ -3685,6 +3711,7 @@ class DmsApi:
         settings: DataProviderSettings,
         data_provider_name: String | None = None,
         description: String | None = None,
+        virtual: BooleanOptional | None = None,
         tags: TagList | None = None,
         **kwargs,
     ) -> CreateDataProviderResponse:
@@ -3695,6 +3722,7 @@ class DmsApi:
         :param settings: The settings in JSON format for a data provider.
         :param data_provider_name: A user-friendly name for the data provider.
         :param description: A user-friendly description of the data provider.
+        :param virtual: Indicates whether the data provider is virtual.
         :param tags: One or more tags to be assigned to the data provider.
         :returns: CreateDataProviderResponse
         :raises ResourceQuotaExceededFault:
@@ -3874,7 +3902,14 @@ class DmsApi:
         description: String | None = None,
         **kwargs,
     ) -> CreateFleetAdvisorCollectorResponse:
-        """Creates a Fleet Advisor collector using the specified parameters.
+        """End of support notice: On May 20, 2026, Amazon Web Services will end
+        support for Amazon Web Services DMS Fleet Advisor;. After May 20, 2026,
+        you will no longer be able to access the Amazon Web Services DMS Fleet
+        Advisor; console or Amazon Web Services DMS Fleet Advisor; resources.
+        For more information, see `Amazon Web Services DMS Fleet Advisor end of
+        support <https://docs.aws.amazon.com/dms/latest/userguide/dms_fleet.advisor-end-of-support.html>`__.
+
+        Creates a Fleet Advisor collector using the specified parameters.
 
         :param collector_name: The name of your Fleet Advisor collector (for example,
         ``sample-collector``).
@@ -4297,7 +4332,14 @@ class DmsApi:
     def delete_fleet_advisor_collector(
         self, context: RequestContext, collector_referenced_id: String, **kwargs
     ) -> None:
-        """Deletes the specified Fleet Advisor collector.
+        """End of support notice: On May 20, 2026, Amazon Web Services will end
+        support for Amazon Web Services DMS Fleet Advisor;. After May 20, 2026,
+        you will no longer be able to access the Amazon Web Services DMS Fleet
+        Advisor; console or Amazon Web Services DMS Fleet Advisor; resources.
+        For more information, see `Amazon Web Services DMS Fleet Advisor end of
+        support <https://docs.aws.amazon.com/dms/latest/userguide/dms_fleet.advisor-end-of-support.html>`__.
+
+        Deletes the specified Fleet Advisor collector.
 
         :param collector_referenced_id: The reference ID of the Fleet Advisor collector to delete.
         :raises InvalidResourceStateFault:
@@ -4310,7 +4352,14 @@ class DmsApi:
     def delete_fleet_advisor_databases(
         self, context: RequestContext, database_ids: StringList, **kwargs
     ) -> DeleteFleetAdvisorDatabasesResponse:
-        """Deletes the specified Fleet Advisor collector databases.
+        """End of support notice: On May 20, 2026, Amazon Web Services will end
+        support for Amazon Web Services DMS Fleet Advisor;. After May 20, 2026,
+        you will no longer be able to access the Amazon Web Services DMS Fleet
+        Advisor; console or Amazon Web Services DMS Fleet Advisor; resources.
+        For more information, see `Amazon Web Services DMS Fleet Advisor end of
+        support <https://docs.aws.amazon.com/dms/latest/userguide/dms_fleet.advisor-end-of-support.html>`__.
+
+        Deletes the specified Fleet Advisor collector databases.
 
         :param database_ids: The IDs of the Fleet Advisor collector databases to delete.
         :returns: DeleteFleetAdvisorDatabasesResponse
@@ -4810,7 +4859,14 @@ class DmsApi:
         next_token: String | None = None,
         **kwargs,
     ) -> DescribeFleetAdvisorCollectorsResponse:
-        """Returns a list of the Fleet Advisor collectors in your account.
+        """End of support notice: On May 20, 2026, Amazon Web Services will end
+        support for Amazon Web Services DMS Fleet Advisor;. After May 20, 2026,
+        you will no longer be able to access the Amazon Web Services DMS Fleet
+        Advisor; console or Amazon Web Services DMS Fleet Advisor; resources.
+        For more information, see `Amazon Web Services DMS Fleet Advisor end of
+        support <https://docs.aws.amazon.com/dms/latest/userguide/dms_fleet.advisor-end-of-support.html>`__.
+
+        Returns a list of the Fleet Advisor collectors in your account.
 
         :param filters: If you specify any of the following filters, the output includes
         information for only those collectors that meet the filter criteria:
@@ -4834,7 +4890,14 @@ class DmsApi:
         next_token: String | None = None,
         **kwargs,
     ) -> DescribeFleetAdvisorDatabasesResponse:
-        """Returns a list of Fleet Advisor databases in your account.
+        """End of support notice: On May 20, 2026, Amazon Web Services will end
+        support for Amazon Web Services DMS Fleet Advisor;. After May 20, 2026,
+        you will no longer be able to access the Amazon Web Services DMS Fleet
+        Advisor; console or Amazon Web Services DMS Fleet Advisor; resources.
+        For more information, see `Amazon Web Services DMS Fleet Advisor end of
+        support <https://docs.aws.amazon.com/dms/latest/userguide/dms_fleet.advisor-end-of-support.html>`__.
+
+        Returns a list of Fleet Advisor databases in your account.
 
         :param filters: If you specify any of the following filters, the output includes
         information for only those databases that meet the filter criteria:
@@ -4856,7 +4919,14 @@ class DmsApi:
         next_token: String | None = None,
         **kwargs,
     ) -> DescribeFleetAdvisorLsaAnalysisResponse:
-        """Provides descriptions of large-scale assessment (LSA) analyses produced
+        """End of support notice: On May 20, 2026, Amazon Web Services will end
+        support for Amazon Web Services DMS Fleet Advisor;. After May 20, 2026,
+        you will no longer be able to access the Amazon Web Services DMS Fleet
+        Advisor; console or Amazon Web Services DMS Fleet Advisor; resources.
+        For more information, see `Amazon Web Services DMS Fleet Advisor end of
+        support <https://docs.aws.amazon.com/dms/latest/userguide/dms_fleet.advisor-end-of-support.html>`__.
+
+        Provides descriptions of large-scale assessment (LSA) analyses produced
         by your Fleet Advisor collectors.
 
         :param max_records: Sets the maximum number of records returned in the response.
@@ -4876,7 +4946,14 @@ class DmsApi:
         next_token: String | None = None,
         **kwargs,
     ) -> DescribeFleetAdvisorSchemaObjectSummaryResponse:
-        """Provides descriptions of the schemas discovered by your Fleet Advisor
+        """End of support notice: On May 20, 2026, Amazon Web Services will end
+        support for Amazon Web Services DMS Fleet Advisor;. After May 20, 2026,
+        you will no longer be able to access the Amazon Web Services DMS Fleet
+        Advisor; console or Amazon Web Services DMS Fleet Advisor; resources.
+        For more information, see `Amazon Web Services DMS Fleet Advisor end of
+        support <https://docs.aws.amazon.com/dms/latest/userguide/dms_fleet.advisor-end-of-support.html>`__.
+
+        Provides descriptions of the schemas discovered by your Fleet Advisor
         collectors.
 
         :param filters: If you specify any of the following filters, the output includes
@@ -4884,7 +4961,8 @@ class DmsApi:
 
         -  ``schema-id`` – The ID of the schema, for example
            ``d4610ac5-e323-4ad9-bc50-eaf7249dfe9d``.
-        :param max_records: Sets the maximum number of records returned in the response.
+        :param max_records: End of support notice: On May 20, 2026, Amazon Web Services will end
+        support for Amazon Web Services DMS Fleet Advisor;.
         :param next_token: If ``NextToken`` is returned by a previous response, there are more
         results available.
         :returns: DescribeFleetAdvisorSchemaObjectSummaryResponse
@@ -4901,7 +4979,14 @@ class DmsApi:
         next_token: String | None = None,
         **kwargs,
     ) -> DescribeFleetAdvisorSchemasResponse:
-        """Returns a list of schemas detected by Fleet Advisor Collectors in your
+        """End of support notice: On May 20, 2026, Amazon Web Services will end
+        support for Amazon Web Services DMS Fleet Advisor;. After May 20, 2026,
+        you will no longer be able to access the Amazon Web Services DMS Fleet
+        Advisor; console or Amazon Web Services DMS Fleet Advisor; resources.
+        For more information, see `Amazon Web Services DMS Fleet Advisor end of
+        support <https://docs.aws.amazon.com/dms/latest/userguide/dms_fleet.advisor-end-of-support.html>`__.
+
+        Returns a list of schemas detected by Fleet Advisor Collectors in your
         account.
 
         :param filters: If you specify any of the following filters, the output includes
@@ -5129,7 +5214,14 @@ class DmsApi:
         next_token: String | None = None,
         **kwargs,
     ) -> DescribeRecommendationLimitationsResponse:
-        """Returns a paginated list of limitations for recommendations of target
+        """End of support notice: On May 20, 2026, Amazon Web Services will end
+        support for Amazon Web Services DMS Fleet Advisor;. After May 20, 2026,
+        you will no longer be able to access the Amazon Web Services DMS Fleet
+        Advisor; console or Amazon Web Services DMS Fleet Advisor; resources.
+        For more information, see `Amazon Web Services DMS Fleet Advisor end of
+        support <https://docs.aws.amazon.com/dms/latest/userguide/dms_fleet.advisor-end-of-support.html>`__.
+
+        Returns a paginated list of limitations for recommendations of target
         Amazon Web Services engines.
 
         :param filters: Filters applied to the limitations described in the form of key-value
@@ -5152,7 +5244,14 @@ class DmsApi:
         next_token: String | None = None,
         **kwargs,
     ) -> DescribeRecommendationsResponse:
-        """Returns a paginated list of target engine recommendations for your
+        """End of support notice: On May 20, 2026, Amazon Web Services will end
+        support for Amazon Web Services DMS Fleet Advisor;. After May 20, 2026,
+        you will no longer be able to access the Amazon Web Services DMS Fleet
+        Advisor; console or Amazon Web Services DMS Fleet Advisor; resources.
+        For more information, see `Amazon Web Services DMS Fleet Advisor end of
+        support <https://docs.aws.amazon.com/dms/latest/userguide/dms_fleet.advisor-end-of-support.html>`__.
+
+        Returns a paginated list of target engine recommendations for your
         source databases.
 
         :param filters: Filters applied to the target engine recommendations described in the
@@ -5586,6 +5685,7 @@ class DmsApi:
         data_provider_name: String | None = None,
         description: String | None = None,
         engine: String | None = None,
+        virtual: BooleanOptional | None = None,
         exact_settings: BooleanOptional | None = None,
         settings: DataProviderSettings | None = None,
         **kwargs,
@@ -5599,6 +5699,7 @@ class DmsApi:
         :param data_provider_name: The name of the data provider.
         :param description: A user-friendly description of the data provider.
         :param engine: The type of database engine for the data provider.
+        :param virtual: Indicates whether the data provider is virtual.
         :param exact_settings: If this attribute is Y, the current call to ``ModifyDataProvider``
         replaces all existing data provider settings with the exact settings
         that you specify in this call.
@@ -6142,7 +6243,14 @@ class DmsApi:
     def run_fleet_advisor_lsa_analysis(
         self, context: RequestContext, **kwargs
     ) -> RunFleetAdvisorLsaAnalysisResponse:
-        """Runs large-scale assessment (LSA) analysis on every Fleet Advisor
+        """End of support notice: On May 20, 2026, Amazon Web Services will end
+        support for Amazon Web Services DMS Fleet Advisor;. After May 20, 2026,
+        you will no longer be able to access the Amazon Web Services DMS Fleet
+        Advisor; console or Amazon Web Services DMS Fleet Advisor; resources.
+        For more information, see `Amazon Web Services DMS Fleet Advisor end of
+        support <https://docs.aws.amazon.com/dms/latest/userguide/dms_fleet.advisor-end-of-support.html>`__.
+
+        Runs large-scale assessment (LSA) analysis on every Fleet Advisor
         collector in your account.
 
         :returns: RunFleetAdvisorLsaAnalysisResponse
@@ -6345,7 +6453,14 @@ class DmsApi:
         settings: RecommendationSettings,
         **kwargs,
     ) -> None:
-        """Starts the analysis of your source database to provide recommendations
+        """End of support notice: On May 20, 2026, Amazon Web Services will end
+        support for Amazon Web Services DMS Fleet Advisor;. After May 20, 2026,
+        you will no longer be able to access the Amazon Web Services DMS Fleet
+        Advisor; console or Amazon Web Services DMS Fleet Advisor; resources.
+        For more information, see `Amazon Web Services DMS Fleet Advisor end of
+        support <https://docs.aws.amazon.com/dms/latest/userguide/dms_fleet.advisor-end-of-support.html>`__.
+
+        Starts the analysis of your source database to provide recommendations
         of target engines.
 
         You can create recommendations for multiple source databases using

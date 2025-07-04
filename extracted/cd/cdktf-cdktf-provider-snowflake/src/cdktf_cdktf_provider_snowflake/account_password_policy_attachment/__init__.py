@@ -1,7 +1,7 @@
 r'''
 # `snowflake_account_password_policy_attachment`
 
-Refer to the Terraform Registry for docs: [`snowflake_account_password_policy_attachment`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/account_password_policy_attachment).
+Refer to the Terraform Registry for docs: [`snowflake_account_password_policy_attachment`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/account_password_policy_attachment).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AccountPasswordPolicyAttachment(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-snowflake.accountPasswordPolicyAttachment.AccountPasswordPolicyAttachment",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/account_password_policy_attachment snowflake_account_password_policy_attachment}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/account_password_policy_attachment snowflake_account_password_policy_attachment}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class AccountPasswordPolicyAttachment(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/account_password_policy_attachment snowflake_account_password_policy_attachment} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/account_password_policy_attachment snowflake_account_password_policy_attachment} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param password_policy: Qualified name (``"db"."schema"."policy_name"``) of the password policy to apply to the current account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/account_password_policy_attachment#password_policy AccountPasswordPolicyAttachment#password_policy}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/account_password_policy_attachment#id AccountPasswordPolicyAttachment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/account_password_policy_attachment#timeouts AccountPasswordPolicyAttachment#timeouts}
+        :param password_policy: Qualified name (``"db"."schema"."policy_name"``) of the password policy to apply to the current account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/account_password_policy_attachment#password_policy AccountPasswordPolicyAttachment#password_policy}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/account_password_policy_attachment#id AccountPasswordPolicyAttachment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/account_password_policy_attachment#timeouts AccountPasswordPolicyAttachment#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class AccountPasswordPolicyAttachment(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AccountPasswordPolicyAttachment to import.
-        :param import_from_id: The id of the existing AccountPasswordPolicyAttachment that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/account_password_policy_attachment#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AccountPasswordPolicyAttachment that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/account_password_policy_attachment#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AccountPasswordPolicyAttachment to import is found.
         '''
         if __debug__:
@@ -130,10 +130,10 @@ class AccountPasswordPolicyAttachment(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/account_password_policy_attachment#create AccountPasswordPolicyAttachment#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/account_password_policy_attachment#delete AccountPasswordPolicyAttachment#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/account_password_policy_attachment#read AccountPasswordPolicyAttachment#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/account_password_policy_attachment#update AccountPasswordPolicyAttachment#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/account_password_policy_attachment#create AccountPasswordPolicyAttachment#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/account_password_policy_attachment#delete AccountPasswordPolicyAttachment#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/account_password_policy_attachment#read AccountPasswordPolicyAttachment#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/account_password_policy_attachment#update AccountPasswordPolicyAttachment#update}.
         '''
         value = AccountPasswordPolicyAttachmentTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -248,9 +248,9 @@ class AccountPasswordPolicyAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArgumen
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param password_policy: Qualified name (``"db"."schema"."policy_name"``) of the password policy to apply to the current account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/account_password_policy_attachment#password_policy AccountPasswordPolicyAttachment#password_policy}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/account_password_policy_attachment#id AccountPasswordPolicyAttachment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/account_password_policy_attachment#timeouts AccountPasswordPolicyAttachment#timeouts}
+        :param password_policy: Qualified name (``"db"."schema"."policy_name"``) of the password policy to apply to the current account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/account_password_policy_attachment#password_policy AccountPasswordPolicyAttachment#password_policy}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/account_password_policy_attachment#id AccountPasswordPolicyAttachment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/account_password_policy_attachment#timeouts AccountPasswordPolicyAttachment#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -358,7 +358,7 @@ class AccountPasswordPolicyAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def password_policy(self) -> builtins.str:
         '''Qualified name (``"db"."schema"."policy_name"``) of the password policy to apply to the current account.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/account_password_policy_attachment#password_policy AccountPasswordPolicyAttachment#password_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/account_password_policy_attachment#password_policy AccountPasswordPolicyAttachment#password_policy}
         '''
         result = self._values.get("password_policy")
         assert result is not None, "Required property 'password_policy' is missing"
@@ -366,7 +366,7 @@ class AccountPasswordPolicyAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArgumen
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/account_password_policy_attachment#id AccountPasswordPolicyAttachment#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/account_password_policy_attachment#id AccountPasswordPolicyAttachment#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -378,7 +378,7 @@ class AccountPasswordPolicyAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def timeouts(self) -> typing.Optional["AccountPasswordPolicyAttachmentTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/account_password_policy_attachment#timeouts AccountPasswordPolicyAttachment#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/account_password_policy_attachment#timeouts AccountPasswordPolicyAttachment#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["AccountPasswordPolicyAttachmentTimeouts"], result)
@@ -415,10 +415,10 @@ class AccountPasswordPolicyAttachmentTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/account_password_policy_attachment#create AccountPasswordPolicyAttachment#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/account_password_policy_attachment#delete AccountPasswordPolicyAttachment#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/account_password_policy_attachment#read AccountPasswordPolicyAttachment#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/account_password_policy_attachment#update AccountPasswordPolicyAttachment#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/account_password_policy_attachment#create AccountPasswordPolicyAttachment#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/account_password_policy_attachment#delete AccountPasswordPolicyAttachment#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/account_password_policy_attachment#read AccountPasswordPolicyAttachment#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/account_password_policy_attachment#update AccountPasswordPolicyAttachment#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d303a78e6d4314fccd7748488527db73abcf4583cc9daaf22dc7d505e2bd5838)
@@ -438,25 +438,25 @@ class AccountPasswordPolicyAttachmentTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/account_password_policy_attachment#create AccountPasswordPolicyAttachment#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/account_password_policy_attachment#create AccountPasswordPolicyAttachment#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/account_password_policy_attachment#delete AccountPasswordPolicyAttachment#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/account_password_policy_attachment#delete AccountPasswordPolicyAttachment#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/account_password_policy_attachment#read AccountPasswordPolicyAttachment#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/account_password_policy_attachment#read AccountPasswordPolicyAttachment#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/account_password_policy_attachment#update AccountPasswordPolicyAttachment#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/account_password_policy_attachment#update AccountPasswordPolicyAttachment#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

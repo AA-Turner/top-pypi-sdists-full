@@ -16,6 +16,7 @@ import collections.abc
 import itertools
 import math
 import operator
+import sys
 import typing
 import unittest
 
@@ -769,6 +770,39 @@ class TestConstant(utils.SymbolTests):
         # the type is correct
         self.assertIsInstance(model.constant(123.4).__bool__(), bool)
 
+    @unittest.skipIf((sys.version_info.major, sys.version_info.minor) < (3, 12),
+                     "Python-level access to the buffer protocol requires Python 3.12+")
+    def test_buffer_flags(self):
+        import inspect  # for the buffer flags
+
+        model = Model()
+
+        A = model.constant(np.arange(25).reshape(5, 5))
+
+        # A few smoke tests to make sure we're not being overly restrictive with
+        # our flags for the cases we care about
+        memoryview(A)
+        np.asarray(A)
+
+        # We never allow a writeable buffer
+        with self.assertRaises(BufferError):
+            A.__buffer__(inspect.BufferFlags.WRITABLE)
+
+        # While we often incidentally export contiguous buffers, we don't
+        # respect the request (for now)
+        with self.assertRaises(BufferError):
+            A.__buffer__(inspect.BufferFlags.ANY_CONTIGUOUS)
+        with self.assertRaises(BufferError):
+            A.__buffer__(inspect.BufferFlags.C_CONTIGUOUS)
+        with self.assertRaises(BufferError):
+            A.__buffer__(inspect.BufferFlags.F_CONTIGUOUS)
+
+        # Currently we always expose stride information
+        with self.assertRaises(BufferError):
+            A.__buffer__(inspect.BufferFlags.ND)
+        with self.assertRaises(BufferError):
+            A.__buffer__(inspect.BufferFlags.SIMPLE)
+
     def test_comparisons(self):
         model = Model()
 
@@ -850,6 +884,14 @@ class TestConstant(utils.SymbolTests):
 
         with self.assertRaises(ValueError):
             model.constant(np.array([0, 5, np.nan]))
+
+    def test_readonly(self):
+        model = Model()
+
+        arr = np.ones(3)
+        arr.setflags(write=False)
+        c = model.constant(arr)
+        np.testing.assert_array_equal(arr, c)
 
 
 class TestCopy(utils.SymbolTests):
@@ -1222,6 +1264,33 @@ class TestExpit(utils.SymbolTests):
             self.assertEqual(expit_node.state(), scipy_expit_output[i])  # confirm consistency with SciPy expit
 
 
+class TestExtract(utils.SymbolTests):
+    def generate_symbols(self):
+        model = Model()
+        condition = model.binary(3)
+        arr = model.constant([1, 2, 3])
+        extract = dwave.optimization.extract(condition, arr)
+        with model.lock():
+            yield extract
+
+    def test(self):
+        model = Model()
+        condition = model.binary(3)
+        arr = model.integer(3)
+        extract = dwave.optimization.extract(condition, arr)
+        with model.lock():
+            model.states.resize(1)
+            condition.set_state(0, [False, True, True])
+            arr.set_state(0, [1, 2, 3])
+            np.testing.assert_array_equal(extract.state(), [2, 3])
+            condition.set_state(0, [False, False, True])
+            np.testing.assert_array_equal(extract.state(), [3])
+
+        with self.assertRaises(ValueError):
+            # wrong shape
+            dwave.optimization.extract(model.binary(4), arr)
+
+
 class TestInput(utils.SymbolTests):
     def generate_symbols(self):
         model = Model()
@@ -1291,23 +1360,52 @@ class TestInput(utils.SymbolTests):
 
                 np.testing.assert_array_equal(inp.state(), [[[0, 1]], [[2, 3]]])
 
-        def test_initializing_unset_state(self):
-            # ensure proper error is raised when initializing the model state without having
-            # set the input's state
-            model = Model()
-            inp = model.input()
-            x = model.binary()
-            model.minimize(inp + x)
+    def test_initializing_unset_state(self):
+        # ensure proper error is raised when initializing the model state without having
+        # set the input's state
+        model = Model()
+        inp = model.input()
+        x = model.binary()
+        model.minimize(inp + x)
 
-            model.lock()
+        model.lock()
 
-            model.states.resize(1)
+        model.states.resize(1)
 
-            with self.assertRaisesRegex(
-                RuntimeError,
-                r"^InputNode must have state explicitly initialized"
-            ):
-                model.objective.state()
+        with self.assertRaisesRegex(
+            RuntimeError,
+            r"^InputNode must have state explicitly initialized"
+        ):
+            model.objective.state()
+
+    def test_bounds_and_integrality(self):
+        model = Model()
+
+        i0 = model.input()
+        default_lower_bound = i0.lower_bound()
+        default_upper_bound = i0.upper_bound()
+        default_integral = i0.integral()
+
+        i1 = model.input(lower_bound=-10)
+        self.assertEqual(i1.lower_bound(), -10)
+        self.assertEqual(i1.upper_bound(), default_upper_bound)
+        self.assertEqual(i1.integral(), default_integral)
+
+        i2 = model.input(upper_bound=100)
+        self.assertEqual(i2.lower_bound(), default_lower_bound)
+        self.assertEqual(i2.upper_bound(), 100)
+        self.assertEqual(i2.integral(), default_integral)
+
+        i3 = model.input(integral=True)
+        self.assertEqual(i3.lower_bound(), default_lower_bound)
+        self.assertEqual(i3.upper_bound(), default_upper_bound)
+        self.assertEqual(i3.integral(), True)
+
+        with self.assertRaises(ValueError):
+            model.input(lower_bound=100, upper_bound=-100)
+        with self.assertRaises(ValueError):
+            model.input(lower_bound=.1, upper_bound=.9, integral=True)
+
 
 class TestIntegerVariable(utils.SymbolTests):
     def generate_symbols(self):

@@ -14,6 +14,16 @@ class EveCharacterProviderManager:
 class EveCharacterManager(models.Manager):
     provider = EveCharacterProviderManager()
 
+    def exclude_biomassed(self):
+        """
+        Get a queryset of EveCharacter objects, excluding the "Doomheim" corporation (1000001).
+
+        :return:
+        :rtype:
+        """
+
+        return self.exclude(corporation_id=1000001)
+
     def create_character(self, character_id) -> models.Model:
         return self.create_character_obj(self.provider.get_character(character_id))
 

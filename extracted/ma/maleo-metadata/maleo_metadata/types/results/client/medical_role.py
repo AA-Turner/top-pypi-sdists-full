@@ -8,18 +8,18 @@ class MaleoMetadataMedicalRoleClientResultsTypes:
         MaleoMetadataMedicalRoleClientResultsTransfers.Fail
     ]
 
-    GetStructuredMultiple = Union[
-        MaleoMetadataMedicalRoleClientResultsTransfers.MultipleStructured,
-        MaleoMetadataMedicalRoleClientResultsTransfers.NoData,
-        MaleoMetadataMedicalRoleClientResultsTransfers.Fail
-    ]
+    # GetStructuredMultiple = Union[
+    #     MaleoMetadataMedicalRoleClientResultsTransfers.MultipleStructured,
+    #     MaleoMetadataMedicalRoleClientResultsTransfers.NoData,
+    #     MaleoMetadataMedicalRoleClientResultsTransfers.Fail
+    # ]
 
     GetSingle = Union[
         MaleoMetadataMedicalRoleClientResultsTransfers.SingleData,
         MaleoMetadataMedicalRoleClientResultsTransfers.Fail
     ]
 
-    GetSingleStructured = Union[
-        MaleoMetadataMedicalRoleClientResultsTransfers.SingleStructured,
-        MaleoMetadataMedicalRoleClientResultsTransfers.Fail
-    ]
+    # GetSingleStructured = Union[
+    #     MaleoMetadataMedicalRoleClientResultsTransfers.SingleStructured,
+    #     MaleoMetadataMedicalRoleClientResultsTransfers.Fail
+    # ]

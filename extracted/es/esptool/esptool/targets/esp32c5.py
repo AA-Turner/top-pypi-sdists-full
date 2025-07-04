@@ -1,14 +1,15 @@
-# SPDX-FileCopyrightText: 2024 Espressif Systems (Shanghai) CO LTD
+# SPDX-FileCopyrightText: 2024-2025 Fredrik Ahlberg, Angus Gratton,
+# Espressif Systems (Shanghai) CO LTD, other contributors as noted.
 #
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 import struct
 import time
-from typing import Dict
 
 from .esp32c3 import ESP32C3ROM
 from .esp32c6 import ESP32C6ROM
-from ..loader import ESPLoader
+from ..loader import ESPLoader, StubMixin
+from ..logger import log
 from ..util import FatalError
 
 
@@ -79,8 +80,7 @@ class ESP32C5ROM(ESP32C6ROM):
 
     UF2_FAMILY_ID = 0xF71C0343
 
-    EFUSE_MAX_KEY = 5
-    KEY_PURPOSES: Dict[int, str] = {
+    KEY_PURPOSES: dict[int, str] = {
         0: "USER/EMPTY",
         1: "ECDSA_KEY",
         2: "XTS_AES_256_KEY_1",
@@ -111,10 +111,19 @@ class ESP32C5ROM(ESP32C6ROM):
     def get_chip_description(self):
         chip_name = {
             0: "ESP32-C5",
-        }.get(self.get_pkg_version(), "unknown ESP32-C5")
+        }.get(self.get_pkg_version(), "Unknown ESP32-C5")
         major_rev = self.get_major_chip_version()
         minor_rev = self.get_minor_chip_version()
         return f"{chip_name} (revision v{major_rev}.{minor_rev})"
+
+    def get_chip_features(self):
+        return [
+            "Wi-Fi 6 (dual-band)",
+            "BT 5 (LE)",
+            "IEEE802.15.4",
+            "Single Core + LP Core",
+            "240MHz",
+        ]
 
     def get_crystal_freq(self):
         # The crystal detection algorithm of ESP32/ESP8266
@@ -133,8 +142,9 @@ class ESP32C5ROM(ESP32C6ROM):
         if not self.IS_STUB:
             crystal_freq_rom_expect = self.get_crystal_freq_rom_expect()
             crystal_freq_detect = self.get_crystal_freq()
-            print(
-                f"ROM expects crystal freq: {crystal_freq_rom_expect} MHz, detected {crystal_freq_detect} MHz"
+            log.print(
+                f"ROM expects crystal freq: {crystal_freq_rom_expect} MHz, "
+                f"detected {crystal_freq_detect} MHz."
             )
             baud_rate = baud
             # If detect the XTAL is 48MHz, but the ROM code expects it to be 40MHz
@@ -147,9 +157,11 @@ class ESP32C5ROM(ESP32C6ROM):
                 ESPLoader.change_baud(self, baud_rate)
                 return
 
-            print(f"Changing baud rate to {baud_rate}")
-            self.command(self.ESP_CHANGE_BAUDRATE, struct.pack("<II", baud_rate, 0))
-            print("Changed.")
+            log.print(f"Changing baud rate to {baud_rate}...")
+            self.command(
+                self.ESP_CMDS["CHANGE_BAUDRATE"], struct.pack("<II", baud_rate, 0)
+            )
+            log.print("Changed.")
             self._set_port_baudrate(baud)
             time.sleep(0.05)  # get rid of garbage sent during baud rate change
             self.flush_input()
@@ -184,8 +196,8 @@ class ESP32C5ROM(ESP32C6ROM):
         if not set(spi_connection).issubset(set(range(0, 29))):
             raise FatalError("SPI Pin numbers must be in the range 0-28.")
         if any([v for v in spi_connection if v in [13, 14]]):
-            print(
-                "WARNING: GPIO pins 13 and 14 are used by USB-Serial/JTAG, "
+            log.warning(
+                "GPIO pins 13 and 14 are used by USB-Serial/JTAG, "
                 "consider using other pins for SPI flash connection."
             )
 
@@ -194,23 +206,10 @@ class ESP32C5ROM(ESP32C6ROM):
         ESP32C3ROM.watchdog_reset(self)
 
 
-class ESP32C5StubLoader(ESP32C5ROM):
-    """Access class for ESP32C5 stub loader, runs on top of ROM.
+class ESP32C5StubLoader(StubMixin, ESP32C5ROM):
+    """Stub loader for ESP32-C5, runs on top of ROM."""
 
-    (Basically the same as ESP32StubLoader, but different base class.
-    Can possibly be made into a mixin.)
-    """
-
-    FLASH_WRITE_SIZE = 0x4000  # matches MAX_WRITE_BLOCK in stub_loader.c
-    STATUS_BYTES_LENGTH = 2  # same as ESP8266, different to ESP32 ROM
-    IS_STUB = True
-
-    def __init__(self, rom_loader):
-        self.secure_download_mode = rom_loader.secure_download_mode
-        self._port = rom_loader._port
-        self._trace_enabled = rom_loader._trace_enabled
-        self.cache = rom_loader.cache
-        self.flush_input()  # resets _slip_reader
+    pass
 
 
 ESP32C5ROM.STUB_CLASS = ESP32C5StubLoader

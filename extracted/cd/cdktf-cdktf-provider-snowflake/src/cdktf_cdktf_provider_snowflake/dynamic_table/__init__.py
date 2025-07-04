@@ -1,7 +1,7 @@
 r'''
 # `snowflake_dynamic_table`
 
-Refer to the Terraform Registry for docs: [`snowflake_dynamic_table`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table).
+Refer to the Terraform Registry for docs: [`snowflake_dynamic_table`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DynamicTable(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-snowflake.dynamicTable.DynamicTable",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table snowflake_dynamic_table}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table snowflake_dynamic_table}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class DynamicTable(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table snowflake_dynamic_table} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table snowflake_dynamic_table} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param database: The database in which to create the dynamic table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#database DynamicTable#database}
-        :param name: Specifies the identifier (i.e. name) for the dynamic table; must be unique for the schema in which the dynamic table is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#name DynamicTable#name}
-        :param query: Specifies the query to use to populate the dynamic table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#query DynamicTable#query}
-        :param schema: The schema in which to create the dynamic table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#schema DynamicTable#schema}
-        :param target_lag: target_lag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#target_lag DynamicTable#target_lag}
-        :param warehouse: The warehouse in which to create the dynamic table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#warehouse DynamicTable#warehouse}
-        :param comment: Specifies a comment for the dynamic table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#comment DynamicTable#comment}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#id DynamicTable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param initialize: (Default: ``ON_CREATE``) Initialize trigger for the dynamic table. Can only be set on creation. Available options are ON_CREATE and ON_SCHEDULE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#initialize DynamicTable#initialize}
-        :param or_replace: (Default: ``false``) Specifies whether to replace the dynamic table if it already exists. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#or_replace DynamicTable#or_replace}
-        :param refresh_mode: (Default: ``AUTO``) INCREMENTAL to use incremental refreshes, FULL to recompute the whole table on every refresh, or AUTO to let Snowflake decide. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#refresh_mode DynamicTable#refresh_mode}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#timeouts DynamicTable#timeouts}
+        :param database: The database in which to create the dynamic table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#database DynamicTable#database}
+        :param name: Specifies the identifier (i.e. name) for the dynamic table; must be unique for the schema in which the dynamic table is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#name DynamicTable#name}
+        :param query: Specifies the query to use to populate the dynamic table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#query DynamicTable#query}
+        :param schema: The schema in which to create the dynamic table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#schema DynamicTable#schema}
+        :param target_lag: target_lag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#target_lag DynamicTable#target_lag}
+        :param warehouse: The warehouse in which to create the dynamic table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#warehouse DynamicTable#warehouse}
+        :param comment: Specifies a comment for the dynamic table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#comment DynamicTable#comment}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#id DynamicTable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param initialize: (Default: ``ON_CREATE``) Initialize trigger for the dynamic table. Can only be set on creation. Available options are ON_CREATE and ON_SCHEDULE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#initialize DynamicTable#initialize}
+        :param or_replace: (Default: ``false``) Specifies whether to replace the dynamic table if it already exists. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#or_replace DynamicTable#or_replace}
+        :param refresh_mode: (Default: ``AUTO``) INCREMENTAL to use incremental refreshes, FULL to recompute the whole table on every refresh, or AUTO to let Snowflake decide. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#refresh_mode DynamicTable#refresh_mode}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#timeouts DynamicTable#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class DynamicTable(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DynamicTable to import.
-        :param import_from_id: The id of the existing DynamicTable that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DynamicTable that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DynamicTable to import is found.
         '''
         if __debug__:
@@ -155,8 +155,8 @@ class DynamicTable(
         maximum_duration: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param downstream: Specifies whether the target lag time is downstream. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#downstream DynamicTable#downstream}
-        :param maximum_duration: Specifies the maximum target lag time for the dynamic table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#maximum_duration DynamicTable#maximum_duration}
+        :param downstream: Specifies whether the target lag time is downstream. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#downstream DynamicTable#downstream}
+        :param maximum_duration: Specifies the maximum target lag time for the dynamic table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#maximum_duration DynamicTable#maximum_duration}
         '''
         value = DynamicTableTargetLag(
             downstream=downstream, maximum_duration=maximum_duration
@@ -174,10 +174,10 @@ class DynamicTable(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#create DynamicTable#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#delete DynamicTable#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#read DynamicTable#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#update DynamicTable#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#create DynamicTable#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#delete DynamicTable#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#read DynamicTable#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#update DynamicTable#update}.
         '''
         value = DynamicTableTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -542,18 +542,18 @@ class DynamicTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param database: The database in which to create the dynamic table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#database DynamicTable#database}
-        :param name: Specifies the identifier (i.e. name) for the dynamic table; must be unique for the schema in which the dynamic table is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#name DynamicTable#name}
-        :param query: Specifies the query to use to populate the dynamic table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#query DynamicTable#query}
-        :param schema: The schema in which to create the dynamic table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#schema DynamicTable#schema}
-        :param target_lag: target_lag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#target_lag DynamicTable#target_lag}
-        :param warehouse: The warehouse in which to create the dynamic table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#warehouse DynamicTable#warehouse}
-        :param comment: Specifies a comment for the dynamic table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#comment DynamicTable#comment}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#id DynamicTable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param initialize: (Default: ``ON_CREATE``) Initialize trigger for the dynamic table. Can only be set on creation. Available options are ON_CREATE and ON_SCHEDULE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#initialize DynamicTable#initialize}
-        :param or_replace: (Default: ``false``) Specifies whether to replace the dynamic table if it already exists. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#or_replace DynamicTable#or_replace}
-        :param refresh_mode: (Default: ``AUTO``) INCREMENTAL to use incremental refreshes, FULL to recompute the whole table on every refresh, or AUTO to let Snowflake decide. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#refresh_mode DynamicTable#refresh_mode}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#timeouts DynamicTable#timeouts}
+        :param database: The database in which to create the dynamic table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#database DynamicTable#database}
+        :param name: Specifies the identifier (i.e. name) for the dynamic table; must be unique for the schema in which the dynamic table is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#name DynamicTable#name}
+        :param query: Specifies the query to use to populate the dynamic table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#query DynamicTable#query}
+        :param schema: The schema in which to create the dynamic table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#schema DynamicTable#schema}
+        :param target_lag: target_lag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#target_lag DynamicTable#target_lag}
+        :param warehouse: The warehouse in which to create the dynamic table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#warehouse DynamicTable#warehouse}
+        :param comment: Specifies a comment for the dynamic table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#comment DynamicTable#comment}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#id DynamicTable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param initialize: (Default: ``ON_CREATE``) Initialize trigger for the dynamic table. Can only be set on creation. Available options are ON_CREATE and ON_SCHEDULE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#initialize DynamicTable#initialize}
+        :param or_replace: (Default: ``false``) Specifies whether to replace the dynamic table if it already exists. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#or_replace DynamicTable#or_replace}
+        :param refresh_mode: (Default: ``AUTO``) INCREMENTAL to use incremental refreshes, FULL to recompute the whole table on every refresh, or AUTO to let Snowflake decide. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#refresh_mode DynamicTable#refresh_mode}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#timeouts DynamicTable#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -685,7 +685,7 @@ class DynamicTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def database(self) -> builtins.str:
         '''The database in which to create the dynamic table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#database DynamicTable#database}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#database DynamicTable#database}
         '''
         result = self._values.get("database")
         assert result is not None, "Required property 'database' is missing"
@@ -695,7 +695,7 @@ class DynamicTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''Specifies the identifier (i.e. name) for the dynamic table; must be unique for the schema in which the dynamic table is created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#name DynamicTable#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#name DynamicTable#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -705,7 +705,7 @@ class DynamicTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def query(self) -> builtins.str:
         '''Specifies the query to use to populate the dynamic table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#query DynamicTable#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#query DynamicTable#query}
         '''
         result = self._values.get("query")
         assert result is not None, "Required property 'query' is missing"
@@ -715,7 +715,7 @@ class DynamicTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def schema(self) -> builtins.str:
         '''The schema in which to create the dynamic table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#schema DynamicTable#schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#schema DynamicTable#schema}
         '''
         result = self._values.get("schema")
         assert result is not None, "Required property 'schema' is missing"
@@ -725,7 +725,7 @@ class DynamicTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def target_lag(self) -> "DynamicTableTargetLag":
         '''target_lag block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#target_lag DynamicTable#target_lag}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#target_lag DynamicTable#target_lag}
         '''
         result = self._values.get("target_lag")
         assert result is not None, "Required property 'target_lag' is missing"
@@ -735,7 +735,7 @@ class DynamicTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def warehouse(self) -> builtins.str:
         '''The warehouse in which to create the dynamic table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#warehouse DynamicTable#warehouse}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#warehouse DynamicTable#warehouse}
         '''
         result = self._values.get("warehouse")
         assert result is not None, "Required property 'warehouse' is missing"
@@ -745,14 +745,14 @@ class DynamicTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def comment(self) -> typing.Optional[builtins.str]:
         '''Specifies a comment for the dynamic table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#comment DynamicTable#comment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#comment DynamicTable#comment}
         '''
         result = self._values.get("comment")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#id DynamicTable#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#id DynamicTable#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -766,7 +766,7 @@ class DynamicTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Can only be set on creation. Available options are ON_CREATE and ON_SCHEDULE.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#initialize DynamicTable#initialize}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#initialize DynamicTable#initialize}
         '''
         result = self._values.get("initialize")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -777,7 +777,7 @@ class DynamicTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''(Default: ``false``) Specifies whether to replace the dynamic table if it already exists.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#or_replace DynamicTable#or_replace}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#or_replace DynamicTable#or_replace}
         '''
         result = self._values.get("or_replace")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -786,7 +786,7 @@ class DynamicTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def refresh_mode(self) -> typing.Optional[builtins.str]:
         '''(Default: ``AUTO``) INCREMENTAL to use incremental refreshes, FULL to recompute the whole table on every refresh, or AUTO to let Snowflake decide.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#refresh_mode DynamicTable#refresh_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#refresh_mode DynamicTable#refresh_mode}
         '''
         result = self._values.get("refresh_mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -795,7 +795,7 @@ class DynamicTableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DynamicTableTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#timeouts DynamicTable#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#timeouts DynamicTable#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DynamicTableTimeouts"], result)
@@ -825,8 +825,8 @@ class DynamicTableTargetLag:
         maximum_duration: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param downstream: Specifies whether the target lag time is downstream. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#downstream DynamicTable#downstream}
-        :param maximum_duration: Specifies the maximum target lag time for the dynamic table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#maximum_duration DynamicTable#maximum_duration}
+        :param downstream: Specifies whether the target lag time is downstream. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#downstream DynamicTable#downstream}
+        :param maximum_duration: Specifies the maximum target lag time for the dynamic table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#maximum_duration DynamicTable#maximum_duration}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__17886b27ae23a0bc53a5ba87b22c8a3a01ff1220f237ca2a1cf861abd55d9ef8)
@@ -844,7 +844,7 @@ class DynamicTableTargetLag:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Specifies whether the target lag time is downstream.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#downstream DynamicTable#downstream}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#downstream DynamicTable#downstream}
         '''
         result = self._values.get("downstream")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -853,7 +853,7 @@ class DynamicTableTargetLag:
     def maximum_duration(self) -> typing.Optional[builtins.str]:
         '''Specifies the maximum target lag time for the dynamic table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#maximum_duration DynamicTable#maximum_duration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#maximum_duration DynamicTable#maximum_duration}
         '''
         result = self._values.get("maximum_duration")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -970,10 +970,10 @@ class DynamicTableTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#create DynamicTable#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#delete DynamicTable#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#read DynamicTable#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#update DynamicTable#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#create DynamicTable#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#delete DynamicTable#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#read DynamicTable#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#update DynamicTable#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0224886e0510250c4adc17b560396ee2abce08666d312a24a6fcc0b814b21224)
@@ -993,25 +993,25 @@ class DynamicTableTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#create DynamicTable#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#create DynamicTable#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#delete DynamicTable#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#delete DynamicTable#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#read DynamicTable#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#read DynamicTable#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/dynamic_table#update DynamicTable#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/dynamic_table#update DynamicTable#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

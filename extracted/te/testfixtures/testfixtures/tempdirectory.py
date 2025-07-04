@@ -2,18 +2,16 @@ import atexit
 import os
 import warnings
 from pathlib import Path
-
 from re import compile
 from tempfile import mkdtemp
-from typing import Union, Sequence, TYPE_CHECKING, Tuple, Callable
+from types import TracebackType
+from typing import Sequence, Callable, TypeAlias, Self
 
 from testfixtures.comparison import compare
 from testfixtures.utils import wrap
-
 from .rmtree import rmtree
 
-
-PathStrings = Union[str, Tuple[str, ...]]
+PathStrings: TypeAlias = str | Sequence[str]
 
 
 class TempDirectory:
@@ -41,7 +39,7 @@ class TempDirectory:
                 when used as a decorator or context manager.
     """
 
-    instances = set()
+    instances = set['TempDirectory']()
     atexit_setup = False
 
     #: The absolute path of the :class:`TempDirectory` on disk
@@ -49,11 +47,11 @@ class TempDirectory:
 
     def __init__(
             self,
-            path: Union[str, Path] = None,
+            path: str | Path | None = None,
             *,
             ignore: Sequence[str] = (),
-            create: bool = None,
-            encoding: str = None,
+            create: bool | None = None,
+            encoding: str | None = None,
             cwd: bool = False,
     ):
         self.ignore = []
@@ -62,17 +60,17 @@ class TempDirectory:
         self.path = str(path) if path else None
         self.encoding = encoding
         self.cwd = cwd
-        self.original_cwd = None
+        self.original_cwd: str | None = None
         self.dont_remove = bool(path)
         if create or (path is None and create is None):
             self.create()
 
     @classmethod
-    def atexit(cls):
+    def atexit(cls) -> None:
         if cls.instances:
             warnings.warn(
                 'TempDirectory instances not cleaned up by shutdown:\n'
-                '%s' % ('\n'.join(i.path for i in cls.instances))
+                '%s' % ('\n'.join(i.path for i in cls.instances if i.path))
                 )
 
     def create(self) -> 'TempDirectory':
@@ -98,7 +96,7 @@ class TempDirectory:
         This :class:`TempDirectory` cannot be used again unless
         :meth:`create` is called.
         """
-        if self.cwd:
+        if self.cwd and self.original_cwd:
             os.chdir(self.original_cwd)
             self.original_cwd = None
         if self.path and os.path.exists(self.path) and not self.dont_remove:
@@ -118,18 +116,16 @@ class TempDirectory:
 
     def actual(
             self,
-            path: PathStrings = None,
+            path: PathStrings | None = None,
             recursive: bool = False,
             files_only: bool = False,
             followlinks: bool = False,
-    ):
-        path = self._join(path) if path else self.path
+    ) -> list[str]:
+        path = self._join(path)
 
-        result = []
+        result: list[str] = []
         if recursive:
-            for dirpath, dirnames, filenames in os.walk(
-                    path, followlinks=followlinks
-            ):
+            for dirpath, dirnames, filenames in os.walk(path, followlinks=followlinks):
                 dirpath = '/'.join(dirpath[len(path)+1:].split(os.sep))
                 if dirpath:
                     dirpath += '/'
@@ -145,18 +141,18 @@ class TempDirectory:
                 result.append(n)
 
         filtered = []
-        for path in sorted(result):
+        for result_path in sorted(result):
             ignore = False
             for regex in self.ignore:
-                if regex.search(path):
+                if regex.search(result_path):
                     ignore = True
                     break
             if ignore:
                 continue
-            filtered.append(path)
+            filtered.append(result_path)
         return filtered
 
-    def listdir(self, path: PathStrings = None, recursive: bool = False):
+    def listdir(self, path: PathStrings | None = None, recursive: bool = False) -> None:
         """
         Print the contents of the specified directory.
 
@@ -188,11 +184,11 @@ class TempDirectory:
     def compare(
             self,
             expected: Sequence[str],
-            path: PathStrings = None,
+            path: PathStrings | None = None,
             files_only: bool = False,
             recursive: bool = True,
             followlinks: bool = False,
-    ):
+    ) -> None:
         """
         Compare the expected contents with the actual contents of the temporary
         directory. An :class:`AssertionError` will be raised if they are not the
@@ -234,11 +230,15 @@ class TempDirectory:
                 )),
                 recursive=False)
 
-    def _join(self, name):
+    def _join(self, parts: str | Sequence[str] | None) -> str:
+        if self.path is None:
+            raise RuntimeError('Instantiated with create=False and .create() not called')
         # make things platform independent
-        if isinstance(name, str):
-            name = name.split('/')
-        relative = os.sep.join(name).rstrip(os.sep)
+        if parts is None:
+            return self.path
+        if isinstance(parts, str):
+            parts = parts.split('/')
+        relative = os.sep.join(parts).rstrip(os.sep)
         if relative.startswith(os.sep):
             if relative.startswith(self.path):
                 return relative
@@ -247,7 +247,7 @@ class TempDirectory:
                 )
         return os.path.join(self.path, relative)
 
-    def makedir(self, dirpath: PathStrings):
+    def makedir(self, dirpath: PathStrings) -> str:
         """
         Make an empty directory at the specified path within the
         temporary directory. Any intermediate subdirectories that do
@@ -265,7 +265,7 @@ class TempDirectory:
         os.makedirs(thepath)
         return thepath
 
-    def write(self, filepath: PathStrings, data: Union[bytes, str], encoding: str = None):
+    def write(self, filepath: PathStrings, data: str | bytes, encoding: str | None = None) -> str:
         """
         Write the supplied data to a file at the specified path within
         the temporary directory. Any subdirectories specified that do
@@ -291,15 +291,16 @@ class TempDirectory:
 
         :returns: The absolute path of the file written.
         """
-        if isinstance(filepath, str):
-            filepath = filepath.split('/')
-        if len(filepath) > 1:
-            dirpath = self._join(filepath[:-1])
+        filepath_parts = filepath.split('/') if isinstance(filepath, str) else filepath
+        if len(filepath_parts) > 1:
+            dirpath = self._join(filepath_parts[:-1])
             if not os.path.exists(dirpath):
                 os.makedirs(dirpath)
-        thepath = self._join(filepath)
+        thepath = self._join(filepath_parts)
         encoding = encoding or self.encoding
         if encoding is not None:
+            if isinstance(data, bytes):
+                raise TypeError('Cannot specify encoding when data is bytes')
             data = data.encode(encoding)
         elif isinstance(data, str):
             data = data.encode()
@@ -307,7 +308,7 @@ class TempDirectory:
             f.write(data)
         return thepath
 
-    def as_string(self, path: Union[str, Sequence[str]] = None) -> str:
+    def as_string(self, path: str | Sequence[str] | None = None) -> str:
         """
         Return the full path on disk that corresponds to the path
         relative to the temporary directory that is passed in.
@@ -321,14 +322,14 @@ class TempDirectory:
         :returns: A string containing the absolute path.
 
         """
-        return self.path if path is None else self._join(path)
+        return self._join(path)
 
     #: .. deprecated:: 7
     #:
     #:   Use :meth:`as_string` instead.
     getpath = as_string
 
-    def as_path(self, path: PathStrings = None) -> Path:
+    def as_path(self, path: PathStrings | None = None) -> Path:
         """
         Return the :class:`~pathlib.Path` that corresponds to the path
         relative to the temporary directory that is passed in.
@@ -339,12 +340,12 @@ class TempDirectory:
 
                      * A forward-slash separated string.
         """
-        return Path(self.path if path is None else self._join(path))
+        return Path(self._join(path))
 
     def __truediv__(self, other: str) -> Path:
         return self.as_path() / other
 
-    def read(self, filepath: PathStrings, encoding: str = None) -> Union[bytes, str]:
+    def read(self, filepath: PathStrings, encoding: str | None = None) -> str | bytes:
         """
         Reads the file at the specified path within the temporary
         directory.
@@ -373,14 +374,25 @@ class TempDirectory:
             return data.decode(encoding)
         return data
 
-    def __enter__(self):
+    def __enter__(self) -> Self:
         return self
 
-    def __exit__(self, type, value, traceback):
+    def __exit__(
+            self,
+            exc_type: type[BaseException] | None,
+            value: BaseException | None,
+            traceback: TracebackType | None,
+    ) -> None:
         self.cleanup()
 
 
-def tempdir(*args, **kw) -> Callable[[Callable], Callable]:
+def tempdir(
+        path: str | Path | None = None,
+        *,
+        ignore: Sequence[str] = (),
+        encoding: str | None = None,
+        cwd: bool = False,
+) -> Callable[[Callable], Callable]:
     """
     A decorator for making a :class:`TempDirectory` available for the
     duration of a test function.
@@ -388,6 +400,5 @@ def tempdir(*args, **kw) -> Callable[[Callable], Callable]:
     All arguments and parameters are passed through to the
     :class:`TempDirectory` constructor.
     """
-    kw['create'] = False
-    l = TempDirectory(*args, **kw)
+    l = TempDirectory(path, ignore=ignore, encoding=encoding, cwd=cwd, create=False)
     return wrap(l.create, l.cleanup)

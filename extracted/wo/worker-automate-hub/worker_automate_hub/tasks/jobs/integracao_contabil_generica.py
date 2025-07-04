@@ -258,9 +258,6 @@ async def integracao_contabil_generica(
 
             if localizacao:
                 console.print("Imagem sem lote para integrar encontrada!")
-                app = Application(backend="win32").connect(class_name="TMsgBox", found_index=0)
-                main_window = app["TMsgBox"]
-                main_window.child_window(class_name="TBitBtn", found_index=0).click_input()
                 return RpaRetornoProcessoDTO(
                     sucesso=False,
                     retorno=f"Sem lotes para integrar.",
@@ -271,11 +268,17 @@ async def integracao_contabil_generica(
                 console.print("Imagem não encontrada.")
 
         except ImageNotFoundException:
-            console.print("Imagem não encontrada (exceção capturada). Tentando clicar no OK.")
+            console.print(
+                "Imagem não encontrada (exceção capturada). Tentando clicar no OK."
+            )
             try:
-                app = Application(backend="win32").connect(class_name="TMsgBox", found_index=0)
+                app = Application(backend="win32").connect(
+                    class_name="TMsgBox", found_index=0
+                )
                 main_window = app["TMsgBox"]
-                main_window.child_window(class_name="TBitBtn", found_index=0).click_input()
+                main_window.child_window(
+                    class_name="TBitBtn", found_index=0
+                ).click_input()
                 return RpaRetornoProcessoDTO(
                     sucesso=False,
                     retorno=f"Sem lotes para integrar.",
@@ -403,45 +406,76 @@ async def integracao_contabil_generica(
             # Buscar botão pelo texto (mesmo com acento)
             botao_integrar = main_window.child_window(
                 title="Integrar Lançamentos", class_name="TBitBtn"
-            )
+            ).wrapper_object()
 
             botao_integrar.click_input()
             assets_int_cont = "assets\\integracao_contabil\\"
             err_dict = {
-                assets_int_cont + "erro_duplicidade.png": "Erro de Duplicidade localizado enquanto finalizava a integração.",
-                assets_int_cont + "conta_indefinida_error.png": "Conta contábil indefinida no sistema.",
-                assets_int_cont + "lote_sem_complemento_error.png": "Lote encontrado sem complemento obrigatório.",
+                assets_int_cont
+                + "erro_duplicidade.png": "Erro de Duplicidade localizado enquanto finalizava a integração.",
+                assets_int_cont
+                + "conta_indefinida_error.png": "Conta contábil indefinida no sistema.",
+                assets_int_cont
+                + "lote_sem_complemento_error.png": "Lote encontrado sem complemento obrigatório.",
             }
             # Aguardar finalizar
             while True:
+                mensagem_mapeada = get_text_from_window(
+                    main_window, (830, 509, 998, 524)
+                )
+                print("mensagem_mapeada:", mensagem_mapeada)
                 try:
+                    app = Application(backend="win32").connect(
+                        class_name="TMsgBox", found_index=0
+                    )
+                    msg_box = app["TMsgBox"]
+
+                    # Antes de qualquer coisa, verifica por imagem de erro
                     for img_path, mensagem in err_dict.items():
                         err = pyautogui.locateOnScreen(img_path, confidence=0.86)
                         if err:
                             console.print(f"[red]Erro encontrado:[/red] {mensagem}")
+
+                            # Clique no botão OK da mensagem de erro antes de retornar
+                            msg_box.child_window(
+                                class_name="TBitBtn", found_index=0
+                            ).click_input()
+
                             return RpaRetornoProcessoDTO(
                                 sucesso=False,
                                 retorno=mensagem,
                                 status=RpaHistoricoStatusEnum.Falha,
                                 tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)],
                             )
-                    # Conecta à janela do tipo MsgBox
-                    await worker_sleep(1)
-                    app = Application(backend="win32").connect(class_name="TMsgBox")
-                    msgbox = app.window(class_name="TMsgBox", title_re="Inform.*")
-                    msgbox.set_focus()
-                    # Procura pelo botão com texto '&Ok'
-                    botao_ok = msgbox.child_window(class_name="TBitBtn", title="&Ok")
-                    if botao_ok.exists() and botao_ok.is_visible():
-                        botao_ok.click_input()
-                        console.print("Botão '&Ok' clicado com sucesso.")
-                        break
-                except ElementNotFoundError:
-                    console.print("Janela MsgBox não encontrada ainda.")
-                except Exception as e:
-                    print(f"Erro ao tentar clicar no botão: {e}")
 
-            time.sleep(2)
+                    # Se não for erro por imagem, assume que é confirmação final
+                    msg_box.child_window(
+                        class_name="TBitBtn", found_index=0
+                    ).click_input()
+                    break
+
+                except ElementNotFoundError:
+                    console.print("[yellow]Janela TMsgBox ainda não visível.[/yellow]")
+                except Exception as e:
+                    console.print(
+                        f"[red]Erro inesperado ao verificar janela de confirmação: {e}"
+                    )
+
+                await worker_sleep(1)
+
+                try:
+                    app = Application(backend="win32").connect(
+                        class_name="TMsgBox", found_index=0
+                    )
+                    main_window = app["TMsgBox"]
+                    main_window.child_window(
+                        class_name="TBitBtn", found_index=0
+                    ).click_input()
+                    time.sleep(5)
+                    break
+                except ElementNotFoundError:
+                    console.print("[yellow]Janela TMsgBox ainda não visível.[/yellow]")
+
             if lotesMarcados:
                 if (
                     checkbox.exists()
@@ -450,7 +484,7 @@ async def integracao_contabil_generica(
                 ):
                     checkbox.click_input()
                     print("Checkbox 'Lotes Consistentes' desmarcado com sucesso.")
-                time.sleep(2)
+                time.sleep(5)
                 return RpaRetornoProcessoDTO(
                     sucesso=False,
                     retorno=f"Integração realizada, porém, existem LOTES INCONSISTENTES.",

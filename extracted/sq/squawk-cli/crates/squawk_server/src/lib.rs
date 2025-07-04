@@ -5,8 +5,8 @@ use lsp_server::{Connection, Message, Notification, Response};
 use lsp_types::{
     CodeDescription, Diagnostic, DiagnosticSeverity, DidChangeTextDocumentParams,
     DidCloseTextDocumentParams, DidOpenTextDocumentParams, GotoDefinitionParams,
-    GotoDefinitionResponse, InitializeParams, Location, OneOf, Position, PublishDiagnosticsParams,
-    Range, ServerCapabilities, TextDocumentSyncCapability, TextDocumentSyncKind, Url,
+    GotoDefinitionResponse, InitializeParams, Location, Position, PublishDiagnosticsParams, Range,
+    ServerCapabilities, TextDocumentSyncCapability, TextDocumentSyncKind, Url,
     notification::{
         DidChangeTextDocument, DidCloseTextDocument, DidOpenTextDocument, Notification as _,
         PublishDiagnostics,
@@ -23,7 +23,7 @@ pub fn run() -> Result<()> {
 
     let server_capabilities = serde_json::to_value(&ServerCapabilities {
         text_document_sync: Some(TextDocumentSyncCapability::Kind(TextDocumentSyncKind::FULL)),
-        definition_provider: Some(OneOf::Left(true)),
+        // definition_provider: Some(OneOf::Left(true)),
         ..Default::default()
     })
     .unwrap();
@@ -58,12 +58,20 @@ fn main_loop(connection: Connection, params: serde_json::Value) -> Result<()> {
                     return Ok(());
                 }
 
-                if req.method == GotoDefinition::METHOD {
-                    handle_goto_definition(&connection, req)?;
-                    continue;
+                match req.method.as_ref() {
+                    GotoDefinition::METHOD => {
+                        handle_goto_definition(&connection, req)?;
+                    }
+                    "squawk/syntaxTree" => {
+                        handle_syntax_tree(&connection, req)?;
+                    }
+                    "squawk/tokens" => {
+                        handle_tokens(&connection, req)?;
+                    }
+                    _ => {
+                        info!("Ignoring unhandled request: {}", req.method);
+                    }
                 }
-
-                info!("Ignoring unhandled request: {}", req.method);
             }
             Message::Response(resp) => {
                 info!("Received response: id={:?}", resp.id);
@@ -233,5 +241,77 @@ fn lint(connection: &Connection, uri: lsp_types::Url, content: &str, version: i3
         .sender
         .send(Message::Notification(notification))?;
 
+    Ok(())
+}
+
+#[derive(serde::Deserialize)]
+struct SyntaxTreeParams {
+    #[serde(rename = "textDocument")]
+    text_document: lsp_types::TextDocumentIdentifier,
+    // TODO: once we start storing the text doc on the server we won't need to
+    // send the content across the wire
+    text: String,
+}
+
+fn handle_syntax_tree(connection: &Connection, req: lsp_server::Request) -> Result<()> {
+    let params: SyntaxTreeParams = serde_json::from_value(req.params)?;
+    let uri = params.text_document.uri;
+    let content = params.text;
+
+    info!("Generating syntax tree for: {}", uri);
+
+    let parse: Parse<SourceFile> = SourceFile::parse(&content);
+    let syntax_tree = format!("{:#?}", parse.syntax_node());
+
+    let resp = Response {
+        id: req.id,
+        result: Some(serde_json::to_value(&syntax_tree).unwrap()),
+        error: None,
+    };
+
+    connection.sender.send(Message::Response(resp))?;
+    Ok(())
+}
+
+#[derive(serde::Deserialize)]
+struct TokensParams {
+    #[serde(rename = "textDocument")]
+    text_document: lsp_types::TextDocumentIdentifier,
+    // TODO: once we start storing the text doc on the server we won't need to
+    // send the content across the wire
+    text: String,
+}
+
+fn handle_tokens(connection: &Connection, req: lsp_server::Request) -> Result<()> {
+    let params: TokensParams = serde_json::from_value(req.params)?;
+    let uri = params.text_document.uri;
+    let content = params.text;
+
+    info!("Generating tokens for: {}", uri);
+
+    let tokens = squawk_lexer::tokenize(&content);
+
+    let mut output = Vec::new();
+    let mut char_pos = 0;
+    for token in tokens {
+        let token_start = char_pos;
+        let token_end = token_start + token.len as usize;
+        let token_text = &content[token_start..token_end];
+        output.push(format!(
+            "{:?}@{}..{} {:?}",
+            token.kind, token_start, token_end, token_text
+        ));
+        char_pos = token_end;
+    }
+
+    let tokens_output = output.join("\n");
+
+    let resp = Response {
+        id: req.id,
+        result: Some(serde_json::to_value(&tokens_output).unwrap()),
+        error: None,
+    };
+
+    connection.sender.send(Message::Response(resp))?;
     Ok(())
 }

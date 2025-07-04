@@ -12,9 +12,20 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from typing import Any, ClassVar, Literal, Optional, Sequence, Union
+from __future__ import annotations
 
-from pydantic import ConfigDict
+from typing import (
+    Any,
+    ClassVar,
+    Literal,
+    Optional,
+    Sequence,
+    Union,
+)
+import warnings
+
+from pydantic import ConfigDict, Field, model_validator, field_validator
+from typing_extensions import Self
 
 from neo4j_graphrag.experimental.components.embedder import TextChunkEmbedder
 from neo4j_graphrag.experimental.components.entity_relation_extractor import (
@@ -22,6 +33,7 @@ from neo4j_graphrag.experimental.components.entity_relation_extractor import (
     LLMEntityRelationExtractor,
     OnError,
 )
+from neo4j_graphrag.experimental.components.graph_pruning import GraphPruning
 from neo4j_graphrag.experimental.components.kg_writer import KGWriter, Neo4jWriter
 from neo4j_graphrag.experimental.components.pdf_loader import PdfLoader
 from neo4j_graphrag.experimental.components.resolver import (
@@ -30,8 +42,8 @@ from neo4j_graphrag.experimental.components.resolver import (
 )
 from neo4j_graphrag.experimental.components.schema import (
     SchemaBuilder,
-    SchemaEntity,
-    SchemaRelation,
+    GraphSchema,
+    SchemaFromTextExtractor,
 )
 from neo4j_graphrag.experimental.components.text_splitters.base import TextSplitter
 from neo4j_graphrag.experimental.components.text_splitters.fixed_size_splitter import (
@@ -39,7 +51,6 @@ from neo4j_graphrag.experimental.components.text_splitters.fixed_size_splitter i
 )
 from neo4j_graphrag.experimental.components.types import (
     LexicalGraphConfig,
-    SchemaEnforcementMode,
 )
 from neo4j_graphrag.experimental.pipeline.config.object_config import ComponentType
 from neo4j_graphrag.experimental.pipeline.config.template_pipeline.base import (
@@ -62,6 +73,7 @@ class SimpleKGPipelineConfig(TemplatePipelineConfig):
         "chunk_embedder",
         "schema",
         "extractor",
+        "pruner",
         "writer",
         "resolver",
     ]
@@ -74,7 +86,7 @@ class SimpleKGPipelineConfig(TemplatePipelineConfig):
     entities: Sequence[EntityInputType] = []
     relations: Sequence[RelationInputType] = []
     potential_schema: Optional[list[tuple[str, str, str]]] = None
-    enforce_schema: SchemaEnforcementMode = SchemaEnforcementMode.NONE
+    schema_: Optional[GraphSchema] = Field(default=None, alias="schema")
     on_error: OnError = OnError.IGNORE
     prompt_template: Union[ERExtractionTemplate, str] = ERExtractionTemplate()
     perform_entity_resolution: bool = True
@@ -86,6 +98,58 @@ class SimpleKGPipelineConfig(TemplatePipelineConfig):
     text_splitter: Optional[ComponentType] = None
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    @field_validator("schema_", mode="before")
+    @classmethod
+    def validate_schema_literal(cls, v: Any) -> Any:
+        if v == "FREE":  # same as "empty" schema, no guiding schema
+            return GraphSchema.create_empty()
+        if v == "EXTRACTED":  # same as no schema, schema will be extracted by LLM
+            return None
+        return v
+
+    @model_validator(mode="after")
+    def handle_schema_precedence(self) -> Self:
+        """Handle schema precedence and warnings"""
+        self._process_schema_parameters()
+        return self
+
+    def _process_schema_parameters(self) -> None:
+        """
+        Process schema parameters and handle precedence between 'schema' parameter and individual components.
+        Also logs warnings for deprecated usage.
+        """
+        # check if both schema and individual components are provided
+        has_individual_schema_components = any(
+            [self.entities, self.relations, self.potential_schema]
+        )
+
+        if has_individual_schema_components and self.schema_ is not None:
+            warnings.warn(
+                "Both 'schema' and individual schema components (entities, relations, potential_schema) "
+                "were provided. The 'schema' parameter takes precedence. In the future, individual "
+                "components will be removed. Please use only the 'schema' parameter.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
+        elif has_individual_schema_components:
+            warnings.warn(
+                "The 'entities', 'relations', and 'potential_schema' parameters are deprecated "
+                "and will be removed in a future version. "
+                "Please use the 'schema' parameter instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
+    def has_user_provided_schema(self) -> bool:
+        """Check if the user has provided schema information"""
+        return bool(
+            self.entities
+            or self.relations
+            or self.potential_schema
+            or self.schema_ is not None
+        )
 
     def _get_pdf_loader(self) -> Optional[PdfLoader]:
         if not self.from_pdf:
@@ -114,23 +178,52 @@ class SimpleKGPipelineConfig(TemplatePipelineConfig):
     def _get_chunk_embedder(self) -> TextChunkEmbedder:
         return TextChunkEmbedder(embedder=self.get_default_embedder())
 
-    def _get_schema(self) -> SchemaBuilder:
+    def _get_schema(self) -> Union[SchemaBuilder, SchemaFromTextExtractor]:
+        """
+        Get the appropriate schema component based on configuration.
+        Return SchemaFromTextExtractor for automatic extraction or SchemaBuilder for manual schema.
+        """
+        if not self.has_user_provided_schema():
+            return SchemaFromTextExtractor(llm=self.get_default_llm())
         return SchemaBuilder()
 
+    def _process_schema_with_precedence(self) -> dict[str, Any]:
+        """
+        Process schema inputs according to precedence rules:
+        1. If schema is provided as GraphSchema object, use it
+        2. If schema is provided as dictionary, extract from it
+        3. Otherwise, use individual schema components
+
+        Returns:
+            A dict representing the schema
+        """
+        if self.schema_ is not None:
+            return self.schema_.model_dump()
+
+        return dict(
+            node_types=self.entities,
+            relationship_types=self.relations,
+            patterns=self.potential_schema,
+        )
+
     def _get_run_params_for_schema(self) -> dict[str, Any]:
-        return {
-            "entities": [SchemaEntity.from_text_or_dict(e) for e in self.entities],
-            "relations": [SchemaRelation.from_text_or_dict(r) for r in self.relations],
-            "potential_schema": self.potential_schema,
-        }
+        if not self.has_user_provided_schema():
+            # for automatic extraction, the text parameter is needed (will flow through the pipeline connections)
+            return {}
+        else:
+            # process schema components according to precedence rules
+            schema_dict = self._process_schema_with_precedence()
+            return schema_dict
 
     def _get_extractor(self) -> EntityRelationExtractor:
         return LLMEntityRelationExtractor(
             llm=self.get_default_llm(),
             prompt_template=self.prompt_template,
-            enforce_schema=self.enforce_schema,
             on_error=self.on_error,
         )
+
+    def _get_pruner(self) -> GraphPruning:
+        return GraphPruning()
 
     def _get_writer(self) -> KGWriter:
         if self.kg_writer:
@@ -163,6 +256,17 @@ class SimpleKGPipelineConfig(TemplatePipelineConfig):
                     input_config={"text": "pdf_loader.text"},
                 )
             )
+
+            # handle automatic schema extraction
+            if not self.has_user_provided_schema():
+                connections.append(
+                    ConnectionDefinition(
+                        start="pdf_loader",
+                        end="schema",
+                        input_config={"text": "pdf_loader.text"},
+                    )
+                )
+
             connections.append(
                 ConnectionDefinition(
                     start="schema",
@@ -178,9 +282,7 @@ class SimpleKGPipelineConfig(TemplatePipelineConfig):
                 ConnectionDefinition(
                     start="schema",
                     end="extractor",
-                    input_config={
-                        "schema": "schema",
-                    },
+                    input_config={"schema": "schema"},
                 )
             )
         connections.append(
@@ -204,9 +306,19 @@ class SimpleKGPipelineConfig(TemplatePipelineConfig):
         connections.append(
             ConnectionDefinition(
                 start="extractor",
-                end="writer",
+                end="pruner",
                 input_config={
                     "graph": "extractor",
+                    "schema": "schema",
+                },
+            )
+        )
+        connections.append(
+            ConnectionDefinition(
+                start="pruner",
+                end="writer",
+                input_config={
+                    "graph": "pruner.graph",
                 },
             )
         )
@@ -226,7 +338,13 @@ class SimpleKGPipelineConfig(TemplatePipelineConfig):
         run_params = {}
         if self.lexical_graph_config:
             run_params["extractor"] = {
-                "lexical_graph_config": self.lexical_graph_config
+                "lexical_graph_config": self.lexical_graph_config,
+            }
+            run_params["writer"] = {
+                "lexical_graph_config": self.lexical_graph_config,
+            }
+            run_params["pruner"] = {
+                "lexical_graph_config": self.lexical_graph_config,
             }
         text = user_input.get("text")
         file_path = user_input.get("file_path")
@@ -247,4 +365,7 @@ class SimpleKGPipelineConfig(TemplatePipelineConfig):
                     "Expected 'text' argument when 'from_pdf' is False."
                 )
             run_params["splitter"] = {"text": text}
+            # Add full text to schema component for automatic schema extraction
+            if not self.has_user_provided_schema():
+                run_params["schema"] = {"text": text}
         return run_params

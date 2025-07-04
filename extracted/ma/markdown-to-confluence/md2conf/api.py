@@ -8,7 +8,6 @@ Copyright 2022-2025, Levente Hunyadi
 
 import datetime
 import enum
-import functools
 import io
 import logging
 import mimetypes
@@ -16,26 +15,16 @@ import typing
 from dataclasses import dataclass
 from pathlib import Path
 from types import TracebackType
-from typing import Optional, TypeVar
+from typing import Any, Optional, TypeVar
 from urllib.parse import urlencode, urlparse, urlunparse
 
 import requests
 from strong_typing.core import JsonType
-from strong_typing.serialization import (
-    DeserializerOptions,
-    json_dump_string,
-    json_to_object,
-    object_to_json,
-)
+from strong_typing.serialization import DeserializerOptions, json_dump_string, json_to_object, object_to_json
 
 from .converter import ParseError, sanitize_confluence
 from .metadata import ConfluenceSiteMetadata
-from .properties import (
-    ArgumentError,
-    ConfluenceConnectionProperties,
-    ConfluenceError,
-    PageError,
-)
+from .properties import ArgumentError, ConfluenceConnectionProperties, ConfluenceError, PageError
 
 T = TypeVar("T")
 
@@ -106,6 +95,7 @@ class ConfluenceRepresentation(enum.Enum):
 class ConfluenceStatus(enum.Enum):
     CURRENT = "current"
     DRAFT = "draft"
+    ARCHIVED = "archived"
 
 
 @enum.unique
@@ -266,6 +256,41 @@ class ConfluenceIdentifiedLabel(ConfluenceLabel):
 
 
 @dataclass(frozen=True)
+class ConfluenceContentProperty:
+    """
+    Represents a content property.
+
+    :param key: Property key.
+    :param value: Property value as JSON.
+    """
+
+    key: str
+    value: JsonType
+
+
+@dataclass(frozen=True)
+class ConfluenceVersionedContentProperty(ConfluenceContentProperty):
+    """
+    Represents a content property.
+
+    :param version: Version information about the property.
+    """
+
+    version: ConfluenceContentVersion
+
+
+@dataclass(frozen=True)
+class ConfluenceIdentifiedContentProperty(ConfluenceVersionedContentProperty):
+    """
+    Represents a content property.
+
+    :param id: Property ID.
+    """
+
+    id: str
+
+
+@dataclass(frozen=True)
 class ConfluenceCreatePageRequest:
     spaceId: str
     status: Optional[ConfluenceStatus]
@@ -300,9 +325,7 @@ class ConfluenceAPI:
     properties: ConfluenceConnectionProperties
     session: Optional["ConfluenceSession"] = None
 
-    def __init__(
-        self, properties: Optional[ConfluenceConnectionProperties] = None
-    ) -> None:
+    def __init__(self, properties: Optional[ConfluenceConnectionProperties] = None) -> None:
         self.properties = properties or ConfluenceConnectionProperties()
 
     def __enter__(self) -> "ConfluenceSession":
@@ -310,9 +333,7 @@ class ConfluenceAPI:
         if self.properties.user_name:
             session.auth = (self.properties.user_name, self.properties.api_key)
         else:
-            session.headers.update(
-                {"Authorization": f"Bearer {self.properties.api_key}"}
-            )
+            session.headers.update({"Authorization": f"Bearer {self.properties.api_key}"})
 
         if self.properties.headers:
             session.headers.update(self.properties.headers)
@@ -366,9 +387,7 @@ class ConfluenceSession:
             self.api_url = api_url
 
             if not domain or not base_path:
-                payload = self._invoke(
-                    ConfluenceVersion.VERSION_2, "/spaces", {"limit": "1"}
-                )
+                payload = self._invoke(ConfluenceVersion.VERSION_2, "/spaces", {"limit": "1"})
                 data = json_to_object(ConfluenceResultSet, payload)
                 base_url = data._links.base
 
@@ -377,13 +396,9 @@ class ConfluenceSession:
                     base_path = f"{base_path}/"
 
         if not domain:
-            raise ArgumentError(
-                "Confluence domain not specified and cannot be inferred"
-            )
+            raise ArgumentError("Confluence domain not specified and cannot be inferred")
         if not base_path:
-            raise ArgumentError(
-                "Confluence base path not specified and cannot be inferred"
-            )
+            raise ArgumentError("Confluence base path not specified and cannot be inferred")
         self.site = ConfluenceSiteMetadata(domain, base_path, space_key)
         if not api_url:
             self.api_url = f"https://{self.site.domain}{self.site.base_path}"
@@ -425,9 +440,7 @@ class ConfluenceSession:
         response.raise_for_status()
         return typing.cast(JsonType, response.json())
 
-    def _fetch(
-        self, path: str, query: Optional[dict[str, str]] = None
-    ) -> list[JsonType]:
+    def _fetch(self, path: str, query: Optional[dict[str, str]] = None) -> list[JsonType]:
         "Retrieves all results of a REST API v2 paginated result-set."
 
         items: list[JsonType] = []
@@ -506,9 +519,7 @@ class ConfluenceSession:
 
         return id
 
-    def get_space_id(
-        self, *, space_id: Optional[str] = None, space_key: Optional[str] = None
-    ) -> Optional[str]:
+    def get_space_id(self, *, space_id: Optional[str] = None, space_key: Optional[str] = None) -> Optional[str]:
         """
         Coalesces a space ID or space key into a space ID, accounting for site default.
 
@@ -529,9 +540,7 @@ class ConfluenceSession:
         # space ID and key are unset, and no default space is configured
         return None
 
-    def get_attachment_by_name(
-        self, page_id: str, filename: str
-    ) -> ConfluenceAttachment:
+    def get_attachment_by_name(self, page_id: str, filename: str) -> ConfluenceAttachment:
         """
         Retrieves a Confluence page attachment by an unprefixed file name.
         """
@@ -583,6 +592,9 @@ class ConfluenceSession:
                 name = attachment_name
             content_type, _ = mimetypes.guess_type(name, strict=True)
 
+            if content_type is None:
+                content_type = "application/octet-stream"
+
         if attachment_path is not None and not attachment_path.is_file():
             raise PageError(f"file not found: {attachment_path}")
 
@@ -610,8 +622,13 @@ class ConfluenceSession:
 
         if attachment_path is not None:
             with open(attachment_path, "rb") as attachment_file:
-                file_to_upload = {
-                    "comment": comment,
+                file_to_upload: dict[str, tuple[Optional[str], Any, str, dict[str, str]]] = {
+                    "comment": (
+                        None,
+                        comment,
+                        "text/plain; charset=utf-8",
+                        {},
+                    ),
                     "file": (
                         attachment_name,  # will truncate path component
                         attachment_file,
@@ -622,7 +639,7 @@ class ConfluenceSession:
                 LOGGER.info("Uploading attachment: %s", attachment_name)
                 response = self.session.post(
                     url,
-                    files=file_to_upload,  # type: ignore[arg-type]
+                    files=file_to_upload,
                     headers={
                         "X-Atlassian-Token": "no-check",
                         "Accept": "application/json",
@@ -634,17 +651,22 @@ class ConfluenceSession:
             raw_file = io.BytesIO(raw_data)
             raw_file.name = attachment_name
             file_to_upload = {
-                "comment": comment,
+                "comment": (
+                    None,
+                    comment,
+                    "text/plain; charset=utf-8",
+                    {},
+                ),
                 "file": (
                     attachment_name,  # will truncate path component
-                    raw_file,  # type: ignore[dict-item]
+                    raw_file,
                     content_type,
                     {"Expires": "0"},
                 ),
             }
             response = self.session.post(
                 url,
-                files=file_to_upload,  # type: ignore[arg-type]
+                files=file_to_upload,
                 headers={
                     "X-Atlassian-Token": "no-check",
                     "Accept": "application/json",
@@ -667,9 +689,7 @@ class ConfluenceSession:
         # ensure path component is retained in attachment name
         self._update_attachment(page_id, attachment_id, version, attachment_name)
 
-    def _update_attachment(
-        self, page_id: str, attachment_id: str, version: int, attachment_title: str
-    ) -> None:
+    def _update_attachment(self, page_id: str, attachment_id: str, version: int, attachment_title: str) -> None:
         id = attachment_id.removeprefix("att")
         path = f"/content/{page_id}/child/attachment/{id}"
         request = ConfluenceUpdateAttachmentRequest(
@@ -730,7 +750,6 @@ class ConfluenceSession:
         payload = self._invoke(ConfluenceVersion.VERSION_2, path, query)
         return _json_to_object(ConfluencePage, payload)
 
-    @functools.cache
     def get_page_properties(self, page_id: str) -> ConfluencePageProperties:
         """
         Retrieves Confluence wiki page details.
@@ -784,14 +803,8 @@ class ConfluenceSession:
             id=page_id,
             status=ConfluenceStatus.CURRENT,
             title=new_title,
-            body=ConfluencePageBody(
-                storage=ConfluencePageStorage(
-                    representation=ConfluenceRepresentation.STORAGE, value=new_content
-                )
-            ),
-            version=ConfluenceContentVersion(
-                number=page.version.number + 1, minorEdit=True
-            ),
+            body=ConfluencePageBody(storage=ConfluencePageStorage(representation=ConfluenceRepresentation.STORAGE, value=new_content)),
+            version=ConfluenceContentVersion(number=page.version.number + 1, minorEdit=True),
         )
         LOGGER.info("Updating page: %s", page_id)
         self._save(ConfluenceVersion.VERSION_2, path, object_to_json(request))
@@ -973,7 +986,7 @@ class ConfluenceSession:
                 LOGGER.debug("Received HTTP payload:\n%s", response.text)
             response.raise_for_status()
 
-    def update_labels(self, page_id: str, labels: list[ConfluenceLabel]) -> None:
+    def update_labels(self, page_id: str, labels: list[ConfluenceLabel], *, keep_existing: bool = False) -> None:
         """
         Assigns the specified labels to a Confluence page. Existing labels are removed.
 
@@ -982,10 +995,7 @@ class ConfluenceSession:
         """
 
         new_labels = set(labels)
-        old_labels = set(
-            ConfluenceLabel(name=label.name, prefix=label.prefix)
-            for label in self.get_labels(page_id)
-        )
+        old_labels = set(ConfluenceLabel(name=label.name, prefix=label.prefix) for label in self.get_labels(page_id))
 
         add_labels = list(new_labels - old_labels)
         remove_labels = list(old_labels - new_labels)
@@ -993,6 +1003,123 @@ class ConfluenceSession:
         if add_labels:
             add_labels.sort()
             self.add_labels(page_id, add_labels)
-        if remove_labels:
+        if not keep_existing and remove_labels:
             remove_labels.sort()
             self.remove_labels(page_id, remove_labels)
+
+    def get_content_properties_for_page(self, page_id: str) -> list[ConfluenceIdentifiedContentProperty]:
+        """
+        Retrieves content properties for a Confluence page.
+
+        :param page_id: The Confluence page ID.
+        :returns: A list of content properties.
+        """
+
+        path = f"/pages/{page_id}/properties"
+        results = self._fetch(path)
+        return _json_to_object(list[ConfluenceIdentifiedContentProperty], results)
+
+    def add_content_property_to_page(self, page_id: str, property: ConfluenceContentProperty) -> ConfluenceIdentifiedContentProperty:
+        """
+        Adds a new content property to a Confluence page.
+
+        :param page_id: The Confluence page ID.
+        :param property: Content property to add.
+        """
+
+        path = f"/pages/{page_id}/properties"
+        url = self._build_url(ConfluenceVersion.VERSION_2, path)
+        response = self.session.post(
+            url,
+            data=json_dump_string(object_to_json(property)),
+            headers={
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            },
+        )
+        if response.text:
+            LOGGER.debug("Received HTTP payload:\n%s", response.text)
+        response.raise_for_status()
+        return _json_to_object(ConfluenceIdentifiedContentProperty, response.json())
+
+    def remove_content_property_from_page(self, page_id: str, property_id: str) -> None:
+        """
+        Removes a content property from a Confluence page.
+
+        :param page_id: The Confluence page ID.
+        :param property_id: Property ID, which uniquely identifies the property.
+        """
+
+        path = f"/pages/{page_id}/properties/{property_id}"
+        url = self._build_url(ConfluenceVersion.VERSION_2, path)
+        response = self.session.delete(url)
+        response.raise_for_status()
+
+    def update_content_property_for_page(
+        self, page_id: str, property_id: str, version: int, property: ConfluenceContentProperty
+    ) -> ConfluenceIdentifiedContentProperty:
+        """
+        Updates an existing content property associated with a Confluence page.
+
+        :param page_id: The Confluence page ID.
+        :param property_id: Property ID, which uniquely identifies the property.
+        :param version: Version number to assign.
+        :param property: Content property data to assign.
+        :returns: Updated content property data.
+        """
+
+        path = f"/pages/{page_id}/properties/{property_id}"
+        url = self._build_url(ConfluenceVersion.VERSION_2, path)
+        response = self.session.put(
+            url,
+            data=json_dump_string(
+                object_to_json(
+                    ConfluenceVersionedContentProperty(
+                        key=property.key,
+                        value=property.value,
+                        version=ConfluenceContentVersion(number=version),
+                    )
+                )
+            ),
+            headers={"Content-Type": "application/json"},
+        )
+        if response.text:
+            LOGGER.debug("Received HTTP payload:\n%s", response.text)
+        response.raise_for_status()
+        return json_to_object(ConfluenceIdentifiedContentProperty, response.json())
+
+    def update_content_properties_for_page(self, page_id: str, properties: list[ConfluenceContentProperty], *, keep_existing: bool = False) -> None:
+        """
+        Updates content properties associated with a Confluence page.
+
+        :param page_id: The Confluence page ID.
+        :param properties: A list of content property data to update.
+        :param keep_existing: Whether to keep content property data whose key is not included in the list of properties passed as an argument.
+        """
+
+        old_mapping = {p.key: p for p in self.get_content_properties_for_page(page_id)}
+        new_mapping = {p.key: p for p in properties}
+
+        new_props = set(p.key for p in properties)
+        old_props = set(old_mapping.keys())
+
+        add_props = list(new_props - old_props)
+        remove_props = list(old_props - new_props)
+        update_props = list(old_props & new_props)
+
+        if add_props:
+            add_props.sort()
+            for key in add_props:
+                self.add_content_property_to_page(page_id, new_mapping[key])
+        if not keep_existing and remove_props:
+            remove_props.sort()
+            for key in remove_props:
+                self.remove_content_property_from_page(page_id, old_mapping[key].id)
+        if update_props:
+            update_props.sort()
+            for key in update_props:
+                old_prop = old_mapping[key]
+                new_prop = new_mapping[key]
+                if old_prop.value == new_prop.value:
+                    continue
+                self.update_content_property_for_page(page_id, old_prop.id, old_prop.version.number + 1, new_prop)

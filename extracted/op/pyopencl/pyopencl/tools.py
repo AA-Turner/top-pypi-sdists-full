@@ -806,8 +806,8 @@ class VectorArg(DtypedArgument):
     """
     with_offset: bool
 
-    def __init__(self, name: str, dtype: DTypeLike, with_offset: bool = False):
-        super().__init__(name, dtype)
+    def __init__(self, dtype: DTypeLike, name: str, with_offset: bool = False):
+        super().__init__(dtype, name)
         object.__setattr__(self, "with_offset", with_offset)
 
     @override
@@ -860,7 +860,7 @@ def parse_c_arg(c_arg: str, with_offset: bool = False) -> DtypedArgument:
 
 
 def parse_arg_list(
-        arguments: str | list[str] | list[DtypedArgument],
+        arguments: str | list[str] | Sequence[DtypedArgument],
         with_offset: bool = False) -> list[DtypedArgument]:
     """Parse a list of kernel arguments. *arguments* may be a comma-separate
     list of C declarators in a string, a list of strings representing C

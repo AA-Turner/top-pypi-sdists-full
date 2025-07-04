@@ -24,6 +24,8 @@ from lusid.models.day_month import DayMonth
 from lusid.models.instrument_resolution_detail import InstrumentResolutionDetail
 from lusid.models.link import Link
 from lusid.models.model_property import ModelProperty
+from lusid.models.nav_type_definition import NavTypeDefinition
+from lusid.models.portfolio_entity_id_with_details import PortfolioEntityIdWithDetails
 from lusid.models.resource_id import ResourceId
 from lusid.models.version import Version
 
@@ -35,17 +37,21 @@ class Fund(BaseModel):
     id: ResourceId = Field(...)
     display_name:  Optional[StrictStr] = Field(None,alias="displayName", description="The name of the Fund.") 
     description:  Optional[StrictStr] = Field(None,alias="description", description="A description for the Fund.") 
+    base_currency:  Optional[StrictStr] = Field(None,alias="baseCurrency", description="The base currency of the Fund in ISO 4217 currency code format. All portfolios must be of a matching base currency.") 
+    portfolio_ids: Optional[conlist(PortfolioEntityIdWithDetails)] = Field(None, alias="portfolioIds", description="A list of the portfolios on the fund, which are part of the Fund. Note: These must all have the same base currency, which must also much the Fund Base Currency.")
     fund_configuration_id: Optional[ResourceId] = Field(None, alias="fundConfigurationId")
-    abor_id: ResourceId = Field(..., alias="aborId")
+    abor_id: Optional[ResourceId] = Field(None, alias="aborId")
     share_class_instruments: Optional[conlist(InstrumentResolutionDetail)] = Field(None, alias="shareClassInstruments", description="Details the user-provided instrument identifiers and the instrument resolved from them.")
     type:  StrictStr = Field(...,alias="type", description="The type of fund; 'Standalone', 'Master' or 'Feeder'") 
     inception_date: datetime = Field(..., alias="inceptionDate", description="Inception date of the Fund")
     decimal_places: Optional[conint(strict=True)] = Field(None, alias="decimalPlaces", description="Number of decimal places for reporting")
-    year_end_date: DayMonth = Field(..., alias="yearEndDate")
+    year_end_date: Optional[DayMonth] = Field(None, alias="yearEndDate")
+    primary_nav_type: Optional[NavTypeDefinition] = Field(None, alias="primaryNavType")
+    additional_nav_types: Optional[conlist(NavTypeDefinition)] = Field(None, alias="additionalNavTypes", description="The definitions for any additional NAVs on the Fund.")
     properties: Optional[Dict[str, ModelProperty]] = Field(None, description="A set of properties for the Fund.")
     version: Optional[Version] = None
     links: Optional[conlist(Link)] = None
-    __properties = ["href", "id", "displayName", "description", "fundConfigurationId", "aborId", "shareClassInstruments", "type", "inceptionDate", "decimalPlaces", "yearEndDate", "properties", "version", "links"]
+    __properties = ["href", "id", "displayName", "description", "baseCurrency", "portfolioIds", "fundConfigurationId", "aborId", "shareClassInstruments", "type", "inceptionDate", "decimalPlaces", "yearEndDate", "primaryNavType", "additionalNavTypes", "properties", "version", "links"]
 
     class Config:
         """Pydantic configuration"""
@@ -82,6 +88,13 @@ class Fund(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of id
         if self.id:
             _dict['id'] = self.id.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of each item in portfolio_ids (list)
+        _items = []
+        if self.portfolio_ids:
+            for _item in self.portfolio_ids:
+                if _item:
+                    _items.append(_item.to_dict())
+            _dict['portfolioIds'] = _items
         # override the default output from pydantic by calling `to_dict()` of fund_configuration_id
         if self.fund_configuration_id:
             _dict['fundConfigurationId'] = self.fund_configuration_id.to_dict()
@@ -98,6 +111,16 @@ class Fund(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of year_end_date
         if self.year_end_date:
             _dict['yearEndDate'] = self.year_end_date.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of primary_nav_type
+        if self.primary_nav_type:
+            _dict['primaryNavType'] = self.primary_nav_type.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of each item in additional_nav_types (list)
+        _items = []
+        if self.additional_nav_types:
+            for _item in self.additional_nav_types:
+                if _item:
+                    _items.append(_item.to_dict())
+            _dict['additionalNavTypes'] = _items
         # override the default output from pydantic by calling `to_dict()` of each value in properties (dict)
         _field_dict = {}
         if self.properties:
@@ -130,6 +153,16 @@ class Fund(BaseModel):
         if self.description is None and "description" in self.__fields_set__:
             _dict['description'] = None
 
+        # set to None if base_currency (nullable) is None
+        # and __fields_set__ contains the field
+        if self.base_currency is None and "base_currency" in self.__fields_set__:
+            _dict['baseCurrency'] = None
+
+        # set to None if portfolio_ids (nullable) is None
+        # and __fields_set__ contains the field
+        if self.portfolio_ids is None and "portfolio_ids" in self.__fields_set__:
+            _dict['portfolioIds'] = None
+
         # set to None if share_class_instruments (nullable) is None
         # and __fields_set__ contains the field
         if self.share_class_instruments is None and "share_class_instruments" in self.__fields_set__:
@@ -139,6 +172,11 @@ class Fund(BaseModel):
         # and __fields_set__ contains the field
         if self.decimal_places is None and "decimal_places" in self.__fields_set__:
             _dict['decimalPlaces'] = None
+
+        # set to None if additional_nav_types (nullable) is None
+        # and __fields_set__ contains the field
+        if self.additional_nav_types is None and "additional_nav_types" in self.__fields_set__:
+            _dict['additionalNavTypes'] = None
 
         # set to None if properties (nullable) is None
         # and __fields_set__ contains the field
@@ -166,6 +204,8 @@ class Fund(BaseModel):
             "id": ResourceId.from_dict(obj.get("id")) if obj.get("id") is not None else None,
             "display_name": obj.get("displayName"),
             "description": obj.get("description"),
+            "base_currency": obj.get("baseCurrency"),
+            "portfolio_ids": [PortfolioEntityIdWithDetails.from_dict(_item) for _item in obj.get("portfolioIds")] if obj.get("portfolioIds") is not None else None,
             "fund_configuration_id": ResourceId.from_dict(obj.get("fundConfigurationId")) if obj.get("fundConfigurationId") is not None else None,
             "abor_id": ResourceId.from_dict(obj.get("aborId")) if obj.get("aborId") is not None else None,
             "share_class_instruments": [InstrumentResolutionDetail.from_dict(_item) for _item in obj.get("shareClassInstruments")] if obj.get("shareClassInstruments") is not None else None,
@@ -173,6 +213,8 @@ class Fund(BaseModel):
             "inception_date": obj.get("inceptionDate"),
             "decimal_places": obj.get("decimalPlaces"),
             "year_end_date": DayMonth.from_dict(obj.get("yearEndDate")) if obj.get("yearEndDate") is not None else None,
+            "primary_nav_type": NavTypeDefinition.from_dict(obj.get("primaryNavType")) if obj.get("primaryNavType") is not None else None,
+            "additional_nav_types": [NavTypeDefinition.from_dict(_item) for _item in obj.get("additionalNavTypes")] if obj.get("additionalNavTypes") is not None else None,
             "properties": dict(
                 (_k, ModelProperty.from_dict(_v))
                 for _k, _v in obj.get("properties").items()

@@ -1389,6 +1389,8 @@ __all__ = (
     "DescribeSecurityGroupRulesResultTypeDef",
     "DescribeSecurityGroupVpcAssociationsRequestPaginateTypeDef",
     "DescribeSecurityGroupVpcAssociationsRequestTypeDef",
+    "DescribeSecurityGroupVpcAssociationsRequestWaitExtraTypeDef",
+    "DescribeSecurityGroupVpcAssociationsRequestWaitTypeDef",
     "DescribeSecurityGroupVpcAssociationsResultTypeDef",
     "DescribeSecurityGroupsRequestPaginateTypeDef",
     "DescribeSecurityGroupsRequestTypeDef",
@@ -4816,6 +4818,7 @@ class SecurityGroupVpcAssociationTypeDef(TypedDict):
     VpcOwnerId: NotRequired[str]
     State: NotRequired[SecurityGroupVpcAssociationStateType]
     StateReason: NotRequired[str]
+    GroupOwnerId: NotRequired[str]
 
 class DescribeSnapshotAttributeRequestSnapshotDescribeAttributeTypeDef(TypedDict):
     Attribute: SnapshotAttributeNameType
@@ -12113,6 +12116,20 @@ class DescribeNetworkInterfacesRequestWaitTypeDef(TypedDict):
     DryRun: NotRequired[bool]
     NetworkInterfaceIds: NotRequired[Sequence[str]]
     Filters: NotRequired[Sequence[FilterTypeDef]]
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+class DescribeSecurityGroupVpcAssociationsRequestWaitExtraTypeDef(TypedDict):
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+    DryRun: NotRequired[bool]
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+class DescribeSecurityGroupVpcAssociationsRequestWaitTypeDef(TypedDict):
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+    DryRun: NotRequired[bool]
     WaiterConfig: NotRequired[WaiterConfigTypeDef]
 
 class DescribeSecurityGroupsRequestWaitTypeDef(TypedDict):

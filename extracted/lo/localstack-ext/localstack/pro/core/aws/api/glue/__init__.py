@@ -102,6 +102,7 @@ GlueVersionString = str
 GrokPattern = str
 HashString = str
 IAMRoleArn = str
+IcebergTransformString = str
 IdString = str
 IdleTimeout = int
 Integer = int
@@ -330,6 +331,12 @@ class ColumnStatisticsType(StrEnum):
     LONG = "LONG"
     STRING = "STRING"
     BINARY = "BINARY"
+
+
+class CompactionStrategy(StrEnum):
+    binpack = "binpack"
+    sort = "sort"
+    z_order = "z-order"
 
 
 class Comparator(StrEnum):
@@ -678,6 +685,20 @@ class HudiTargetCompressionType(StrEnum):
 
 class HyperTargetCompressionType(StrEnum):
     uncompressed = "uncompressed"
+
+
+class IcebergNullOrder(StrEnum):
+    nulls_first = "nulls-first"
+    nulls_last = "nulls-last"
+
+
+class IcebergSortDirection(StrEnum):
+    asc = "asc"
+    desc = "desc"
+
+
+class IcebergStructTypeEnum(StrEnum):
+    struct = "struct"
 
 
 class IcebergTargetCompressionType(StrEnum):
@@ -2462,6 +2483,19 @@ class BatchGetDataQualityResultRequest(ServiceRequest):
     ResultIds: DataQualityResultIds
 
 
+class DataQualityAggregatedMetrics(TypedDict, total=False):
+    """A summary of metrics showing the total counts of processed rows and
+    rules, including their pass/fail statistics based on row-level results.
+    """
+
+    TotalRowsProcessed: Optional[NullableDouble]
+    TotalRowsPassed: Optional[NullableDouble]
+    TotalRowsFailed: Optional[NullableDouble]
+    TotalRulesProcessed: Optional[NullableDouble]
+    TotalRulesPassed: Optional[NullableDouble]
+    TotalRulesFailed: Optional[NullableDouble]
+
+
 NewRules = List[NameString]
 
 
@@ -2510,6 +2544,7 @@ class DataQualityAnalyzerResult(TypedDict, total=False):
 
 
 DataQualityAnalyzerResults = List[DataQualityAnalyzerResult]
+RuleMetricsMap = Dict[NameString, NullableDouble]
 
 
 class DataQualityRuleResult(TypedDict, total=False):
@@ -2521,6 +2556,7 @@ class DataQualityRuleResult(TypedDict, total=False):
     Result: Optional[DataQualityRuleResultStatus]
     EvaluatedMetrics: Optional[EvaluatedMetricsMap]
     EvaluatedRule: Optional[DataQualityRuleResultDescription]
+    RuleMetrics: Optional[RuleMetricsMap]
 
 
 DataQualityRuleResults = List[DataQualityRuleResult]
@@ -2562,6 +2598,7 @@ class DataQualityResult(TypedDict, total=False):
     RuleResults: Optional[DataQualityRuleResults]
     AnalyzerResults: Optional[DataQualityAnalyzerResults]
     Observations: Optional[DataQualityObservations]
+    AggregatedMetrics: Optional[DataQualityAggregatedMetrics]
 
 
 DataQualityResultsList = List[DataQualityResult]
@@ -4031,6 +4068,7 @@ class TableOptimizerRun(TypedDict, total=False):
     metrics: Optional[RunMetrics]
     error: Optional[MessageString]
     compactionMetrics: Optional[CompactionMetrics]
+    compactionStrategy: Optional[CompactionStrategy]
     retentionMetrics: Optional[RetentionMetrics]
     orphanFileDeletionMetrics: Optional[OrphanFileDeletionMetrics]
 
@@ -4062,6 +4100,24 @@ class RetentionConfiguration(TypedDict, total=False):
     icebergConfiguration: Optional[IcebergRetentionConfiguration]
 
 
+class IcebergCompactionConfiguration(TypedDict, total=False):
+    """The configuration for an Iceberg compaction optimizer. This
+    configuration defines parameters for optimizing the layout of data files
+    in Iceberg tables.
+    """
+
+    strategy: Optional[CompactionStrategy]
+
+
+class CompactionConfiguration(TypedDict, total=False):
+    """The configuration for a compaction optimizer. This configuration defines
+    how data files in your table will be compacted to improve query
+    performance and reduce storage costs.
+    """
+
+    icebergConfiguration: Optional[IcebergCompactionConfiguration]
+
+
 class TableOptimizerVpcConfiguration(TypedDict, total=False):
     """An object that describes the VPC configuration for a table optimizer.
 
@@ -4080,6 +4136,7 @@ class TableOptimizerConfiguration(TypedDict, total=False):
     roleArn: Optional[ArnString]
     enabled: Optional[NullableBoolean]
     vpcConfiguration: Optional[TableOptimizerVpcConfiguration]
+    compactionConfiguration: Optional[CompactionConfiguration]
     retentionConfiguration: Optional[RetentionConfiguration]
     orphanFileDeletionConfiguration: Optional[OrphanFileDeletionConfiguration]
 
@@ -4605,6 +4662,7 @@ class FederatedCatalog(TypedDict, total=False):
 
     Identifier: Optional[FederationIdentifier]
     ConnectionName: Optional[NameString]
+    ConnectionType: Optional[NameString]
 
 
 class TargetRedshiftCatalog(TypedDict, total=False):
@@ -5352,6 +5410,8 @@ class DataQualityTargetTable(TypedDict, total=False):
 
 
 class CreateDataQualityRulesetRequest(ServiceRequest):
+    """A request to create a data quality ruleset."""
+
     Name: NameString
     Description: Optional[DescriptionString]
     Ruleset: DataQualityRulesetString
@@ -5370,6 +5430,7 @@ class FederatedDatabase(TypedDict, total=False):
 
     Identifier: Optional[FederationIdentifier]
     ConnectionName: Optional[NameString]
+    ConnectionType: Optional[NameString]
 
 
 class DatabaseIdentifier(TypedDict, total=False):
@@ -5440,6 +5501,103 @@ class CreateDevEndpointResponse(TypedDict, total=False):
     SecurityConfiguration: Optional[NameString]
     CreatedTimestamp: Optional[TimestampValue]
     Arguments: Optional[MapValue]
+
+
+StringToStringMap = Dict[NullableString, NullableString]
+
+
+class IcebergSortField(TypedDict, total=False):
+    """Defines a single field within an Iceberg sort order specification,
+    including the source field, transformation, sort direction, and null
+    value ordering.
+    """
+
+    SourceId: Integer
+    Transform: IcebergTransformString
+    Direction: IcebergSortDirection
+    NullOrder: IcebergNullOrder
+
+
+IcebergSortOrderFieldList = List[IcebergSortField]
+
+
+class IcebergSortOrder(TypedDict, total=False):
+    """Defines the sort order specification for an Iceberg table, determining
+    how data should be ordered within partitions to optimize query
+    performance.
+    """
+
+    OrderId: Integer
+    Fields: IcebergSortOrderFieldList
+
+
+class IcebergPartitionField(TypedDict, total=False):
+    """Defines a single partition field within an Iceberg partition
+    specification, including the source field, transformation function,
+    partition name, and unique identifier.
+    """
+
+    SourceId: Integer
+    Transform: IcebergTransformString
+    Name: ColumnNameString
+    FieldId: Optional[Integer]
+
+
+IcebergPartitionSpecFieldList = List[IcebergPartitionField]
+
+
+class IcebergPartitionSpec(TypedDict, total=False):
+    """Defines the partitioning specification for an Iceberg table, determining
+    how table data will be organized and partitioned for optimal query
+    performance.
+    """
+
+    Fields: IcebergPartitionSpecFieldList
+    SpecId: Optional[Integer]
+
+
+class IcebergDocument(TypedDict, total=False):
+    pass
+
+
+class IcebergStructField(TypedDict, total=False):
+    """Defines a single field within an Iceberg table schema, including its
+    identifier, name, data type, nullability, and documentation.
+    """
+
+    Id: Integer
+    Name: ColumnNameString
+    Type: IcebergDocument
+    Required: Boolean
+    Doc: Optional[CommentString]
+
+
+IcebergStructFieldList = List[IcebergStructField]
+IntegerList = List[Integer]
+
+
+class IcebergSchema(TypedDict, total=False):
+    """Defines the schema structure for an Iceberg table, including field
+    definitions, data types, and schema metadata.
+    """
+
+    SchemaId: Optional[Integer]
+    IdentifierFieldIds: Optional[IntegerList]
+    Type: Optional[IcebergStructTypeEnum]
+    Fields: IcebergStructFieldList
+
+
+class CreateIcebergTableInput(TypedDict, total=False):
+    """The configuration parameters required to create a new Iceberg table in
+    the Glue Data Catalog, including table properties and metadata
+    specifications.
+    """
+
+    Location: LocationString
+    Schema: IcebergSchema
+    PartitionSpec: Optional[IcebergPartitionSpec]
+    WriteOrder: Optional[IcebergSortOrder]
+    Properties: Optional[StringToStringMap]
 
 
 class IntegrationConfig(TypedDict, total=False):
@@ -5895,6 +6053,7 @@ class IcebergInput(TypedDict, total=False):
 
     MetadataOperation: MetadataOperation
     Version: Optional[VersionString]
+    CreateIcebergTableInput: Optional[CreateIcebergTableInput]
 
 
 class OpenTableFormatInput(TypedDict, total=False):
@@ -5962,6 +6121,7 @@ class TableInput(TypedDict, total=False):
 class CreateTableRequest(ServiceRequest):
     CatalogId: Optional[CatalogIdString]
     DatabaseName: NameString
+    Name: Optional[NameString]
     TableInput: TableInput
     PartitionIndexes: Optional[PartitionIndexList]
     TransactionId: Optional[TransactionIdString]
@@ -6704,6 +6864,7 @@ class FederatedTable(TypedDict, total=False):
     Identifier: Optional[FederationIdentifier]
     DatabaseIdentifier: Optional[FederationIdentifier]
     ConnectionName: Optional[NameString]
+    ConnectionType: Optional[NameString]
 
 
 class FindMatchesTaskRunProperties(TypedDict, total=False):
@@ -6970,6 +7131,8 @@ class GetDataQualityResultRequest(ServiceRequest):
 
 
 class GetDataQualityResultResponse(TypedDict, total=False):
+    """The response for the data quality result."""
+
     ResultId: Optional[HashString]
     ProfileId: Optional[HashString]
     Score: Optional[GenericBoundedDouble]
@@ -6984,6 +7147,7 @@ class GetDataQualityResultResponse(TypedDict, total=False):
     RuleResults: Optional[DataQualityRuleResults]
     AnalyzerResults: Optional[DataQualityAnalyzerResults]
     Observations: Optional[DataQualityObservations]
+    AggregatedMetrics: Optional[DataQualityAggregatedMetrics]
 
 
 class GetDataQualityRuleRecommendationRunRequest(ServiceRequest):
@@ -6991,6 +7155,8 @@ class GetDataQualityRuleRecommendationRunRequest(ServiceRequest):
 
 
 class GetDataQualityRuleRecommendationRunResponse(TypedDict, total=False):
+    """The response for the Data Quality rule recommendation run."""
+
     RunId: Optional[HashString]
     DataSource: Optional[DataSource]
     Role: Optional[RoleString]
@@ -7037,6 +7203,8 @@ class GetDataQualityRulesetRequest(ServiceRequest):
 
 
 class GetDataQualityRulesetResponse(TypedDict, total=False):
+    """Returns the data quality ruleset response."""
+
     Name: Optional[NameString]
     Description: Optional[DescriptionString]
     Ruleset: Optional[DataQualityRulesetString]
@@ -8117,6 +8285,22 @@ class GetWorkflowRunsResponse(TypedDict, total=False):
     NextToken: Optional[GenericString]
 
 
+class IcebergTableUpdate(TypedDict, total=False):
+    """Defines a complete set of updates to be applied to an Iceberg table,
+    including schema changes, partitioning modifications, sort order
+    adjustments, location updates, and property changes.
+    """
+
+    Schema: IcebergSchema
+    PartitionSpec: Optional[IcebergPartitionSpec]
+    SortOrder: Optional[IcebergSortOrder]
+    Location: LocationString
+    Properties: Optional[StringToStringMap]
+
+
+IcebergTableUpdateList = List[IcebergTableUpdate]
+
+
 class ImportCatalogToGlueRequest(ServiceRequest):
     CatalogId: Optional[CatalogIdString]
 
@@ -8827,6 +9011,8 @@ class StartCrawlerScheduleResponse(TypedDict, total=False):
 
 
 class StartDataQualityRuleRecommendationRunRequest(ServiceRequest):
+    """The request of the Data Quality rule recommendation request."""
+
     DataSource: DataSource
     Role: RoleString
     NumberOfWorkers: Optional[NullableInteger]
@@ -9229,6 +9415,24 @@ class UpdateDevEndpointResponse(TypedDict, total=False):
     pass
 
 
+class UpdateIcebergTableInput(TypedDict, total=False):
+    """Contains the update operations to be applied to an existing Iceberg
+    table in AWS Glue Data Catalog, defining the new state of the table
+    metadata.
+    """
+
+    Updates: IcebergTableUpdateList
+
+
+class UpdateIcebergInput(TypedDict, total=False):
+    """Input parameters specific to updating Apache Iceberg tables in Glue Data
+    Catalog, containing the update operations to be applied to an existing
+    Iceberg table.
+    """
+
+    UpdateIcebergTableInput: UpdateIcebergTableInput
+
+
 class UpdateIntegrationResourcePropertyRequest(ServiceRequest):
     ResourceArn: String128
     SourceProcessingProperties: Optional[SourceProcessingProperties]
@@ -9293,6 +9497,15 @@ class UpdateMLTransformRequest(ServiceRequest):
 
 class UpdateMLTransformResponse(TypedDict, total=False):
     TransformId: Optional[HashString]
+
+
+class UpdateOpenTableFormatInput(TypedDict, total=False):
+    """Input parameters for updating open table format tables in GlueData
+    Catalog, serving as a wrapper for format-specific update operations such
+    as Apache Iceberg.
+    """
+
+    UpdateIcebergInput: Optional[UpdateIcebergInput]
 
 
 class UpdatePartitionRequest(ServiceRequest):
@@ -9361,12 +9574,14 @@ class UpdateTableOptimizerResponse(TypedDict, total=False):
 class UpdateTableRequest(ServiceRequest):
     CatalogId: Optional[CatalogIdString]
     DatabaseName: NameString
-    TableInput: TableInput
+    Name: Optional[NameString]
+    TableInput: Optional[TableInput]
     SkipArchive: Optional[BooleanNullable]
     TransactionId: Optional[TransactionIdString]
     VersionId: Optional[VersionString]
     ViewUpdateAction: Optional[ViewUpdateAction]
     Force: Optional[Boolean]
+    UpdateOpenTableFormatInput: Optional[UpdateOpenTableFormatInput]
 
 
 class UpdateTableResponse(TypedDict, total=False):
@@ -10768,6 +10983,7 @@ class GlueApi:
         database_name: NameString,
         table_input: TableInput,
         catalog_id: CatalogIdString | None = None,
+        name: NameString | None = None,
         partition_indexes: PartitionIndexList | None = None,
         transaction_id: TransactionIdString | None = None,
         open_table_format_input: OpenTableFormatInput | None = None,
@@ -10779,6 +10995,8 @@ class GlueApi:
         :param table_input: The ``TableInput`` object that defines the metadata table to create in
         the catalog.
         :param catalog_id: The ID of the Data Catalog in which to create the ``Table``.
+        :param name: The unique identifier for the table within the specified database that
+        will be created in the Glue Data Catalog.
         :param partition_indexes: A list of partition indexes, ``PartitionIndex`` structures, to create in
         the table.
         :param transaction_id: The ID of the transaction.
@@ -14873,6 +15091,10 @@ class GlueApi:
         learning transform will use the new and improved labels and perform a
         higher-quality transformation.
 
+        Note: The role used to write the generated labeling set to the
+        ``OutputS3Path`` is the role associated with the Machine Learning
+        Transform, specified in the ``CreateMLTransform`` API.
+
         :param transform_id: The unique identifier of the machine learning transform.
         :param output_s3_path: The Amazon Simple Storage Service (Amazon S3) path where you generate
         the labeling set.
@@ -15790,21 +16012,25 @@ class GlueApi:
         self,
         context: RequestContext,
         database_name: NameString,
-        table_input: TableInput,
         catalog_id: CatalogIdString | None = None,
+        name: NameString | None = None,
+        table_input: TableInput | None = None,
         skip_archive: BooleanNullable | None = None,
         transaction_id: TransactionIdString | None = None,
         version_id: VersionString | None = None,
         view_update_action: ViewUpdateAction | None = None,
         force: Boolean | None = None,
+        update_open_table_format_input: UpdateOpenTableFormatInput | None = None,
         **kwargs,
     ) -> UpdateTableResponse:
         """Updates a metadata table in the Data Catalog.
 
         :param database_name: The name of the catalog database in which the table resides.
+        :param catalog_id: The ID of the Data Catalog where the table resides.
+        :param name: The unique identifier for the table within the specified database that
+        will be created in the Glue Data Catalog.
         :param table_input: An updated ``TableInput`` object to define the metadata table in the
         catalog.
-        :param catalog_id: The ID of the Data Catalog where the table resides.
         :param skip_archive: By default, ``UpdateTable`` always creates an archived version of the
         table before updating it.
         :param transaction_id: The transaction ID at which to update the table contents.
@@ -15812,6 +16038,9 @@ class GlueApi:
         :param view_update_action: The operation to be performed when updating the view.
         :param force: A flag that can be set to true to ignore matching storage descriptor and
         subobject matching requirements.
+        :param update_open_table_format_input: Input parameters for updating open table format tables in GlueData
+        Catalog, serving as a wrapper for format-specific update operations such
+        as Apache Iceberg.
         :returns: UpdateTableResponse
         :raises EntityNotFoundException:
         :raises InvalidInputException:

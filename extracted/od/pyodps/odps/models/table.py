@@ -326,9 +326,13 @@ class Table(LazyLoad):
     def full_table_name(self):
         schema_name = self._get_schema_name()
         if schema_name is None:
-            return "{0}.`{1}`".format(self.project.name, self.name)
+            return "{0}.{1}".format(
+                self.project.name, utils.backquote_string(self.name)
+            )
         else:
-            return "{0}.{1}.`{2}`".format(self.project.name, schema_name, self.name)
+            return "{0}.{1}.{2}".format(
+                self.project.name, schema_name, utils.backquote_string(self.name)
+            )
 
     def reload(self):
         url = self.resource()
@@ -428,6 +432,14 @@ class Table(LazyLoad):
         if attr in type(self)._extended_args:
             if not self._is_extend_info_loaded:
                 self.reload_extend_info()
+
+            if attr == "record_num" and self.table_schema.partitions:
+                warnings.warn(
+                    "record_name nay not be correct when table has partitions. Use "
+                    "aggregated value of required partitions instead.",
+                    RuntimeWarning,
+                    stacklevel=3,
+                )
 
             return object.__getattribute__(self, attr)
 
@@ -566,7 +578,7 @@ class Table(LazyLoad):
             buf.write(u"%s." % project)
         if schema is not None:
             buf.write(u"%s." % schema)
-        buf.write(u"`%s` " % table_name)
+        buf.write(utils.to_text(utils.backquote_string(table_name)) + u" ")
 
         if is_view and lifecycle is not None and lifecycle > 0:
             buf.write("LIFECYCLE %s " % lifecycle)
@@ -577,7 +589,8 @@ class Table(LazyLoad):
             if not prev.strip().endswith(","):
                 buf.write(u",\n")
             buf.write(
-                u"  PRIMARY KEY (%s)" % ", ".join("`%s`" % c for c in primary_key)
+                u"  PRIMARY KEY (%s)"
+                % u", ".join(utils.backquote_string(c) for c in primary_key)
             )
 
         if isinstance(table_schema, six.string_types):
@@ -622,7 +635,9 @@ class Table(LazyLoad):
                 size = len(col_array)
                 buf.write(u"(\n")
                 for idx, column in enumerate(col_array):
-                    buf.write(u"  `%s`" % (utils.to_text(column.name)))
+                    buf.write(
+                        u"  %s" % (utils.to_text(utils.backquote_string(column.name)))
+                    )
                     if with_column_comments and column.comment:
                         comment_str = utils.escape_odps_string(
                             utils.to_text(column.comment)
@@ -771,10 +786,14 @@ class Table(LazyLoad):
             output_format = self.output_format
 
         # ignore default serde
-        if not self.location and (row_format_serde, input_format, output_format) == (
-            "com.aliyun.apsara.serde.CFileSerDe",
-            "com.aliyun.apsara.format.CFileInputFormat",
-            "com.aliyun.apsara.format.CFileOutputFormat",
+        md5_serdes = tuple(
+            utils.md5_hexdigest(x)
+            for x in (row_format_serde, input_format, output_format)
+        )
+        if not self.location and md5_serdes == (
+            "0a5fc7e86a98c83ea09cd05080086b14",  # full name of CFileSerDe
+            "d4409daf14a2487590a507703780577e",  # full name of CFileInputFormat
+            "726da3db53fa8f18e4260122bd82d427",  # full name of CFileOutputFormat
         ):
             row_format_serde = input_format = output_format = None
 
@@ -1180,11 +1199,16 @@ class Table(LazyLoad):
             appended to the output
         :param str quota_name: name of tunnel quota to use
         """
+        try:
+            import pyarrow as pa
+        except ImportError:
+            pa = None
+
         if partition is None and self.table_schema.partitions:
             raise ValueError(
                 "You must specify a partition when calling to_pandas on a partitioned table"
             )
-        arrow = kwargs.pop("arrow", True)
+        arrow = (pa is not None) and kwargs.pop("arrow", True)
         with self.open_reader(
             partition=partition,
             columns=columns,
@@ -1340,7 +1364,7 @@ class Table(LazyLoad):
             self.reload()
 
     @utils.with_wait_argument
-    def truncate(self, partition_spec=None, async_=False, hints=None):
+    def truncate(self, partition_spec=None, async_=False, hints=None, **inst_kw):
         """
         truncate this table.
 
@@ -1351,13 +1375,17 @@ class Table(LazyLoad):
         """
         sql = self._build_alter_table_ddl(partition_spec=partition_spec, cmd="TRUNCATE")
         inst = self.parent._run_table_sql(
-            sql, task_name="SQLTruncateTableTask", hints=hints, wait=not async_
+            sql,
+            task_name="SQLTruncateTableTask",
+            hints=hints,
+            wait=not async_,
+            **inst_kw
         )
         self._unload_if_async()
         return inst
 
     @utils.with_wait_argument
-    def drop(self, async_=False, if_exists=False, hints=None):
+    def drop(self, async_=False, if_exists=False, hints=None, **inst_kw):
         """
         Drop this table.
 
@@ -1366,11 +1394,13 @@ class Table(LazyLoad):
         :param hints:
         :return: None
         """
-        return self.parent.delete(self, async_=async_, if_exists=if_exists, hints=hints)
+        return self.parent.delete(
+            self, async_=async_, if_exists=if_exists, hints=hints, **inst_kw
+        )
 
     @utils.with_wait_argument
     def set_storage_tier(
-        self, storage_tier, partition_spec=None, async_=False, hints=None
+        self, storage_tier, partition_spec=None, async_=False, hints=None, **inst_kw
     ):
         """
         Set storage tier of current table or specific partition.
@@ -1389,14 +1419,20 @@ class Table(LazyLoad):
         hints = hints or {}
         hints["odps.tiered.storage.enable"] = "true"
         inst = self.parent._run_table_sql(
-            sql, task_name="SQLSetStorageTierTask", hints=hints, wait=not async_
+            sql,
+            task_name="SQLSetStorageTierTask",
+            hints=hints,
+            wait=not async_,
+            **inst_kw
         )
         self.storage_tier_info = storage_tier
         self._unload_if_async(async_=async_, reload=False)
         return inst
 
     @utils.with_wait_argument
-    def add_columns(self, columns, if_not_exists=False, async_=False, hints=None):
+    def add_columns(
+        self, columns, if_not_exists=False, async_=False, hints=None, **inst_kw
+    ):
         """
         Add columns to the table.
 
@@ -1426,13 +1462,13 @@ class Table(LazyLoad):
             )
         sql = self._build_alter_table_ddl(action_str)
         inst = self.parent._run_table_sql(
-            sql, task_name="SQLAddColumnsTask", hints=hints, wait=not async_
+            sql, task_name="SQLAddColumnsTask", hints=hints, wait=not async_, **inst_kw
         )
         self._unload_if_async(async_=async_)
         return inst
 
     @utils.with_wait_argument
-    def delete_columns(self, columns, async_=False, hints=None):
+    def delete_columns(self, columns, async_=False, hints=None, **inst_kw):
         """
         Delete columns from the table.
 
@@ -1440,17 +1476,29 @@ class Table(LazyLoad):
         """
         if isinstance(columns, six.string_types):
             columns = [columns]
-        action_str = u"DROP COLUMNS " + u", ".join(u"`%s`" % c for c in columns)
+        action_str = u"DROP COLUMNS " + u", ".join(
+            utils.backquote_string(c) for c in columns
+        )
         sql = self._build_alter_table_ddl(action_str)
         inst = self.parent._run_table_sql(
-            sql, task_name="SQLDeleteColumnsTask", hints=hints, wait=not async_
+            sql,
+            task_name="SQLDeleteColumnsTask",
+            hints=hints,
+            wait=not async_,
+            **inst_kw
         )
         self._unload_if_async(async_=async_)
         return inst
 
     @utils.with_wait_argument
     def rename_column(
-        self, old_column_name, new_column_name, comment=None, async_=False, hints=None
+        self,
+        old_column_name,
+        new_column_name,
+        comment=None,
+        async_=False,
+        hints=None,
+        **inst_kw
     ):
         """
         Rename a column in the table.
@@ -1479,13 +1527,17 @@ class Table(LazyLoad):
             )
         sql = self._build_alter_table_ddl(action_str)
         inst = self.parent._run_table_sql(
-            sql, task_name="SQLRenameColumnsTask", hints=hints, wait=not async_
+            sql,
+            task_name="SQLRenameColumnsTask",
+            hints=hints,
+            wait=not async_,
+            **inst_kw
         )
         self._unload_if_async(async_=async_)
         return inst
 
     @utils.with_wait_argument
-    def set_lifecycle(self, days, async_=False, hints=None):
+    def set_lifecycle(self, days, async_=False, hints=None, **inst_kw):
         """
         Set lifecycle of current table.
 
@@ -1493,14 +1545,18 @@ class Table(LazyLoad):
         """
         sql = self._build_alter_table_ddl(u"SET LIFECYCLE %s" % days)
         inst = self.parent._run_table_sql(
-            sql, task_name="SQLSetLifecycleTask", hints=hints, wait=not async_
+            sql,
+            task_name="SQLSetLifecycleTask",
+            hints=hints,
+            wait=not async_,
+            **inst_kw
         )
         self.lifecycle = days
         self._unload_if_async(async_=async_, reload=False)
         return inst
 
     @utils.with_wait_argument
-    def set_owner(self, new_owner, async_=False, hints=None):
+    def set_owner(self, new_owner, async_=False, hints=None, **inst_kw):
         """
         Set owner of current table.
 
@@ -1510,14 +1566,14 @@ class Table(LazyLoad):
             u"CHANGEOWNER TO '%s'" % utils.escape_odps_string(new_owner)
         )
         inst = self.parent._run_table_sql(
-            sql, task_name="SQLSetOwnerTask", hints=hints, wait=not async_
+            sql, task_name="SQLSetOwnerTask", hints=hints, wait=not async_, **inst_kw
         )
         self.owner = new_owner
         self._unload_if_async(async_=async_, reload=False)
         return inst
 
     @utils.with_wait_argument
-    def set_comment(self, new_comment, async_=False, hints=None):
+    def set_comment(self, new_comment, async_=False, hints=None, **inst_kw):
         """
         Set comment of current table.
 
@@ -1527,14 +1583,14 @@ class Table(LazyLoad):
             u"SET COMMENT '%s'" % utils.escape_odps_string(new_comment)
         )
         inst = self.parent._run_table_sql(
-            sql, task_name="SQLSetCommentTask", hints=hints, wait=not async_
+            sql, task_name="SQLSetCommentTask", hints=hints, wait=not async_, **inst_kw
         )
         self.comment = new_comment
         self._unload_if_async(async_=async_, reload=False)
         return inst
 
     @utils.with_wait_argument
-    def set_cluster_info(self, new_cluster_info, async_=False, hints=None):
+    def set_cluster_info(self, new_cluster_info, async_=False, hints=None, **inst_kw):
         """
         Set cluster info of current table.
         """
@@ -1545,22 +1601,28 @@ class Table(LazyLoad):
             action = new_cluster_info.to_sql_clause()
         sql = self._build_alter_table_ddl(action)
         inst = self.parent._run_table_sql(
-            sql, task_name="SQLSetClusterInfoTask", hints=hints, wait=not async_
+            sql,
+            task_name="SQLSetClusterInfoTask",
+            hints=hints,
+            wait=not async_,
+            **inst_kw
         )
         self.cluster_info = new_cluster_info
         self._unload_if_async(async_=async_, reload=False)
         return inst
 
     @utils.with_wait_argument
-    def rename(self, new_name, async_=False, hints=None):
+    def rename(self, new_name, async_=False, hints=None, **inst_kw):
         """
         Rename the table.
 
         :param new_name: new table name
         """
-        sql = self._build_alter_table_ddl("RENAME TO `%s`" % new_name)
+        sql = self._build_alter_table_ddl(
+            "RENAME TO %s" % utils.backquote_string(new_name)
+        )
         inst = self.parent._run_table_sql(
-            sql, task_name="SQLRenameTask", hints=hints, wait=not async_
+            sql, task_name="SQLRenameTask", hints=hints, wait=not async_, **inst_kw
         )
         self.name = new_name
         del self.parent[self.name]
@@ -1569,7 +1631,12 @@ class Table(LazyLoad):
 
     @utils.with_wait_argument
     def change_partition_spec(
-        self, old_partition_spec, new_partition_spec, async_=False, hints=None
+        self,
+        old_partition_spec,
+        new_partition_spec,
+        async_=False,
+        hints=None,
+        **inst_kw
     ):
         """
         Change partition spec of specified partition of the table.
@@ -1582,11 +1649,15 @@ class Table(LazyLoad):
             partition_spec=old_partition_spec,
         )
         return self.parent._run_table_sql(
-            sql, task_name="SQLChangePartitionSpecTask", hints=hints, wait=not async_
+            sql,
+            task_name="SQLChangePartitionSpecTask",
+            hints=hints,
+            wait=not async_,
+            **inst_kw
         )
 
     @utils.with_wait_argument
-    def touch(self, partition_spec=None, async_=False, hints=None):
+    def touch(self, partition_spec=None, async_=False, hints=None, **inst_kw):
         """
         Update the last modified time of the table or specified partition.
 
@@ -1595,7 +1666,7 @@ class Table(LazyLoad):
         action = u"TOUCH " + self._build_partition_spec_sql(partition_spec)
         sql = self._build_alter_table_ddl(action.strip())
         inst = self.parent._run_table_sql(
-            sql, task_name="SQLTouchTask", hints=hints, wait=not async_
+            sql, task_name="SQLTouchTask", hints=hints, wait=not async_, **inst_kw
         )
         self._unload_if_async(async_=async_)
         return inst

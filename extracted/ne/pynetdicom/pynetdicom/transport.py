@@ -33,6 +33,8 @@ from pynetdicom.pdu_primitives import A_ASSOCIATE
 from pynetdicom.presentation import PresentationContext
 
 if TYPE_CHECKING:  # pragma: no cover
+    from socketserver import BaseServer
+
     from pynetdicom.ae import ApplicationEntity
     from pynetdicom.association import Association
     from pynetdicom.dul import _QueueType
@@ -85,11 +87,11 @@ class AddressInformation:
         Parameters
         ----------
         value : str
-            The IPv4 or IPv6 address. The following conversion will be made:
+            The hostname, or IPv4 or IPv6 address. The following conversion will be made:
 
-            * ``""`` (INADDR_ANY) -> ``"0.0.0.0"``
+            * ``""`` (INADDR_ANY) -> ``"0.0.0.0"`` or ``"::"``
             * ``"<broadcast>"`` (INADDR_BROADCAST) -> ``"255.255.255.255"``
-            * ``"localhost"`` -> ``"127.0.0.1"``
+            * ``"localhost"`` -> ``"127.0.0.1"`` or ``"::1"``
 
         Returns
         -------
@@ -100,11 +102,28 @@ class AddressInformation:
 
     @address.setter
     def address(self, value: str) -> None:
-        value = "0.0.0.0" if value == "" else value
-        value = "127.0.0.1" if value == "localhost" else value
-        value = "255.255.255.255" if value == "<broadcast>" else value
+        if value:
+            # getaddrinfo does not handle <broadcast>. IPv6 does not use broadcast.
+            value = "255.255.255.255" if value == "<broadcast>" else value
+            flags = 0
+        else:
+            # getaddrinfo interprets "" as "0.0.0.0" or "::". Set the AI_PASSIVE flag
+            # to return an address that can be used with BIND.
+            flags = socket.AI_PASSIVE
 
-        self._addr = value
+        # getaddrinfo translates a hostname into IPv4 and/or IPv6-addresses.
+        entries = socket.getaddrinfo(value if value else None, 0, flags=flags)
+
+        # Use the first IPv4 address, or the first IPv6 address if there are no
+        # IPv4 addresses available.
+        ipv4_entries = [addr for addr in entries if addr[0] == socket.AF_INET]
+        ipv6_entries = [addr for addr in entries if addr[0] == socket.AF_INET6]
+        if ipv4_entries:
+            self._addr = cast(str, ipv4_entries[0][4][0])
+        elif ipv6_entries:
+            self._addr = cast(str, ipv6_entries[0][4][0])
+        else:
+            raise socket.gaierror("Address resolution failed")
 
     @property
     def address_family(self) -> socket.AddressFamily:
@@ -675,6 +694,14 @@ class RequestHandler(BaseRequestHandler):
     """
 
     server: "AssociationServer"
+
+    def __init__(
+        self,
+        request: socket.socket | tuple[bytes, socket.socket],
+        client_address: Any,
+        server: "BaseServer",
+    ) -> None:
+        super().__init__(request, client_address, server)
 
     @property
     def ae(self) -> "ApplicationEntity":

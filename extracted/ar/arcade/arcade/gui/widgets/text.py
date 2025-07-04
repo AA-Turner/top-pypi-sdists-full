@@ -148,14 +148,14 @@ class UILabel(UIWidget):
         if height:
             self._label.height = int(height)
 
-        bind(self, "rect", self._update_label)
+        bind(self, "rect", UILabel._update_label)
 
         # update size hint when border or padding changes
-        bind(self, "_border_width", self._update_size_hint_min)
-        bind(self, "_padding_left", self._update_size_hint_min)
-        bind(self, "_padding_right", self._update_size_hint_min)
-        bind(self, "_padding_top", self._update_size_hint_min)
-        bind(self, "_padding_bottom", self._update_size_hint_min)
+        bind(self, "_border_width", UILabel._update_size_hint_min)
+        bind(self, "_padding_left", UILabel._update_size_hint_min)
+        bind(self, "_padding_right", UILabel._update_size_hint_min)
+        bind(self, "_padding_top", UILabel._update_size_hint_min)
+        bind(self, "_padding_bottom", UILabel._update_size_hint_min)
 
         self._update_size_hint_min()
 
@@ -570,11 +570,11 @@ class UIInputText(UIStyledWidget[UIInputTextStyle], UIInteractiveWidget):
 
         self.register_event_type("on_change")
 
-        bind(self, "hovered", self._apply_style)
-        bind(self, "pressed", self._apply_style)
-        bind(self, "invalid", self._apply_style)
-        bind(self, "disabled", self._apply_style)
-        bind(self, "_active", self._on_active_changed)
+        bind(self, "hovered", UIInputText._apply_style)
+        bind(self, "pressed", UIInputText._apply_style)
+        bind(self, "invalid", UIInputText._apply_style)
+        bind(self, "disabled", UIInputText._apply_style)
+        bind(self, "_active", UIInputText._on_active_changed)
 
         # initial style application
         self._apply_style()
@@ -859,7 +859,7 @@ class UITextArea(UIWidget):
             multiline=multiline,
         )
 
-        # bind(self, "rect", self._update_layout)
+        bind(self, "rect", self._update_layout)
 
     def fit_content(self):
         """Set the width and height of the text area to contain the whole text."""

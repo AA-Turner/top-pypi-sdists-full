@@ -1,13 +1,10 @@
 # mypy: ignore-errors
 
 import copy
-import dataclasses
 from distutils import ccompiler
 from distutils import sysconfig
 import logging
 import os
-import os.path
-import pickle
 import shutil
 import sys
 
@@ -295,23 +292,6 @@ def _find_static_library(name: str) -> str:
 def make_extensions(ctx: Context, compiler, use_cython):
     """Produce a list of Extension instances which passed to cythonize()."""
 
-    ctx.calculate_cupy_cache_key()
-    CACHE_FILE = f"{ctx.source_root}/.cupy_builder.cache"
-    if ctx.dev_configure_cache and os.path.exists(CACHE_FILE):
-        with open(CACHE_FILE, "rb") as f:
-            (prev_ctx, ret) = pickle.load(f)
-        if (ctx.dev_configure_cache_key == prev_ctx.dev_configure_cache_key and
-                ctx.cupy_cache_key == prev_ctx.cupy_cache_key):
-            print("***************************************************")
-            print("*** NOTICE: Reusing build configuration from previous "
-                  f"run. Remove the configuration cache ({CACHE_FILE}) "
-                  "if you intend to reconfigure.")
-            print("***************************************************")
-            for f in dataclasses.fields(prev_ctx):
-                setattr(ctx, f.name, getattr(prev_ctx, f.name))
-            return ret
-        print("*** NOTICE: Cache key has changed, ignoring config cache.")
-
     MODULES = ctx.features.values()
 
     no_cuda = ctx.use_stub
@@ -351,9 +331,6 @@ def make_extensions(ctx: Context, compiler, use_cython):
         settings['define_macros'].append(('__HIP_PLATFORM_AMD__', '1'))
         # deprecated since ROCm 4.2.0
         settings['define_macros'].append(('__HIP_PLATFORM_HCC__', '1'))
-        # Fix for ROCm 6.3.0, See https://github.com/ROCm/rocThrust/issues/502
-        settings['define_macros'].append(
-            ('THRUST_DEVICE_SYSTEM', 'THRUST_DEVICE_SYSTEM_HIP'))
     settings['define_macros'].append(('CUPY_CACHE_KEY', ctx.cupy_cache_key))
 
     try:
@@ -453,10 +430,6 @@ def make_extensions(ctx: Context, compiler, use_cython):
             # if any change is made to the DLPack header, we force recompiling
             s['depends'] = ['./cupy/_core/include/cupy/_dlpack/dlpack.h']
 
-        if module['name'] == 'numpy_allocator':
-            # ensure the cdef public APIs have C linkage
-            s['define_macros'].append(('CYTHON_EXTERN_C', 'extern "C"'))
-
         for f in module['file']:
             s_file = copy.deepcopy(s)
             name = module_extension_name(f)
@@ -493,10 +466,6 @@ def make_extensions(ctx: Context, compiler, use_cython):
             extension = setuptools.Extension(name, sources, **s_file)
             ret.append(extension)
 
-    if ctx.dev_configure_cache:
-        print(f"Persisting build configuration cache: {CACHE_FILE}")
-        with open(CACHE_FILE, "wb") as f:
-            pickle.dump((ctx, ret), f)
     return ret
 
 

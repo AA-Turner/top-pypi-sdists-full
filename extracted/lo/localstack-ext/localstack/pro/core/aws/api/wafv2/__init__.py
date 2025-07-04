@@ -7,6 +7,8 @@ from localstack.aws.api import RequestContext, ServiceException, ServiceRequest,
 APIKey = str
 APIKeyVersion = int
 Action = str
+AttributeName = str
+AttributeValue = str
 Boolean = bool
 Country = str
 CreationPathString = str
@@ -427,6 +429,11 @@ class LogType(StrEnum):
     WAF_LOGS = "WAF_LOGS"
 
 
+class LowReputationMode(StrEnum):
+    ACTIVE_UNDER_DDOS = "ACTIVE_UNDER_DDOS"
+    ALWAYS_ON = "ALWAYS_ON"
+
+
 class MapMatchScope(StrEnum):
     ALL = "ALL"
     KEY = "KEY"
@@ -511,6 +518,7 @@ class ParameterExceptionField(StrEnum):
     CUSTOM_KEYS = "CUSTOM_KEYS"
     ACP_RULE_SET_RESPONSE_INSPECTION = "ACP_RULE_SET_RESPONSE_INSPECTION"
     DATA_PROTECTION_CONFIG = "DATA_PROTECTION_CONFIG"
+    LOW_REPUTATION_MODE = "LOW_REPUTATION_MODE"
 
 
 class PayloadType(StrEnum):
@@ -564,6 +572,12 @@ class SensitivityLevel(StrEnum):
     HIGH = "HIGH"
 
 
+class SensitivityToAct(StrEnum):
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+
+
 class SizeInspectionLimit(StrEnum):
     KB_16 = "KB_16"
     KB_32 = "KB_32"
@@ -593,6 +607,11 @@ class TextTransformationType(StrEnum):
     BASE64_DECODE_EXT = "BASE64_DECODE_EXT"
     URL_DECODE_UNI = "URL_DECODE_UNI"
     UTF8_TO_UNICODE = "UTF8_TO_UNICODE"
+
+
+class UsageOfAction(StrEnum):
+    ENABLED = "ENABLED"
+    DISABLED = "DISABLED"
 
 
 class WAFAssociatedItemException(ServiceException):
@@ -875,6 +894,7 @@ class APIKeySummary(TypedDict, total=False):
 
 APIKeySummaries = List[APIKeySummary]
 APIKeyTokenDomains = List[TokenDomain]
+ASN = int
 ResponseInspectionJsonFailureValues = List[FailureValue]
 ResponseInspectionJsonSuccessValues = List[SuccessValue]
 
@@ -1062,6 +1082,13 @@ class AWSManagedRulesACFPRuleSet(TypedDict, total=False):
     """Details for your use of the account creation fraud prevention managed
     rule group, ``AWSManagedRulesACFPRuleSet``. This configuration is used
     in ``ManagedRuleGroupConfig``.
+
+    For additional information about this and the other intelligent threat
+    mitigation rule groups, see `Intelligent threat mitigation in
+    WAF <https://docs.aws.amazon.com/waf/latest/developerguide/waf-managed-protections>`__
+    and `Amazon Web Services Managed Rules rule groups
+    list <https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-list>`__
+    in the *WAF Developer Guide*.
     """
 
     CreationPath: CreationPathString
@@ -1093,6 +1120,13 @@ class AWSManagedRulesATPRuleSet(TypedDict, total=False):
     """Details for your use of the account takeover prevention managed rule
     group, ``AWSManagedRulesATPRuleSet``. This configuration is used in
     ``ManagedRuleGroupConfig``.
+
+    For additional information about this and the other intelligent threat
+    mitigation rule groups, see `Intelligent threat mitigation in
+    WAF <https://docs.aws.amazon.com/waf/latest/developerguide/waf-managed-protections>`__
+    and `Amazon Web Services Managed Rules rule groups
+    list <https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-list>`__
+    in the *WAF Developer Guide*.
     """
 
     LoginPath: String
@@ -1101,10 +1135,67 @@ class AWSManagedRulesATPRuleSet(TypedDict, total=False):
     EnableRegexInPath: Optional[Boolean]
 
 
+class Regex(TypedDict, total=False):
+    """A single regular expression. This is used in a RegexPatternSet and also
+    in the configuration for the Amazon Web Services Managed Rules rule
+    group ``AWSManagedRulesAntiDDoSRuleSet``.
+    """
+
+    RegexString: Optional[RegexPatternString]
+
+
+RegularExpressionList = List[Regex]
+
+
+class ClientSideAction(TypedDict, total=False):
+    """This is part of the ``AWSManagedRulesAntiDDoSRuleSet``
+    ``ClientSideActionConfig`` configuration in ``ManagedRuleGroupConfig``.
+    """
+
+    UsageOfAction: UsageOfAction
+    Sensitivity: Optional[SensitivityToAct]
+    ExemptUriRegularExpressions: Optional[RegularExpressionList]
+
+
+class ClientSideActionConfig(TypedDict, total=False):
+    """This is part of the configuration for the managed rules
+    ``AWSManagedRulesAntiDDoSRuleSet`` in ``ManagedRuleGroupConfig``.
+    """
+
+    Challenge: ClientSideAction
+
+
+class AWSManagedRulesAntiDDoSRuleSet(TypedDict, total=False):
+    """Configures the use of the anti-DDoS managed rule group,
+    ``AWSManagedRulesAntiDDoSRuleSet``. This configuration is used in
+    ``ManagedRuleGroupConfig``.
+
+    The configuration that you provide here determines whether and how the
+    rules in the rule group are used.
+
+    For additional information about this and the other intelligent threat
+    mitigation rule groups, see `Intelligent threat mitigation in
+    WAF <https://docs.aws.amazon.com/waf/latest/developerguide/waf-managed-protections>`__
+    and `Amazon Web Services Managed Rules rule groups
+    list <https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-list>`__
+    in the *WAF Developer Guide*.
+    """
+
+    ClientSideActionConfig: ClientSideActionConfig
+    SensitivityToBlock: Optional[SensitivityToAct]
+
+
 class AWSManagedRulesBotControlRuleSet(TypedDict, total=False):
     """Details for your use of the Bot Control managed rule group,
     ``AWSManagedRulesBotControlRuleSet``. This configuration is used in
     ``ManagedRuleGroupConfig``.
+
+    For additional information about this and the other intelligent threat
+    mitigation rule groups, see `Intelligent threat mitigation in
+    WAF <https://docs.aws.amazon.com/waf/latest/developerguide/waf-managed-protections>`__
+    and `Amazon Web Services Managed Rules rule groups
+    list <https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-list>`__
+    in the *WAF Developer Guide*.
     """
 
     InspectionLevel: InspectionLevel
@@ -1179,6 +1270,44 @@ class AllowAction(TypedDict, total=False):
     """
 
     CustomRequestHandling: Optional[CustomRequestHandling]
+
+
+class ForwardedIPConfig(TypedDict, total=False):
+    """The configuration for inspecting IP addresses in an HTTP header that you
+    specify, instead of using the IP address that's reported by the web
+    request origin. Commonly, this is the X-Forwarded-For (XFF) header, but
+    you can specify any header name.
+
+    If the specified header isn't present in the request, WAF doesn't apply
+    the rule to the web request at all.
+
+    This configuration is used for GeoMatchStatement, AsnMatchStatement, and
+    RateBasedStatement. For IPSetReferenceStatement, use
+    IPSetForwardedIPConfig instead.
+
+    WAF only evaluates the first IP address found in the specified HTTP
+    header.
+    """
+
+    HeaderName: ForwardedIPHeaderName
+    FallbackBehavior: FallbackBehavior
+
+
+AsnList = List[ASN]
+
+
+class AsnMatchStatement(TypedDict, total=False):
+    """A rule statement that inspects web traffic based on the Autonomous
+    System Number (ASN) associated with the request's IP address.
+
+    For additional details, see `ASN match rule
+    statement <https://docs.aws.amazon.com/waf/latest/developerguide/waf-rule-statement-type-asn-match.html>`__
+    in the `WAF Developer
+    Guide <https://docs.aws.amazon.com/waf/latest/developerguide/waf-chapter.html>`__.
+    """
+
+    AsnList: AsnList
+    ForwardedIPConfig: Optional[ForwardedIPConfig]
 
 
 class TextTransformation(TypedDict, total=False):
@@ -1719,6 +1848,13 @@ class ManagedRuleGroupConfig(TypedDict, total=False):
        application and the locations in the account creation request payload
        of data, such as the user email and phone number fields.
 
+    -  Use the ``AWSManagedRulesAntiDDoSRuleSet`` configuration object to
+       configure the anti-DDoS managed rule group. The configuration
+       includes the sensitivity levels to use in the rules that typically
+       block and challenge requests that might be participating in DDoS
+       attacks and the specification to use to indicate whether a request
+       can handle a silent browser challenge.
+
     -  Use the ``AWSManagedRulesATPRuleSet`` configuration object to
        configure the account takeover prevention managed rule group. The
        configuration includes the sign-in page of your application and the
@@ -1739,6 +1875,7 @@ class ManagedRuleGroupConfig(TypedDict, total=False):
     AWSManagedRulesBotControlRuleSet: Optional[AWSManagedRulesBotControlRuleSet]
     AWSManagedRulesATPRuleSet: Optional[AWSManagedRulesATPRuleSet]
     AWSManagedRulesACFPRuleSet: Optional[AWSManagedRulesACFPRuleSet]
+    AWSManagedRulesAntiDDoSRuleSet: Optional[AWSManagedRulesAntiDDoSRuleSet]
 
 
 ManagedRuleGroupConfigs = List[ManagedRuleGroupConfig]
@@ -1766,6 +1903,7 @@ class Statement(TypedDict, total=False):
     ManagedRuleGroupStatement: Optional["ManagedRuleGroupStatement"]
     LabelMatchStatement: Optional["LabelMatchStatement"]
     RegexMatchStatement: Optional["RegexMatchStatement"]
+    AsnMatchStatement: Optional["AsnMatchStatement"]
 
 
 class ExcludedRule(TypedDict, total=False):
@@ -1837,6 +1975,17 @@ class AndStatement(TypedDict, total=False):
     """
 
     Statements: Statements
+
+
+class RateLimitAsn(TypedDict, total=False):
+    """Specifies an Autonomous System Number (ASN) derived from the request's
+    originating or forwarded IP address as an aggregate key for a rate-based
+    rule. Each distinct ASN contributes to the aggregation instance. If you
+    use a single ASN as your custom key, then each ASN fully defines an
+    aggregation instance.
+    """
+
+    pass
 
 
 class RateLimitJA4Fingerprint(TypedDict, total=False):
@@ -2006,31 +2155,10 @@ class RateBasedStatementCustomKey(TypedDict, total=False):
     UriPath: Optional[RateLimitUriPath]
     JA3Fingerprint: Optional[RateLimitJA3Fingerprint]
     JA4Fingerprint: Optional[RateLimitJA4Fingerprint]
+    ASN: Optional[RateLimitAsn]
 
 
 RateBasedStatementCustomKeys = List[RateBasedStatementCustomKey]
-
-
-class ForwardedIPConfig(TypedDict, total=False):
-    """The configuration for inspecting IP addresses in an HTTP header that you
-    specify, instead of using the IP address that's reported by the web
-    request origin. Commonly, this is the X-Forwarded-For (XFF) header, but
-    you can specify any header name.
-
-    If the specified header isn't present in the request, WAF doesn't apply
-    the rule to the web request at all.
-
-    This configuration is used for GeoMatchStatement and RateBasedStatement.
-    For IPSetReferenceStatement, use IPSetForwardedIPConfig instead.
-
-    WAF only evaluates the first IP address found in the specified HTTP
-    header.
-    """
-
-    HeaderName: ForwardedIPHeaderName
-    FallbackBehavior: FallbackBehavior
-
-
 EvaluationWindowSec = int
 RateLimit = int
 
@@ -2321,6 +2449,30 @@ class ByteMatchStatement(TypedDict, total=False):
     PositionalConstraint: PositionalConstraint
 
 
+AttributeValues = List[AttributeValue]
+
+
+class ApplicationAttribute(TypedDict, total=False):
+    """Application details defined during the web ACL creation process.
+    Application attributes help WAF give recommendations for protection
+    packs.
+    """
+
+    Name: Optional[AttributeName]
+    Values: Optional[AttributeValues]
+
+
+ApplicationAttributes = List[ApplicationAttribute]
+
+
+class ApplicationConfig(TypedDict, total=False):
+    """A list of ``ApplicationAttribute`` s that contains information about
+    the application.
+    """
+
+    Attributes: Optional[ApplicationAttributes]
+
+
 class AssociateWebACLRequest(ServiceRequest):
     WebACLArn: ResourceArn
     ResourceArn: ResourceArn
@@ -2583,15 +2735,6 @@ class CreateIPSetResponse(TypedDict, total=False):
     Summary: Optional[IPSetSummary]
 
 
-class Regex(TypedDict, total=False):
-    """A single regular expression. This is used in a RegexPatternSet."""
-
-    RegexString: Optional[RegexPatternString]
-
-
-RegularExpressionList = List[Regex]
-
-
 class CreateRegexPatternSetRequest(ServiceRequest):
     Name: EntityName
     Scope: Scope
@@ -2660,6 +2803,14 @@ class CreateRuleGroupResponse(TypedDict, total=False):
     Summary: Optional[RuleGroupSummary]
 
 
+class OnSourceDDoSProtectionConfig(TypedDict, total=False):
+    """Configures the level of DDoS protection that applies to web ACLs
+    associated with Application Load Balancers.
+    """
+
+    ALBLowReputationMode: LowReputationMode
+
+
 FieldToProtectKeys = List[FieldToProtectKeyName]
 
 
@@ -2726,6 +2877,8 @@ class CreateWebACLRequest(ServiceRequest):
     ChallengeConfig: Optional[ChallengeConfig]
     TokenDomains: Optional[TokenDomains]
     AssociationConfig: Optional[AssociationConfig]
+    OnSourceDDoSProtectionConfig: Optional[OnSourceDDoSProtectionConfig]
+    ApplicationConfig: Optional[ApplicationConfig]
 
 
 class WebACLSummary(TypedDict, total=False):
@@ -3408,6 +3561,8 @@ class WebACL(TypedDict, total=False):
     TokenDomains: Optional[TokenDomains]
     AssociationConfig: Optional[AssociationConfig]
     RetrofittedByFirewallManager: Optional[Boolean]
+    OnSourceDDoSProtectionConfig: Optional[OnSourceDDoSProtectionConfig]
+    ApplicationConfig: Optional[ApplicationConfig]
 
 
 class GetWebACLForResourceResponse(TypedDict, total=False):
@@ -3807,6 +3962,7 @@ class UpdateWebACLRequest(ServiceRequest):
     ChallengeConfig: Optional[ChallengeConfig]
     TokenDomains: Optional[TokenDomains]
     AssociationConfig: Optional[AssociationConfig]
+    OnSourceDDoSProtectionConfig: Optional[OnSourceDDoSProtectionConfig]
 
 
 class UpdateWebACLResponse(TypedDict, total=False):
@@ -4076,6 +4232,8 @@ class Wafv2Api:
         challenge_config: ChallengeConfig | None = None,
         token_domains: TokenDomains | None = None,
         association_config: AssociationConfig | None = None,
+        on_source_d_do_s_protection_config: OnSourceDDoSProtectionConfig | None = None,
+        application_config: ApplicationConfig | None = None,
         **kwargs,
     ) -> CreateWebACLResponse:
         """Creates a WebACL per the specifications provided.
@@ -4114,6 +4272,10 @@ class Wafv2Api:
         :param token_domains: Specifies the domains that WAF should accept in a web request token.
         :param association_config: Specifies custom configurations for the associations between the web ACL
         and protected resources.
+        :param on_source_d_do_s_protection_config: Specifies the type of DDoS protection to apply to web request data for a
+        web ACL.
+        :param application_config: Configures the ability for the WAF console to store and retrieve
+        application attributes during the web ACL creation process.
         :returns: CreateWebACLResponse
         :raises WAFInternalErrorException:
         :raises WAFInvalidParameterException:
@@ -5666,6 +5828,7 @@ class Wafv2Api:
         challenge_config: ChallengeConfig | None = None,
         token_domains: TokenDomains | None = None,
         association_config: AssociationConfig | None = None,
+        on_source_d_do_s_protection_config: OnSourceDDoSProtectionConfig | None = None,
         **kwargs,
     ) -> UpdateWebACLResponse:
         """Updates the specified WebACL. While updating a web ACL, WAF provides
@@ -5744,6 +5907,8 @@ class Wafv2Api:
         :param token_domains: Specifies the domains that WAF should accept in a web request token.
         :param association_config: Specifies custom configurations for the associations between the web ACL
         and protected resources.
+        :param on_source_d_do_s_protection_config: Specifies the type of DDoS protection to apply to web request data for a
+        web ACL.
         :returns: UpdateWebACLResponse
         :raises WAFInternalErrorException:
         :raises WAFInvalidParameterException:

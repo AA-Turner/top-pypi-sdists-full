@@ -528,6 +528,11 @@ class Alpaca(Broker):
         # Identifier
         identifier_value = getattr(response, 'id', None) or resp_raw.get('id')
 
+        # Handle None quantity - skip invalid orders
+        if qty_value is None:
+            logger.warning(f"Skipping order {identifier_value} - quantity is None (invalid order data from Alpaca)")
+            return None
+
         # Construct Order object
         order = Order(
             strategy_name,
@@ -579,15 +584,7 @@ class Alpaca(Broker):
         return orders
 
 
-    def _validate_custom_params(self, params):
-        """
-        Validate custom params for submitting to orders
-        """
-        # Define allowlist of acceptable custom parameters, add more as needed
-        ALLOWED_PARAMS = {'extended_hours'}
-        if params:
-            return {k: v for k, v in params.items() if k in ALLOWED_PARAMS}
-        return {}
+
 
     def _submit_orders(self, orders, is_multileg=False, order_type=None, duration="day", price=None):
         """
@@ -798,8 +795,9 @@ class Alpaca(Broker):
 
         # INJECT STRATEGY‑LEVEL CUSTOM_PARAMS
         if getattr(order, "custom_params", None):
-            validated_params = self._validate_custom_params(order.custom_params)
+            logger.info(f"🔧 ALPACA ORDER SUBMISSION - custom_params: {order.custom_params} for {order.asset}")
             kwargs.update(order.custom_params)
+            logger.info(f"🔧 ALPACA ORDER SUBMISSION - Final kwargs being sent to Alpaca: {kwargs}")
 
         if order.order_class in [Order.OrderClass.OCO, Order.OrderClass.OTO, Order.OrderClass.BRACKET]:
             child_limit_orders = [child for child in order.child_orders if child.order_type == Order.OrderType.LIMIT]

@@ -18,6 +18,8 @@ from ddtrace.internal.telemetry import telemetry_writer
 from ddtrace.internal.telemetry import validate_otel_envs
 from ddtrace.internal.utils.cache import cachedmethod
 
+from .._logger import LogInjectionState
+from .._logger import get_log_injection_state
 from ..internal import gitmetadata
 from ..internal.constants import _PROPAGATION_BEHAVIOR_DEFAULT
 from ..internal.constants import _PROPAGATION_BEHAVIOR_IGNORE
@@ -99,6 +101,7 @@ INTEGRATION_CONFIGS = frozenset(
         "dramatiq",
         "flask",
         "google_generativeai",
+        "google_genai",
         "urllib3",
         "subprocess",
         "kafka",
@@ -118,6 +121,7 @@ INTEGRATION_CONFIGS = frozenset(
         "snowflake",
         "pymemcache",
         "azure_functions",
+        "azure_servicebus",
         "protobuf",
         "aiohttp_jinja2",
         "pymongo",
@@ -171,6 +175,7 @@ INTEGRATION_CONFIGS = frozenset(
         "genai",
         "openai",
         "crewai",
+        "pydantic_ai",
         "logging",
         "cassandra",
         "boto",
@@ -361,9 +366,9 @@ def _default_config() -> Dict[str, _ConfigItem]:
             modifier=str,
         ),
         "_logs_injection": _ConfigItem(
-            default=False,
+            default=LogInjectionState.STRUCTURED,
             envs=["DD_LOGS_INJECTION"],
-            modifier=asbool,
+            modifier=get_log_injection_state,
         ),
         "_trace_http_header_tags": _ConfigItem(
             default=lambda: {},
@@ -536,7 +541,7 @@ class Config(object):
             "DD_RUNTIME_METRICS_ENABLED", False, asbool, "OTEL_METRICS_EXPORTER"
         )
         self._runtime_metrics_runtime_id_enabled = _get_config(
-            "DD_TRACE_EXPERIMENTAL_RUNTIME_ID_ENABLED", False, asbool
+            ["DD_TRACE_EXPERIMENTAL_RUNTIME_ID_ENABLED", "DD_RUNTIME_METRICS_RUNTIME_ID_ENABLED"], False, asbool
         )
         self._experimental_features_enabled = _get_config(
             "DD_TRACE_EXPERIMENTAL_FEATURES_ENABLED", set(), lambda x: set(x.strip().upper().split(","))
@@ -646,6 +651,9 @@ class Config(object):
         self._llmobs_sample_rate = _get_config("DD_LLMOBS_SAMPLE_RATE", 1.0, float)
         self._llmobs_ml_app = _get_config("DD_LLMOBS_ML_APP")
         self._llmobs_agentless_enabled = _get_config("DD_LLMOBS_AGENTLESS_ENABLED", None, asbool)
+        self._llmobs_instrumented_proxy_urls = _get_config(
+            "DD_LLMOBS_INSTRUMENTED_PROXY_URLS", None, lambda x: set(x.strip().split(","))
+        )
 
         self._inject_force = _get_config("DD_INJECT_FORCE", None, asbool)
         # Telemetry for whether ssi instrumented an app is tracked by the `instrumentation_source` config

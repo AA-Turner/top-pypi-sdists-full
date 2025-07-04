@@ -128,6 +128,7 @@ class LanguageCode(StrEnum):
     cs_CZ = "cs-CZ"
     cy_WL = "cy-WL"
     el_GR = "el-GR"
+    et_EE = "et-EE"
     et_ET = "et-ET"
     eu_ES = "eu-ES"
     fi_FI = "fi-FI"
@@ -210,6 +211,11 @@ class MedicalScribeLanguageCode(StrEnum):
 class MedicalScribeNoteTemplate(StrEnum):
     HISTORY_AND_PHYSICAL = "HISTORY_AND_PHYSICAL"
     GIRPP = "GIRPP"
+    BIRP = "BIRP"
+    SIRP = "SIRP"
+    DAP = "DAP"
+    BEHAVIORAL_SOAP = "BEHAVIORAL_SOAP"
+    PHYSICAL_SOAP = "PHYSICAL_SOAP"
 
 
 class MedicalScribeParticipantRole(StrEnum):

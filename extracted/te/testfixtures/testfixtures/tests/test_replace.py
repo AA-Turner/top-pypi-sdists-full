@@ -21,7 +21,7 @@ from testfixtures.tests import sample1, sample3
 from testfixtures.tests import sample2
 from .sample1 import z, X
 from .sample3 import SOME_CONSTANT
-from ..compat import PY_310_PLUS
+from ..compat import PY_313_PLUS
 
 from warnings import catch_warnings
 
@@ -273,12 +273,7 @@ class TestReplace(TestCase):
                 r.replace('datetime.datetime.today', not_there)
 
     def test_replace_delattr_cant_remove_not_strict(self):
-        if PY_310_PLUS:
-            message = "cannot set 'today' attribute of " \
-                      "immutable type 'datetime.datetime'"
-        else:
-            message = "can't set attributes of " \
-                      "built-in/extension type 'datetime.datetime'"
+        message = "cannot set 'today' attribute of immutable type 'datetime.datetime'"
         with Replacer() as r:
             with ShouldRaise(TypeError(message)):
                 r.replace('datetime.datetime.today', not_there, strict=False)
@@ -416,7 +411,7 @@ class TestReplace(TestCase):
 
                 r.replace('module.submodule.foo', bar)
 
-                from module.submodule import foo
+                from module.submodule import foo  # type: ignore[import-not-found]
                 compare(foo(), "bar")
 
     def test_staticmethod(self):
@@ -1167,7 +1162,7 @@ class TestReplaceWithInterestingOriginsStrict:
         replace_ = Replacer()
         with ShouldRaise(AttributeError(f"{obj!r} has __dict__ but 'bar' is not in it")):
             replace_(obj, name='bar', replacement=31, strict=self.strict)
-            compare(obj.bar, expected=31)
+        compare(obj.bar, expected=13)
 
         assert obj.bar is bar
 
@@ -1362,7 +1357,10 @@ class TestReplaceWithInterestingOriginsNotStrict(TestReplaceWithInterestingOrigi
         obj = OriginE()
         assert not hasattr(obj, '__dict__')
         replace_ = Replacer()
-        with ShouldRaise(AttributeError("'OriginE' object has no attribute 'bad'")):
+        message = "'OriginE' object has no attribute 'bad'"
+        if PY_313_PLUS:
+            message += " and no __dict__ for setting new attributes"
+        with ShouldRaise(AttributeError(message)):
             replace_(obj, name='bad', replacement=42, strict=self.strict)
 
     def test_method_on_instance_of_slotted_subclass(self):

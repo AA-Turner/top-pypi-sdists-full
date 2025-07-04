@@ -92,21 +92,29 @@ int SortedDictKeysType::contains(PyObject* key)
 
 PyObject* SortedDictKeysType::getitem(PyObject* idx)
 {
-    Py_ssize_t position = PyNumber_AsSsize_t(idx, PyExc_IndexError);
-    if (position != -1 || PyErr_Occurred() == nullptr)
+    if (PyIndex_Check(idx) != 0)
     {
+        Py_ssize_t position = PyNumber_AsSsize_t(idx, PyExc_IndexError);
+        if (position == -1 && PyErr_Occurred() != nullptr)
+        {
+            return nullptr;
+        }
         return this->getitem(position);
     }
-    PyErr_Clear();
-    Py_ssize_t start, stop, step;
-    if (PySlice_Check(idx) && PySlice_Unpack(idx, &start, &stop, &step) == 0)
+
+    if (PySlice_Check(idx))
     {
+        Py_ssize_t start, stop, step;
+        if (PySlice_Unpack(idx, &start, &stop, &step) != 0)
+        {
+            return nullptr;
+        }
         return this->getitem(start, stop, step);
     }
-    PyErr_Clear();
+
     PyErr_Format(
-        PyExc_TypeError, "got index %R of type %R, want index of type %R or %R with non-zero step", idx, Py_TYPE(idx),
-        &PyLong_Type, &PySlice_Type
+        PyExc_TypeError, "got index %R of type %R, want index of type %R or %R", idx, Py_TYPE(idx), &PyLong_Type,
+        &PySlice_Type
     );
     return nullptr;
 }

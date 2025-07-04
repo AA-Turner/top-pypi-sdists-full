@@ -1,27 +1,27 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: gpsoauth
-Version: 1.1.1
+Version: 2.0.0
 Summary: A python client library for Google Play Services OAuth.
-Home-page: https://github.com/simon-weber/gpsoauth
 License: MIT
 Author: Simon Weber
 Author-email: simon@simonmweber.com
-Requires-Python: >=3.8,<4.0
+Requires-Python: >=3.9,<4.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Typing :: Typed
 Requires-Dist: pycryptodomex (>=3.0)
 Requires-Dist: requests (>=2.0.0)
-Requires-Dist: urllib3 (<2.0)
+Requires-Dist: urllib3 (>=1.26.0)
+Project-URL: Homepage, https://github.com/simon-weber/gpsoauth
 Project-URL: Repository, https://github.com/simon-weber/gpsoauth
 Description-Content-Type: text/markdown
 
@@ -67,7 +67,7 @@ There is an alternative login flow if you are experiencing `BadAuthentication` e
 
 1. Go to https://accounts.google.com/EmbeddedSetup
 2. Log into your Google Account
-3. Click on "I agree" when prompted
+3. Click on "I agree" when prompted. The page may show a loading screen forever; ignore it and move on to the next step.
 4. Obtain the value of the `oauth_token` cookie. For more details see [the gpsoauth-java readme](https://github.com/rukins/gpsoauth-java/blob/b74ebca999d0f5bd38a2eafe3c0d50be552f6385/README.md#receiving-an-authentication-token).
 
 Then, perform the token exchange:

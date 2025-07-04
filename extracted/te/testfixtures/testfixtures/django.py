@@ -1,12 +1,12 @@
-from typing import Dict, Any, Sequence, Optional
+from typing import Any, Sequence, Iterable
 
-from django.db.models import Model
+from django.db.models import Model, Field
 
 from . import compare as base_compare
 from .comparison import _compare_mapping, register, CompareContext, unspecified, Registry
 
 
-def instance_fields(instance):
+def instance_fields(instance: Model) -> Iterable[Field]:
     opts = instance._meta
     for name in (
         'concrete_fields',
@@ -20,10 +20,10 @@ def instance_fields(instance):
 
 
 def model_to_dict(
-        instance: Any,
+        instance: Model,
         exclude: Sequence[str],
         include_not_editable: bool,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     data = {}
     for f in instance_fields(instance):
         if f.name in exclude:
@@ -34,7 +34,7 @@ def model_to_dict(
     return data
 
 
-def compare_model(x, y, context: CompareContext):
+def compare_model(x: Model, y: Model, context: CompareContext) -> str | None:
     """
     Returns an informative string describing the differences between the two
     supplied Django model instances. The way in which this comparison is
@@ -50,7 +50,7 @@ def compare_model(x, y, context: CompareContext):
     """
     ignore_fields = context.get_option('ignore_fields', set())
     non_editable_fields= context.get_option('non_editable_fields', False)
-    args = []
+    args: Any = []
     for obj in x, y:
         args.append(model_to_dict(obj, ignore_fields, non_editable_fields))
     args.append(context)
@@ -62,22 +62,22 @@ register(Model, compare_model)
 
 
 def compare(
-        *args,
+        *args: Any,
         x: Any = unspecified,
         y: Any = unspecified,
         expected: Any = unspecified,
         actual: Any = unspecified,
-        prefix: str = None,
-        suffix: str = None,
-        x_label: str = None,
-        y_label: str = None,
+        prefix: str | None = None,
+        suffix: str | None = None,
+        x_label: str | None = None,
+        y_label: str | None = None,
         raises: bool = True,
         recursive: bool = True,
         strict: bool = False,
         ignore_eq: bool = True,
-        comparers: Registry = None,
+        comparers: Registry | None = None,
         **options: Any
-) -> Optional[str]:
+) -> str | None:
     """
     This is identical to :func:`~testfixtures.compare`, but with ``ignore=True``
     automatically set to make comparing django :class:`~django.db.models.Model`

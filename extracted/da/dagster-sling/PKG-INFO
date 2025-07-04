@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster-sling
-Version: 0.27.0
+Version: 0.27.1
 Summary: Package for performing ETL/ELT tasks with Sling in Dagster.
 Home-page: https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-sling
 Author: Dagster Labs
@@ -14,7 +14,7 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.9,<3.13
 License-File: LICENSE
-Requires-Dist: dagster==1.11.0
+Requires-Dist: dagster==1.11.1
 Requires-Dist: sling>=1.1.5
 Requires-Dist: sling-mac-arm64; platform_system == "Darwin" and platform_machine == "arm64"
 Provides-Extra: test

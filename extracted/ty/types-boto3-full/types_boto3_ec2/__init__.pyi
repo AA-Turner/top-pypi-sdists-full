@@ -185,6 +185,8 @@ Usage::
         SearchLocalGatewayRoutesPaginator,
         SearchTransitGatewayMulticastGroupsPaginator,
         SecurityGroupExistsWaiter,
+        SecurityGroupVpcAssociationAssociatedWaiter,
+        SecurityGroupVpcAssociationDisassociatedWaiter,
         ServiceResource,
         SnapshotCompletedWaiter,
         SnapshotImportedWaiter,
@@ -229,6 +231,8 @@ Usage::
     network_interface_available_waiter: NetworkInterfaceAvailableWaiter = client.get_waiter("network_interface_available")
     password_data_available_waiter: PasswordDataAvailableWaiter = client.get_waiter("password_data_available")
     security_group_exists_waiter: SecurityGroupExistsWaiter = client.get_waiter("security_group_exists")
+    security_group_vpc_association_associated_waiter: SecurityGroupVpcAssociationAssociatedWaiter = client.get_waiter("security_group_vpc_association_associated")
+    security_group_vpc_association_disassociated_waiter: SecurityGroupVpcAssociationDisassociatedWaiter = client.get_waiter("security_group_vpc_association_disassociated")
     snapshot_completed_waiter: SnapshotCompletedWaiter = client.get_waiter("snapshot_completed")
     snapshot_imported_waiter: SnapshotImportedWaiter = client.get_waiter("snapshot_imported")
     spot_instance_request_fulfilled_waiter: SpotInstanceRequestFulfilledWaiter = client.get_waiter("spot_instance_request_fulfilled")
@@ -575,6 +579,8 @@ from .waiter import (
     NetworkInterfaceAvailableWaiter,
     PasswordDataAvailableWaiter,
     SecurityGroupExistsWaiter,
+    SecurityGroupVpcAssociationAssociatedWaiter,
+    SecurityGroupVpcAssociationDisassociatedWaiter,
     SnapshotCompletedWaiter,
     SnapshotImportedWaiter,
     SpotInstanceRequestFulfilledWaiter,
@@ -777,6 +783,8 @@ __all__ = (
     "SearchLocalGatewayRoutesPaginator",
     "SearchTransitGatewayMulticastGroupsPaginator",
     "SecurityGroupExistsWaiter",
+    "SecurityGroupVpcAssociationAssociatedWaiter",
+    "SecurityGroupVpcAssociationDisassociatedWaiter",
     "ServiceResource",
     "SnapshotCompletedWaiter",
     "SnapshotImportedWaiter",

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: orq-ai-sdk
-Version: 3.9.0
+Version: 3.9.3
 Summary: Python Client SDK for the Orq API.
 Author: Orq
 Requires-Python: >=3.9.2
@@ -365,7 +365,10 @@ with Orq(
 * [update_chunk](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/knowledge/README.md#update_chunk) - Update a chunk
 * [delete_chunk](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/knowledge/README.md#delete_chunk) - Delete a chunk
 * [retrieve_chunk](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/knowledge/README.md#retrieve_chunk) - Retrieve a chunk
-* [chunk_text](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/knowledge/README.md#chunk_text) - Chunk text content using various strategies
+
+### [knowledge_bases](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/knowledgebases/README.md)
+
+* [chunk_text](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/knowledgebases/README.md#chunk_text) - Chunk text
 
 ### [models](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/models/README.md)
 

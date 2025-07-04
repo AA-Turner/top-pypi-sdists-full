@@ -85,6 +85,7 @@ __all__ = (
     "ConditionOutcomeType",
     "ContainerModeType",
     "ContentClassifierType",
+    "CreateHubContentPresignedUrlsPaginatorName",
     "CrossAccountFilterOptionType",
     "DataDistributionTypeType",
     "DataSourceNameType",
@@ -934,6 +935,7 @@ CompressionTypeType = Literal["Gzip", "None"]
 ConditionOutcomeType = Literal["False", "True"]
 ContainerModeType = Literal["MultiModel", "SingleModel"]
 ContentClassifierType = Literal["FreeOfAdultContent", "FreeOfPersonallyIdentifiableInformation"]
+CreateHubContentPresignedUrlsPaginatorName = Literal["create_hub_content_presigned_urls"]
 CrossAccountFilterOptionType = Literal["CrossAccount", "SameAccount"]
 DataDistributionTypeType = Literal["FullyReplicated", "ShardedByS3Key"]
 DataSourceNameType = Literal["SalesforceGenie", "Snowflake"]
@@ -2796,6 +2798,7 @@ ResourceServiceName = Literal[
     "sqs",
 ]
 PaginatorName = Literal[
+    "create_hub_content_presigned_urls",
     "list_actions",
     "list_algorithms",
     "list_aliases",

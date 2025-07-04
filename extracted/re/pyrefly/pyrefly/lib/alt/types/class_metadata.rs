@@ -11,6 +11,7 @@ use std::fmt::Formatter;
 use std::iter;
 use std::sync::Arc;
 
+use dupe::Dupe;
 use pyrefly_derive::TypeEq;
 use pyrefly_derive::VisitMut;
 use pyrefly_util::display::commas_iter;
@@ -25,11 +26,11 @@ use vec1::vec1;
 use crate::alt::class::class_field::ClassField;
 use crate::error::collector::ErrorCollector;
 use crate::error::kind::ErrorKind;
-use crate::types::callable::BoolKeywords;
-use crate::types::callable::DataclassKeywords;
 use crate::types::class::Class;
 use crate::types::class::ClassType;
-use crate::types::qname::QName;
+use crate::types::display::ClassDisplayContext;
+use crate::types::keywords::DataclassKeywords;
+use crate::types::keywords::DataclassTransformKeywords;
 use crate::types::stdlib::Stdlib;
 use crate::types::types::Type;
 
@@ -52,7 +53,7 @@ pub struct ClassMetadata {
     total_ordering_metadata: Option<TotalOrderingMetadata>,
     /// If this class is decorated with `typing.dataclass_transform(...)`, the keyword arguments
     /// that were passed to the `dataclass_transform` call.
-    dataclass_transform_metadata: Option<BoolKeywords>,
+    dataclass_transform_metadata: Option<DataclassTransformKeywords>,
 }
 
 impl VisitMut<Type> for ClassMetadata {
@@ -84,7 +85,7 @@ impl ClassMetadata {
         is_final: bool,
         has_unknown_tparams: bool,
         total_ordering_metadata: Option<TotalOrderingMetadata>,
-        dataclass_transform_metadata: Option<BoolKeywords>,
+        dataclass_transform_metadata: Option<DataclassTransformKeywords>,
         errors: &ErrorCollector,
     ) -> ClassMetadata {
         Self::validate_frozen_dataclass_inheritance(
@@ -120,11 +121,8 @@ impl ClassMetadata {
         if let Some(dataclass_metadata) = dataclass_metadata {
             for (base_type, base_metadata) in bases_with_metadata {
                 if let Some(base_dataclass_metadata) = base_metadata.dataclass_metadata() {
-                    let is_base_frozen = base_dataclass_metadata
-                        .kws
-                        .is_set(&DataclassKeywords::FROZEN);
-                    let is_current_frozen =
-                        dataclass_metadata.kws.is_set(&DataclassKeywords::FROZEN);
+                    let is_base_frozen = base_dataclass_metadata.kws.frozen;
+                    let is_current_frozen = dataclass_metadata.kws.frozen;
 
                     if is_current_frozen != is_base_frozen {
                         let current_status = if is_current_frozen {
@@ -138,6 +136,8 @@ impl ClassMetadata {
                             "non-frozen"
                         };
 
+                        let base = base_type.class_object();
+                        let ctx = ClassDisplayContext::new(&[cls, base]);
                         errors.add(
                             cls.range(),
                             ErrorKind::InvalidInheritance,
@@ -145,9 +145,9 @@ impl ClassMetadata {
                             vec1![format!(
                                 "Cannot inherit {} dataclass `{}` from {} dataclass `{}`",
                                 current_status,
-                                ClassName(cls.qname()),
+                                ctx.display(cls),
                                 base_status,
-                                ClassName(base_type.qname()),
+                                ctx.display(base),
                             )],
                         );
                     }
@@ -250,7 +250,7 @@ impl ClassMetadata {
         self.dataclass_metadata.as_ref()
     }
 
-    pub fn dataclass_transform_metadata(&self) -> Option<&BoolKeywords> {
+    pub fn dataclass_transform_metadata(&self) -> Option<&DataclassTransformKeywords> {
         self.dataclass_transform_metadata.as_ref()
     }
 }
@@ -383,20 +383,7 @@ pub struct NamedTupleMetadata {
 pub struct DataclassMetadata {
     /// The dataclass fields, e.g., `{'x'}` for `@dataclass class C: x: int`.
     pub fields: SmallSet<Name>,
-    pub kws: BoolKeywords,
-}
-
-impl DataclassMetadata {
-    /// Gets the DataclassMetadata that should be inherited by a class that is a dataclass via
-    /// inheritance but is not itself decorated with `@dataclass`.
-    pub fn inherit(&self) -> Self {
-        Self {
-            // Dataclass fields are inherited.
-            fields: self.fields.clone(),
-            // The remaining metadata are irrelevant, so just set them to some sensible-seeming value.
-            kws: self.kws.clone(),
-        }
-    }
+    pub kws: DataclassKeywords,
 }
 
 #[derive(Clone, Debug, TypeEq, PartialEq, Eq)]
@@ -444,14 +431,6 @@ impl Display for ClassMro {
             }
             ClassMro::Cyclic => write!(f, "Cyclic"),
         }
-    }
-}
-
-struct ClassName<'a>(&'a QName);
-
-impl Display for ClassName<'_> {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        QName::fmt_with_module(self.0, f)
     }
 }
 
@@ -569,14 +548,16 @@ impl Linearization {
                 // None and Cyclic both indicate a cycle, the distinction just
                 // depends on how exactly the recursion in resolving keys plays out.
                 ClassMro::Cyclic => {
+                    let base = base.class_object();
+                    let ctx = ClassDisplayContext::new(&[cls, base]);
                     errors.add(
                         cls.range(),
                         ErrorKind::InvalidInheritance,
                         None,
                         vec1![format!(
                             "Class `{}` inheriting from `{}` creates a cycle",
-                            ClassName(cls.qname()),
-                            ClassName(base.qname()),
+                            ctx.display(cls),
+                            ctx.display(base),
                         )],
                     );
                     // Signal that we detected a cycle
@@ -646,15 +627,22 @@ impl Linearization {
                 // The ancestors are not linearizable at this point. Record an error and stop with
                 // what we have so far.
                 // (The while loop invariant ensures that ancestor_chains is non-empty, so unwrap is safe.)
-                let first_candidate = &ancestor_chains.first().unwrap().0.last().class_object();
+                let first_candidate = &ancestor_chains
+                    .first()
+                    .unwrap()
+                    .0
+                    .last()
+                    .class_object()
+                    .dupe();
+                let ctx = ClassDisplayContext::new(&[cls, first_candidate]);
                 errors.add(
                     cls.range(),
                     ErrorKind::InvalidInheritance,
                     None,
                     vec1![format!(
                         "Class `{}` has a nonlinearizable inheritance chain detected at `{}`",
-                        ClassName(cls.qname()),
-                        ClassName(first_candidate.qname()),
+                        ctx.display(cls),
+                        ctx.display(first_candidate),
                     )],
                 );
 

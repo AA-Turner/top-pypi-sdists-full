@@ -193,8 +193,7 @@ cdef inline void _mod_compile(str tempdir, str mod_name, str obj_host) except*:
 # other SMs always use sm_X0's symbols only and do not have their own
 # specializations.
 cdef dict _cc_major_map = {
-    '12': ('120', '121'),
-    '10': ('100', '103'),
+    '10': ('100',),
     '9': ('90',),
     '8': ('80', '86', '87'),
     '7': ('70', '72', '75'),
@@ -365,8 +364,7 @@ cdef class _CallbackManager:
         # are considered identical regardless of which plan is actually
         # executed at the time of generation
         mod_name = 'cupy_callback_'
-        mod_name += hashlib.md5(
-            keys.encode(), usedforsecurity=False).hexdigest()
+        mod_name += hashlib.md5(keys.encode()).hexdigest()
         mod_name = mod_name.replace('.', '')
         mod_filename = mod_name + _ext_suffix
 

@@ -42,7 +42,6 @@ from anyscale_client.models.build_status import BuildStatus
 from anyscale_client.models.cloud import Cloud
 from anyscale_client.models.cloud_config import CloudConfig
 from anyscale_client.models.cloud_deployment_compute_config import CloudDeploymentComputeConfig
-from anyscale_client.models.cloud_deployment_selector import CloudDeploymentSelector
 from anyscale_client.models.cloud_list_response import CloudListResponse
 from anyscale_client.models.cloud_providers import CloudProviders
 from anyscale_client.models.cloud_response import CloudResponse

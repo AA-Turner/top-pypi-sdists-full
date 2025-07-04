@@ -58,7 +58,6 @@ use crate::error::kind::Severity;
 use crate::error::legacy::LegacyErrors;
 use crate::error::summarise::print_error_summary;
 use crate::module::bundled::stdlib_search_path;
-use crate::module::ignore::SuppressionKind;
 use crate::module::module_path::ModulePath;
 use crate::module::module_path::ModulePathDetails;
 use crate::module::wildcard::ModuleWildcard;
@@ -200,6 +199,9 @@ struct ConfigOverrideArgs {
     /// Controls how Pyrefly analyzes function definitions that lack type annotations on parameters and return values.
     #[arg(long, env = clap_env("UNTYPED_DEF_BEHAVIOR"))]
     untyped_def_behavior: Option<UntypedDefBehavior>,
+    /// Whether Pyrefly will respect ignore statements for other tools, e.g. `# mypy: ignore`.
+    #[arg(long, env = clap_env("PERMISSIVE_IGNORES"))]
+    permissive_ignores: Option<bool>,
 }
 
 impl OutputFormat {
@@ -587,6 +589,9 @@ impl Args {
         if let Some(x) = &self.config_override.untyped_def_behavior {
             config.root.untyped_def_behavior = Some(*x);
         }
+        if let Some(x) = self.config_override.permissive_ignores {
+            config.root.permissive_ignores = Some(x);
+        }
         if let Some(wildcards) = &self.config_override.replace_imports_with_any {
             config.root.replace_imports_with_any = Some(
                 wildcards
@@ -598,8 +603,7 @@ impl Args {
         if let Some(x) = &self.config_override.ignore_errors_in_generated_code {
             config.root.ignore_errors_in_generated_code = Some(*x);
         }
-        config.configure();
-        let errors = config.validate();
+        let errors = config.configure();
         (ArcId::new(config), errors)
     }
 
@@ -739,13 +743,13 @@ impl Args {
             let mut all_ignores: SmallMap<&PathBuf, SmallSet<LineNumber>> = SmallMap::new();
             for (module_path, ignore) in loads.collect_ignores() {
                 if let ModulePathDetails::FileSystem(path) = module_path.details() {
-                    all_ignores.insert(path, ignore.get_ignores(SuppressionKind::Pyrefly));
+                    all_ignores.insert(path, ignore.get_pyrefly_ignores());
                 }
             }
 
             let mut suppressed_errors: SmallMap<&PathBuf, SmallSet<LineNumber>> = SmallMap::new();
             for e in &errors.suppressed {
-                if e.is_ignored()
+                if e.is_ignored(false)
                     && let ModulePathDetails::FileSystem(path) = e.path().details()
                 {
                     suppressed_errors

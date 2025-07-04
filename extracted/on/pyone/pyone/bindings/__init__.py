@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
 #
-# Generated Thu May 29 01:07:37 2025 by generateDS.py version 2.44.3.
-# Python 3.10.12 (main, Feb  4 2025, 14:57:36) [GCC 11.4.0]
+# Generated Wed Jul  2 17:27:12 2025 by generateDS.py version 2.44.3.
+# Python 3.10.12 (main, May 27 2025, 17:12:29) [GCC 11.4.0]
 #
 # Command line options:
 #   ('-q', '')
@@ -17,7 +17,7 @@
 #   ../../../share/doc/xsd/index.xsd
 #
 # Command line:
-#   /home/one/init-build-jenkins.p7F3uQ/one/src/oca/python/bin/generateDS -q -f -o "pyone/bindings/supbind.py" -s "pyone/bindings/__init__.py" --super="supbind" --external-encoding="utf-8" --silence ../../../share/doc/xsd/index.xsd
+#   /home/one/init-build-jenkins.qMcVGq/one/src/oca/python/bin/generateDS -q -f -o "pyone/bindings/supbind.py" -s "pyone/bindings/__init__.py" --super="supbind" --external-encoding="utf-8" --silence ../../../share/doc/xsd/index.xsd
 #
 # Current working directory (os.getcwd()):
 #   python
@@ -75,8 +75,8 @@ supermod.HISTORY_RECORDS.subclass = HISTORY_RECORDSSub
 
 
 class HISTORYSub(TemplatedType, supermod.HISTORY):
-    def __init__(self, OID=None, SEQ=None, HOSTNAME=None, HID=None, CID=None, STIME=None, ETIME=None, VM_MAD=None, TM_MAD=None, DS_ID=None, PSTIME=None, PETIME=None, RSTIME=None, RETIME=None, ESTIME=None, EETIME=None, ACTION=None, UID=None, GID=None, REQUEST_ID=None, VM=None, **kwargs_):
-        super(HISTORYSub, self).__init__(OID, SEQ, HOSTNAME, HID, CID, STIME, ETIME, VM_MAD, TM_MAD, DS_ID, PSTIME, PETIME, RSTIME, RETIME, ESTIME, EETIME, ACTION, UID, GID, REQUEST_ID, VM,  **kwargs_)
+    def __init__(self, OID=None, SEQ=None, HOSTNAME=None, HID=None, CID=None, STIME=None, ETIME=None, VM_MAD=None, TM_MAD=None, DS_ID=None, PLAN_ID=None, ACTION_ID=None, PSTIME=None, PETIME=None, RSTIME=None, RETIME=None, ESTIME=None, EETIME=None, ACTION=None, UID=None, GID=None, REQUEST_ID=None, VM=None, **kwargs_):
+        super(HISTORYSub, self).__init__(OID, SEQ, HOSTNAME, HID, CID, STIME, ETIME, VM_MAD, TM_MAD, DS_ID, PLAN_ID, ACTION_ID, PSTIME, PETIME, RSTIME, RETIME, ESTIME, EETIME, ACTION, UID, GID, REQUEST_ID, VM,  **kwargs_)
 supermod.HISTORY.subclass = HISTORYSub
 # end class HISTORYSub
 
@@ -137,6 +137,34 @@ supermod.SCHED_ACTION.subclass = SCHED_ACTIONSub
 # end class SCHED_ACTIONSub
 
 
+class DATASTORE_QUOTASub(TemplatedType, supermod.DATASTORE_QUOTA):
+    def __init__(self, DATASTORE=None, **kwargs_):
+        super(DATASTORE_QUOTASub, self).__init__(DATASTORE,  **kwargs_)
+supermod.DATASTORE_QUOTA.subclass = DATASTORE_QUOTASub
+# end class DATASTORE_QUOTASub
+
+
+class NETWORK_QUOTASub(TemplatedType, supermod.NETWORK_QUOTA):
+    def __init__(self, NETWORK=None, **kwargs_):
+        super(NETWORK_QUOTASub, self).__init__(NETWORK,  **kwargs_)
+supermod.NETWORK_QUOTA.subclass = NETWORK_QUOTASub
+# end class NETWORK_QUOTASub
+
+
+class VM_QUOTASub(TemplatedType, supermod.VM_QUOTA):
+    def __init__(self, VM=None, **kwargs_):
+        super(VM_QUOTASub, self).__init__(VM,  **kwargs_)
+supermod.VM_QUOTA.subclass = VM_QUOTASub
+# end class VM_QUOTASub
+
+
+class IMAGE_QUOTASub(TemplatedType, supermod.IMAGE_QUOTA):
+    def __init__(self, IMAGE=None, **kwargs_):
+        super(IMAGE_QUOTASub, self).__init__(IMAGE,  **kwargs_)
+supermod.IMAGE_QUOTA.subclass = IMAGE_QUOTASub
+# end class IMAGE_QUOTASub
+
+
 class CLUSTER_POOLSub(TemplatedType, supermod.CLUSTER_POOL):
     def __init__(self, CLUSTER=None, **kwargs_):
         super(CLUSTER_POOLSub, self).__init__(CLUSTER,  **kwargs_)
@@ -145,8 +173,8 @@ supermod.CLUSTER_POOL.subclass = CLUSTER_POOLSub
 
 
 class CLUSTERSub(TemplatedType, supermod.CLUSTER):
-    def __init__(self, ID=None, NAME=None, HOSTS=None, DATASTORES=None, VNETS=None, TEMPLATE=None, **kwargs_):
-        super(CLUSTERSub, self).__init__(ID, NAME, HOSTS, DATASTORES, VNETS, TEMPLATE,  **kwargs_)
+    def __init__(self, ID=None, NAME=None, HOSTS=None, DATASTORES=None, VNETS=None, TEMPLATE=None, PLAN=None, **kwargs_):
+        super(CLUSTERSub, self).__init__(ID, NAME, HOSTS, DATASTORES, VNETS, TEMPLATE, PLAN,  **kwargs_)
 supermod.CLUSTER.subclass = CLUSTERSub
 # end class CLUSTERSub
 
@@ -236,8 +264,8 @@ supermod.IMAGE_POOL.subclass = IMAGE_POOLSub
 
 
 class IMAGESub(TemplatedType, supermod.IMAGE):
-    def __init__(self, ID=None, UID=None, GID=None, UNAME=None, GNAME=None, NAME=None, LOCK=None, PERMISSIONS=None, TYPE=None, DISK_TYPE=None, PERSISTENT=None, REGTIME=None, SOURCE=None, PATH=None, FORMAT=None, FS=None, SIZE=None, STATE=None, PREV_STATE=None, RUNNING_VMS=None, CLONING_OPS=None, CLONING_ID=None, TARGET_SNAPSHOT=None, DATASTORE_ID=None, DATASTORE=None, VMS=None, CLONES=None, APP_CLONES=None, TEMPLATE=None, SNAPSHOTS=None, BACKUP_INCREMENTS=None, BACKUP_DISK_IDS=None, **kwargs_):
-        super(IMAGESub, self).__init__(ID, UID, GID, UNAME, GNAME, NAME, LOCK, PERMISSIONS, TYPE, DISK_TYPE, PERSISTENT, REGTIME, SOURCE, PATH, FORMAT, FS, SIZE, STATE, PREV_STATE, RUNNING_VMS, CLONING_OPS, CLONING_ID, TARGET_SNAPSHOT, DATASTORE_ID, DATASTORE, VMS, CLONES, APP_CLONES, TEMPLATE, SNAPSHOTS, BACKUP_INCREMENTS, BACKUP_DISK_IDS,  **kwargs_)
+    def __init__(self, ID=None, UID=None, GID=None, UNAME=None, GNAME=None, NAME=None, LOCK=None, PERMISSIONS=None, TYPE=None, DISK_TYPE=None, PERSISTENT=None, REGTIME=None, MODTIME=None, SOURCE=None, PATH=None, FORMAT=None, FS=None, SIZE=None, STATE=None, PREV_STATE=None, RUNNING_VMS=None, CLONING_OPS=None, CLONING_ID=None, TARGET_SNAPSHOT=None, DATASTORE_ID=None, DATASTORE=None, VMS=None, CLONES=None, APP_CLONES=None, TEMPLATE=None, SNAPSHOTS=None, BACKUP_INCREMENTS=None, BACKUP_DISK_IDS=None, **kwargs_):
+        super(IMAGESub, self).__init__(ID, UID, GID, UNAME, GNAME, NAME, LOCK, PERMISSIONS, TYPE, DISK_TYPE, PERSISTENT, REGTIME, MODTIME, SOURCE, PATH, FORMAT, FS, SIZE, STATE, PREV_STATE, RUNNING_VMS, CLONING_OPS, CLONING_ID, TARGET_SNAPSHOT, DATASTORE_ID, DATASTORE, VMS, CLONES, APP_CLONES, TEMPLATE, SNAPSHOTS, BACKUP_INCREMENTS, BACKUP_DISK_IDS,  **kwargs_)
 supermod.IMAGE.subclass = IMAGESub
 # end class IMAGESub
 
@@ -278,8 +306,8 @@ supermod.MONITORING_DATA.subclass = MONITORING_DATASub
 
 
 class OPENNEBULA_CONFIGURATIONSub(TemplatedType, supermod.OPENNEBULA_CONFIGURATION):
-    def __init__(self, API_LIST_ORDER=None, AUTH_MAD=None, AUTH_MAD_CONF=None, CLUSTER_ENCRYPTED_ATTR=None, CONTEXT_RESTRICTED_DIRS=None, CONTEXT_SAFE_DIRS=None, DATASTORE_CAPACITY_CHECK=None, DATASTORE_ENCRYPTED_ATTR=None, DATASTORE_LOCATION=None, DATASTORE_MAD=None, DB=None, DEFAULT_AUTH=None, DEFAULT_CDROM_DEVICE_PREFIX=None, DEFAULT_COST=None, DEFAULT_DEVICE_PREFIX=None, DEFAULT_IMAGE_PERSISTENT=None, DEFAULT_IMAGE_PERSISTENT_NEW=None, DEFAULT_IMAGE_TYPE=None, DEFAULT_UMASK=None, DEFAULT_VDC_CLUSTER_DATASTORE_ACL=None, DEFAULT_VDC_CLUSTER_HOST_ACL=None, DEFAULT_VDC_CLUSTER_NET_ACL=None, DEFAULT_VDC_DATASTORE_ACL=None, DEFAULT_VDC_HOST_ACL=None, DEFAULT_VDC_VNET_ACL=None, DOCUMENT_ENCRYPTED_ATTR=None, DS_MAD_CONF=None, DS_MONITOR_VM_DISK=None, ENABLE_OTHER_PERMISSIONS=None, FEDERATION=None, GROUP_RESTRICTED_ATTR=None, HM_MAD=None, HOOK_LOG_CONF=None, HOST_ENCRYPTED_ATTR=None, IMAGE_ENCRYPTED_ATTR=None, IMAGE_RESTRICTED_ATTR=None, IM_MAD=None, INHERIT_DATASTORE_ATTR=None, INHERIT_IMAGE_ATTR=None, INHERIT_VNET_ATTR=None, IPAM_MAD=None, KEEPALIVE_MAX_CONN=None, KEEPALIVE_TIMEOUT=None, LISTEN_ADDRESS=None, LOG=None, LOG_CALL_FORMAT=None, MAC_PREFIX=None, MANAGER_TIMER=None, MARKET_MAD=None, MARKET_MAD_CONF=None, MAX_BACKUPS=None, MAX_BACKUPS_HOST=None, MAX_CONN=None, MAX_CONN_BACKLOG=None, MESSAGE_SIZE=None, MONITORING_INTERVAL_DATASTORE=None, MONITORING_INTERVAL_HOST=None, MONITORING_INTERVAL_MARKET=None, MONITORING_INTERVAL_VM=None, NETWORK_SIZE=None, ONE_KEY=None, PCI_PASSTHROUGH_BUS=None, PORT=None, RAFT=None, RPC_LOG=None, SCRIPTS_REMOTE_DIR=None, SESSION_EXPIRATION_TIME=None, SHOWBACK_ONLY_RUNNING=None, TIMEOUT=None, TM_MAD=None, TM_MAD_CONF=None, USER_ENCRYPTED_ATTR=None, USER_RESTRICTED_ATTR=None, VLAN_IDS=None, VM_ADMIN_OPERATIONS=None, VM_ENCRYPTED_ATTR=None, VM_MAD=None, VM_MANAGE_OPERATIONS=None, VM_MONITORING_EXPIRATION_TIME=None, VM_RESTRICTED_ATTR=None, VM_SNAPSHOT_FACTOR=None, VM_SUBMIT_ON_HOLD=None, VM_USE_OPERATIONS=None, VNC_PORTS=None, VNET_ENCRYPTED_ATTR=None, VNET_RESTRICTED_ATTR=None, VN_MAD_CONF=None, VXLAN_IDS=None, **kwargs_):
-        super(OPENNEBULA_CONFIGURATIONSub, self).__init__(API_LIST_ORDER, AUTH_MAD, AUTH_MAD_CONF, CLUSTER_ENCRYPTED_ATTR, CONTEXT_RESTRICTED_DIRS, CONTEXT_SAFE_DIRS, DATASTORE_CAPACITY_CHECK, DATASTORE_ENCRYPTED_ATTR, DATASTORE_LOCATION, DATASTORE_MAD, DB, DEFAULT_AUTH, DEFAULT_CDROM_DEVICE_PREFIX, DEFAULT_COST, DEFAULT_DEVICE_PREFIX, DEFAULT_IMAGE_PERSISTENT, DEFAULT_IMAGE_PERSISTENT_NEW, DEFAULT_IMAGE_TYPE, DEFAULT_UMASK, DEFAULT_VDC_CLUSTER_DATASTORE_ACL, DEFAULT_VDC_CLUSTER_HOST_ACL, DEFAULT_VDC_CLUSTER_NET_ACL, DEFAULT_VDC_DATASTORE_ACL, DEFAULT_VDC_HOST_ACL, DEFAULT_VDC_VNET_ACL, DOCUMENT_ENCRYPTED_ATTR, DS_MAD_CONF, DS_MONITOR_VM_DISK, ENABLE_OTHER_PERMISSIONS, FEDERATION, GROUP_RESTRICTED_ATTR, HM_MAD, HOOK_LOG_CONF, HOST_ENCRYPTED_ATTR, IMAGE_ENCRYPTED_ATTR, IMAGE_RESTRICTED_ATTR, IM_MAD, INHERIT_DATASTORE_ATTR, INHERIT_IMAGE_ATTR, INHERIT_VNET_ATTR, IPAM_MAD, KEEPALIVE_MAX_CONN, KEEPALIVE_TIMEOUT, LISTEN_ADDRESS, LOG, LOG_CALL_FORMAT, MAC_PREFIX, MANAGER_TIMER, MARKET_MAD, MARKET_MAD_CONF, MAX_BACKUPS, MAX_BACKUPS_HOST, MAX_CONN, MAX_CONN_BACKLOG, MESSAGE_SIZE, MONITORING_INTERVAL_DATASTORE, MONITORING_INTERVAL_HOST, MONITORING_INTERVAL_MARKET, MONITORING_INTERVAL_VM, NETWORK_SIZE, ONE_KEY, PCI_PASSTHROUGH_BUS, PORT, RAFT, RPC_LOG, SCRIPTS_REMOTE_DIR, SESSION_EXPIRATION_TIME, SHOWBACK_ONLY_RUNNING, TIMEOUT, TM_MAD, TM_MAD_CONF, USER_ENCRYPTED_ATTR, USER_RESTRICTED_ATTR, VLAN_IDS, VM_ADMIN_OPERATIONS, VM_ENCRYPTED_ATTR, VM_MAD, VM_MANAGE_OPERATIONS, VM_MONITORING_EXPIRATION_TIME, VM_RESTRICTED_ATTR, VM_SNAPSHOT_FACTOR, VM_SUBMIT_ON_HOLD, VM_USE_OPERATIONS, VNC_PORTS, VNET_ENCRYPTED_ATTR, VNET_RESTRICTED_ATTR, VN_MAD_CONF, VXLAN_IDS,  **kwargs_)
+    def __init__(self, ACTION_TIMEOUT=None, API_LIST_ORDER=None, AUTH_MAD=None, AUTH_MAD_CONF=None, CLUSTER_ENCRYPTED_ATTR=None, COLD_MIGRATE_MODE=None, CONTEXT_ALLOW_ETH_UPDATES=None, CONTEXT_RESTRICTED_DIRS=None, CONTEXT_SAFE_DIRS=None, DATASTORE_CAPACITY_CHECK=None, DATASTORE_ENCRYPTED_ATTR=None, DATASTORE_LOCATION=None, DATASTORE_MAD=None, DB=None, DEFAULT_AUTH=None, DEFAULT_CDROM_DEVICE_PREFIX=None, DEFAULT_COST=None, DEFAULT_DEVICE_PREFIX=None, DEFAULT_IMAGE_PERSISTENT=None, DEFAULT_IMAGE_PERSISTENT_NEW=None, DEFAULT_IMAGE_TYPE=None, DEFAULT_UMASK=None, DEFAULT_VDC_CLUSTER_DATASTORE_ACL=None, DEFAULT_VDC_CLUSTER_HOST_ACL=None, DEFAULT_VDC_CLUSTER_NET_ACL=None, DEFAULT_VDC_DATASTORE_ACL=None, DEFAULT_VDC_HOST_ACL=None, DEFAULT_VDC_VNET_ACL=None, DOCUMENT_ENCRYPTED_ATTR=None, DRS_INTERVAL=None, DS_MAD_CONF=None, DS_MONITOR_VM_DISK=None, ENABLE_OTHER_PERMISSIONS=None, FEDERATION=None, GROUP_RESTRICTED_ATTR=None, HM_MAD=None, HOOK_LOG_CONF=None, HOST_ENCRYPTED_ATTR=None, IMAGE_ENCRYPTED_ATTR=None, IMAGE_RESTRICTED_ATTR=None, IM_MAD=None, INHERIT_DATASTORE_ATTR=None, INHERIT_IMAGE_ATTR=None, INHERIT_VNET_ATTR=None, IPAM_MAD=None, KEEPALIVE_MAX_CONN=None, KEEPALIVE_TIMEOUT=None, LISTEN_ADDRESS=None, LIVE_RESCHEDS=None, LOG=None, LOG_CALL_FORMAT=None, MAC_PREFIX=None, MANAGER_TIMER=None, MARKET_MAD=None, MARKET_MAD_CONF=None, MAX_ACTIONS_PER_CLUSTER=None, MAX_ACTIONS_PER_HOST=None, MAX_BACKUPS=None, MAX_BACKUPS_HOST=None, MAX_CONN=None, MAX_CONN_BACKLOG=None, MESSAGE_SIZE=None, MONITORING_INTERVAL_DATASTORE=None, MONITORING_INTERVAL_HOST=None, MONITORING_INTERVAL_MARKET=None, MONITORING_INTERVAL_VM=None, NETWORK_SIZE=None, ONE_KEY=None, PCI_PASSTHROUGH_BUS=None, PORT=None, RAFT=None, RPC_LOG=None, SCHED_MAD=None, SCHED_MAX_WND_LENGTH=None, SCHED_MAX_WND_TIME=None, SCHED_RETRY_TIME=None, SCRIPTS_REMOTE_DIR=None, SESSION_EXPIRATION_TIME=None, SHOWBACK_ONLY_RUNNING=None, TIMEOUT=None, TM_MAD=None, TM_MAD_CONF=None, USER_ENCRYPTED_ATTR=None, USER_RESTRICTED_ATTR=None, VLAN_IDS=None, VM_ADMIN_OPERATIONS=None, VM_ENCRYPTED_ATTR=None, VM_MAD=None, VM_MANAGE_OPERATIONS=None, VM_MONITORING_EXPIRATION_TIME=None, VM_RESTRICTED_ATTR=None, VM_SNAPSHOT_FACTOR=None, VM_SUBMIT_ON_HOLD=None, VM_USE_OPERATIONS=None, VNC_PORTS=None, VNET_ENCRYPTED_ATTR=None, VNET_RESTRICTED_ATTR=None, VN_MAD_CONF=None, VXLAN_IDS=None, **kwargs_):
+        super(OPENNEBULA_CONFIGURATIONSub, self).__init__(ACTION_TIMEOUT, API_LIST_ORDER, AUTH_MAD, AUTH_MAD_CONF, CLUSTER_ENCRYPTED_ATTR, COLD_MIGRATE_MODE, CONTEXT_ALLOW_ETH_UPDATES, CONTEXT_RESTRICTED_DIRS, CONTEXT_SAFE_DIRS, DATASTORE_CAPACITY_CHECK, DATASTORE_ENCRYPTED_ATTR, DATASTORE_LOCATION, DATASTORE_MAD, DB, DEFAULT_AUTH, DEFAULT_CDROM_DEVICE_PREFIX, DEFAULT_COST, DEFAULT_DEVICE_PREFIX, DEFAULT_IMAGE_PERSISTENT, DEFAULT_IMAGE_PERSISTENT_NEW, DEFAULT_IMAGE_TYPE, DEFAULT_UMASK, DEFAULT_VDC_CLUSTER_DATASTORE_ACL, DEFAULT_VDC_CLUSTER_HOST_ACL, DEFAULT_VDC_CLUSTER_NET_ACL, DEFAULT_VDC_DATASTORE_ACL, DEFAULT_VDC_HOST_ACL, DEFAULT_VDC_VNET_ACL, DOCUMENT_ENCRYPTED_ATTR, DRS_INTERVAL, DS_MAD_CONF, DS_MONITOR_VM_DISK, ENABLE_OTHER_PERMISSIONS, FEDERATION, GROUP_RESTRICTED_ATTR, HM_MAD, HOOK_LOG_CONF, HOST_ENCRYPTED_ATTR, IMAGE_ENCRYPTED_ATTR, IMAGE_RESTRICTED_ATTR, IM_MAD, INHERIT_DATASTORE_ATTR, INHERIT_IMAGE_ATTR, INHERIT_VNET_ATTR, IPAM_MAD, KEEPALIVE_MAX_CONN, KEEPALIVE_TIMEOUT, LISTEN_ADDRESS, LIVE_RESCHEDS, LOG, LOG_CALL_FORMAT, MAC_PREFIX, MANAGER_TIMER, MARKET_MAD, MARKET_MAD_CONF, MAX_ACTIONS_PER_CLUSTER, MAX_ACTIONS_PER_HOST, MAX_BACKUPS, MAX_BACKUPS_HOST, MAX_CONN, MAX_CONN_BACKLOG, MESSAGE_SIZE, MONITORING_INTERVAL_DATASTORE, MONITORING_INTERVAL_HOST, MONITORING_INTERVAL_MARKET, MONITORING_INTERVAL_VM, NETWORK_SIZE, ONE_KEY, PCI_PASSTHROUGH_BUS, PORT, RAFT, RPC_LOG, SCHED_MAD, SCHED_MAX_WND_LENGTH, SCHED_MAX_WND_TIME, SCHED_RETRY_TIME, SCRIPTS_REMOTE_DIR, SESSION_EXPIRATION_TIME, SHOWBACK_ONLY_RUNNING, TIMEOUT, TM_MAD, TM_MAD_CONF, USER_ENCRYPTED_ATTR, USER_RESTRICTED_ATTR, VLAN_IDS, VM_ADMIN_OPERATIONS, VM_ENCRYPTED_ATTR, VM_MAD, VM_MANAGE_OPERATIONS, VM_MONITORING_EXPIRATION_TIME, VM_RESTRICTED_ATTR, VM_SNAPSHOT_FACTOR, VM_SUBMIT_ON_HOLD, VM_USE_OPERATIONS, VNC_PORTS, VNET_ENCRYPTED_ATTR, VNET_RESTRICTED_ATTR, VN_MAD_CONF, VXLAN_IDS,  **kwargs_)
 supermod.OPENNEBULA_CONFIGURATION.subclass = OPENNEBULA_CONFIGURATIONSub
 # end class OPENNEBULA_CONFIGURATIONSub
 
@@ -522,6 +550,34 @@ supermod.TEMPLATEType.subclass = TEMPLATETypeSub
 # end class TEMPLATETypeSub
 
 
+class DATASTORETypeSub(TemplatedType, supermod.DATASTOREType):
+    def __init__(self, ID=None, IMAGES=None, IMAGES_USED=None, SIZE=None, SIZE_USED=None, **kwargs_):
+        super(DATASTORETypeSub, self).__init__(ID, IMAGES, IMAGES_USED, SIZE, SIZE_USED,  **kwargs_)
+supermod.DATASTOREType.subclass = DATASTORETypeSub
+# end class DATASTORETypeSub
+
+
+class NETWORKTypeSub(TemplatedType, supermod.NETWORKType):
+    def __init__(self, ID=None, LEASES=None, LEASES_USED=None, **kwargs_):
+        super(NETWORKTypeSub, self).__init__(ID, LEASES, LEASES_USED,  **kwargs_)
+supermod.NETWORKType.subclass = NETWORKTypeSub
+# end class NETWORKTypeSub
+
+
+class VMType1Sub(TemplatedType, supermod.VMType1):
+    def __init__(self, CLUSTER_IDS=None, CPU=None, CPU_USED=None, MEMORY=None, MEMORY_USED=None, RUNNING_CPU=None, RUNNING_CPU_USED=None, RUNNING_MEMORY=None, RUNNING_MEMORY_USED=None, RUNNING_VMS=None, RUNNING_VMS_USED=None, SYSTEM_DISK_SIZE=None, SYSTEM_DISK_SIZE_USED=None, VMS=None, VMS_USED=None, **kwargs_):
+        super(VMType1Sub, self).__init__(CLUSTER_IDS, CPU, CPU_USED, MEMORY, MEMORY_USED, RUNNING_CPU, RUNNING_CPU_USED, RUNNING_MEMORY, RUNNING_MEMORY_USED, RUNNING_VMS, RUNNING_VMS_USED, SYSTEM_DISK_SIZE, SYSTEM_DISK_SIZE_USED, VMS, VMS_USED,  **kwargs_)
+supermod.VMType1.subclass = VMType1Sub
+# end class VMType1Sub
+
+
+class IMAGETypeSub(TemplatedType, supermod.IMAGEType):
+    def __init__(self, ID=None, RVMS=None, RVMS_USED=None, **kwargs_):
+        super(IMAGETypeSub, self).__init__(ID, RVMS, RVMS_USED,  **kwargs_)
+supermod.IMAGEType.subclass = IMAGETypeSub
+# end class IMAGETypeSub
+
+
 class HOSTSTypeSub(TemplatedType, supermod.HOSTSType):
     def __init__(self, ID=None, **kwargs_):
         super(HOSTSTypeSub, self).__init__(ID,  **kwargs_)
@@ -543,11 +599,25 @@ supermod.VNETSType.subclass = VNETSTypeSub
 # end class VNETSTypeSub
 
 
-class PERMISSIONSType1Sub(TemplatedType, supermod.PERMISSIONSType1):
+class PLANTypeSub(TemplatedType, supermod.PLANType):
+    def __init__(self, ID=None, STATE=None, ACTION=None, **kwargs_):
+        super(PLANTypeSub, self).__init__(ID, STATE, ACTION,  **kwargs_)
+supermod.PLANType.subclass = PLANTypeSub
+# end class PLANTypeSub
+
+
+class ACTIONTypeSub(TemplatedType, supermod.ACTIONType):
+    def __init__(self, ID=None, VM_ID=None, STATE=None, OPERATION=None, HOST_ID=None, DS_ID=None, TIMESTAMP=None, **kwargs_):
+        super(ACTIONTypeSub, self).__init__(ID, VM_ID, STATE, OPERATION, HOST_ID, DS_ID, TIMESTAMP,  **kwargs_)
+supermod.ACTIONType.subclass = ACTIONTypeSub
+# end class ACTIONTypeSub
+
+
+class PERMISSIONSType2Sub(TemplatedType, supermod.PERMISSIONSType2):
     def __init__(self, OWNER_U=None, OWNER_M=None, OWNER_A=None, GROUP_U=None, GROUP_M=None, GROUP_A=None, OTHER_U=None, OTHER_M=None, OTHER_A=None, **kwargs_):
-        super(PERMISSIONSType1Sub, self).__init__(OWNER_U, OWNER_M, OWNER_A, GROUP_U, GROUP_M, GROUP_A, OTHER_U, OTHER_M, OTHER_A,  **kwargs_)
-supermod.PERMISSIONSType1.subclass = PERMISSIONSType1Sub
-# end class PERMISSIONSType1Sub
+        super(PERMISSIONSType2Sub, self).__init__(OWNER_U, OWNER_M, OWNER_A, GROUP_U, GROUP_M, GROUP_A, OTHER_U, OTHER_M, OTHER_A,  **kwargs_)
+supermod.PERMISSIONSType2.subclass = PERMISSIONSType2Sub
+# end class PERMISSIONSType2Sub
 
 
 class CLUSTERSTypeSub(TemplatedType, supermod.CLUSTERSType):
@@ -562,13 +632,6 @@ class IMAGESTypeSub(TemplatedType, supermod.IMAGESType):
         super(IMAGESTypeSub, self).__init__(ID,  **kwargs_)
 supermod.IMAGESType.subclass = IMAGESTypeSub
 # end class IMAGESTypeSub
-
-
-class TEMPLATEType2Sub(TemplatedType, supermod.TEMPLATEType2):
-    def __init__(self, VCENTER_DC_NAME=None, VCENTER_DC_REF=None, VCENTER_DS_NAME=None, VCENTER_DS_REF=None, VCENTER_HOST=None, VCENTER_INSTANCE_ID=None, anytypeobjs_=None, **kwargs_):
-        super(TEMPLATEType2Sub, self).__init__(VCENTER_DC_NAME, VCENTER_DC_REF, VCENTER_DS_NAME, VCENTER_DS_REF, VCENTER_HOST, VCENTER_INSTANCE_ID, anytypeobjs_,  **kwargs_)
-supermod.TEMPLATEType2.subclass = TEMPLATEType2Sub
-# end class TEMPLATEType2Sub
 
 
 class PERMISSIONSType3Sub(TemplatedType, supermod.PERMISSIONSType3):
@@ -613,32 +676,11 @@ supermod.QUOTASType.subclass = QUOTASTypeSub
 # end class QUOTASTypeSub
 
 
-class DATASTORE_QUOTATypeSub(TemplatedType, supermod.DATASTORE_QUOTAType):
-    def __init__(self, DATASTORE=None, **kwargs_):
-        super(DATASTORE_QUOTATypeSub, self).__init__(DATASTORE,  **kwargs_)
-supermod.DATASTORE_QUOTAType.subclass = DATASTORE_QUOTATypeSub
-# end class DATASTORE_QUOTATypeSub
-
-
-class DATASTORETypeSub(TemplatedType, supermod.DATASTOREType):
-    def __init__(self, ID=None, IMAGES=None, IMAGES_USED=None, SIZE=None, SIZE_USED=None, **kwargs_):
-        super(DATASTORETypeSub, self).__init__(ID, IMAGES, IMAGES_USED, SIZE, SIZE_USED,  **kwargs_)
-supermod.DATASTOREType.subclass = DATASTORETypeSub
-# end class DATASTORETypeSub
-
-
-class NETWORK_QUOTATypeSub(TemplatedType, supermod.NETWORK_QUOTAType):
-    def __init__(self, NETWORK=None, **kwargs_):
-        super(NETWORK_QUOTATypeSub, self).__init__(NETWORK,  **kwargs_)
-supermod.NETWORK_QUOTAType.subclass = NETWORK_QUOTATypeSub
-# end class NETWORK_QUOTATypeSub
-
-
-class NETWORKTypeSub(TemplatedType, supermod.NETWORKType):
-    def __init__(self, ID=None, LEASES=None, LEASES_USED=None, **kwargs_):
-        super(NETWORKTypeSub, self).__init__(ID, LEASES, LEASES_USED,  **kwargs_)
-supermod.NETWORKType.subclass = NETWORKTypeSub
-# end class NETWORKTypeSub
+class DEFAULT_GROUP_QUOTASTypeSub(TemplatedType, supermod.DEFAULT_GROUP_QUOTASType):
+    def __init__(self, DATASTORE_QUOTA=None, NETWORK_QUOTA=None, VM_QUOTA=None, IMAGE_QUOTA=None, **kwargs_):
+        super(DEFAULT_GROUP_QUOTASTypeSub, self).__init__(DATASTORE_QUOTA, NETWORK_QUOTA, VM_QUOTA, IMAGE_QUOTA,  **kwargs_)
+supermod.DEFAULT_GROUP_QUOTASType.subclass = DEFAULT_GROUP_QUOTASTypeSub
+# end class DEFAULT_GROUP_QUOTASTypeSub
 
 
 class VM_QUOTATypeSub(TemplatedType, supermod.VM_QUOTAType):
@@ -655,221 +697,46 @@ supermod.VMType4.subclass = VMType4Sub
 # end class VMType4Sub
 
 
-class IMAGE_QUOTATypeSub(TemplatedType, supermod.IMAGE_QUOTAType):
-    def __init__(self, IMAGE=None, **kwargs_):
-        super(IMAGE_QUOTATypeSub, self).__init__(IMAGE,  **kwargs_)
-supermod.IMAGE_QUOTAType.subclass = IMAGE_QUOTATypeSub
-# end class IMAGE_QUOTATypeSub
-
-
-class IMAGETypeSub(TemplatedType, supermod.IMAGEType):
-    def __init__(self, ID=None, RVMS=None, RVMS_USED=None, **kwargs_):
-        super(IMAGETypeSub, self).__init__(ID, RVMS, RVMS_USED,  **kwargs_)
-supermod.IMAGEType.subclass = IMAGETypeSub
-# end class IMAGETypeSub
-
-
-class DEFAULT_GROUP_QUOTASTypeSub(TemplatedType, supermod.DEFAULT_GROUP_QUOTASType):
-    def __init__(self, DATASTORE_QUOTA=None, NETWORK_QUOTA=None, VM_QUOTA=None, IMAGE_QUOTA=None, **kwargs_):
-        super(DEFAULT_GROUP_QUOTASTypeSub, self).__init__(DATASTORE_QUOTA, NETWORK_QUOTA, VM_QUOTA, IMAGE_QUOTA,  **kwargs_)
-supermod.DEFAULT_GROUP_QUOTASType.subclass = DEFAULT_GROUP_QUOTASTypeSub
-# end class DEFAULT_GROUP_QUOTASTypeSub
-
-
-class DATASTORE_QUOTAType5Sub(TemplatedType, supermod.DATASTORE_QUOTAType5):
-    def __init__(self, DATASTORE=None, **kwargs_):
-        super(DATASTORE_QUOTAType5Sub, self).__init__(DATASTORE,  **kwargs_)
-supermod.DATASTORE_QUOTAType5.subclass = DATASTORE_QUOTAType5Sub
-# end class DATASTORE_QUOTAType5Sub
-
-
-class DATASTOREType6Sub(TemplatedType, supermod.DATASTOREType6):
-    def __init__(self, ID=None, IMAGES=None, IMAGES_USED=None, SIZE=None, SIZE_USED=None, **kwargs_):
-        super(DATASTOREType6Sub, self).__init__(ID, IMAGES, IMAGES_USED, SIZE, SIZE_USED,  **kwargs_)
-supermod.DATASTOREType6.subclass = DATASTOREType6Sub
-# end class DATASTOREType6Sub
-
-
-class NETWORK_QUOTAType7Sub(TemplatedType, supermod.NETWORK_QUOTAType7):
-    def __init__(self, NETWORK=None, **kwargs_):
-        super(NETWORK_QUOTAType7Sub, self).__init__(NETWORK,  **kwargs_)
-supermod.NETWORK_QUOTAType7.subclass = NETWORK_QUOTAType7Sub
-# end class NETWORK_QUOTAType7Sub
-
-
-class NETWORKType8Sub(TemplatedType, supermod.NETWORKType8):
-    def __init__(self, ID=None, LEASES=None, LEASES_USED=None, **kwargs_):
-        super(NETWORKType8Sub, self).__init__(ID, LEASES, LEASES_USED,  **kwargs_)
-supermod.NETWORKType8.subclass = NETWORKType8Sub
-# end class NETWORKType8Sub
-
-
-class VM_QUOTAType9Sub(TemplatedType, supermod.VM_QUOTAType9):
-    def __init__(self, VM=None, **kwargs_):
-        super(VM_QUOTAType9Sub, self).__init__(VM,  **kwargs_)
-supermod.VM_QUOTAType9.subclass = VM_QUOTAType9Sub
-# end class VM_QUOTAType9Sub
-
-
-class VMType10Sub(TemplatedType, supermod.VMType10):
-    def __init__(self, CPU=None, CPU_USED=None, MEMORY=None, MEMORY_USED=None, RUNNING_CPU=None, RUNNING_CPU_USED=None, RUNNING_MEMORY=None, RUNNING_MEMORY_USED=None, RUNNING_VMS=None, RUNNING_VMS_USED=None, SYSTEM_DISK_SIZE=None, SYSTEM_DISK_SIZE_USED=None, VMS=None, VMS_USED=None, **kwargs_):
-        super(VMType10Sub, self).__init__(CPU, CPU_USED, MEMORY, MEMORY_USED, RUNNING_CPU, RUNNING_CPU_USED, RUNNING_MEMORY, RUNNING_MEMORY_USED, RUNNING_VMS, RUNNING_VMS_USED, SYSTEM_DISK_SIZE, SYSTEM_DISK_SIZE_USED, VMS, VMS_USED,  **kwargs_)
-supermod.VMType10.subclass = VMType10Sub
-# end class VMType10Sub
-
-
-class IMAGE_QUOTAType11Sub(TemplatedType, supermod.IMAGE_QUOTAType11):
-    def __init__(self, IMAGE=None, **kwargs_):
-        super(IMAGE_QUOTAType11Sub, self).__init__(IMAGE,  **kwargs_)
-supermod.IMAGE_QUOTAType11.subclass = IMAGE_QUOTAType11Sub
-# end class IMAGE_QUOTAType11Sub
-
-
-class IMAGEType12Sub(TemplatedType, supermod.IMAGEType12):
-    def __init__(self, ID=None, RVMS=None, RVMS_USED=None, **kwargs_):
-        super(IMAGEType12Sub, self).__init__(ID, RVMS, RVMS_USED,  **kwargs_)
-supermod.IMAGEType12.subclass = IMAGEType12Sub
-# end class IMAGEType12Sub
-
-
-class USERSType13Sub(TemplatedType, supermod.USERSType13):
+class USERSType5Sub(TemplatedType, supermod.USERSType5):
     def __init__(self, ID=None, **kwargs_):
-        super(USERSType13Sub, self).__init__(ID,  **kwargs_)
-supermod.USERSType13.subclass = USERSType13Sub
-# end class USERSType13Sub
+        super(USERSType5Sub, self).__init__(ID,  **kwargs_)
+supermod.USERSType5.subclass = USERSType5Sub
+# end class USERSType5Sub
 
 
-class ADMINSType14Sub(TemplatedType, supermod.ADMINSType14):
+class ADMINSType6Sub(TemplatedType, supermod.ADMINSType6):
     def __init__(self, ID=None, **kwargs_):
-        super(ADMINSType14Sub, self).__init__(ID,  **kwargs_)
-supermod.ADMINSType14.subclass = ADMINSType14Sub
-# end class ADMINSType14Sub
+        super(ADMINSType6Sub, self).__init__(ID,  **kwargs_)
+supermod.ADMINSType6.subclass = ADMINSType6Sub
+# end class ADMINSType6Sub
 
 
-class DATASTORE_QUOTAType15Sub(TemplatedType, supermod.DATASTORE_QUOTAType15):
-    def __init__(self, DATASTORE=None, **kwargs_):
-        super(DATASTORE_QUOTAType15Sub, self).__init__(DATASTORE,  **kwargs_)
-supermod.DATASTORE_QUOTAType15.subclass = DATASTORE_QUOTAType15Sub
-# end class DATASTORE_QUOTAType15Sub
-
-
-class DATASTOREType16Sub(TemplatedType, supermod.DATASTOREType16):
-    def __init__(self, ID=None, IMAGES=None, IMAGES_USED=None, SIZE=None, SIZE_USED=None, **kwargs_):
-        super(DATASTOREType16Sub, self).__init__(ID, IMAGES, IMAGES_USED, SIZE, SIZE_USED,  **kwargs_)
-supermod.DATASTOREType16.subclass = DATASTOREType16Sub
-# end class DATASTOREType16Sub
-
-
-class NETWORK_QUOTAType17Sub(TemplatedType, supermod.NETWORK_QUOTAType17):
-    def __init__(self, NETWORK=None, **kwargs_):
-        super(NETWORK_QUOTAType17Sub, self).__init__(NETWORK,  **kwargs_)
-supermod.NETWORK_QUOTAType17.subclass = NETWORK_QUOTAType17Sub
-# end class NETWORK_QUOTAType17Sub
-
-
-class NETWORKType18Sub(TemplatedType, supermod.NETWORKType18):
-    def __init__(self, ID=None, LEASES=None, LEASES_USED=None, **kwargs_):
-        super(NETWORKType18Sub, self).__init__(ID, LEASES, LEASES_USED,  **kwargs_)
-supermod.NETWORKType18.subclass = NETWORKType18Sub
-# end class NETWORKType18Sub
-
-
-class VM_QUOTAType19Sub(TemplatedType, supermod.VM_QUOTAType19):
-    def __init__(self, VM=None, **kwargs_):
-        super(VM_QUOTAType19Sub, self).__init__(VM,  **kwargs_)
-supermod.VM_QUOTAType19.subclass = VM_QUOTAType19Sub
-# end class VM_QUOTAType19Sub
-
-
-class VMType20Sub(TemplatedType, supermod.VMType20):
-    def __init__(self, CPU=None, CPU_USED=None, MEMORY=None, MEMORY_USED=None, RUNNING_CPU=None, RUNNING_CPU_USED=None, RUNNING_MEMORY=None, RUNNING_MEMORY_USED=None, RUNNING_VMS=None, RUNNING_VMS_USED=None, SYSTEM_DISK_SIZE=None, SYSTEM_DISK_SIZE_USED=None, VMS=None, VMS_USED=None, **kwargs_):
-        super(VMType20Sub, self).__init__(CPU, CPU_USED, MEMORY, MEMORY_USED, RUNNING_CPU, RUNNING_CPU_USED, RUNNING_MEMORY, RUNNING_MEMORY_USED, RUNNING_VMS, RUNNING_VMS_USED, SYSTEM_DISK_SIZE, SYSTEM_DISK_SIZE_USED, VMS, VMS_USED,  **kwargs_)
-supermod.VMType20.subclass = VMType20Sub
-# end class VMType20Sub
-
-
-class IMAGE_QUOTAType21Sub(TemplatedType, supermod.IMAGE_QUOTAType21):
-    def __init__(self, IMAGE=None, **kwargs_):
-        super(IMAGE_QUOTAType21Sub, self).__init__(IMAGE,  **kwargs_)
-supermod.IMAGE_QUOTAType21.subclass = IMAGE_QUOTAType21Sub
-# end class IMAGE_QUOTAType21Sub
-
-
-class IMAGEType22Sub(TemplatedType, supermod.IMAGEType22):
-    def __init__(self, ID=None, RVMS=None, RVMS_USED=None, **kwargs_):
-        super(IMAGEType22Sub, self).__init__(ID, RVMS, RVMS_USED,  **kwargs_)
-supermod.IMAGEType22.subclass = IMAGEType22Sub
-# end class IMAGEType22Sub
-
-
-class DEFAULT_GROUP_QUOTASType23Sub(TemplatedType, supermod.DEFAULT_GROUP_QUOTASType23):
+class DEFAULT_GROUP_QUOTASType7Sub(TemplatedType, supermod.DEFAULT_GROUP_QUOTASType7):
     def __init__(self, DATASTORE_QUOTA=None, NETWORK_QUOTA=None, VM_QUOTA=None, IMAGE_QUOTA=None, **kwargs_):
-        super(DEFAULT_GROUP_QUOTASType23Sub, self).__init__(DATASTORE_QUOTA, NETWORK_QUOTA, VM_QUOTA, IMAGE_QUOTA,  **kwargs_)
-supermod.DEFAULT_GROUP_QUOTASType23.subclass = DEFAULT_GROUP_QUOTASType23Sub
-# end class DEFAULT_GROUP_QUOTASType23Sub
+        super(DEFAULT_GROUP_QUOTASType7Sub, self).__init__(DATASTORE_QUOTA, NETWORK_QUOTA, VM_QUOTA, IMAGE_QUOTA,  **kwargs_)
+supermod.DEFAULT_GROUP_QUOTASType7.subclass = DEFAULT_GROUP_QUOTASType7Sub
+# end class DEFAULT_GROUP_QUOTASType7Sub
 
 
-class DATASTORE_QUOTAType24Sub(TemplatedType, supermod.DATASTORE_QUOTAType24):
-    def __init__(self, DATASTORE=None, **kwargs_):
-        super(DATASTORE_QUOTAType24Sub, self).__init__(DATASTORE,  **kwargs_)
-supermod.DATASTORE_QUOTAType24.subclass = DATASTORE_QUOTAType24Sub
-# end class DATASTORE_QUOTAType24Sub
-
-
-class DATASTOREType25Sub(TemplatedType, supermod.DATASTOREType25):
-    def __init__(self, ID=None, IMAGES=None, IMAGES_USED=None, SIZE=None, SIZE_USED=None, **kwargs_):
-        super(DATASTOREType25Sub, self).__init__(ID, IMAGES, IMAGES_USED, SIZE, SIZE_USED,  **kwargs_)
-supermod.DATASTOREType25.subclass = DATASTOREType25Sub
-# end class DATASTOREType25Sub
-
-
-class NETWORK_QUOTAType26Sub(TemplatedType, supermod.NETWORK_QUOTAType26):
-    def __init__(self, NETWORK=None, **kwargs_):
-        super(NETWORK_QUOTAType26Sub, self).__init__(NETWORK,  **kwargs_)
-supermod.NETWORK_QUOTAType26.subclass = NETWORK_QUOTAType26Sub
-# end class NETWORK_QUOTAType26Sub
-
-
-class NETWORKType27Sub(TemplatedType, supermod.NETWORKType27):
-    def __init__(self, ID=None, LEASES=None, LEASES_USED=None, **kwargs_):
-        super(NETWORKType27Sub, self).__init__(ID, LEASES, LEASES_USED,  **kwargs_)
-supermod.NETWORKType27.subclass = NETWORKType27Sub
-# end class NETWORKType27Sub
-
-
-class VM_QUOTAType28Sub(TemplatedType, supermod.VM_QUOTAType28):
+class VM_QUOTAType8Sub(TemplatedType, supermod.VM_QUOTAType8):
     def __init__(self, VM=None, **kwargs_):
-        super(VM_QUOTAType28Sub, self).__init__(VM,  **kwargs_)
-supermod.VM_QUOTAType28.subclass = VM_QUOTAType28Sub
-# end class VM_QUOTAType28Sub
+        super(VM_QUOTAType8Sub, self).__init__(VM,  **kwargs_)
+supermod.VM_QUOTAType8.subclass = VM_QUOTAType8Sub
+# end class VM_QUOTAType8Sub
 
 
-class VMType29Sub(TemplatedType, supermod.VMType29):
-    def __init__(self, CPU=None, CPU_USED=None, MEMORY=None, MEMORY_USED=None, RUNNING_CPU=None, RUNNING_CPU_USED=None, RUNNING_MEMORY=None, RUNNING_MEMORY_USED=None, RUNNING_VMS=None, RUNNING_VMS_USED=None, SYSTEM_DISK_SIZE=None, SYSTEM_DISK_SIZE_USED=None, VMS=None, VMS_USED=None, **kwargs_):
-        super(VMType29Sub, self).__init__(CPU, CPU_USED, MEMORY, MEMORY_USED, RUNNING_CPU, RUNNING_CPU_USED, RUNNING_MEMORY, RUNNING_MEMORY_USED, RUNNING_VMS, RUNNING_VMS_USED, SYSTEM_DISK_SIZE, SYSTEM_DISK_SIZE_USED, VMS, VMS_USED,  **kwargs_)
-supermod.VMType29.subclass = VMType29Sub
-# end class VMType29Sub
+class VMType9Sub(TemplatedType, supermod.VMType9):
+    def __init__(self, CLUSTER_IDS=None, CPU=None, CPU_USED=None, MEMORY=None, MEMORY_USED=None, RUNNING_CPU=None, RUNNING_CPU_USED=None, RUNNING_MEMORY=None, RUNNING_MEMORY_USED=None, RUNNING_VMS=None, RUNNING_VMS_USED=None, SYSTEM_DISK_SIZE=None, SYSTEM_DISK_SIZE_USED=None, VMS=None, VMS_USED=None, **kwargs_):
+        super(VMType9Sub, self).__init__(CLUSTER_IDS, CPU, CPU_USED, MEMORY, MEMORY_USED, RUNNING_CPU, RUNNING_CPU_USED, RUNNING_MEMORY, RUNNING_MEMORY_USED, RUNNING_VMS, RUNNING_VMS_USED, SYSTEM_DISK_SIZE, SYSTEM_DISK_SIZE_USED, VMS, VMS_USED,  **kwargs_)
+supermod.VMType9.subclass = VMType9Sub
+# end class VMType9Sub
 
 
-class IMAGE_QUOTAType30Sub(TemplatedType, supermod.IMAGE_QUOTAType30):
-    def __init__(self, IMAGE=None, **kwargs_):
-        super(IMAGE_QUOTAType30Sub, self).__init__(IMAGE,  **kwargs_)
-supermod.IMAGE_QUOTAType30.subclass = IMAGE_QUOTAType30Sub
-# end class IMAGE_QUOTAType30Sub
-
-
-class IMAGEType31Sub(TemplatedType, supermod.IMAGEType31):
-    def __init__(self, ID=None, RVMS=None, RVMS_USED=None, **kwargs_):
-        super(IMAGEType31Sub, self).__init__(ID, RVMS, RVMS_USED,  **kwargs_)
-supermod.IMAGEType31.subclass = IMAGEType31Sub
-# end class IMAGEType31Sub
-
-
-class TEMPLATEType32Sub(TemplatedType, supermod.TEMPLATEType32):
+class TEMPLATEType10Sub(TemplatedType, supermod.TEMPLATEType10):
     def __init__(self, ARGUMENTS=None, ARGUMENTS_STDIN=None, CALL=None, COMMAND=None, REMOTE=None, RESOURCE=None, STATE=None, LCM_STATE=None, anytypeobjs_=None, **kwargs_):
-        super(TEMPLATEType32Sub, self).__init__(ARGUMENTS, ARGUMENTS_STDIN, CALL, COMMAND, REMOTE, RESOURCE, STATE, LCM_STATE, anytypeobjs_,  **kwargs_)
-supermod.TEMPLATEType32.subclass = TEMPLATEType32Sub
-# end class TEMPLATEType32Sub
+        super(TEMPLATEType10Sub, self).__init__(ARGUMENTS, ARGUMENTS_STDIN, CALL, COMMAND, REMOTE, RESOURCE, STATE, LCM_STATE, anytypeobjs_,  **kwargs_)
+supermod.TEMPLATEType10.subclass = TEMPLATEType10Sub
+# end class TEMPLATEType10Sub
 
 
 class HOOKLOGTypeSub(TemplatedType, supermod.HOOKLOGType):
@@ -900,11 +767,11 @@ supermod.HOST_SHAREType.subclass = HOST_SHARETypeSub
 # end class HOST_SHARETypeSub
 
 
-class DATASTORESType33Sub(TemplatedType, supermod.DATASTORESType33):
+class DATASTORESType11Sub(TemplatedType, supermod.DATASTORESType11):
     def __init__(self, DISK_USAGE=None, DS=None, FREE_DISK=None, MAX_DISK=None, USED_DISK=None, **kwargs_):
-        super(DATASTORESType33Sub, self).__init__(DISK_USAGE, DS, FREE_DISK, MAX_DISK, USED_DISK,  **kwargs_)
-supermod.DATASTORESType33.subclass = DATASTORESType33Sub
-# end class DATASTORESType33Sub
+        super(DATASTORESType11Sub, self).__init__(DISK_USAGE, DS, FREE_DISK, MAX_DISK, USED_DISK,  **kwargs_)
+supermod.DATASTORESType11.subclass = DATASTORESType11Sub
+# end class DATASTORESType11Sub
 
 
 class DSTypeSub(TemplatedType, supermod.DSType):
@@ -970,13 +837,6 @@ supermod.VMSType.subclass = VMSTypeSub
 # end class VMSTypeSub
 
 
-class TEMPLATEType34Sub(TemplatedType, supermod.TEMPLATEType34):
-    def __init__(self, VCENTER_CCR_REF=None, VCENTER_DS_REF=None, VCENTER_HOST=None, VCENTER_INSTANCE_ID=None, VCENTER_NAME=None, VCENTER_PASSWORD=None, VCENTER_RESOURCE_POOL_INFO=None, VCENTER_USER=None, VCENTER_VERSION=None, anytypeobjs_=None, **kwargs_):
-        super(TEMPLATEType34Sub, self).__init__(VCENTER_CCR_REF, VCENTER_DS_REF, VCENTER_HOST, VCENTER_INSTANCE_ID, VCENTER_NAME, VCENTER_PASSWORD, VCENTER_RESOURCE_POOL_INFO, VCENTER_USER, VCENTER_VERSION, anytypeobjs_,  **kwargs_)
-supermod.TEMPLATEType34.subclass = TEMPLATEType34Sub
-# end class TEMPLATEType34Sub
-
-
 class MONITORINGTypeSub(TemplatedType, supermod.MONITORINGType):
     def __init__(self, TIMESTAMP=None, ID=None, CAPACITY=None, SYSTEM=None, NUMA_NODE=None, **kwargs_):
         super(MONITORINGTypeSub, self).__init__(TIMESTAMP, ID, CAPACITY, SYSTEM, NUMA_NODE,  **kwargs_)
@@ -985,15 +845,15 @@ supermod.MONITORINGType.subclass = MONITORINGTypeSub
 
 
 class CAPACITYTypeSub(TemplatedType, supermod.CAPACITYType):
-    def __init__(self, FREE_CPU=None, FREE_MEMORY=None, USED_CPU=None, USED_MEMORY=None, **kwargs_):
-        super(CAPACITYTypeSub, self).__init__(FREE_CPU, FREE_MEMORY, USED_CPU, USED_MEMORY,  **kwargs_)
+    def __init__(self, FREE_CPU=None, FREE_CPU_FORECAST=None, FREE_CPU_FORECAST_FAR=None, FREE_MEMORY=None, FREE_MEMORY_FORECAST=None, FREE_MEMORY_FORECAST_FAR=None, USED_CPU=None, USED_CPU_FORECAST=None, USED_CPU_FORECAST_FAR=None, USED_MEMORY=None, USED_MEMORY_FORECAST=None, USED_MEMORY_FORECAST_FAR=None, **kwargs_):
+        super(CAPACITYTypeSub, self).__init__(FREE_CPU, FREE_CPU_FORECAST, FREE_CPU_FORECAST_FAR, FREE_MEMORY, FREE_MEMORY_FORECAST, FREE_MEMORY_FORECAST_FAR, USED_CPU, USED_CPU_FORECAST, USED_CPU_FORECAST_FAR, USED_MEMORY, USED_MEMORY_FORECAST, USED_MEMORY_FORECAST_FAR,  **kwargs_)
 supermod.CAPACITYType.subclass = CAPACITYTypeSub
 # end class CAPACITYTypeSub
 
 
 class SYSTEMTypeSub(TemplatedType, supermod.SYSTEMType):
-    def __init__(self, NETRX=None, NETTX=None, **kwargs_):
-        super(SYSTEMTypeSub, self).__init__(NETRX, NETTX,  **kwargs_)
+    def __init__(self, NETRX=None, NETRX_BW=None, NETRX_BW_FORECAST=None, NETRX_BW_FORECAST_FAR=None, NETTX=None, NETTX_BW=None, NETTX_BW_FORECAST=None, NETTX_BW_FORECAST_FAR=None, **kwargs_):
+        super(SYSTEMTypeSub, self).__init__(NETRX, NETRX_BW, NETRX_BW_FORECAST, NETRX_BW_FORECAST_FAR, NETTX, NETTX_BW, NETTX_BW_FORECAST, NETTX_BW_FORECAST_FAR,  **kwargs_)
 supermod.SYSTEMType.subclass = SYSTEMTypeSub
 # end class SYSTEMTypeSub
 
@@ -1005,53 +865,53 @@ supermod.NUMA_NODEType.subclass = NUMA_NODETypeSub
 # end class NUMA_NODETypeSub
 
 
-class HUGEPAGEType35Sub(TemplatedType, supermod.HUGEPAGEType35):
+class HUGEPAGEType12Sub(TemplatedType, supermod.HUGEPAGEType12):
     def __init__(self, FREE=None, SIZE=None, **kwargs_):
-        super(HUGEPAGEType35Sub, self).__init__(FREE, SIZE,  **kwargs_)
-supermod.HUGEPAGEType35.subclass = HUGEPAGEType35Sub
-# end class HUGEPAGEType35Sub
+        super(HUGEPAGEType12Sub, self).__init__(FREE, SIZE,  **kwargs_)
+supermod.HUGEPAGEType12.subclass = HUGEPAGEType12Sub
+# end class HUGEPAGEType12Sub
 
 
-class MEMORYType36Sub(TemplatedType, supermod.MEMORYType36):
+class MEMORYType13Sub(TemplatedType, supermod.MEMORYType13):
     def __init__(self, FREE=None, USED=None, **kwargs_):
-        super(MEMORYType36Sub, self).__init__(FREE, USED,  **kwargs_)
-supermod.MEMORYType36.subclass = MEMORYType36Sub
-# end class MEMORYType36Sub
+        super(MEMORYType13Sub, self).__init__(FREE, USED,  **kwargs_)
+supermod.MEMORYType13.subclass = MEMORYType13Sub
+# end class MEMORYType13Sub
 
 
-class LOCKType37Sub(TemplatedType, supermod.LOCKType37):
+class LOCKType14Sub(TemplatedType, supermod.LOCKType14):
     def __init__(self, LOCKED=None, OWNER=None, TIME=None, REQ_ID=None, **kwargs_):
-        super(LOCKType37Sub, self).__init__(LOCKED, OWNER, TIME, REQ_ID,  **kwargs_)
-supermod.LOCKType37.subclass = LOCKType37Sub
-# end class LOCKType37Sub
+        super(LOCKType14Sub, self).__init__(LOCKED, OWNER, TIME, REQ_ID,  **kwargs_)
+supermod.LOCKType14.subclass = LOCKType14Sub
+# end class LOCKType14Sub
 
 
-class PERMISSIONSType38Sub(TemplatedType, supermod.PERMISSIONSType38):
+class PERMISSIONSType15Sub(TemplatedType, supermod.PERMISSIONSType15):
     def __init__(self, OWNER_U=None, OWNER_M=None, OWNER_A=None, GROUP_U=None, GROUP_M=None, GROUP_A=None, OTHER_U=None, OTHER_M=None, OTHER_A=None, **kwargs_):
-        super(PERMISSIONSType38Sub, self).__init__(OWNER_U, OWNER_M, OWNER_A, GROUP_U, GROUP_M, GROUP_A, OTHER_U, OTHER_M, OTHER_A,  **kwargs_)
-supermod.PERMISSIONSType38.subclass = PERMISSIONSType38Sub
-# end class PERMISSIONSType38Sub
+        super(PERMISSIONSType15Sub, self).__init__(OWNER_U, OWNER_M, OWNER_A, GROUP_U, GROUP_M, GROUP_A, OTHER_U, OTHER_M, OTHER_A,  **kwargs_)
+supermod.PERMISSIONSType15.subclass = PERMISSIONSType15Sub
+# end class PERMISSIONSType15Sub
 
 
-class TEMPLATEType39Sub(TemplatedType, supermod.TEMPLATEType39):
-    def __init__(self, VCENTER_IMPORTED=None, anytypeobjs_=None, **kwargs_):
-        super(TEMPLATEType39Sub, self).__init__(VCENTER_IMPORTED, anytypeobjs_,  **kwargs_)
-supermod.TEMPLATEType39.subclass = TEMPLATEType39Sub
-# end class TEMPLATEType39Sub
+class TEMPLATEType16Sub(TemplatedType, supermod.TEMPLATEType16):
+    def __init__(self, anytypeobjs_=None, **kwargs_):
+        super(TEMPLATEType16Sub, self).__init__(anytypeobjs_,  **kwargs_)
+supermod.TEMPLATEType16.subclass = TEMPLATEType16Sub
+# end class TEMPLATEType16Sub
 
 
-class SNAPSHOTSType40Sub(TemplatedType, supermod.SNAPSHOTSType40):
+class SNAPSHOTSType17Sub(TemplatedType, supermod.SNAPSHOTSType17):
     def __init__(self, ALLOW_ORPHANS=None, CURRENT_BASE=None, NEXT_SNAPSHOT=None, SNAPSHOT=None, **kwargs_):
-        super(SNAPSHOTSType40Sub, self).__init__(ALLOW_ORPHANS, CURRENT_BASE, NEXT_SNAPSHOT, SNAPSHOT,  **kwargs_)
-supermod.SNAPSHOTSType40.subclass = SNAPSHOTSType40Sub
-# end class SNAPSHOTSType40Sub
+        super(SNAPSHOTSType17Sub, self).__init__(ALLOW_ORPHANS, CURRENT_BASE, NEXT_SNAPSHOT, SNAPSHOT,  **kwargs_)
+supermod.SNAPSHOTSType17.subclass = SNAPSHOTSType17Sub
+# end class SNAPSHOTSType17Sub
 
 
-class SNAPSHOTType41Sub(TemplatedType, supermod.SNAPSHOTType41):
+class SNAPSHOTType18Sub(TemplatedType, supermod.SNAPSHOTType18):
     def __init__(self, CHILDREN=None, ACTIVE=None, DATE=None, ID=None, NAME=None, PARENT=None, SIZE=None, **kwargs_):
-        super(SNAPSHOTType41Sub, self).__init__(CHILDREN, ACTIVE, DATE, ID, NAME, PARENT, SIZE,  **kwargs_)
-supermod.SNAPSHOTType41.subclass = SNAPSHOTType41Sub
-# end class SNAPSHOTType41Sub
+        super(SNAPSHOTType18Sub, self).__init__(CHILDREN, ACTIVE, DATE, ID, NAME, PARENT, SIZE,  **kwargs_)
+supermod.SNAPSHOTType18.subclass = SNAPSHOTType18Sub
+# end class SNAPSHOTType18Sub
 
 
 class BACKUP_INCREMENTSTypeSub(TemplatedType, supermod.BACKUP_INCREMENTSType):
@@ -1068,18 +928,18 @@ supermod.INCREMENTType.subclass = INCREMENTTypeSub
 # end class INCREMENTTypeSub
 
 
-class LOCKType42Sub(TemplatedType, supermod.LOCKType42):
+class LOCKType19Sub(TemplatedType, supermod.LOCKType19):
     def __init__(self, LOCKED=None, OWNER=None, TIME=None, REQ_ID=None, **kwargs_):
-        super(LOCKType42Sub, self).__init__(LOCKED, OWNER, TIME, REQ_ID,  **kwargs_)
-supermod.LOCKType42.subclass = LOCKType42Sub
-# end class LOCKType42Sub
+        super(LOCKType19Sub, self).__init__(LOCKED, OWNER, TIME, REQ_ID,  **kwargs_)
+supermod.LOCKType19.subclass = LOCKType19Sub
+# end class LOCKType19Sub
 
 
-class PERMISSIONSType43Sub(TemplatedType, supermod.PERMISSIONSType43):
+class PERMISSIONSType20Sub(TemplatedType, supermod.PERMISSIONSType20):
     def __init__(self, OWNER_U=None, OWNER_M=None, OWNER_A=None, GROUP_U=None, GROUP_M=None, GROUP_A=None, OTHER_U=None, OTHER_M=None, OTHER_A=None, **kwargs_):
-        super(PERMISSIONSType43Sub, self).__init__(OWNER_U, OWNER_M, OWNER_A, GROUP_U, GROUP_M, GROUP_A, OTHER_U, OTHER_M, OTHER_A,  **kwargs_)
-supermod.PERMISSIONSType43.subclass = PERMISSIONSType43Sub
-# end class PERMISSIONSType43Sub
+        super(PERMISSIONSType20Sub, self).__init__(OWNER_U, OWNER_M, OWNER_A, GROUP_U, GROUP_M, GROUP_A, OTHER_U, OTHER_M, OTHER_A,  **kwargs_)
+supermod.PERMISSIONSType20.subclass = PERMISSIONSType20Sub
+# end class PERMISSIONSType20Sub
 
 
 class MARKETPLACEAPPSTypeSub(TemplatedType, supermod.MARKETPLACEAPPSType):
@@ -1089,18 +949,18 @@ supermod.MARKETPLACEAPPSType.subclass = MARKETPLACEAPPSTypeSub
 # end class MARKETPLACEAPPSTypeSub
 
 
-class PERMISSIONSType44Sub(TemplatedType, supermod.PERMISSIONSType44):
+class PERMISSIONSType21Sub(TemplatedType, supermod.PERMISSIONSType21):
     def __init__(self, OWNER_U=None, OWNER_M=None, OWNER_A=None, GROUP_U=None, GROUP_M=None, GROUP_A=None, OTHER_U=None, OTHER_M=None, OTHER_A=None, **kwargs_):
-        super(PERMISSIONSType44Sub, self).__init__(OWNER_U, OWNER_M, OWNER_A, GROUP_U, GROUP_M, GROUP_A, OTHER_U, OTHER_M, OTHER_A,  **kwargs_)
-supermod.PERMISSIONSType44.subclass = PERMISSIONSType44Sub
-# end class PERMISSIONSType44Sub
+        super(PERMISSIONSType21Sub, self).__init__(OWNER_U, OWNER_M, OWNER_A, GROUP_U, GROUP_M, GROUP_A, OTHER_U, OTHER_M, OTHER_A,  **kwargs_)
+supermod.PERMISSIONSType21.subclass = PERMISSIONSType21Sub
+# end class PERMISSIONSType21Sub
 
 
-class MONITORINGType45Sub(TemplatedType, supermod.MONITORINGType45):
-    def __init__(self, CPU=None, DISKRDBYTES=None, DISKRDIOPS=None, DISKWRBYTES=None, DISKWRIOPS=None, DISK_SIZE=None, ID=None, MEMORY=None, NETRX=None, NETTX=None, TIMESTAMP=None, VCENTER_ESX_HOST=None, VCENTER_GUEST_STATE=None, VCENTER_RP_NAME=None, VCENTER_VMWARETOOLS_RUNNING_STATUS=None, VCENTER_VMWARETOOLS_VERSION=None, VCENTER_VMWARETOOLS_VERSION_STATUS=None, VCENTER_VM_NAME=None, **kwargs_):
-        super(MONITORINGType45Sub, self).__init__(CPU, DISKRDBYTES, DISKRDIOPS, DISKWRBYTES, DISKWRIOPS, DISK_SIZE, ID, MEMORY, NETRX, NETTX, TIMESTAMP, VCENTER_ESX_HOST, VCENTER_GUEST_STATE, VCENTER_RP_NAME, VCENTER_VMWARETOOLS_RUNNING_STATUS, VCENTER_VMWARETOOLS_VERSION, VCENTER_VMWARETOOLS_VERSION_STATUS, VCENTER_VM_NAME,  **kwargs_)
-supermod.MONITORINGType45.subclass = MONITORINGType45Sub
-# end class MONITORINGType45Sub
+class MONITORINGType22Sub(TemplatedType, supermod.MONITORINGType22):
+    def __init__(self, CPU=None, DISKRDBYTES=None, DISKRDIOPS=None, DISKWRBYTES=None, DISKWRIOPS=None, DISK_SIZE=None, ID=None, MEMORY=None, NETRX=None, NETTX=None, TIMESTAMP=None, **kwargs_):
+        super(MONITORINGType22Sub, self).__init__(CPU, DISKRDBYTES, DISKRDIOPS, DISKWRBYTES, DISKWRIOPS, DISK_SIZE, ID, MEMORY, NETRX, NETTX, TIMESTAMP,  **kwargs_)
+supermod.MONITORINGType22.subclass = MONITORINGType22Sub
+# end class MONITORINGType22Sub
 
 
 class DISK_SIZETypeSub(TemplatedType, supermod.DISK_SIZEType):
@@ -1215,6 +1075,13 @@ supermod.RAFTType.subclass = RAFTTypeSub
 # end class RAFTTypeSub
 
 
+class SCHED_MADTypeSub(TemplatedType, supermod.SCHED_MADType):
+    def __init__(self, ARGUMENTS=None, EXECUTABLE=None, **kwargs_):
+        super(SCHED_MADTypeSub, self).__init__(ARGUMENTS, EXECUTABLE,  **kwargs_)
+supermod.SCHED_MADType.subclass = SCHED_MADTypeSub
+# end class SCHED_MADTypeSub
+
+
 class TM_MADTypeSub(TemplatedType, supermod.TM_MADType):
     def __init__(self, ARGUMENTS=None, EXECUTABLE=None, **kwargs_):
         super(TM_MADTypeSub, self).__init__(ARGUMENTS, EXECUTABLE,  **kwargs_)
@@ -1223,8 +1090,8 @@ supermod.TM_MADType.subclass = TM_MADTypeSub
 
 
 class TM_MAD_CONFTypeSub(TemplatedType, supermod.TM_MAD_CONFType):
-    def __init__(self, ALLOW_ORPHANS=None, CLONE_TARGET=None, CLONE_TARGET_SHARED=None, CLONE_TARGET_SSH=None, DISK_TYPE=None, DISK_TYPE_SHARED=None, DISK_TYPE_SSH=None, DRIVER=None, DS_MIGRATE=None, LN_TARGET=None, LN_TARGET_SHARED=None, LN_TARGET_SSH=None, NAME=None, SHARED=None, TM_MAD_SYSTEM=None, **kwargs_):
-        super(TM_MAD_CONFTypeSub, self).__init__(ALLOW_ORPHANS, CLONE_TARGET, CLONE_TARGET_SHARED, CLONE_TARGET_SSH, DISK_TYPE, DISK_TYPE_SHARED, DISK_TYPE_SSH, DRIVER, DS_MIGRATE, LN_TARGET, LN_TARGET_SHARED, LN_TARGET_SSH, NAME, SHARED, TM_MAD_SYSTEM,  **kwargs_)
+    def __init__(self, ALLOW_ORPHANS=None, CLONE_TARGET=None, CLONE_TARGET_SHARED=None, CLONE_TARGET_SSH=None, DISK_TYPE=None, DISK_TYPE_SHARED=None, DISK_TYPE_SSH=None, DRIVER=None, DS_MIGRATE=None, LN_TARGET=None, LN_TARGET_SHARED=None, LN_TARGET_SSH=None, NAME=None, PERSISTENT_SNAPSHOTS=None, SHARED=None, TM_MAD_SYSTEM=None, **kwargs_):
+        super(TM_MAD_CONFTypeSub, self).__init__(ALLOW_ORPHANS, CLONE_TARGET, CLONE_TARGET_SHARED, CLONE_TARGET_SSH, DISK_TYPE, DISK_TYPE_SHARED, DISK_TYPE_SSH, DRIVER, DS_MIGRATE, LN_TARGET, LN_TARGET_SHARED, LN_TARGET_SSH, NAME, PERSISTENT_SNAPSHOTS, SHARED, TM_MAD_SYSTEM,  **kwargs_)
 supermod.TM_MAD_CONFType.subclass = TM_MAD_CONFTypeSub
 # end class TM_MAD_CONFTypeSub
 
@@ -1237,8 +1104,8 @@ supermod.VLAN_IDSType.subclass = VLAN_IDSTypeSub
 
 
 class VM_MADTypeSub(TemplatedType, supermod.VM_MADType):
-    def __init__(self, ARGUMENTS=None, DEFAULT=None, EXECUTABLE=None, IMPORTED_VMS_ACTIONS=None, NAME=None, SUNSTONE_NAME=None, TYPE=None, KEEP_SNAPSHOTS=None, COLD_NIC_ATTACH=None, DS_LIVE_MIGRATION=None, LIVE_RESIZE=None, **kwargs_):
-        super(VM_MADTypeSub, self).__init__(ARGUMENTS, DEFAULT, EXECUTABLE, IMPORTED_VMS_ACTIONS, NAME, SUNSTONE_NAME, TYPE, KEEP_SNAPSHOTS, COLD_NIC_ATTACH, DS_LIVE_MIGRATION, LIVE_RESIZE,  **kwargs_)
+    def __init__(self, ARGUMENTS=None, DEFAULT=None, EXECUTABLE=None, NAME=None, SUNSTONE_NAME=None, TYPE=None, KEEP_SNAPSHOTS=None, COLD_NIC_ATTACH=None, DS_LIVE_MIGRATION=None, LIVE_RESIZE=None, **kwargs_):
+        super(VM_MADTypeSub, self).__init__(ARGUMENTS, DEFAULT, EXECUTABLE, NAME, SUNSTONE_NAME, TYPE, KEEP_SNAPSHOTS, COLD_NIC_ATTACH, DS_LIVE_MIGRATION, LIVE_RESIZE,  **kwargs_)
 supermod.VM_MADType.subclass = VM_MADTypeSub
 # end class VM_MADTypeSub
 
@@ -1264,11 +1131,11 @@ supermod.VXLAN_IDSType.subclass = VXLAN_IDSTypeSub
 # end class VXLAN_IDSTypeSub
 
 
-class PERMISSIONSType46Sub(TemplatedType, supermod.PERMISSIONSType46):
+class PERMISSIONSType23Sub(TemplatedType, supermod.PERMISSIONSType23):
     def __init__(self, OWNER_U=None, OWNER_M=None, OWNER_A=None, GROUP_U=None, GROUP_M=None, GROUP_A=None, OTHER_U=None, OTHER_M=None, OTHER_A=None, **kwargs_):
-        super(PERMISSIONSType46Sub, self).__init__(OWNER_U, OWNER_M, OWNER_A, GROUP_U, GROUP_M, GROUP_A, OTHER_U, OTHER_M, OTHER_A,  **kwargs_)
-supermod.PERMISSIONSType46.subclass = PERMISSIONSType46Sub
-# end class PERMISSIONSType46Sub
+        super(PERMISSIONSType23Sub, self).__init__(OWNER_U, OWNER_M, OWNER_A, GROUP_U, GROUP_M, GROUP_A, OTHER_U, OTHER_M, OTHER_A,  **kwargs_)
+supermod.PERMISSIONSType23.subclass = PERMISSIONSType23Sub
+# end class PERMISSIONSType23Sub
 
 
 class UPDATED_VMSTypeSub(TemplatedType, supermod.UPDATED_VMSType):
@@ -1299,11 +1166,11 @@ supermod.ERROR_VMSType.subclass = ERROR_VMSTypeSub
 # end class ERROR_VMSTypeSub
 
 
-class TEMPLATEType47Sub(TemplatedType, supermod.TEMPLATEType47):
+class TEMPLATEType24Sub(TemplatedType, supermod.TEMPLATEType24):
     def __init__(self, DESCRIPTION=None, RULE=None, anytypeobjs_=None, **kwargs_):
-        super(TEMPLATEType47Sub, self).__init__(DESCRIPTION, RULE, anytypeobjs_,  **kwargs_)
-supermod.TEMPLATEType47.subclass = TEMPLATEType47Sub
-# end class TEMPLATEType47Sub
+        super(TEMPLATEType24Sub, self).__init__(DESCRIPTION, RULE, anytypeobjs_,  **kwargs_)
+supermod.TEMPLATEType24.subclass = TEMPLATEType24Sub
+# end class TEMPLATEType24Sub
 
 
 class RULETypeSub(TemplatedType, supermod.RULEType):
@@ -1341,67 +1208,11 @@ supermod.LOGIN_TOKENType.subclass = LOGIN_TOKENTypeSub
 # end class LOGIN_TOKENTypeSub
 
 
-class QUOTASType48Sub(TemplatedType, supermod.QUOTASType48):
+class QUOTASType25Sub(TemplatedType, supermod.QUOTASType25):
     def __init__(self, ID=None, DATASTORE_QUOTA=None, NETWORK_QUOTA=None, VM_QUOTA=None, IMAGE_QUOTA=None, **kwargs_):
-        super(QUOTASType48Sub, self).__init__(ID, DATASTORE_QUOTA, NETWORK_QUOTA, VM_QUOTA, IMAGE_QUOTA,  **kwargs_)
-supermod.QUOTASType48.subclass = QUOTASType48Sub
-# end class QUOTASType48Sub
-
-
-class DATASTORE_QUOTAType49Sub(TemplatedType, supermod.DATASTORE_QUOTAType49):
-    def __init__(self, DATASTORE=None, **kwargs_):
-        super(DATASTORE_QUOTAType49Sub, self).__init__(DATASTORE,  **kwargs_)
-supermod.DATASTORE_QUOTAType49.subclass = DATASTORE_QUOTAType49Sub
-# end class DATASTORE_QUOTAType49Sub
-
-
-class DATASTOREType50Sub(TemplatedType, supermod.DATASTOREType50):
-    def __init__(self, ID=None, IMAGES=None, IMAGES_USED=None, SIZE=None, SIZE_USED=None, **kwargs_):
-        super(DATASTOREType50Sub, self).__init__(ID, IMAGES, IMAGES_USED, SIZE, SIZE_USED,  **kwargs_)
-supermod.DATASTOREType50.subclass = DATASTOREType50Sub
-# end class DATASTOREType50Sub
-
-
-class NETWORK_QUOTAType51Sub(TemplatedType, supermod.NETWORK_QUOTAType51):
-    def __init__(self, NETWORK=None, **kwargs_):
-        super(NETWORK_QUOTAType51Sub, self).__init__(NETWORK,  **kwargs_)
-supermod.NETWORK_QUOTAType51.subclass = NETWORK_QUOTAType51Sub
-# end class NETWORK_QUOTAType51Sub
-
-
-class NETWORKType52Sub(TemplatedType, supermod.NETWORKType52):
-    def __init__(self, ID=None, LEASES=None, LEASES_USED=None, **kwargs_):
-        super(NETWORKType52Sub, self).__init__(ID, LEASES, LEASES_USED,  **kwargs_)
-supermod.NETWORKType52.subclass = NETWORKType52Sub
-# end class NETWORKType52Sub
-
-
-class VM_QUOTAType53Sub(TemplatedType, supermod.VM_QUOTAType53):
-    def __init__(self, VM=None, **kwargs_):
-        super(VM_QUOTAType53Sub, self).__init__(VM,  **kwargs_)
-supermod.VM_QUOTAType53.subclass = VM_QUOTAType53Sub
-# end class VM_QUOTAType53Sub
-
-
-class VMType54Sub(TemplatedType, supermod.VMType54):
-    def __init__(self, CPU=None, CPU_USED=None, MEMORY=None, MEMORY_USED=None, RUNNING_CPU=None, RUNNING_CPU_USED=None, RUNNING_MEMORY=None, RUNNING_MEMORY_USED=None, RUNNING_VMS=None, RUNNING_VMS_USED=None, SYSTEM_DISK_SIZE=None, SYSTEM_DISK_SIZE_USED=None, VMS=None, VMS_USED=None, **kwargs_):
-        super(VMType54Sub, self).__init__(CPU, CPU_USED, MEMORY, MEMORY_USED, RUNNING_CPU, RUNNING_CPU_USED, RUNNING_MEMORY, RUNNING_MEMORY_USED, RUNNING_VMS, RUNNING_VMS_USED, SYSTEM_DISK_SIZE, SYSTEM_DISK_SIZE_USED, VMS, VMS_USED,  **kwargs_)
-supermod.VMType54.subclass = VMType54Sub
-# end class VMType54Sub
-
-
-class IMAGE_QUOTAType55Sub(TemplatedType, supermod.IMAGE_QUOTAType55):
-    def __init__(self, IMAGE=None, **kwargs_):
-        super(IMAGE_QUOTAType55Sub, self).__init__(IMAGE,  **kwargs_)
-supermod.IMAGE_QUOTAType55.subclass = IMAGE_QUOTAType55Sub
-# end class IMAGE_QUOTAType55Sub
-
-
-class IMAGEType56Sub(TemplatedType, supermod.IMAGEType56):
-    def __init__(self, ID=None, RVMS=None, RVMS_USED=None, **kwargs_):
-        super(IMAGEType56Sub, self).__init__(ID, RVMS, RVMS_USED,  **kwargs_)
-supermod.IMAGEType56.subclass = IMAGEType56Sub
-# end class IMAGEType56Sub
+        super(QUOTASType25Sub, self).__init__(ID, DATASTORE_QUOTA, NETWORK_QUOTA, VM_QUOTA, IMAGE_QUOTA,  **kwargs_)
+supermod.QUOTASType25.subclass = QUOTASType25Sub
+# end class QUOTASType25Sub
 
 
 class DEFAULT_USER_QUOTASTypeSub(TemplatedType, supermod.DEFAULT_USER_QUOTASType):
@@ -1411,207 +1222,67 @@ supermod.DEFAULT_USER_QUOTASType.subclass = DEFAULT_USER_QUOTASTypeSub
 # end class DEFAULT_USER_QUOTASTypeSub
 
 
-class DATASTORE_QUOTAType57Sub(TemplatedType, supermod.DATASTORE_QUOTAType57):
-    def __init__(self, DATASTORE=None, **kwargs_):
-        super(DATASTORE_QUOTAType57Sub, self).__init__(DATASTORE,  **kwargs_)
-supermod.DATASTORE_QUOTAType57.subclass = DATASTORE_QUOTAType57Sub
-# end class DATASTORE_QUOTAType57Sub
-
-
-class DATASTOREType58Sub(TemplatedType, supermod.DATASTOREType58):
-    def __init__(self, ID=None, IMAGES=None, IMAGES_USED=None, SIZE=None, SIZE_USED=None, **kwargs_):
-        super(DATASTOREType58Sub, self).__init__(ID, IMAGES, IMAGES_USED, SIZE, SIZE_USED,  **kwargs_)
-supermod.DATASTOREType58.subclass = DATASTOREType58Sub
-# end class DATASTOREType58Sub
-
-
-class NETWORK_QUOTAType59Sub(TemplatedType, supermod.NETWORK_QUOTAType59):
-    def __init__(self, NETWORK=None, **kwargs_):
-        super(NETWORK_QUOTAType59Sub, self).__init__(NETWORK,  **kwargs_)
-supermod.NETWORK_QUOTAType59.subclass = NETWORK_QUOTAType59Sub
-# end class NETWORK_QUOTAType59Sub
-
-
-class NETWORKType60Sub(TemplatedType, supermod.NETWORKType60):
-    def __init__(self, ID=None, LEASES=None, LEASES_USED=None, **kwargs_):
-        super(NETWORKType60Sub, self).__init__(ID, LEASES, LEASES_USED,  **kwargs_)
-supermod.NETWORKType60.subclass = NETWORKType60Sub
-# end class NETWORKType60Sub
-
-
-class VM_QUOTAType61Sub(TemplatedType, supermod.VM_QUOTAType61):
+class VM_QUOTAType26Sub(TemplatedType, supermod.VM_QUOTAType26):
     def __init__(self, VM=None, **kwargs_):
-        super(VM_QUOTAType61Sub, self).__init__(VM,  **kwargs_)
-supermod.VM_QUOTAType61.subclass = VM_QUOTAType61Sub
-# end class VM_QUOTAType61Sub
+        super(VM_QUOTAType26Sub, self).__init__(VM,  **kwargs_)
+supermod.VM_QUOTAType26.subclass = VM_QUOTAType26Sub
+# end class VM_QUOTAType26Sub
 
 
-class VMType62Sub(TemplatedType, supermod.VMType62):
+class VMType27Sub(TemplatedType, supermod.VMType27):
     def __init__(self, CPU=None, CPU_USED=None, MEMORY=None, MEMORY_USED=None, RUNNING_CPU=None, RUNNING_CPU_USED=None, RUNNING_MEMORY=None, RUNNING_MEMORY_USED=None, RUNNING_VMS=None, RUNNING_VMS_USED=None, SYSTEM_DISK_SIZE=None, SYSTEM_DISK_SIZE_USED=None, VMS=None, VMS_USED=None, **kwargs_):
-        super(VMType62Sub, self).__init__(CPU, CPU_USED, MEMORY, MEMORY_USED, RUNNING_CPU, RUNNING_CPU_USED, RUNNING_MEMORY, RUNNING_MEMORY_USED, RUNNING_VMS, RUNNING_VMS_USED, SYSTEM_DISK_SIZE, SYSTEM_DISK_SIZE_USED, VMS, VMS_USED,  **kwargs_)
-supermod.VMType62.subclass = VMType62Sub
-# end class VMType62Sub
+        super(VMType27Sub, self).__init__(CPU, CPU_USED, MEMORY, MEMORY_USED, RUNNING_CPU, RUNNING_CPU_USED, RUNNING_MEMORY, RUNNING_MEMORY_USED, RUNNING_VMS, RUNNING_VMS_USED, SYSTEM_DISK_SIZE, SYSTEM_DISK_SIZE_USED, VMS, VMS_USED,  **kwargs_)
+supermod.VMType27.subclass = VMType27Sub
+# end class VMType27Sub
 
 
-class IMAGE_QUOTAType63Sub(TemplatedType, supermod.IMAGE_QUOTAType63):
-    def __init__(self, IMAGE=None, **kwargs_):
-        super(IMAGE_QUOTAType63Sub, self).__init__(IMAGE,  **kwargs_)
-supermod.IMAGE_QUOTAType63.subclass = IMAGE_QUOTAType63Sub
-# end class IMAGE_QUOTAType63Sub
-
-
-class IMAGEType64Sub(TemplatedType, supermod.IMAGEType64):
-    def __init__(self, ID=None, RVMS=None, RVMS_USED=None, **kwargs_):
-        super(IMAGEType64Sub, self).__init__(ID, RVMS, RVMS_USED,  **kwargs_)
-supermod.IMAGEType64.subclass = IMAGEType64Sub
-# end class IMAGEType64Sub
-
-
-class GROUPSType65Sub(TemplatedType, supermod.GROUPSType65):
+class GROUPSType28Sub(TemplatedType, supermod.GROUPSType28):
     def __init__(self, ID=None, **kwargs_):
-        super(GROUPSType65Sub, self).__init__(ID,  **kwargs_)
-supermod.GROUPSType65.subclass = GROUPSType65Sub
-# end class GROUPSType65Sub
+        super(GROUPSType28Sub, self).__init__(ID,  **kwargs_)
+supermod.GROUPSType28.subclass = GROUPSType28Sub
+# end class GROUPSType28Sub
 
 
-class LOGIN_TOKENType66Sub(TemplatedType, supermod.LOGIN_TOKENType66):
+class LOGIN_TOKENType29Sub(TemplatedType, supermod.LOGIN_TOKENType29):
     def __init__(self, TOKEN=None, EXPIRATION_TIME=None, EGID=None, **kwargs_):
-        super(LOGIN_TOKENType66Sub, self).__init__(TOKEN, EXPIRATION_TIME, EGID,  **kwargs_)
-supermod.LOGIN_TOKENType66.subclass = LOGIN_TOKENType66Sub
-# end class LOGIN_TOKENType66Sub
+        super(LOGIN_TOKENType29Sub, self).__init__(TOKEN, EXPIRATION_TIME, EGID,  **kwargs_)
+supermod.LOGIN_TOKENType29.subclass = LOGIN_TOKENType29Sub
+# end class LOGIN_TOKENType29Sub
 
 
-class DATASTORE_QUOTAType67Sub(TemplatedType, supermod.DATASTORE_QUOTAType67):
-    def __init__(self, DATASTORE=None, **kwargs_):
-        super(DATASTORE_QUOTAType67Sub, self).__init__(DATASTORE,  **kwargs_)
-supermod.DATASTORE_QUOTAType67.subclass = DATASTORE_QUOTAType67Sub
-# end class DATASTORE_QUOTAType67Sub
-
-
-class DATASTOREType68Sub(TemplatedType, supermod.DATASTOREType68):
-    def __init__(self, ID=None, IMAGES=None, IMAGES_USED=None, SIZE=None, SIZE_USED=None, **kwargs_):
-        super(DATASTOREType68Sub, self).__init__(ID, IMAGES, IMAGES_USED, SIZE, SIZE_USED,  **kwargs_)
-supermod.DATASTOREType68.subclass = DATASTOREType68Sub
-# end class DATASTOREType68Sub
-
-
-class NETWORK_QUOTAType69Sub(TemplatedType, supermod.NETWORK_QUOTAType69):
-    def __init__(self, NETWORK=None, **kwargs_):
-        super(NETWORK_QUOTAType69Sub, self).__init__(NETWORK,  **kwargs_)
-supermod.NETWORK_QUOTAType69.subclass = NETWORK_QUOTAType69Sub
-# end class NETWORK_QUOTAType69Sub
-
-
-class NETWORKType70Sub(TemplatedType, supermod.NETWORKType70):
-    def __init__(self, ID=None, LEASES=None, LEASES_USED=None, **kwargs_):
-        super(NETWORKType70Sub, self).__init__(ID, LEASES, LEASES_USED,  **kwargs_)
-supermod.NETWORKType70.subclass = NETWORKType70Sub
-# end class NETWORKType70Sub
-
-
-class VM_QUOTAType71Sub(TemplatedType, supermod.VM_QUOTAType71):
-    def __init__(self, VM=None, **kwargs_):
-        super(VM_QUOTAType71Sub, self).__init__(VM,  **kwargs_)
-supermod.VM_QUOTAType71.subclass = VM_QUOTAType71Sub
-# end class VM_QUOTAType71Sub
-
-
-class VMType72Sub(TemplatedType, supermod.VMType72):
-    def __init__(self, CPU=None, CPU_USED=None, MEMORY=None, MEMORY_USED=None, RUNNING_CPU=None, RUNNING_CPU_USED=None, RUNNING_MEMORY=None, RUNNING_MEMORY_USED=None, RUNNING_VMS=None, RUNNING_VMS_USED=None, SYSTEM_DISK_SIZE=None, SYSTEM_DISK_SIZE_USED=None, VMS=None, VMS_USED=None, **kwargs_):
-        super(VMType72Sub, self).__init__(CPU, CPU_USED, MEMORY, MEMORY_USED, RUNNING_CPU, RUNNING_CPU_USED, RUNNING_MEMORY, RUNNING_MEMORY_USED, RUNNING_VMS, RUNNING_VMS_USED, SYSTEM_DISK_SIZE, SYSTEM_DISK_SIZE_USED, VMS, VMS_USED,  **kwargs_)
-supermod.VMType72.subclass = VMType72Sub
-# end class VMType72Sub
-
-
-class IMAGE_QUOTAType73Sub(TemplatedType, supermod.IMAGE_QUOTAType73):
-    def __init__(self, IMAGE=None, **kwargs_):
-        super(IMAGE_QUOTAType73Sub, self).__init__(IMAGE,  **kwargs_)
-supermod.IMAGE_QUOTAType73.subclass = IMAGE_QUOTAType73Sub
-# end class IMAGE_QUOTAType73Sub
-
-
-class IMAGEType74Sub(TemplatedType, supermod.IMAGEType74):
-    def __init__(self, ID=None, RVMS=None, RVMS_USED=None, **kwargs_):
-        super(IMAGEType74Sub, self).__init__(ID, RVMS, RVMS_USED,  **kwargs_)
-supermod.IMAGEType74.subclass = IMAGEType74Sub
-# end class IMAGEType74Sub
-
-
-class DEFAULT_USER_QUOTASType75Sub(TemplatedType, supermod.DEFAULT_USER_QUOTASType75):
+class DEFAULT_USER_QUOTASType30Sub(TemplatedType, supermod.DEFAULT_USER_QUOTASType30):
     def __init__(self, DATASTORE_QUOTA=None, NETWORK_QUOTA=None, VM_QUOTA=None, IMAGE_QUOTA=None, **kwargs_):
-        super(DEFAULT_USER_QUOTASType75Sub, self).__init__(DATASTORE_QUOTA, NETWORK_QUOTA, VM_QUOTA, IMAGE_QUOTA,  **kwargs_)
-supermod.DEFAULT_USER_QUOTASType75.subclass = DEFAULT_USER_QUOTASType75Sub
-# end class DEFAULT_USER_QUOTASType75Sub
+        super(DEFAULT_USER_QUOTASType30Sub, self).__init__(DATASTORE_QUOTA, NETWORK_QUOTA, VM_QUOTA, IMAGE_QUOTA,  **kwargs_)
+supermod.DEFAULT_USER_QUOTASType30.subclass = DEFAULT_USER_QUOTASType30Sub
+# end class DEFAULT_USER_QUOTASType30Sub
 
 
-class DATASTORE_QUOTAType76Sub(TemplatedType, supermod.DATASTORE_QUOTAType76):
-    def __init__(self, DATASTORE=None, **kwargs_):
-        super(DATASTORE_QUOTAType76Sub, self).__init__(DATASTORE,  **kwargs_)
-supermod.DATASTORE_QUOTAType76.subclass = DATASTORE_QUOTAType76Sub
-# end class DATASTORE_QUOTAType76Sub
-
-
-class DATASTOREType77Sub(TemplatedType, supermod.DATASTOREType77):
-    def __init__(self, ID=None, IMAGES=None, IMAGES_USED=None, SIZE=None, SIZE_USED=None, **kwargs_):
-        super(DATASTOREType77Sub, self).__init__(ID, IMAGES, IMAGES_USED, SIZE, SIZE_USED,  **kwargs_)
-supermod.DATASTOREType77.subclass = DATASTOREType77Sub
-# end class DATASTOREType77Sub
-
-
-class NETWORK_QUOTAType78Sub(TemplatedType, supermod.NETWORK_QUOTAType78):
-    def __init__(self, NETWORK=None, **kwargs_):
-        super(NETWORK_QUOTAType78Sub, self).__init__(NETWORK,  **kwargs_)
-supermod.NETWORK_QUOTAType78.subclass = NETWORK_QUOTAType78Sub
-# end class NETWORK_QUOTAType78Sub
-
-
-class NETWORKType79Sub(TemplatedType, supermod.NETWORKType79):
-    def __init__(self, ID=None, LEASES=None, LEASES_USED=None, **kwargs_):
-        super(NETWORKType79Sub, self).__init__(ID, LEASES, LEASES_USED,  **kwargs_)
-supermod.NETWORKType79.subclass = NETWORKType79Sub
-# end class NETWORKType79Sub
-
-
-class VM_QUOTAType80Sub(TemplatedType, supermod.VM_QUOTAType80):
+class VM_QUOTAType31Sub(TemplatedType, supermod.VM_QUOTAType31):
     def __init__(self, VM=None, **kwargs_):
-        super(VM_QUOTAType80Sub, self).__init__(VM,  **kwargs_)
-supermod.VM_QUOTAType80.subclass = VM_QUOTAType80Sub
-# end class VM_QUOTAType80Sub
+        super(VM_QUOTAType31Sub, self).__init__(VM,  **kwargs_)
+supermod.VM_QUOTAType31.subclass = VM_QUOTAType31Sub
+# end class VM_QUOTAType31Sub
 
 
-class VMType81Sub(TemplatedType, supermod.VMType81):
+class VMType32Sub(TemplatedType, supermod.VMType32):
     def __init__(self, CPU=None, CPU_USED=None, MEMORY=None, MEMORY_USED=None, RUNNING_CPU=None, RUNNING_CPU_USED=None, RUNNING_MEMORY=None, RUNNING_MEMORY_USED=None, RUNNING_VMS=None, RUNNING_VMS_USED=None, SYSTEM_DISK_SIZE=None, SYSTEM_DISK_SIZE_USED=None, VMS=None, VMS_USED=None, **kwargs_):
-        super(VMType81Sub, self).__init__(CPU, CPU_USED, MEMORY, MEMORY_USED, RUNNING_CPU, RUNNING_CPU_USED, RUNNING_MEMORY, RUNNING_MEMORY_USED, RUNNING_VMS, RUNNING_VMS_USED, SYSTEM_DISK_SIZE, SYSTEM_DISK_SIZE_USED, VMS, VMS_USED,  **kwargs_)
-supermod.VMType81.subclass = VMType81Sub
-# end class VMType81Sub
+        super(VMType32Sub, self).__init__(CPU, CPU_USED, MEMORY, MEMORY_USED, RUNNING_CPU, RUNNING_CPU_USED, RUNNING_MEMORY, RUNNING_MEMORY_USED, RUNNING_VMS, RUNNING_VMS_USED, SYSTEM_DISK_SIZE, SYSTEM_DISK_SIZE_USED, VMS, VMS_USED,  **kwargs_)
+supermod.VMType32.subclass = VMType32Sub
+# end class VMType32Sub
 
 
-class IMAGE_QUOTAType82Sub(TemplatedType, supermod.IMAGE_QUOTAType82):
-    def __init__(self, IMAGE=None, **kwargs_):
-        super(IMAGE_QUOTAType82Sub, self).__init__(IMAGE,  **kwargs_)
-supermod.IMAGE_QUOTAType82.subclass = IMAGE_QUOTAType82Sub
-# end class IMAGE_QUOTAType82Sub
-
-
-class IMAGEType83Sub(TemplatedType, supermod.IMAGEType83):
-    def __init__(self, ID=None, RVMS=None, RVMS_USED=None, **kwargs_):
-        super(IMAGEType83Sub, self).__init__(ID, RVMS, RVMS_USED,  **kwargs_)
-supermod.IMAGEType83.subclass = IMAGEType83Sub
-# end class IMAGEType83Sub
-
-
-class GROUPSType84Sub(TemplatedType, supermod.GROUPSType84):
+class GROUPSType33Sub(TemplatedType, supermod.GROUPSType33):
     def __init__(self, ID=None, **kwargs_):
-        super(GROUPSType84Sub, self).__init__(ID,  **kwargs_)
-supermod.GROUPSType84.subclass = GROUPSType84Sub
-# end class GROUPSType84Sub
+        super(GROUPSType33Sub, self).__init__(ID,  **kwargs_)
+supermod.GROUPSType33.subclass = GROUPSType33Sub
+# end class GROUPSType33Sub
 
 
-class CLUSTERSType85Sub(TemplatedType, supermod.CLUSTERSType85):
+class CLUSTERSType34Sub(TemplatedType, supermod.CLUSTERSType34):
     def __init__(self, CLUSTER=None, **kwargs_):
-        super(CLUSTERSType85Sub, self).__init__(CLUSTER,  **kwargs_)
-supermod.CLUSTERSType85.subclass = CLUSTERSType85Sub
-# end class CLUSTERSType85Sub
+        super(CLUSTERSType34Sub, self).__init__(CLUSTER,  **kwargs_)
+supermod.CLUSTERSType34.subclass = CLUSTERSType34Sub
+# end class CLUSTERSType34Sub
 
 
 class CLUSTERTypeSub(TemplatedType, supermod.CLUSTERType):
@@ -1621,11 +1292,11 @@ supermod.CLUSTERType.subclass = CLUSTERTypeSub
 # end class CLUSTERTypeSub
 
 
-class HOSTSType86Sub(TemplatedType, supermod.HOSTSType86):
+class HOSTSType35Sub(TemplatedType, supermod.HOSTSType35):
     def __init__(self, HOST=None, **kwargs_):
-        super(HOSTSType86Sub, self).__init__(HOST,  **kwargs_)
-supermod.HOSTSType86.subclass = HOSTSType86Sub
-# end class HOSTSType86Sub
+        super(HOSTSType35Sub, self).__init__(HOST,  **kwargs_)
+supermod.HOSTSType35.subclass = HOSTSType35Sub
+# end class HOSTSType35Sub
 
 
 class HOSTTypeSub(TemplatedType, supermod.HOSTType):
@@ -1635,25 +1306,25 @@ supermod.HOSTType.subclass = HOSTTypeSub
 # end class HOSTTypeSub
 
 
-class DATASTORESType87Sub(TemplatedType, supermod.DATASTORESType87):
+class DATASTORESType36Sub(TemplatedType, supermod.DATASTORESType36):
     def __init__(self, DATASTORE=None, **kwargs_):
-        super(DATASTORESType87Sub, self).__init__(DATASTORE,  **kwargs_)
-supermod.DATASTORESType87.subclass = DATASTORESType87Sub
-# end class DATASTORESType87Sub
+        super(DATASTORESType36Sub, self).__init__(DATASTORE,  **kwargs_)
+supermod.DATASTORESType36.subclass = DATASTORESType36Sub
+# end class DATASTORESType36Sub
 
 
-class DATASTOREType88Sub(TemplatedType, supermod.DATASTOREType88):
+class DATASTOREType37Sub(TemplatedType, supermod.DATASTOREType37):
     def __init__(self, ZONE_ID=None, DATASTORE_ID=None, **kwargs_):
-        super(DATASTOREType88Sub, self).__init__(ZONE_ID, DATASTORE_ID,  **kwargs_)
-supermod.DATASTOREType88.subclass = DATASTOREType88Sub
-# end class DATASTOREType88Sub
+        super(DATASTOREType37Sub, self).__init__(ZONE_ID, DATASTORE_ID,  **kwargs_)
+supermod.DATASTOREType37.subclass = DATASTOREType37Sub
+# end class DATASTOREType37Sub
 
 
-class VNETSType89Sub(TemplatedType, supermod.VNETSType89):
+class VNETSType38Sub(TemplatedType, supermod.VNETSType38):
     def __init__(self, VNET=None, **kwargs_):
-        super(VNETSType89Sub, self).__init__(VNET,  **kwargs_)
-supermod.VNETSType89.subclass = VNETSType89Sub
-# end class VNETSType89Sub
+        super(VNETSType38Sub, self).__init__(VNET,  **kwargs_)
+supermod.VNETSType38.subclass = VNETSType38Sub
+# end class VNETSType38Sub
 
 
 class VNETTypeSub(TemplatedType, supermod.VNETType):
@@ -1663,18 +1334,18 @@ supermod.VNETType.subclass = VNETTypeSub
 # end class VNETTypeSub
 
 
-class PERMISSIONSType90Sub(TemplatedType, supermod.PERMISSIONSType90):
+class PERMISSIONSType39Sub(TemplatedType, supermod.PERMISSIONSType39):
     def __init__(self, OWNER_U=None, OWNER_M=None, OWNER_A=None, GROUP_U=None, GROUP_M=None, GROUP_A=None, OTHER_U=None, OTHER_M=None, OTHER_A=None, **kwargs_):
-        super(PERMISSIONSType90Sub, self).__init__(OWNER_U, OWNER_M, OWNER_A, GROUP_U, GROUP_M, GROUP_A, OTHER_U, OTHER_M, OTHER_A,  **kwargs_)
-supermod.PERMISSIONSType90.subclass = PERMISSIONSType90Sub
-# end class PERMISSIONSType90Sub
+        super(PERMISSIONSType39Sub, self).__init__(OWNER_U, OWNER_M, OWNER_A, GROUP_U, GROUP_M, GROUP_A, OTHER_U, OTHER_M, OTHER_A,  **kwargs_)
+supermod.PERMISSIONSType39.subclass = PERMISSIONSType39Sub
+# end class PERMISSIONSType39Sub
 
 
-class LOCKType91Sub(TemplatedType, supermod.LOCKType91):
+class LOCKType40Sub(TemplatedType, supermod.LOCKType40):
     def __init__(self, LOCKED=None, OWNER=None, TIME=None, REQ_ID=None, **kwargs_):
-        super(LOCKType91Sub, self).__init__(LOCKED, OWNER, TIME, REQ_ID,  **kwargs_)
-supermod.LOCKType91.subclass = LOCKType91Sub
-# end class LOCKType91Sub
+        super(LOCKType40Sub, self).__init__(LOCKED, OWNER, TIME, REQ_ID,  **kwargs_)
+supermod.LOCKType40.subclass = LOCKType40Sub
+# end class LOCKType40Sub
 
 
 class ROLESTypeSub(TemplatedType, supermod.ROLESType):
@@ -1691,53 +1362,46 @@ supermod.ROLEType.subclass = ROLETypeSub
 # end class ROLETypeSub
 
 
-class VMType92Sub(TemplatedType, supermod.VMType92):
+class VMType41Sub(TemplatedType, supermod.VMType41):
     def __init__(self, ID=None, UID=None, GID=None, UNAME=None, GNAME=None, NAME=None, LAST_POLL=None, STATE=None, LCM_STATE=None, RESCHED=None, STIME=None, ETIME=None, DEPLOY_ID=None, TEMPLATE=None, MONITORING=None, USER_TEMPLATE=None, HISTORY_RECORDS=None, **kwargs_):
-        super(VMType92Sub, self).__init__(ID, UID, GID, UNAME, GNAME, NAME, LAST_POLL, STATE, LCM_STATE, RESCHED, STIME, ETIME, DEPLOY_ID, TEMPLATE, MONITORING, USER_TEMPLATE, HISTORY_RECORDS,  **kwargs_)
-supermod.VMType92.subclass = VMType92Sub
-# end class VMType92Sub
+        super(VMType41Sub, self).__init__(ID, UID, GID, UNAME, GNAME, NAME, LAST_POLL, STATE, LCM_STATE, RESCHED, STIME, ETIME, DEPLOY_ID, TEMPLATE, MONITORING, USER_TEMPLATE, HISTORY_RECORDS,  **kwargs_)
+supermod.VMType41.subclass = VMType41Sub
+# end class VMType41Sub
 
 
-class TEMPLATEType93Sub(TemplatedType, supermod.TEMPLATEType93):
+class TEMPLATEType42Sub(TemplatedType, supermod.TEMPLATEType42):
     def __init__(self, CPU=None, MEMORY=None, VCPU=None, DISK=None, NIC=None, GRAPHICS=None, **kwargs_):
-        super(TEMPLATEType93Sub, self).__init__(CPU, MEMORY, VCPU, DISK, NIC, GRAPHICS,  **kwargs_)
-supermod.TEMPLATEType93.subclass = TEMPLATEType93Sub
-# end class TEMPLATEType93Sub
+        super(TEMPLATEType42Sub, self).__init__(CPU, MEMORY, VCPU, DISK, NIC, GRAPHICS,  **kwargs_)
+supermod.TEMPLATEType42.subclass = TEMPLATEType42Sub
+# end class TEMPLATEType42Sub
 
 
 class DISKTypeSub(TemplatedType, supermod.DISKType):
-    def __init__(self, VCENTER_DS_REF=None, VCENTER_INSTANCE_ID=None, anytypeobjs_=None, **kwargs_):
-        super(DISKTypeSub, self).__init__(VCENTER_DS_REF, VCENTER_INSTANCE_ID, anytypeobjs_,  **kwargs_)
+    def __init__(self, anytypeobjs_=None, **kwargs_):
+        super(DISKTypeSub, self).__init__(anytypeobjs_,  **kwargs_)
 supermod.DISKType.subclass = DISKTypeSub
 # end class DISKTypeSub
 
 
 class NICTypeSub(TemplatedType, supermod.NICType):
-    def __init__(self, anytypeobjs_=None, VCENTER_INSTANCE_ID=None, VCENTER_NET_REF=None, VCENTER_PORTGROUP_TYPE=None, **kwargs_):
-        super(NICTypeSub, self).__init__(anytypeobjs_, VCENTER_INSTANCE_ID, VCENTER_NET_REF, VCENTER_PORTGROUP_TYPE,  **kwargs_)
+    def __init__(self, anytypeobjs_=None, **kwargs_):
+        super(NICTypeSub, self).__init__(anytypeobjs_,  **kwargs_)
 supermod.NICType.subclass = NICTypeSub
 # end class NICTypeSub
 
 
-class MONITORINGType94Sub(TemplatedType, supermod.MONITORINGType94):
+class MONITORINGType43Sub(TemplatedType, supermod.MONITORINGType43):
     def __init__(self, anytypeobjs_=None, **kwargs_):
-        super(MONITORINGType94Sub, self).__init__(anytypeobjs_,  **kwargs_)
-supermod.MONITORINGType94.subclass = MONITORINGType94Sub
-# end class MONITORINGType94Sub
+        super(MONITORINGType43Sub, self).__init__(anytypeobjs_,  **kwargs_)
+supermod.MONITORINGType43.subclass = MONITORINGType43Sub
+# end class MONITORINGType43Sub
 
 
 class USER_TEMPLATETypeSub(TemplatedType, supermod.USER_TEMPLATEType):
-    def __init__(self, LABELS=None, ERROR=None, SCHED_MESSAGE=None, SCHED_RANK=None, SCHED_DS_RANK=None, SCHED_REQUIREMENTS=None, SCHED_DS_REQUIREMENTS=None, USER_PRIORITY=None, PUBLIC_CLOUD=None, SCHED_ACTION=None, anytypeobjs_=None, **kwargs_):
-        super(USER_TEMPLATETypeSub, self).__init__(LABELS, ERROR, SCHED_MESSAGE, SCHED_RANK, SCHED_DS_RANK, SCHED_REQUIREMENTS, SCHED_DS_REQUIREMENTS, USER_PRIORITY, PUBLIC_CLOUD, SCHED_ACTION, anytypeobjs_,  **kwargs_)
+    def __init__(self, LABELS=None, ERROR=None, SCHED_MESSAGE=None, SCHED_RANK=None, SCHED_DS_RANK=None, SCHED_REQUIREMENTS=None, SCHED_DS_REQUIREMENTS=None, USER_PRIORITY=None, SCHED_ACTION=None, anytypeobjs_=None, **kwargs_):
+        super(USER_TEMPLATETypeSub, self).__init__(LABELS, ERROR, SCHED_MESSAGE, SCHED_RANK, SCHED_DS_RANK, SCHED_REQUIREMENTS, SCHED_DS_REQUIREMENTS, USER_PRIORITY, SCHED_ACTION, anytypeobjs_,  **kwargs_)
 supermod.USER_TEMPLATEType.subclass = USER_TEMPLATETypeSub
 # end class USER_TEMPLATETypeSub
-
-
-class PUBLIC_CLOUDTypeSub(TemplatedType, supermod.PUBLIC_CLOUDType):
-    def __init__(self, anytypeobjs_=None, **kwargs_):
-        super(PUBLIC_CLOUDTypeSub, self).__init__(anytypeobjs_,  **kwargs_)
-supermod.PUBLIC_CLOUDType.subclass = PUBLIC_CLOUDTypeSub
-# end class PUBLIC_CLOUDTypeSub
 
 
 class SCHED_ACTIONTypeSub(TemplatedType, supermod.SCHED_ACTIONType):
@@ -1761,53 +1425,53 @@ supermod.HISTORYType.subclass = HISTORYTypeSub
 # end class HISTORYTypeSub
 
 
-class LOCKType95Sub(TemplatedType, supermod.LOCKType95):
+class LOCKType44Sub(TemplatedType, supermod.LOCKType44):
     def __init__(self, LOCKED=None, OWNER=None, TIME=None, REQ_ID=None, **kwargs_):
-        super(LOCKType95Sub, self).__init__(LOCKED, OWNER, TIME, REQ_ID,  **kwargs_)
-supermod.LOCKType95.subclass = LOCKType95Sub
-# end class LOCKType95Sub
+        super(LOCKType44Sub, self).__init__(LOCKED, OWNER, TIME, REQ_ID,  **kwargs_)
+supermod.LOCKType44.subclass = LOCKType44Sub
+# end class LOCKType44Sub
 
 
-class PERMISSIONSType96Sub(TemplatedType, supermod.PERMISSIONSType96):
+class PERMISSIONSType45Sub(TemplatedType, supermod.PERMISSIONSType45):
     def __init__(self, OWNER_U=None, OWNER_M=None, OWNER_A=None, GROUP_U=None, GROUP_M=None, GROUP_A=None, OTHER_U=None, OTHER_M=None, OTHER_A=None, **kwargs_):
-        super(PERMISSIONSType96Sub, self).__init__(OWNER_U, OWNER_M, OWNER_A, GROUP_U, GROUP_M, GROUP_A, OTHER_U, OTHER_M, OTHER_A,  **kwargs_)
-supermod.PERMISSIONSType96.subclass = PERMISSIONSType96Sub
-# end class PERMISSIONSType96Sub
+        super(PERMISSIONSType45Sub, self).__init__(OWNER_U, OWNER_M, OWNER_A, GROUP_U, GROUP_M, GROUP_A, OTHER_U, OTHER_M, OTHER_A,  **kwargs_)
+supermod.PERMISSIONSType45.subclass = PERMISSIONSType45Sub
+# end class PERMISSIONSType45Sub
 
 
-class TEMPLATEType97Sub(TemplatedType, supermod.TEMPLATEType97):
-    def __init__(self, VCENTER_CCR_REF=None, VCENTER_INSTANCE_ID=None, VCENTER_TEMPLATE_REF=None, anytypeobjs_=None, **kwargs_):
-        super(TEMPLATEType97Sub, self).__init__(VCENTER_CCR_REF, VCENTER_INSTANCE_ID, VCENTER_TEMPLATE_REF, anytypeobjs_,  **kwargs_)
-supermod.TEMPLATEType97.subclass = TEMPLATEType97Sub
-# end class TEMPLATEType97Sub
+class TEMPLATEType46Sub(TemplatedType, supermod.TEMPLATEType46):
+    def __init__(self, anytypeobjs_=None, **kwargs_):
+        super(TEMPLATEType46Sub, self).__init__(anytypeobjs_,  **kwargs_)
+supermod.TEMPLATEType46.subclass = TEMPLATEType46Sub
+# end class TEMPLATEType46Sub
 
 
-class MONITORINGType98Sub(TemplatedType, supermod.MONITORINGType98):
-    def __init__(self, CPU=None, DISKRDBYTES=None, DISKRDIOPS=None, DISKWRBYTES=None, DISKWRIOPS=None, DISK_SIZE=None, ID=None, MEMORY=None, NETRX=None, NETTX=None, TIMESTAMP=None, VCENTER_ESX_HOST=None, VCENTER_GUEST_STATE=None, VCENTER_RP_NAME=None, VCENTER_VMWARETOOLS_RUNNING_STATUS=None, VCENTER_VMWARETOOLS_VERSION=None, VCENTER_VMWARETOOLS_VERSION_STATUS=None, VCENTER_VM_NAME=None, anytypeobjs_=None, **kwargs_):
-        super(MONITORINGType98Sub, self).__init__(CPU, DISKRDBYTES, DISKRDIOPS, DISKWRBYTES, DISKWRIOPS, DISK_SIZE, ID, MEMORY, NETRX, NETTX, TIMESTAMP, VCENTER_ESX_HOST, VCENTER_GUEST_STATE, VCENTER_RP_NAME, VCENTER_VMWARETOOLS_RUNNING_STATUS, VCENTER_VMWARETOOLS_VERSION, VCENTER_VMWARETOOLS_VERSION_STATUS, VCENTER_VM_NAME, anytypeobjs_,  **kwargs_)
-supermod.MONITORINGType98.subclass = MONITORINGType98Sub
-# end class MONITORINGType98Sub
+class MONITORINGType47Sub(TemplatedType, supermod.MONITORINGType47):
+    def __init__(self, CPU=None, CPU_FORECAST=None, CPU_FORECAST_FAR=None, DISKRDBYTES=None, DISKRDBYTES_BW=None, DISKRDBYTES_BW_FORECAST=None, DISKRDBYTES_BW_FORECAST_FAR=None, DISKRDIOPS=None, DISKRDIOPS_BW=None, DISKRDIOPS_BW_FORECAST=None, DISKRDIOPS_BW_FORECAST_FAR=None, DISKWRBYTES=None, DISKWRBYTES_BW=None, DISKWRBYTES_BW_FORECAST=None, DISKWRBYTES_BW_FORECAST_FAR=None, DISKWRIOPS=None, DISKWRIOPS_BW=None, DISKWRIOPS_BW_FORECAST=None, DISKWRIOPS_BW_FORECAST_FAR=None, DISK_SIZE=None, ID=None, MEMORY=None, NETRX=None, NETRX_BW=None, NETRX_BW_FORECAST=None, NETRX_BW_FORECAST_FAR=None, NETTX=None, NETTX_BW=None, NETTX_BW_FORECAST=None, NETTX_BW_FORECAST_FAR=None, TIMESTAMP=None, anytypeobjs_=None, **kwargs_):
+        super(MONITORINGType47Sub, self).__init__(CPU, CPU_FORECAST, CPU_FORECAST_FAR, DISKRDBYTES, DISKRDBYTES_BW, DISKRDBYTES_BW_FORECAST, DISKRDBYTES_BW_FORECAST_FAR, DISKRDIOPS, DISKRDIOPS_BW, DISKRDIOPS_BW_FORECAST, DISKRDIOPS_BW_FORECAST_FAR, DISKWRBYTES, DISKWRBYTES_BW, DISKWRBYTES_BW_FORECAST, DISKWRBYTES_BW_FORECAST_FAR, DISKWRIOPS, DISKWRIOPS_BW, DISKWRIOPS_BW_FORECAST, DISKWRIOPS_BW_FORECAST_FAR, DISK_SIZE, ID, MEMORY, NETRX, NETRX_BW, NETRX_BW_FORECAST, NETRX_BW_FORECAST_FAR, NETTX, NETTX_BW, NETTX_BW_FORECAST, NETTX_BW_FORECAST_FAR, TIMESTAMP, anytypeobjs_,  **kwargs_)
+supermod.MONITORINGType47.subclass = MONITORINGType47Sub
+# end class MONITORINGType47Sub
 
 
-class DISK_SIZEType99Sub(TemplatedType, supermod.DISK_SIZEType99):
+class DISK_SIZEType48Sub(TemplatedType, supermod.DISK_SIZEType48):
     def __init__(self, ID=None, SIZE=None, **kwargs_):
-        super(DISK_SIZEType99Sub, self).__init__(ID, SIZE,  **kwargs_)
-supermod.DISK_SIZEType99.subclass = DISK_SIZEType99Sub
-# end class DISK_SIZEType99Sub
+        super(DISK_SIZEType48Sub, self).__init__(ID, SIZE,  **kwargs_)
+supermod.DISK_SIZEType48.subclass = DISK_SIZEType48Sub
+# end class DISK_SIZEType48Sub
 
 
-class TEMPLATEType100Sub(TemplatedType, supermod.TEMPLATEType100):
+class TEMPLATEType49Sub(TemplatedType, supermod.TEMPLATEType49):
     def __init__(self, AUTOMATIC_DS_REQUIREMENTS=None, AUTOMATIC_NIC_REQUIREMENTS=None, AUTOMATIC_REQUIREMENTS=None, CLONING_TEMPLATE_ID=None, CONTEXT=None, CPU=None, CPU_COST=None, DISK=None, DISK_COST=None, EMULATOR=None, FEATURES=None, HYPERV_OPTIONS=None, GRAPHICS=None, VIDEO=None, IMPORTED=None, INPUT=None, MEMORY=None, MEMORY_COST=None, MEMORY_MAX=None, MEMORY_SLOTS=None, MEMORY_RESIZE_MODE=None, NIC=None, NIC_ALIAS=None, NIC_DEFAULT=None, NUMA_NODE=None, OS=None, PCI=None, RAW=None, SECURITY_GROUP_RULE=None, SNAPSHOT=None, SPICE_OPTIONS=None, SUBMIT_ON_HOLD=None, TEMPLATE_ID=None, TM_MAD_SYSTEM=None, TOPOLOGY=None, VCPU=None, VCPU_MAX=None, VMGROUP=None, VMID=None, VROUTER_ID=None, VROUTER_KEEPALIVED_ID=None, VROUTER_KEEPALIVED_PASSWORD=None, SCHED_ACTION=None, **kwargs_):
-        super(TEMPLATEType100Sub, self).__init__(AUTOMATIC_DS_REQUIREMENTS, AUTOMATIC_NIC_REQUIREMENTS, AUTOMATIC_REQUIREMENTS, CLONING_TEMPLATE_ID, CONTEXT, CPU, CPU_COST, DISK, DISK_COST, EMULATOR, FEATURES, HYPERV_OPTIONS, GRAPHICS, VIDEO, IMPORTED, INPUT, MEMORY, MEMORY_COST, MEMORY_MAX, MEMORY_SLOTS, MEMORY_RESIZE_MODE, NIC, NIC_ALIAS, NIC_DEFAULT, NUMA_NODE, OS, PCI, RAW, SECURITY_GROUP_RULE, SNAPSHOT, SPICE_OPTIONS, SUBMIT_ON_HOLD, TEMPLATE_ID, TM_MAD_SYSTEM, TOPOLOGY, VCPU, VCPU_MAX, VMGROUP, VMID, VROUTER_ID, VROUTER_KEEPALIVED_ID, VROUTER_KEEPALIVED_PASSWORD, SCHED_ACTION,  **kwargs_)
-supermod.TEMPLATEType100.subclass = TEMPLATEType100Sub
-# end class TEMPLATEType100Sub
+        super(TEMPLATEType49Sub, self).__init__(AUTOMATIC_DS_REQUIREMENTS, AUTOMATIC_NIC_REQUIREMENTS, AUTOMATIC_REQUIREMENTS, CLONING_TEMPLATE_ID, CONTEXT, CPU, CPU_COST, DISK, DISK_COST, EMULATOR, FEATURES, HYPERV_OPTIONS, GRAPHICS, VIDEO, IMPORTED, INPUT, MEMORY, MEMORY_COST, MEMORY_MAX, MEMORY_SLOTS, MEMORY_RESIZE_MODE, NIC, NIC_ALIAS, NIC_DEFAULT, NUMA_NODE, OS, PCI, RAW, SECURITY_GROUP_RULE, SNAPSHOT, SPICE_OPTIONS, SUBMIT_ON_HOLD, TEMPLATE_ID, TM_MAD_SYSTEM, TOPOLOGY, VCPU, VCPU_MAX, VMGROUP, VMID, VROUTER_ID, VROUTER_KEEPALIVED_ID, VROUTER_KEEPALIVED_PASSWORD, SCHED_ACTION,  **kwargs_)
+supermod.TEMPLATEType49.subclass = TEMPLATEType49Sub
+# end class TEMPLATEType49Sub
 
 
-class DISKType101Sub(TemplatedType, supermod.DISKType101):
-    def __init__(self, VCENTER_DS_REF=None, VCENTER_INSTANCE_ID=None, anytypeobjs_=None, **kwargs_):
-        super(DISKType101Sub, self).__init__(VCENTER_DS_REF, VCENTER_INSTANCE_ID, anytypeobjs_,  **kwargs_)
-supermod.DISKType101.subclass = DISKType101Sub
-# end class DISKType101Sub
+class DISKType50Sub(TemplatedType, supermod.DISKType50):
+    def __init__(self, anytypeobjs_=None, **kwargs_):
+        super(DISKType50Sub, self).__init__(anytypeobjs_,  **kwargs_)
+supermod.DISKType50.subclass = DISKType50Sub
+# end class DISKType50Sub
 
 
 class VIDEOTypeSub(TemplatedType, supermod.VIDEOType):
@@ -1817,95 +1481,95 @@ supermod.VIDEOType.subclass = VIDEOTypeSub
 # end class VIDEOTypeSub
 
 
-class NICType102Sub(TemplatedType, supermod.NICType102):
-    def __init__(self, anytypeobjs_=None, VCENTER_INSTANCE_ID=None, VCENTER_NET_REF=None, VCENTER_PORTGROUP_TYPE=None, **kwargs_):
-        super(NICType102Sub, self).__init__(anytypeobjs_, VCENTER_INSTANCE_ID, VCENTER_NET_REF, VCENTER_PORTGROUP_TYPE,  **kwargs_)
-supermod.NICType102.subclass = NICType102Sub
-# end class NICType102Sub
+class NICType51Sub(TemplatedType, supermod.NICType51):
+    def __init__(self, anytypeobjs_=None, **kwargs_):
+        super(NICType51Sub, self).__init__(anytypeobjs_,  **kwargs_)
+supermod.NICType51.subclass = NICType51Sub
+# end class NICType51Sub
 
 
 class NIC_ALIASTypeSub(TemplatedType, supermod.NIC_ALIASType):
-    def __init__(self, ALIAS_ID=None, PARENT=None, PARENT_ID=None, anytypeobjs_=None, VCENTER_INSTANCE_ID=None, VCENTER_NET_REF=None, VCENTER_PORTGROUP_TYPE=None, **kwargs_):
-        super(NIC_ALIASTypeSub, self).__init__(ALIAS_ID, PARENT, PARENT_ID, anytypeobjs_, VCENTER_INSTANCE_ID, VCENTER_NET_REF, VCENTER_PORTGROUP_TYPE,  **kwargs_)
+    def __init__(self, ALIAS_ID=None, PARENT=None, PARENT_ID=None, anytypeobjs_=None, **kwargs_):
+        super(NIC_ALIASTypeSub, self).__init__(ALIAS_ID, PARENT, PARENT_ID, anytypeobjs_,  **kwargs_)
 supermod.NIC_ALIASType.subclass = NIC_ALIASTypeSub
 # end class NIC_ALIASTypeSub
 
 
-class SNAPSHOTType103Sub(TemplatedType, supermod.SNAPSHOTType103):
+class SNAPSHOTType52Sub(TemplatedType, supermod.SNAPSHOTType52):
     def __init__(self, ACTION=None, ACTIVE=None, HYPERVISOR_ID=None, NAME=None, SNAPSHOT_ID=None, SYSTEM_DISK_SIZE=None, TIME=None, **kwargs_):
-        super(SNAPSHOTType103Sub, self).__init__(ACTION, ACTIVE, HYPERVISOR_ID, NAME, SNAPSHOT_ID, SYSTEM_DISK_SIZE, TIME,  **kwargs_)
-supermod.SNAPSHOTType103.subclass = SNAPSHOTType103Sub
-# end class SNAPSHOTType103Sub
+        super(SNAPSHOTType52Sub, self).__init__(ACTION, ACTIVE, HYPERVISOR_ID, NAME, SNAPSHOT_ID, SYSTEM_DISK_SIZE, TIME,  **kwargs_)
+supermod.SNAPSHOTType52.subclass = SNAPSHOTType52Sub
+# end class SNAPSHOTType52Sub
 
 
-class USER_TEMPLATEType104Sub(TemplatedType, supermod.USER_TEMPLATEType104):
-    def __init__(self, VCENTER_CCR_REF=None, VCENTER_DS_REF=None, VCENTER_INSTANCE_ID=None, anytypeobjs_=None, **kwargs_):
-        super(USER_TEMPLATEType104Sub, self).__init__(VCENTER_CCR_REF, VCENTER_DS_REF, VCENTER_INSTANCE_ID, anytypeobjs_,  **kwargs_)
-supermod.USER_TEMPLATEType104.subclass = USER_TEMPLATEType104Sub
-# end class USER_TEMPLATEType104Sub
+class USER_TEMPLATEType53Sub(TemplatedType, supermod.USER_TEMPLATEType53):
+    def __init__(self, anytypeobjs_=None, **kwargs_):
+        super(USER_TEMPLATEType53Sub, self).__init__(anytypeobjs_,  **kwargs_)
+supermod.USER_TEMPLATEType53.subclass = USER_TEMPLATEType53Sub
+# end class USER_TEMPLATEType53Sub
 
 
-class HISTORY_RECORDSType105Sub(TemplatedType, supermod.HISTORY_RECORDSType105):
+class HISTORY_RECORDSType54Sub(TemplatedType, supermod.HISTORY_RECORDSType54):
     def __init__(self, HISTORY=None, **kwargs_):
-        super(HISTORY_RECORDSType105Sub, self).__init__(HISTORY,  **kwargs_)
-supermod.HISTORY_RECORDSType105.subclass = HISTORY_RECORDSType105Sub
-# end class HISTORY_RECORDSType105Sub
+        super(HISTORY_RECORDSType54Sub, self).__init__(HISTORY,  **kwargs_)
+supermod.HISTORY_RECORDSType54.subclass = HISTORY_RECORDSType54Sub
+# end class HISTORY_RECORDSType54Sub
 
 
-class HISTORYType106Sub(TemplatedType, supermod.HISTORYType106):
-    def __init__(self, OID=None, SEQ=None, HOSTNAME=None, HID=None, CID=None, STIME=None, ETIME=None, VM_MAD=None, TM_MAD=None, DS_ID=None, PSTIME=None, PETIME=None, RSTIME=None, RETIME=None, ESTIME=None, EETIME=None, ACTION=None, UID=None, GID=None, REQUEST_ID=None, **kwargs_):
-        super(HISTORYType106Sub, self).__init__(OID, SEQ, HOSTNAME, HID, CID, STIME, ETIME, VM_MAD, TM_MAD, DS_ID, PSTIME, PETIME, RSTIME, RETIME, ESTIME, EETIME, ACTION, UID, GID, REQUEST_ID,  **kwargs_)
-supermod.HISTORYType106.subclass = HISTORYType106Sub
-# end class HISTORYType106Sub
+class HISTORYType55Sub(TemplatedType, supermod.HISTORYType55):
+    def __init__(self, OID=None, SEQ=None, HOSTNAME=None, HID=None, CID=None, STIME=None, ETIME=None, VM_MAD=None, TM_MAD=None, DS_ID=None, PLAN_ID=None, ACTION_ID=None, PSTIME=None, PETIME=None, RSTIME=None, RETIME=None, ESTIME=None, EETIME=None, ACTION=None, UID=None, GID=None, REQUEST_ID=None, **kwargs_):
+        super(HISTORYType55Sub, self).__init__(OID, SEQ, HOSTNAME, HID, CID, STIME, ETIME, VM_MAD, TM_MAD, DS_ID, PLAN_ID, ACTION_ID, PSTIME, PETIME, RSTIME, RETIME, ESTIME, EETIME, ACTION, UID, GID, REQUEST_ID,  **kwargs_)
+supermod.HISTORYType55.subclass = HISTORYType55Sub
+# end class HISTORYType55Sub
 
 
-class SNAPSHOTSType107Sub(TemplatedType, supermod.SNAPSHOTSType107):
+class SNAPSHOTSType56Sub(TemplatedType, supermod.SNAPSHOTSType56):
     def __init__(self, ALLOW_ORPHANS=None, CURRENT_BASE=None, DISK_ID=None, NEXT_SNAPSHOT=None, SNAPSHOT=None, **kwargs_):
-        super(SNAPSHOTSType107Sub, self).__init__(ALLOW_ORPHANS, CURRENT_BASE, DISK_ID, NEXT_SNAPSHOT, SNAPSHOT,  **kwargs_)
-supermod.SNAPSHOTSType107.subclass = SNAPSHOTSType107Sub
-# end class SNAPSHOTSType107Sub
+        super(SNAPSHOTSType56Sub, self).__init__(ALLOW_ORPHANS, CURRENT_BASE, DISK_ID, NEXT_SNAPSHOT, SNAPSHOT,  **kwargs_)
+supermod.SNAPSHOTSType56.subclass = SNAPSHOTSType56Sub
+# end class SNAPSHOTSType56Sub
 
 
-class SNAPSHOTType108Sub(TemplatedType, supermod.SNAPSHOTType108):
+class SNAPSHOTType57Sub(TemplatedType, supermod.SNAPSHOTType57):
     def __init__(self, ACTIVE=None, CHILDREN=None, DATE=None, ID=None, NAME=None, PARENT=None, SIZE=None, **kwargs_):
-        super(SNAPSHOTType108Sub, self).__init__(ACTIVE, CHILDREN, DATE, ID, NAME, PARENT, SIZE,  **kwargs_)
-supermod.SNAPSHOTType108.subclass = SNAPSHOTType108Sub
-# end class SNAPSHOTType108Sub
+        super(SNAPSHOTType57Sub, self).__init__(ACTIVE, CHILDREN, DATE, ID, NAME, PARENT, SIZE,  **kwargs_)
+supermod.SNAPSHOTType57.subclass = SNAPSHOTType57Sub
+# end class SNAPSHOTType57Sub
 
 
-class BACKUPSType109Sub(TemplatedType, supermod.BACKUPSType109):
+class BACKUPSType58Sub(TemplatedType, supermod.BACKUPSType58):
     def __init__(self, BACKUP_CONFIG=None, BACKUP_IDS=None, **kwargs_):
-        super(BACKUPSType109Sub, self).__init__(BACKUP_CONFIG, BACKUP_IDS,  **kwargs_)
-supermod.BACKUPSType109.subclass = BACKUPSType109Sub
-# end class BACKUPSType109Sub
+        super(BACKUPSType58Sub, self).__init__(BACKUP_CONFIG, BACKUP_IDS,  **kwargs_)
+supermod.BACKUPSType58.subclass = BACKUPSType58Sub
+# end class BACKUPSType58Sub
 
 
-class BACKUP_CONFIGType110Sub(TemplatedType, supermod.BACKUP_CONFIGType110):
+class BACKUP_CONFIGType59Sub(TemplatedType, supermod.BACKUP_CONFIGType59):
     def __init__(self, BACKUP_JOB_ID=None, BACKUP_VOLATILE=None, FS_FREEZE=None, INCREMENTAL_BACKUP_ID=None, INCREMENT_MODE=None, KEEP_LAST=None, LAST_BACKUP_ID=None, LAST_BACKUP_SIZE=None, LAST_DATASTORE_ID=None, LAST_INCREMENT_ID=None, MODE=None, **kwargs_):
-        super(BACKUP_CONFIGType110Sub, self).__init__(BACKUP_JOB_ID, BACKUP_VOLATILE, FS_FREEZE, INCREMENTAL_BACKUP_ID, INCREMENT_MODE, KEEP_LAST, LAST_BACKUP_ID, LAST_BACKUP_SIZE, LAST_DATASTORE_ID, LAST_INCREMENT_ID, MODE,  **kwargs_)
-supermod.BACKUP_CONFIGType110.subclass = BACKUP_CONFIGType110Sub
-# end class BACKUP_CONFIGType110Sub
+        super(BACKUP_CONFIGType59Sub, self).__init__(BACKUP_JOB_ID, BACKUP_VOLATILE, FS_FREEZE, INCREMENTAL_BACKUP_ID, INCREMENT_MODE, KEEP_LAST, LAST_BACKUP_ID, LAST_BACKUP_SIZE, LAST_DATASTORE_ID, LAST_INCREMENT_ID, MODE,  **kwargs_)
+supermod.BACKUP_CONFIGType59.subclass = BACKUP_CONFIGType59Sub
+# end class BACKUP_CONFIGType59Sub
 
 
-class VNETType111Sub(TemplatedType, supermod.VNETType111):
+class VNETType60Sub(TemplatedType, supermod.VNETType60):
     def __init__(self, ID=None, UID=None, GID=None, UNAME=None, GNAME=None, NAME=None, PERMISSIONS=None, CLUSTERS=None, BRIDGE=None, BRIDGE_TYPE=None, STATE=None, PREV_STATE=None, PARENT_NETWORK_ID=None, VN_MAD=None, PHYDEV=None, VLAN_ID=None, OUTER_VLAN_ID=None, VLAN_ID_AUTOMATIC=None, OUTER_VLAN_ID_AUTOMATIC=None, USED_LEASES=None, VROUTERS=None, UPDATED_VMS=None, OUTDATED_VMS=None, UPDATING_VMS=None, ERROR_VMS=None, TEMPLATE=None, AR_POOL=None, **kwargs_):
-        super(VNETType111Sub, self).__init__(ID, UID, GID, UNAME, GNAME, NAME, PERMISSIONS, CLUSTERS, BRIDGE, BRIDGE_TYPE, STATE, PREV_STATE, PARENT_NETWORK_ID, VN_MAD, PHYDEV, VLAN_ID, OUTER_VLAN_ID, VLAN_ID_AUTOMATIC, OUTER_VLAN_ID_AUTOMATIC, USED_LEASES, VROUTERS, UPDATED_VMS, OUTDATED_VMS, UPDATING_VMS, ERROR_VMS, TEMPLATE, AR_POOL,  **kwargs_)
-supermod.VNETType111.subclass = VNETType111Sub
-# end class VNETType111Sub
+        super(VNETType60Sub, self).__init__(ID, UID, GID, UNAME, GNAME, NAME, PERMISSIONS, CLUSTERS, BRIDGE, BRIDGE_TYPE, STATE, PREV_STATE, PARENT_NETWORK_ID, VN_MAD, PHYDEV, VLAN_ID, OUTER_VLAN_ID, VLAN_ID_AUTOMATIC, OUTER_VLAN_ID_AUTOMATIC, USED_LEASES, VROUTERS, UPDATED_VMS, OUTDATED_VMS, UPDATING_VMS, ERROR_VMS, TEMPLATE, AR_POOL,  **kwargs_)
+supermod.VNETType60.subclass = VNETType60Sub
+# end class VNETType60Sub
 
 
-class PERMISSIONSType112Sub(TemplatedType, supermod.PERMISSIONSType112):
+class PERMISSIONSType61Sub(TemplatedType, supermod.PERMISSIONSType61):
     def __init__(self, OWNER_U=None, OWNER_M=None, OWNER_A=None, GROUP_U=None, GROUP_M=None, GROUP_A=None, OTHER_U=None, OTHER_M=None, OTHER_A=None, **kwargs_):
-        super(PERMISSIONSType112Sub, self).__init__(OWNER_U, OWNER_M, OWNER_A, GROUP_U, GROUP_M, GROUP_A, OTHER_U, OTHER_M, OTHER_A,  **kwargs_)
-supermod.PERMISSIONSType112.subclass = PERMISSIONSType112Sub
-# end class PERMISSIONSType112Sub
+        super(PERMISSIONSType61Sub, self).__init__(OWNER_U, OWNER_M, OWNER_A, GROUP_U, GROUP_M, GROUP_A, OTHER_U, OTHER_M, OTHER_A,  **kwargs_)
+supermod.PERMISSIONSType61.subclass = PERMISSIONSType61Sub
+# end class PERMISSIONSType61Sub
 
 
-class CLUSTERSType113Sub(TemplatedType, supermod.CLUSTERSType113):
+class CLUSTERSType62Sub(TemplatedType, supermod.CLUSTERSType62):
     def __init__(self, ID=None, **kwargs_):
-        super(CLUSTERSType113Sub, self).__init__(ID,  **kwargs_)
-supermod.CLUSTERSType113.subclass = CLUSTERSType113Sub
-# end class CLUSTERSType113Sub
+        super(CLUSTERSType62Sub, self).__init__(ID,  **kwargs_)
+supermod.CLUSTERSType62.subclass = CLUSTERSType62Sub
+# end class CLUSTERSType62Sub
 
 
 class VROUTERSTypeSub(TemplatedType, supermod.VROUTERSType):
@@ -1915,32 +1579,32 @@ supermod.VROUTERSType.subclass = VROUTERSTypeSub
 # end class VROUTERSTypeSub
 
 
-class UPDATED_VMSType114Sub(TemplatedType, supermod.UPDATED_VMSType114):
+class UPDATED_VMSType63Sub(TemplatedType, supermod.UPDATED_VMSType63):
     def __init__(self, ID=None, **kwargs_):
-        super(UPDATED_VMSType114Sub, self).__init__(ID,  **kwargs_)
-supermod.UPDATED_VMSType114.subclass = UPDATED_VMSType114Sub
-# end class UPDATED_VMSType114Sub
+        super(UPDATED_VMSType63Sub, self).__init__(ID,  **kwargs_)
+supermod.UPDATED_VMSType63.subclass = UPDATED_VMSType63Sub
+# end class UPDATED_VMSType63Sub
 
 
-class OUTDATED_VMSType115Sub(TemplatedType, supermod.OUTDATED_VMSType115):
+class OUTDATED_VMSType64Sub(TemplatedType, supermod.OUTDATED_VMSType64):
     def __init__(self, ID=None, **kwargs_):
-        super(OUTDATED_VMSType115Sub, self).__init__(ID,  **kwargs_)
-supermod.OUTDATED_VMSType115.subclass = OUTDATED_VMSType115Sub
-# end class OUTDATED_VMSType115Sub
+        super(OUTDATED_VMSType64Sub, self).__init__(ID,  **kwargs_)
+supermod.OUTDATED_VMSType64.subclass = OUTDATED_VMSType64Sub
+# end class OUTDATED_VMSType64Sub
 
 
-class UPDATING_VMSType116Sub(TemplatedType, supermod.UPDATING_VMSType116):
+class UPDATING_VMSType65Sub(TemplatedType, supermod.UPDATING_VMSType65):
     def __init__(self, ID=None, **kwargs_):
-        super(UPDATING_VMSType116Sub, self).__init__(ID,  **kwargs_)
-supermod.UPDATING_VMSType116.subclass = UPDATING_VMSType116Sub
-# end class UPDATING_VMSType116Sub
+        super(UPDATING_VMSType65Sub, self).__init__(ID,  **kwargs_)
+supermod.UPDATING_VMSType65.subclass = UPDATING_VMSType65Sub
+# end class UPDATING_VMSType65Sub
 
 
-class ERROR_VMSType117Sub(TemplatedType, supermod.ERROR_VMSType117):
+class ERROR_VMSType66Sub(TemplatedType, supermod.ERROR_VMSType66):
     def __init__(self, ID=None, **kwargs_):
-        super(ERROR_VMSType117Sub, self).__init__(ID,  **kwargs_)
-supermod.ERROR_VMSType117.subclass = ERROR_VMSType117Sub
-# end class ERROR_VMSType117Sub
+        super(ERROR_VMSType66Sub, self).__init__(ID,  **kwargs_)
+supermod.ERROR_VMSType66.subclass = ERROR_VMSType66Sub
+# end class ERROR_VMSType66Sub
 
 
 class AR_POOLTypeSub(TemplatedType, supermod.AR_POOLType):
@@ -1957,81 +1621,81 @@ supermod.ARType.subclass = ARTypeSub
 # end class ARTypeSub
 
 
-class LOCKType118Sub(TemplatedType, supermod.LOCKType118):
+class LOCKType67Sub(TemplatedType, supermod.LOCKType67):
     def __init__(self, LOCKED=None, OWNER=None, TIME=None, REQ_ID=None, **kwargs_):
-        super(LOCKType118Sub, self).__init__(LOCKED, OWNER, TIME, REQ_ID,  **kwargs_)
-supermod.LOCKType118.subclass = LOCKType118Sub
-# end class LOCKType118Sub
+        super(LOCKType67Sub, self).__init__(LOCKED, OWNER, TIME, REQ_ID,  **kwargs_)
+supermod.LOCKType67.subclass = LOCKType67Sub
+# end class LOCKType67Sub
 
 
-class PERMISSIONSType119Sub(TemplatedType, supermod.PERMISSIONSType119):
+class PERMISSIONSType68Sub(TemplatedType, supermod.PERMISSIONSType68):
     def __init__(self, OWNER_U=None, OWNER_M=None, OWNER_A=None, GROUP_U=None, GROUP_M=None, GROUP_A=None, OTHER_U=None, OTHER_M=None, OTHER_A=None, **kwargs_):
-        super(PERMISSIONSType119Sub, self).__init__(OWNER_U, OWNER_M, OWNER_A, GROUP_U, GROUP_M, GROUP_A, OTHER_U, OTHER_M, OTHER_A,  **kwargs_)
-supermod.PERMISSIONSType119.subclass = PERMISSIONSType119Sub
-# end class PERMISSIONSType119Sub
+        super(PERMISSIONSType68Sub, self).__init__(OWNER_U, OWNER_M, OWNER_A, GROUP_U, GROUP_M, GROUP_A, OTHER_U, OTHER_M, OTHER_A,  **kwargs_)
+supermod.PERMISSIONSType68.subclass = PERMISSIONSType68Sub
+# end class PERMISSIONSType68Sub
 
 
-class CLUSTERSType120Sub(TemplatedType, supermod.CLUSTERSType120):
+class CLUSTERSType69Sub(TemplatedType, supermod.CLUSTERSType69):
     def __init__(self, ID=None, **kwargs_):
-        super(CLUSTERSType120Sub, self).__init__(ID,  **kwargs_)
-supermod.CLUSTERSType120.subclass = CLUSTERSType120Sub
-# end class CLUSTERSType120Sub
+        super(CLUSTERSType69Sub, self).__init__(ID,  **kwargs_)
+supermod.CLUSTERSType69.subclass = CLUSTERSType69Sub
+# end class CLUSTERSType69Sub
 
 
-class VROUTERSType121Sub(TemplatedType, supermod.VROUTERSType121):
+class VROUTERSType70Sub(TemplatedType, supermod.VROUTERSType70):
     def __init__(self, ID=None, **kwargs_):
-        super(VROUTERSType121Sub, self).__init__(ID,  **kwargs_)
-supermod.VROUTERSType121.subclass = VROUTERSType121Sub
-# end class VROUTERSType121Sub
+        super(VROUTERSType70Sub, self).__init__(ID,  **kwargs_)
+supermod.VROUTERSType70.subclass = VROUTERSType70Sub
+# end class VROUTERSType70Sub
 
 
-class UPDATED_VMSType122Sub(TemplatedType, supermod.UPDATED_VMSType122):
+class UPDATED_VMSType71Sub(TemplatedType, supermod.UPDATED_VMSType71):
     def __init__(self, ID=None, **kwargs_):
-        super(UPDATED_VMSType122Sub, self).__init__(ID,  **kwargs_)
-supermod.UPDATED_VMSType122.subclass = UPDATED_VMSType122Sub
-# end class UPDATED_VMSType122Sub
+        super(UPDATED_VMSType71Sub, self).__init__(ID,  **kwargs_)
+supermod.UPDATED_VMSType71.subclass = UPDATED_VMSType71Sub
+# end class UPDATED_VMSType71Sub
 
 
-class OUTDATED_VMSType123Sub(TemplatedType, supermod.OUTDATED_VMSType123):
+class OUTDATED_VMSType72Sub(TemplatedType, supermod.OUTDATED_VMSType72):
     def __init__(self, ID=None, **kwargs_):
-        super(OUTDATED_VMSType123Sub, self).__init__(ID,  **kwargs_)
-supermod.OUTDATED_VMSType123.subclass = OUTDATED_VMSType123Sub
-# end class OUTDATED_VMSType123Sub
+        super(OUTDATED_VMSType72Sub, self).__init__(ID,  **kwargs_)
+supermod.OUTDATED_VMSType72.subclass = OUTDATED_VMSType72Sub
+# end class OUTDATED_VMSType72Sub
 
 
-class UPDATING_VMSType124Sub(TemplatedType, supermod.UPDATING_VMSType124):
+class UPDATING_VMSType73Sub(TemplatedType, supermod.UPDATING_VMSType73):
     def __init__(self, ID=None, **kwargs_):
-        super(UPDATING_VMSType124Sub, self).__init__(ID,  **kwargs_)
-supermod.UPDATING_VMSType124.subclass = UPDATING_VMSType124Sub
-# end class UPDATING_VMSType124Sub
+        super(UPDATING_VMSType73Sub, self).__init__(ID,  **kwargs_)
+supermod.UPDATING_VMSType73.subclass = UPDATING_VMSType73Sub
+# end class UPDATING_VMSType73Sub
 
 
-class ERROR_VMSType125Sub(TemplatedType, supermod.ERROR_VMSType125):
+class ERROR_VMSType74Sub(TemplatedType, supermod.ERROR_VMSType74):
     def __init__(self, ID=None, **kwargs_):
-        super(ERROR_VMSType125Sub, self).__init__(ID,  **kwargs_)
-supermod.ERROR_VMSType125.subclass = ERROR_VMSType125Sub
-# end class ERROR_VMSType125Sub
+        super(ERROR_VMSType74Sub, self).__init__(ID,  **kwargs_)
+supermod.ERROR_VMSType74.subclass = ERROR_VMSType74Sub
+# end class ERROR_VMSType74Sub
 
 
-class TEMPLATEType126Sub(TemplatedType, supermod.TEMPLATEType126):
-    def __init__(self, DNS=None, GATEWAY=None, GATEWAY6=None, GUEST_MTU=None, IP6_METHOD=None, IP6_METRIC=None, METHOD=None, METRIC=None, NETWORK_ADDRESS=None, NETWORK_MASK=None, SEARCH_DOMAIN=None, VCENTER_FROM_WILD=None, VCENTER_INSTANCE_ID=None, VCENTER_NET_REF=None, VCENTER_PORTGROUP_TYPE=None, VCENTER_TEMPLATE_REF=None, anytypeobjs_=None, **kwargs_):
-        super(TEMPLATEType126Sub, self).__init__(DNS, GATEWAY, GATEWAY6, GUEST_MTU, IP6_METHOD, IP6_METRIC, METHOD, METRIC, NETWORK_ADDRESS, NETWORK_MASK, SEARCH_DOMAIN, VCENTER_FROM_WILD, VCENTER_INSTANCE_ID, VCENTER_NET_REF, VCENTER_PORTGROUP_TYPE, VCENTER_TEMPLATE_REF, anytypeobjs_,  **kwargs_)
-supermod.TEMPLATEType126.subclass = TEMPLATEType126Sub
-# end class TEMPLATEType126Sub
+class TEMPLATEType75Sub(TemplatedType, supermod.TEMPLATEType75):
+    def __init__(self, DNS=None, GATEWAY=None, GATEWAY6=None, GUEST_MTU=None, IP6_METHOD=None, IP6_METRIC=None, METHOD=None, METRIC=None, NETWORK_ADDRESS=None, NETWORK_MASK=None, SEARCH_DOMAIN=None, anytypeobjs_=None, **kwargs_):
+        super(TEMPLATEType75Sub, self).__init__(DNS, GATEWAY, GATEWAY6, GUEST_MTU, IP6_METHOD, IP6_METRIC, METHOD, METRIC, NETWORK_ADDRESS, NETWORK_MASK, SEARCH_DOMAIN, anytypeobjs_,  **kwargs_)
+supermod.TEMPLATEType75.subclass = TEMPLATEType75Sub
+# end class TEMPLATEType75Sub
 
 
-class AR_POOLType127Sub(TemplatedType, supermod.AR_POOLType127):
+class AR_POOLType76Sub(TemplatedType, supermod.AR_POOLType76):
     def __init__(self, AR=None, **kwargs_):
-        super(AR_POOLType127Sub, self).__init__(AR,  **kwargs_)
-supermod.AR_POOLType127.subclass = AR_POOLType127Sub
-# end class AR_POOLType127Sub
+        super(AR_POOLType76Sub, self).__init__(AR,  **kwargs_)
+supermod.AR_POOLType76.subclass = AR_POOLType76Sub
+# end class AR_POOLType76Sub
 
 
-class ARType128Sub(TemplatedType, supermod.ARType128):
+class ARType77Sub(TemplatedType, supermod.ARType77):
     def __init__(self, AR_ID=None, GLOBAL_PREFIX=None, IP=None, MAC=None, PARENT_NETWORK_AR_ID=None, SIZE=None, TYPE=None, ULA_PREFIX=None, VN_MAD=None, MAC_END=None, IP_END=None, IP6_ULA=None, IP6_ULA_END=None, IP6_GLOBAL=None, IP6_GLOBAL_END=None, IP6=None, IP6_END=None, PORT_START=None, PORT_SIZE=None, USED_LEASES=None, LEASES=None, **kwargs_):
-        super(ARType128Sub, self).__init__(AR_ID, GLOBAL_PREFIX, IP, MAC, PARENT_NETWORK_AR_ID, SIZE, TYPE, ULA_PREFIX, VN_MAD, MAC_END, IP_END, IP6_ULA, IP6_ULA_END, IP6_GLOBAL, IP6_GLOBAL_END, IP6, IP6_END, PORT_START, PORT_SIZE, USED_LEASES, LEASES,  **kwargs_)
-supermod.ARType128.subclass = ARType128Sub
-# end class ARType128Sub
+        super(ARType77Sub, self).__init__(AR_ID, GLOBAL_PREFIX, IP, MAC, PARENT_NETWORK_AR_ID, SIZE, TYPE, ULA_PREFIX, VN_MAD, MAC_END, IP_END, IP6_ULA, IP6_ULA_END, IP6_GLOBAL, IP6_GLOBAL_END, IP6, IP6_END, PORT_START, PORT_SIZE, USED_LEASES, LEASES,  **kwargs_)
+supermod.ARType77.subclass = ARType77Sub
+# end class ARType77Sub
 
 
 class LEASESTypeSub(TemplatedType, supermod.LEASESType):
@@ -2048,46 +1712,46 @@ supermod.LEASEType.subclass = LEASETypeSub
 # end class LEASETypeSub
 
 
-class LOCKType129Sub(TemplatedType, supermod.LOCKType129):
+class LOCKType78Sub(TemplatedType, supermod.LOCKType78):
     def __init__(self, LOCKED=None, OWNER=None, TIME=None, REQ_ID=None, **kwargs_):
-        super(LOCKType129Sub, self).__init__(LOCKED, OWNER, TIME, REQ_ID,  **kwargs_)
-supermod.LOCKType129.subclass = LOCKType129Sub
-# end class LOCKType129Sub
+        super(LOCKType78Sub, self).__init__(LOCKED, OWNER, TIME, REQ_ID,  **kwargs_)
+supermod.LOCKType78.subclass = LOCKType78Sub
+# end class LOCKType78Sub
 
 
-class PERMISSIONSType130Sub(TemplatedType, supermod.PERMISSIONSType130):
+class PERMISSIONSType79Sub(TemplatedType, supermod.PERMISSIONSType79):
     def __init__(self, OWNER_U=None, OWNER_M=None, OWNER_A=None, GROUP_U=None, GROUP_M=None, GROUP_A=None, OTHER_U=None, OTHER_M=None, OTHER_A=None, **kwargs_):
-        super(PERMISSIONSType130Sub, self).__init__(OWNER_U, OWNER_M, OWNER_A, GROUP_U, GROUP_M, GROUP_A, OTHER_U, OTHER_M, OTHER_A,  **kwargs_)
-supermod.PERMISSIONSType130.subclass = PERMISSIONSType130Sub
-# end class PERMISSIONSType130Sub
+        super(PERMISSIONSType79Sub, self).__init__(OWNER_U, OWNER_M, OWNER_A, GROUP_U, GROUP_M, GROUP_A, OTHER_U, OTHER_M, OTHER_A,  **kwargs_)
+supermod.PERMISSIONSType79.subclass = PERMISSIONSType79Sub
+# end class PERMISSIONSType79Sub
 
 
-class TEMPLATEType131Sub(TemplatedType, supermod.TEMPLATEType131):
+class TEMPLATEType80Sub(TemplatedType, supermod.TEMPLATEType80):
     def __init__(self, VN_MAD=None, anytypeobjs_=None, **kwargs_):
-        super(TEMPLATEType131Sub, self).__init__(VN_MAD, anytypeobjs_,  **kwargs_)
-supermod.TEMPLATEType131.subclass = TEMPLATEType131Sub
-# end class TEMPLATEType131Sub
+        super(TEMPLATEType80Sub, self).__init__(VN_MAD, anytypeobjs_,  **kwargs_)
+supermod.TEMPLATEType80.subclass = TEMPLATEType80Sub
+# end class TEMPLATEType80Sub
 
 
-class PERMISSIONSType132Sub(TemplatedType, supermod.PERMISSIONSType132):
+class PERMISSIONSType81Sub(TemplatedType, supermod.PERMISSIONSType81):
     def __init__(self, OWNER_U=None, OWNER_M=None, OWNER_A=None, GROUP_U=None, GROUP_M=None, GROUP_A=None, OTHER_U=None, OTHER_M=None, OTHER_A=None, **kwargs_):
-        super(PERMISSIONSType132Sub, self).__init__(OWNER_U, OWNER_M, OWNER_A, GROUP_U, GROUP_M, GROUP_A, OTHER_U, OTHER_M, OTHER_A,  **kwargs_)
-supermod.PERMISSIONSType132.subclass = PERMISSIONSType132Sub
-# end class PERMISSIONSType132Sub
+        super(PERMISSIONSType81Sub, self).__init__(OWNER_U, OWNER_M, OWNER_A, GROUP_U, GROUP_M, GROUP_A, OTHER_U, OTHER_M, OTHER_A,  **kwargs_)
+supermod.PERMISSIONSType81.subclass = PERMISSIONSType81Sub
+# end class PERMISSIONSType81Sub
 
 
-class LOCKType133Sub(TemplatedType, supermod.LOCKType133):
+class LOCKType82Sub(TemplatedType, supermod.LOCKType82):
     def __init__(self, LOCKED=None, OWNER=None, TIME=None, REQ_ID=None, **kwargs_):
-        super(LOCKType133Sub, self).__init__(LOCKED, OWNER, TIME, REQ_ID,  **kwargs_)
-supermod.LOCKType133.subclass = LOCKType133Sub
-# end class LOCKType133Sub
+        super(LOCKType82Sub, self).__init__(LOCKED, OWNER, TIME, REQ_ID,  **kwargs_)
+supermod.LOCKType82.subclass = LOCKType82Sub
+# end class LOCKType82Sub
 
 
-class VMSType134Sub(TemplatedType, supermod.VMSType134):
+class VMSType83Sub(TemplatedType, supermod.VMSType83):
     def __init__(self, ID=None, **kwargs_):
-        super(VMSType134Sub, self).__init__(ID,  **kwargs_)
-supermod.VMSType134.subclass = VMSType134Sub
-# end class VMSType134Sub
+        super(VMSType83Sub, self).__init__(ID,  **kwargs_)
+supermod.VMSType83.subclass = VMSType83Sub
+# end class VMSType83Sub
 
 
 class ZONETypeSub(TemplatedType, supermod.ZONEType):
@@ -2097,11 +1761,11 @@ supermod.ZONEType.subclass = ZONETypeSub
 # end class ZONETypeSub
 
 
-class TEMPLATEType135Sub(TemplatedType, supermod.TEMPLATEType135):
+class TEMPLATEType84Sub(TemplatedType, supermod.TEMPLATEType84):
     def __init__(self, ENDPOINT=None, **kwargs_):
-        super(TEMPLATEType135Sub, self).__init__(ENDPOINT,  **kwargs_)
-supermod.TEMPLATEType135.subclass = TEMPLATEType135Sub
-# end class TEMPLATEType135Sub
+        super(TEMPLATEType84Sub, self).__init__(ENDPOINT,  **kwargs_)
+supermod.TEMPLATEType84.subclass = TEMPLATEType84Sub
+# end class TEMPLATEType84Sub
 
 
 class SERVER_POOLTypeSub(TemplatedType, supermod.SERVER_POOLType):
@@ -2118,25 +1782,25 @@ supermod.SERVERType.subclass = SERVERTypeSub
 # end class SERVERTypeSub
 
 
-class TEMPLATEType136Sub(TemplatedType, supermod.TEMPLATEType136):
+class TEMPLATEType85Sub(TemplatedType, supermod.TEMPLATEType85):
     def __init__(self, ENDPOINT=None, **kwargs_):
-        super(TEMPLATEType136Sub, self).__init__(ENDPOINT,  **kwargs_)
-supermod.TEMPLATEType136.subclass = TEMPLATEType136Sub
-# end class TEMPLATEType136Sub
+        super(TEMPLATEType85Sub, self).__init__(ENDPOINT,  **kwargs_)
+supermod.TEMPLATEType85.subclass = TEMPLATEType85Sub
+# end class TEMPLATEType85Sub
 
 
-class SERVER_POOLType137Sub(TemplatedType, supermod.SERVER_POOLType137):
+class SERVER_POOLType86Sub(TemplatedType, supermod.SERVER_POOLType86):
     def __init__(self, SERVER=None, **kwargs_):
-        super(SERVER_POOLType137Sub, self).__init__(SERVER,  **kwargs_)
-supermod.SERVER_POOLType137.subclass = SERVER_POOLType137Sub
-# end class SERVER_POOLType137Sub
+        super(SERVER_POOLType86Sub, self).__init__(SERVER,  **kwargs_)
+supermod.SERVER_POOLType86.subclass = SERVER_POOLType86Sub
+# end class SERVER_POOLType86Sub
 
 
-class SERVERType138Sub(TemplatedType, supermod.SERVERType138):
+class SERVERType87Sub(TemplatedType, supermod.SERVERType87):
     def __init__(self, ENDPOINT=None, ID=None, NAME=None, STATE=None, TERM=None, VOTEDFOR=None, COMMIT=None, LOG_INDEX=None, FEDLOG_INDEX=None, **kwargs_):
-        super(SERVERType138Sub, self).__init__(ENDPOINT, ID, NAME, STATE, TERM, VOTEDFOR, COMMIT, LOG_INDEX, FEDLOG_INDEX,  **kwargs_)
-supermod.SERVERType138.subclass = SERVERType138Sub
-# end class SERVERType138Sub
+        super(SERVERType87Sub, self).__init__(ENDPOINT, ID, NAME, STATE, TERM, VOTEDFOR, COMMIT, LOG_INDEX, FEDLOG_INDEX,  **kwargs_)
+supermod.SERVERType87.subclass = SERVERType87Sub
+# end class SERVERType87Sub
 
 
 def get_root_tag(node):

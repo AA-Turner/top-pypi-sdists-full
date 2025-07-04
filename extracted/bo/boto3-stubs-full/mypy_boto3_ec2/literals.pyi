@@ -485,6 +485,8 @@ __all__ = (
     "SearchTransitGatewayMulticastGroupsPaginatorName",
     "SecurityGroupExistsWaiterName",
     "SecurityGroupReferencingSupportValueType",
+    "SecurityGroupVpcAssociationAssociatedWaiterName",
+    "SecurityGroupVpcAssociationDisassociatedWaiterName",
     "SecurityGroupVpcAssociationStateType",
     "SelfServicePortalType",
     "ServiceConnectivityTypeType",
@@ -2540,6 +2542,12 @@ SearchTransitGatewayMulticastGroupsPaginatorName = Literal[
 ]
 SecurityGroupExistsWaiterName = Literal["security_group_exists"]
 SecurityGroupReferencingSupportValueType = Literal["disable", "enable"]
+SecurityGroupVpcAssociationAssociatedWaiterName = Literal[
+    "security_group_vpc_association_associated"
+]
+SecurityGroupVpcAssociationDisassociatedWaiterName = Literal[
+    "security_group_vpc_association_disassociated"
+]
 SecurityGroupVpcAssociationStateType = Literal[
     "associated",
     "associating",
@@ -3372,6 +3380,8 @@ WaiterName = Literal[
     "network_interface_available",
     "password_data_available",
     "security_group_exists",
+    "security_group_vpc_association_associated",
+    "security_group_vpc_association_disassociated",
     "snapshot_completed",
     "snapshot_imported",
     "spot_instance_request_fulfilled",

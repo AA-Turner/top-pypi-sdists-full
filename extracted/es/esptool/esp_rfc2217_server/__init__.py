@@ -18,9 +18,11 @@ import sys
 import serial
 
 from esp_rfc2217_server.redirector import Redirector
+from esptool.util import check_deprecated_py_suffix
 
 
 def main():
+    check_deprecated_py_suffix("esp_rfc2217_server")
     import argparse
 
     parser = argparse.ArgumentParser(
@@ -92,7 +94,10 @@ def main():
     logging.info(f"TCP/IP port: {args.localport}")
 
     host_ip = socket.gethostbyname(socket.gethostname())
-    wait_msg = f"Waiting for connection ... use the 'rfc2217://{host_ip}:{args.localport}?ign_set_control' as a PORT"
+    wait_msg = (
+        "Waiting for connection ... use the 'rfc2217://"
+        f"{host_ip}:{args.localport}?ign_set_control' as a PORT"
+    )
     logging.info(wait_msg)
 
     while True:
@@ -127,7 +132,7 @@ def main():
                 # capable client)
                 ser.apply_settings(settings)
         except KeyboardInterrupt:
-            sys.stdout.write("\n")
+            print(flush=True)
             break
         except socket.error as msg:
             logging.error(str(msg))

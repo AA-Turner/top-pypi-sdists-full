@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pgvector-haystack
-Version: 5.2.0
+Version: 5.2.1
 Summary: An integration of pgvector (vector search extension for Postgres) with Haystack
 Project-URL: Source, https://github.com/deepset-ai/haystack-core-integrations
 Project-URL: Documentation, https://github.com/deepset-ai/haystack-core-integrations/blob/main/integrations/pgvector/README.md

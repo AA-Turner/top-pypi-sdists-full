@@ -213,6 +213,9 @@ class DkimSigningAttributesOrigin(StrEnum):
     AWS_SES_US_EAST_2 = "AWS_SES_US_EAST_2"
     AWS_SES_US_WEST_1 = "AWS_SES_US_WEST_1"
     AWS_SES_US_WEST_2 = "AWS_SES_US_WEST_2"
+    AWS_SES_ME_CENTRAL_1 = "AWS_SES_ME_CENTRAL_1"
+    AWS_SES_AP_SOUTH_2 = "AWS_SES_AP_SOUTH_2"
+    AWS_SES_EU_CENTRAL_2 = "AWS_SES_EU_CENTRAL_2"
 
 
 class DkimSigningKeyLength(StrEnum):

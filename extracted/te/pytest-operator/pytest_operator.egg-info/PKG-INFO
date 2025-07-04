@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-operator
-Version: 0.43.0
+Version: 0.43.1
 Summary: Fixtures for Charmed Operators
 Author-email: Adam Dyess <adam.dyess@canonical.com>, Mateo Florido <mateo.florido@canonical.com>
 License: Apache

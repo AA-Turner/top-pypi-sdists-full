@@ -1,7 +1,4 @@
 # coding: utf-8
-# Copyright 2025 Daytona Platforms Inc.
-# SPDX-License-Identifier: Apache-2.0
-
 
 """
     Daytona
@@ -24,6 +21,7 @@ import json
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictFloat, StrictInt, StrictStr, field_validator
 from typing import Any, ClassVar, Dict, List, Optional, Union
 from daytona_api_client.models.build_info import BuildInfo
+from daytona_api_client.models.sandbox_desired_state import SandboxDesiredState
 from daytona_api_client.models.sandbox_state import SandboxState
 from daytona_api_client.models.sandbox_volume import SandboxVolume
 from typing import Optional, Set
@@ -48,6 +46,9 @@ class Sandbox(BaseModel):
     memory: Union[StrictFloat, StrictInt] = Field(description="The memory quota for the sandbox")
     disk: Union[StrictFloat, StrictInt] = Field(description="The disk quota for the sandbox")
     state: Optional[SandboxState] = Field(default=None, description="The state of the sandbox")
+    desired_state: Optional[SandboxDesiredState] = Field(
+        default=None, description="The desired state of the sandbox", alias="desiredState"
+    )
     error_reason: Optional[StrictStr] = Field(
         default=None, description="The error reason of the sandbox", alias="errorReason"
     )
@@ -75,6 +76,9 @@ class Sandbox(BaseModel):
         default=None, description="The last update timestamp of the sandbox", alias="updatedAt"
     )
     var_class: Optional[StrictStr] = Field(default=None, description="The class of the sandbox", alias="class")
+    daemon_version: Optional[StrictStr] = Field(
+        default=None, description="The version of the daemon running in the sandbox", alias="daemonVersion"
+    )
     additional_properties: Dict[str, Any] = {}
     __properties: ClassVar[List[str]] = [
         "id",
@@ -90,6 +94,7 @@ class Sandbox(BaseModel):
         "memory",
         "disk",
         "state",
+        "desiredState",
         "errorReason",
         "backupState",
         "backupCreatedAt",
@@ -101,6 +106,7 @@ class Sandbox(BaseModel):
         "createdAt",
         "updatedAt",
         "class",
+        "daemonVersion",
     ]
 
     @field_validator("backup_state")
@@ -206,6 +212,7 @@ class Sandbox(BaseModel):
                 "memory": obj.get("memory"),
                 "disk": obj.get("disk"),
                 "state": obj.get("state"),
+                "desiredState": obj.get("desiredState"),
                 "errorReason": obj.get("errorReason"),
                 "backupState": obj.get("backupState"),
                 "backupCreatedAt": obj.get("backupCreatedAt"),
@@ -219,6 +226,7 @@ class Sandbox(BaseModel):
                 "createdAt": obj.get("createdAt"),
                 "updatedAt": obj.get("updatedAt"),
                 "class": obj.get("class"),
+                "daemonVersion": obj.get("daemonVersion"),
             }
         )
         # store additional fields in additional_properties

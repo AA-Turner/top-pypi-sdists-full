@@ -675,7 +675,7 @@ class DiscordClient:
         )
         logger.debug('%s: response:\n%s', uid, r.text)
         if not r.ok:
-            logger.warning(
+            logger.error(
                 '%s: Discord API returned error code %d and this response: %s',
                 uid,
                 r.status_code,

@@ -56,11 +56,13 @@ from .literals import (
     SourceConnectorTypeType,
     StandardIdentifierType,
     StatisticType,
+    StatusReasonType,
     StatusType,
     StringDimensionTypeType,
     TaskTypeType,
     TriggerTypeType,
     TypeType,
+    UploadJobStatusType,
     ZendeskConnectorOperatorType,
 )
 
@@ -139,6 +141,8 @@ __all__ = (
     "CreateSegmentEstimateResponseTypeDef",
     "CreateSegmentSnapshotRequestTypeDef",
     "CreateSegmentSnapshotResponseTypeDef",
+    "CreateUploadJobRequestTypeDef",
+    "CreateUploadJobResponseTypeDef",
     "DateDimensionOutputTypeDef",
     "DateDimensionTypeDef",
     "DateDimensionUnionTypeDef",
@@ -235,6 +239,10 @@ __all__ = (
     "GetSimilarProfilesRequestPaginateTypeDef",
     "GetSimilarProfilesRequestTypeDef",
     "GetSimilarProfilesResponseTypeDef",
+    "GetUploadJobPathRequestTypeDef",
+    "GetUploadJobPathResponseTypeDef",
+    "GetUploadJobRequestTypeDef",
+    "GetUploadJobResponseTypeDef",
     "GetWorkflowRequestTypeDef",
     "GetWorkflowResponseTypeDef",
     "GetWorkflowStepsRequestTypeDef",
@@ -294,6 +302,9 @@ __all__ = (
     "ListSegmentDefinitionsResponseTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
+    "ListUploadJobsRequestPaginateTypeDef",
+    "ListUploadJobsRequestTypeDef",
+    "ListUploadJobsResponseTypeDef",
     "ListWorkflowsItemTypeDef",
     "ListWorkflowsRequestTypeDef",
     "ListWorkflowsResponseTypeDef",
@@ -337,6 +348,7 @@ __all__ = (
     "RangeTypeDef",
     "ReadinessTypeDef",
     "ResponseMetadataTypeDef",
+    "ResultsSummaryTypeDef",
     "RuleBasedMatchingRequestTypeDef",
     "RuleBasedMatchingResponseTypeDef",
     "S3ExportingConfigTypeDef",
@@ -355,6 +367,8 @@ __all__ = (
     "SourceConnectorPropertiesTypeDef",
     "SourceFlowConfigTypeDef",
     "SourceSegmentTypeDef",
+    "StartUploadJobRequestTypeDef",
+    "StopUploadJobRequestTypeDef",
     "TagResourceRequestTypeDef",
     "TaskTypeDef",
     "ThresholdTypeDef",
@@ -373,6 +387,7 @@ __all__ = (
     "UpdateEventTriggerResponseTypeDef",
     "UpdateProfileRequestTypeDef",
     "UpdateProfileResponseTypeDef",
+    "UploadJobItemTypeDef",
     "ValueRangeTypeDef",
     "WorkflowAttributesTypeDef",
     "WorkflowMetricsTypeDef",
@@ -537,6 +552,11 @@ class CreateSegmentSnapshotRequestTypeDef(TypedDict):
     RoleArn: NotRequired[str]
     DestinationUri: NotRequired[str]
 
+class ObjectTypeFieldTypeDef(TypedDict):
+    Source: NotRequired[str]
+    Target: NotRequired[str]
+    ContentType: NotRequired[FieldContentTypeType]
+
 class DateDimensionOutputTypeDef(TypedDict):
     DimensionType: DateDimensionTypeType
     Values: List[str]
@@ -604,11 +624,6 @@ class DestinationSummaryTypeDef(TypedDict):
 class DetectProfileObjectTypeRequestTypeDef(TypedDict):
     Objects: Sequence[str]
     DomainName: str
-
-class ObjectTypeFieldTypeDef(TypedDict):
-    Source: NotRequired[str]
-    Target: NotRequired[str]
-    ContentType: NotRequired[FieldContentTypeType]
 
 class ObjectTypeKeyOutputTypeDef(TypedDict):
     StandardIdentifiers: NotRequired[List[StandardIdentifierType]]
@@ -787,6 +802,19 @@ class GetSimilarProfilesRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
 
+class GetUploadJobPathRequestTypeDef(TypedDict):
+    DomainName: str
+    JobId: str
+
+class GetUploadJobRequestTypeDef(TypedDict):
+    DomainName: str
+    JobId: str
+
+class ResultsSummaryTypeDef(TypedDict):
+    UpdatedRecords: NotRequired[int]
+    CreatedRecords: NotRequired[int]
+    FailedRecords: NotRequired[int]
+
 class GetWorkflowRequestTypeDef(TypedDict):
     DomainName: str
     WorkflowId: str
@@ -963,6 +991,20 @@ class SegmentDefinitionItemTypeDef(TypedDict):
 class ListTagsForResourceRequestTypeDef(TypedDict):
     resourceArn: str
 
+class ListUploadJobsRequestTypeDef(TypedDict):
+    DomainName: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+class UploadJobItemTypeDef(TypedDict):
+    JobId: NotRequired[str]
+    DisplayName: NotRequired[str]
+    Status: NotRequired[UploadJobStatusType]
+    StatusReason: NotRequired[StatusReasonType]
+    CreatedAt: NotRequired[datetime]
+    CompletedAt: NotRequired[datetime]
+    DataExpiry: NotRequired[int]
+
 class ListWorkflowsItemTypeDef(TypedDict):
     WorkflowType: Literal["APPFLOW_INTEGRATION"]
     WorkflowId: str
@@ -1021,6 +1063,14 @@ class ServiceNowSourcePropertiesTypeDef(TypedDict):
 
 class ZendeskSourcePropertiesTypeDef(TypedDict):
     Object: str
+
+class StartUploadJobRequestTypeDef(TypedDict):
+    DomainName: str
+    JobId: str
+
+class StopUploadJobRequestTypeDef(TypedDict):
+    DomainName: str
+    JobId: str
 
 class TagResourceRequestTypeDef(TypedDict):
     resourceArn: str
@@ -1100,6 +1150,10 @@ class CreateSegmentEstimateResponseTypeDef(TypedDict):
 
 class CreateSegmentSnapshotResponseTypeDef(TypedDict):
     SnapshotId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateUploadJobResponseTypeDef(TypedDict):
+    JobId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DeleteDomainLayoutResponseTypeDef(TypedDict):
@@ -1207,6 +1261,12 @@ class GetSimilarProfilesResponseTypeDef(TypedDict):
     ConfidenceScore: float
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+class GetUploadJobPathResponseTypeDef(TypedDict):
+    Url: str
+    ClientToken: str
+    ValidUntil: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class ListRuleBasedMatchesResponseTypeDef(TypedDict):
     MatchIds: List[str]
@@ -1367,6 +1427,14 @@ class TaskTypeDef(TypedDict):
     TaskProperties: NotRequired[Mapping[OperatorPropertiesKeysType, str]]
 
 ConsolidationUnionTypeDef = Union[ConsolidationTypeDef, ConsolidationOutputTypeDef]
+
+class CreateUploadJobRequestTypeDef(TypedDict):
+    DomainName: str
+    DisplayName: str
+    Fields: Mapping[str, ObjectTypeFieldTypeDef]
+    UniqueKey: str
+    DataExpiry: NotRequired[int]
+
 DateDimensionUnionTypeDef = Union[DateDimensionTypeDef, DateDimensionOutputTypeDef]
 
 class EventStreamSummaryTypeDef(TypedDict):
@@ -1541,6 +1609,23 @@ class ListSegmentDefinitionsRequestPaginateTypeDef(TypedDict):
     DomainName: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class ListUploadJobsRequestPaginateTypeDef(TypedDict):
+    DomainName: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class GetUploadJobResponseTypeDef(TypedDict):
+    JobId: str
+    DisplayName: str
+    Status: UploadJobStatusType
+    StatusReason: StatusReasonType
+    CreatedAt: datetime
+    CompletedAt: datetime
+    Fields: Dict[str, ObjectTypeFieldTypeDef]
+    UniqueKey: str
+    ResultsSummary: ResultsSummaryTypeDef
+    DataExpiry: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class ListDomainLayoutsResponseTypeDef(TypedDict):
     Items: List[LayoutItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1601,6 +1686,11 @@ class ListProfileObjectsRequestTypeDef(TypedDict):
 
 class ListSegmentDefinitionsResponseTypeDef(TypedDict):
     Items: List[SegmentDefinitionItemTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class ListUploadJobsResponseTypeDef(TypedDict):
+    Items: List[UploadJobItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

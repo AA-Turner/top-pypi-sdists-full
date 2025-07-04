@@ -16,7 +16,8 @@ from __future__ import annotations
 
 import warnings
 from enum import Enum
-from typing import Any, Callable, Literal, Optional, TypedDict, Union
+from typing import Any, Callable, Literal, Optional, Union
+from typing_extensions import TypedDict
 
 import neo4j
 from pydantic import (
@@ -301,6 +302,7 @@ class Neo4jMessageHistoryModel(BaseModel):
     session_id: Union[str, int]
     driver_model: Neo4jDriverModel
     window: Optional[PositiveInt] = None
+    database: Optional[str] = None
 
     @field_validator("session_id")
     def validate_session_id(cls, v: Union[str, int]) -> Union[str, int]:

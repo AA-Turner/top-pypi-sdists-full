@@ -16,8 +16,8 @@ class MedicalRoleTransfers(
 ):
     pass
 
-class StructuredMedicalRoleTransfers(MedicalRoleTransfers):
-    specializations:List["StructuredMedicalRoleTransfers"] = Field(..., description="Role specializations")
+# class StructuredMedicalRoleTransfers(MedicalRoleTransfers):
+#     specializations:List["StructuredMedicalRoleTransfers"] = Field(..., description="Role specializations")
 
-# this is required for forward reference resolution
-StructuredMedicalRoleTransfers.model_rebuild()
+# # this is required for forward reference resolution
+# StructuredMedicalRoleTransfers.model_rebuild()

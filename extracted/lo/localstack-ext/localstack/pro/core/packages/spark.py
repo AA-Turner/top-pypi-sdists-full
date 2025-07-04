@@ -6,12 +6,14 @@ _A='3.5.2'
 import glob,logging,os,re,textwrap
 from typing import List
 from localstack.packages import InstallTarget,Package,PackageInstaller
-from localstack.packages.core import ArchiveDownloadAndExtractInstaller,MavenDownloadInstaller
+from localstack.packages.core import MavenDownloadInstaller
 from localstack.packages.java import java_package
 from localstack.pro.core.packages.bigdata_common import replace_in_file,replace_in_zip_file
+from localstack.pro.core.packages.core import MirrorArchiveInstaller
 from localstack.utils.files import chmod_r,save_file
 LOG=logging.getLogger(__name__)
-SPARK_URL='https://archive.apache.org/dist/spark/spark-{version}/spark-{version}-bin-without-hadoop.tgz'
+SPARK_MIRROR_URL='https://mirror.lyrahosting.com/apache/spark/spark-{version}/spark-{version}-bin-without-hadoop.tgz'
+SPARK_ARCHIVE_URL='https://archive.apache.org/dist/spark/spark-{version}/spark-{version}-bin-without-hadoop.tgz'
 DEFAULT_SPARK_VERSION=os.getenv('SPARK_DEFAULT_VERSION','').strip()or'2.4.3'
 SPARK_VERSIONS=['2.2.1','2.4.3','2.4.8','3.1.1','3.1.2','3.3.0',_A]
 AWS_SDK_VER='1.12.339'
@@ -38,9 +40,11 @@ class SparkPackage(Package):
 	def __init__(A):super().__init__('Spark',default_version=DEFAULT_SPARK_VERSION)
 	def get_versions(A):return SPARK_VERSIONS
 	def _get_installer(A,version):return SparkInstaller(version)
-class SparkInstaller(ArchiveDownloadAndExtractInstaller):
+class SparkInstaller(MirrorArchiveInstaller):
 	def __init__(A,version):super().__init__(name='spark',version=version,extract_single_directory=True)
-	def _get_download_url(A):return SPARK_URL.format(version=A.version)
+	def _get_primary_url(A):return SPARK_ARCHIVE_URL.format(version=A.version)
+	def _get_mirror_url(A):return SPARK_MIRROR_URL.format(version=A.version)
+	def _get_checksum_url(A):B=A._get_primary_url();return f"{B}.sha512"
 	def _get_install_marker_path(A,install_dir):return os.path.join(install_dir,'bin','spark-submit')
 	def _prepare_installation(A,target):B=target;A._install_java(B);A._install_hadoop(B);A._install_spark_drivers(B)
 	def _post_process(A,target):B=target;A._patch_spark_hadoop_env_config(B);A._patch_spark_class(B);A._patch_spark_defaults_config_file(B);A._patch_spark_python_dependencies(B)

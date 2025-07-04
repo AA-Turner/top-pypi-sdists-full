@@ -12,6 +12,7 @@ Usage::
 
     from mypy_boto3_sagemaker.client import SageMakerClient
     from mypy_boto3_sagemaker.paginator import (
+        CreateHubContentPresignedUrlsPaginator,
         ListActionsPaginator,
         ListAlgorithmsPaginator,
         ListAliasesPaginator,
@@ -95,6 +96,7 @@ Usage::
     session = Session()
     client: SageMakerClient = session.client("sagemaker")
 
+    create_hub_content_presigned_urls_paginator: CreateHubContentPresignedUrlsPaginator = client.get_paginator("create_hub_content_presigned_urls")
     list_actions_paginator: ListActionsPaginator = client.get_paginator("list_actions")
     list_algorithms_paginator: ListAlgorithmsPaginator = client.get_paginator("list_algorithms")
     list_aliases_paginator: ListAliasesPaginator = client.get_paginator("list_aliases")
@@ -184,6 +186,8 @@ from typing import TYPE_CHECKING
 from botocore.paginate import PageIterator, Paginator
 
 from .type_defs import (
+    CreateHubContentPresignedUrlsRequestPaginateTypeDef,
+    CreateHubContentPresignedUrlsResponseTypeDef,
     ListActionsRequestPaginateTypeDef,
     ListActionsResponseTypeDef,
     ListAlgorithmsInputPaginateTypeDef,
@@ -349,6 +353,7 @@ else:
 
 
 __all__ = (
+    "CreateHubContentPresignedUrlsPaginator",
     "ListActionsPaginator",
     "ListAlgorithmsPaginator",
     "ListAliasesPaginator",
@@ -428,6 +433,29 @@ __all__ = (
     "ListWorkteamsPaginator",
     "SearchPaginator",
 )
+
+
+if TYPE_CHECKING:
+    _CreateHubContentPresignedUrlsPaginatorBase = Paginator[
+        CreateHubContentPresignedUrlsResponseTypeDef
+    ]
+else:
+    _CreateHubContentPresignedUrlsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class CreateHubContentPresignedUrlsPaginator(_CreateHubContentPresignedUrlsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/CreateHubContentPresignedUrls.html#SageMaker.Paginator.CreateHubContentPresignedUrls)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/paginators/#createhubcontentpresignedurlspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[CreateHubContentPresignedUrlsRequestPaginateTypeDef]
+    ) -> PageIterator[CreateHubContentPresignedUrlsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/CreateHubContentPresignedUrls.html#SageMaker.Paginator.CreateHubContentPresignedUrls.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/paginators/#createhubcontentpresignedurlspaginator)
+        """
 
 
 if TYPE_CHECKING:

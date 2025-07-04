@@ -2221,6 +2221,8 @@ class CopyDBSnapshotMessage(ServiceRequest):
     OptionGroupName: Optional[String]
     TargetCustomAvailabilityZone: Optional[String]
     CopyOptionGroup: Optional[BooleanOptional]
+    SnapshotAvailabilityZone: Optional[String]
+    SnapshotTarget: Optional[String]
     SourceRegion: Optional[String]
 
 
@@ -2324,6 +2326,7 @@ class DBSnapshot(TypedDict, total=False):
     DBSystemId: Optional[String]
     DedicatedLogVolume: Optional[Boolean]
     MultiTenant: Optional[BooleanOptional]
+    SnapshotAvailabilityZone: Optional[String]
 
 
 class CopyDBSnapshotResult(TypedDict, total=False):
@@ -2776,6 +2779,7 @@ class DBCluster(TypedDict, total=False):
     CrossAccountClone: Optional[BooleanOptional]
     DomainMemberships: Optional[DomainMembershipList]
     TagList: Optional[TagList]
+    GlobalClusterIdentifier: Optional[GlobalClusterIdentifier]
     GlobalWriteForwardingStatus: Optional[WriteForwardingStatus]
     GlobalWriteForwardingRequested: Optional[BooleanOptional]
     PendingModifiedValues: Optional[ClusterPendingModifiedValues]
@@ -2930,6 +2934,7 @@ class CreateDBInstanceReadReplicaMessage(ServiceRequest):
     NetworkType: Optional[String]
     StorageThroughput: Optional[IntegerOptional]
     EnableCustomerOwnedIp: Optional[BooleanOptional]
+    BackupTarget: Optional[String]
     AllocatedStorage: Optional[IntegerOptional]
     SourceDBClusterIdentifier: Optional[String]
     DedicatedLogVolume: Optional[BooleanOptional]
@@ -6763,6 +6768,8 @@ class RdsApi:
         option_group_name: String | None = None,
         target_custom_availability_zone: String | None = None,
         copy_option_group: BooleanOptional | None = None,
+        snapshot_availability_zone: String | None = None,
+        snapshot_target: String | None = None,
         source_region: String | None = None,
         **kwargs,
     ) -> CopyDBSnapshotResult:
@@ -6796,6 +6803,9 @@ class RdsApi:
         :param copy_option_group: Specifies whether to copy the DB option group associated with the source
         DB snapshot to the target Amazon Web Services account and associate with
         the target DB snapshot.
+        :param snapshot_availability_zone: Specifies the name of the Availability Zone where RDS stores the DB
+        snapshot.
+        :param snapshot_target: Configures the location where RDS will store copied snapshots.
         :param source_region: The ID of the region that contains the snapshot to be copied.
         :returns: CopyDBSnapshotResult
         :raises DBSnapshotAlreadyExistsFault:
@@ -7532,6 +7542,7 @@ class RdsApi:
         network_type: String | None = None,
         storage_throughput: IntegerOptional | None = None,
         enable_customer_owned_ip: BooleanOptional | None = None,
+        backup_target: String | None = None,
         allocated_storage: IntegerOptional | None = None,
         source_db_cluster_identifier: String | None = None,
         dedicated_log_volume: BooleanOptional | None = None,
@@ -7542,22 +7553,24 @@ class RdsApi:
     ) -> CreateDBInstanceReadReplicaResult:
         """Creates a new DB instance that acts as a read replica for an existing
         source DB instance or Multi-AZ DB cluster. You can create a read replica
-        for a DB instance running Db2, MariaDB, MySQL, Oracle, PostgreSQL, or
-        SQL Server. You can create a read replica for a Multi-AZ DB cluster
-        running MySQL or PostgreSQL. For more information, see `Working with
-        read
+        for a DB instance running MariaDB, MySQL, Oracle, PostgreSQL, or SQL
+        Server. You can create a read replica for a Multi-AZ DB cluster running
+        MySQL or PostgreSQL. For more information, see `Working with read
         replicas <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_ReadRepl.html>`__
         and `Migrating from a Multi-AZ DB cluster to a DB instance using a read
         replica <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/multi-az-db-clusters-concepts.html#multi-az-db-clusters-migrating-to-instance-with-read-replica>`__
         in the *Amazon RDS User Guide*.
 
+        Amazon RDS for Db2 supports this operation for standby replicas. To
+        create a standby replica for a DB instance running Db2, you must set
+        ``ReplicaMode`` to ``mounted``.
+
         Amazon Aurora doesn't support this operation. To create a DB instance
         for an Aurora DB cluster, use the ``CreateDBInstance`` operation.
 
-        All read replica DB instances are created with backups disabled. All
-        other attributes (including DB security groups and DB parameter groups)
-        are inherited from the source DB instance or cluster, except as
-        specified.
+        RDS creates read replicas with backups disabled. All other attributes
+        (including DB security groups and DB parameter groups) are inherited
+        from the source DB instance or cluster, except as specified.
 
         Your source DB instance or cluster must have backup retention enabled.
 
@@ -7618,7 +7631,7 @@ class RdsApi:
         joining the domain.
         :param domain_dns_ips: The IPv4 DNS IP addresses of your primary and secondary Active Directory
         domain controllers.
-        :param replica_mode: The open mode of the replica database: mounted or read-only.
+        :param replica_mode: The open mode of the replica database.
         :param max_allocated_storage: The upper limit in gibibytes (GiB) to which Amazon RDS can automatically
         scale the storage of the DB instance.
         :param custom_iam_instance_profile: The instance profile associated with the underlying Amazon EC2 instance
@@ -7627,6 +7640,7 @@ class RdsApi:
         :param storage_throughput: Specifies the storage throughput value for the read replica.
         :param enable_customer_owned_ip: Specifies whether to enable a customer-owned IP address (CoIP) for an
         RDS on Outposts read replica.
+        :param backup_target: The location where RDS stores automated backups and manual snapshots.
         :param allocated_storage: The amount of storage (in gibibytes) to allocate initially for the read
         replica.
         :param source_db_cluster_identifier: The identifier of the Multi-AZ DB cluster that will act as the source
@@ -7831,8 +7845,8 @@ class RdsApi:
         :param db_cluster_identifier: The name of the primary DB cluster for the DB shard group.
         :param max_acu: The maximum capacity of the DB shard group in Aurora capacity units
         (ACUs).
-        :param compute_redundancy: Specifies whether to create standby DB shard groups for the DB shard
-        group.
+        :param compute_redundancy: Specifies whether to create standby standby DB data access shard for the
+        DB shard group.
         :param min_acu: The minimum capacity of the DB shard group in Aurora capacity units
         (ACUs).
         :param publicly_accessible: Specifies whether the DB shard group is publicly accessible.
@@ -9996,6 +10010,12 @@ class RdsApi:
 
         This command doesn't apply to RDS Custom.
 
+        This operation uses resources on database instances. Because of this, we
+        recommend publishing database logs to CloudWatch and then using the
+        GetLogEvents operation. For more information, see
+        `GetLogEvents <https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_GetLogEvents.html>`__
+        in the *Amazon CloudWatch Logs API Reference*.
+
         :param db_instance_identifier: The customer-assigned name of the DB instance that contains the log
         files you want to list.
         :param log_file_name: The name of the log file to be downloaded.
@@ -10784,8 +10804,7 @@ class RdsApi:
         scale the storage of the DB instance.
         :param certificate_rotation_restart: Specifies whether the DB instance is restarted when you rotate your
         SSL/TLS certificate.
-        :param replica_mode: A value that sets the open mode of a replica database to either mounted
-        or read-only.
+        :param replica_mode: The open mode of a replica database.
         :param enable_customer_owned_ip: Specifies whether to enable a customer-owned IP address (CoIP) for an
         RDS on Outposts DB instance.
         :param aws_backup_recovery_point_arn: The Amazon Resource Name (ARN) of the recovery point in Amazon Web
@@ -12673,6 +12692,7 @@ class RdsApi:
         :raises DBClusterNotFoundFault:
         :raises InvalidDBClusterStateFault:
         :raises InvalidDBInstanceStateFault:
+        :raises InvalidDBShardGroupStateFault:
         """
         raise NotImplementedError
 
@@ -12862,6 +12882,7 @@ class RdsApi:
         :raises DBClusterNotFoundFault:
         :raises InvalidDBClusterStateFault:
         :raises InvalidDBInstanceStateFault:
+        :raises InvalidDBShardGroupStateFault:
         """
         raise NotImplementedError
 

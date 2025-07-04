@@ -16,17 +16,16 @@
 # limitations under the License.
 import copy
 import os
+import platform
 import re
 import shutil
 import tempfile
 import time
-import unittest
 from contextlib import contextmanager
 from functools import partial
 
 import pytest
 import torch
-from parameterized import parameterized
 from safetensors.torch import load_file as safe_load_file
 from torch import nn
 from transformers import AutoModelForCausalLM, AutoModelForSequenceClassification
@@ -36,6 +35,7 @@ from peft import (
     AdaLoraConfig,
     BOFTConfig,
     BoneConfig,
+    C3AConfig,
     FourierFTConfig,
     HRAConfig,
     IA3Config,
@@ -45,6 +45,7 @@ from peft import (
     LoraConfig,
     OFTConfig,
     PeftModel,
+    RandLoraConfig,
     TaskType,
     TrainableTokensConfig,
     VBLoRAConfig,
@@ -111,23 +112,39 @@ TEST_CASES = [
         {"target_modules": ["conv1d"], "trainable_token_indices": {"emb": [0, 10]}},
     ),
     ("Conv1d LoRA", "Conv1d", LoraConfig, {"target_modules": ["conv1d"]}),
+    ("Conv1d LoRA with DoRA", "Conv1d", LoraConfig, {"target_modules": ["conv1d"], "use_dora": True}),
     ("Conv2d 1 LoRA", "Conv2d", LoraConfig, {"target_modules": ["conv2d"]}),
     ("Conv2d 2 LoRA", "Conv2d", LoraConfig, {"target_modules": ["conv2d", "lin0"]}),
     ("Conv2d 1 LoRA with DoRA", "Conv2d", LoraConfig, {"target_modules": ["conv2d"], "use_dora": True}),
     ("Conv2d 2 LoRA with DoRA", "Conv2d", LoraConfig, {"target_modules": ["conv2d", "lin0"], "use_dora": True}),
+    ("Conv2d Groups LoRA", "Conv2dGroups", LoraConfig, {"target_modules": ["conv2d"]}),
+    ("Conv2d Groups2 LoRA", "Conv2dGroups2", LoraConfig, {"target_modules": ["conv2d"]}),
+    ("Conv2d Groups LoRA with DoRA", "Conv2dGroups", LoraConfig, {"target_modules": ["conv2d"], "use_dora": True}),
+    ("Conv2d Groups2 LoRA with DoRA", "Conv2dGroups2", LoraConfig, {"target_modules": ["conv2d"], "use_dora": True}),
     ("Conv3d 1 LoRA", "Conv3d", LoraConfig, {"target_modules": ["conv3d"]}),
     ("Conv3d 2 LoRA", "Conv3d", LoraConfig, {"target_modules": ["conv3d", "lin0"]}),
     ("Conv3d 1 LoRA with DoRA", "Conv3d", LoraConfig, {"target_modules": ["conv3d"], "use_dora": True}),
     ("Conv3d 2 LoRA with DoRA", "Conv3d", LoraConfig, {"target_modules": ["conv3d", "lin0"], "use_dora": True}),
     # LoRA with lora_B bias enabled (note: embedding is not supported)
+    # It's important to set lora_alpha != r to ensure that scaling is taken into account correctly
     (
         "Vanilla MLP 1 LoRA with lora_b bias",
         "MLP",
         LoraConfig,
-        {"target_modules": ["lin0", "lin1"], "lora_bias": True},
+        {"target_modules": ["lin0", "lin1"], "lora_bias": True, "lora_alpha": 32},
     ),
-    ("Conv2d 1 LoRA with lora_b bias", "Conv2d", LoraConfig, {"target_modules": ["conv2d"], "lora_bias": True}),
-    ("Conv3d 1 LoRA with lora_b bias", "Conv3d", LoraConfig, {"target_modules": ["conv3d"], "lora_bias": True}),
+    (
+        "Conv2d 1 LoRA with lora_b bias",
+        "Conv2d",
+        LoraConfig,
+        {"target_modules": ["conv2d"], "lora_bias": True, "lora_alpha": 32},
+    ),
+    (
+        "Conv3d 1 LoRA with lora_b bias",
+        "Conv3d",
+        LoraConfig,
+        {"target_modules": ["conv3d"], "lora_bias": True, "lora_alpha": 32},
+    ),
     ("MHA 1 LoRA", "MHA", LoraConfig, {"target_modules": ["mha"]}),
     ("MHA 2 LoRA", "MHA", LoraConfig, {"target_modules": ["mha", "lin0"]}),
     #######
@@ -286,26 +303,114 @@ TEST_CASES = [
     ########
     # OFT #
     ########
-    ("Vanilla MLP 1 OFT", "MLP", OFTConfig, {"r": 2, "target_modules": "lin0"}),
-    ("Vanilla MLP 2 OFT", "MLP", OFTConfig, {"r": 2, "target_modules": ["lin0"]}),
-    ("Vanilla MLP 5 OFT", "MLP", OFTConfig, {"r": 2, "target_modules": ["lin0"], "modules_to_save": ["lin1"]}),
+    (
+        "Vanilla MLP 1 OFT",
+        "MLP",
+        OFTConfig,
+        {"r": 2, "oft_block_size": 0, "target_modules": "lin0", "use_cayley_neumann": False},
+    ),
+    (
+        "Vanilla MLP 2 OFT",
+        "MLP",
+        OFTConfig,
+        {"r": 2, "oft_block_size": 0, "target_modules": ["lin0"], "use_cayley_neumann": False},
+    ),
+    (
+        "Vanilla MLP 5 OFT",
+        "MLP",
+        OFTConfig,
+        {
+            "r": 2,
+            "oft_block_size": 0,
+            "target_modules": ["lin0"],
+            "modules_to_save": ["lin1"],
+            "use_cayley_neumann": False,
+        },
+    ),
     (
         "Vanilla MLP 6 OFT",
         "MLP",
         OFTConfig,
         {
             "r": 2,
+            "oft_block_size": 0,
             "target_modules": ["lin0"],
             "module_dropout": 0.1,
+            "use_cayley_neumann": False,
         },
     ),
-    ("Vanilla MLP 7 OFT", "MLP", OFTConfig, {"r": 2, "target_modules": ["lin0"], "coft": True}),
-    ("Vanilla MLP 8 OFT", "MLP", OFTConfig, {"r": 2, "target_modules": ["lin0"], "block_share": True}),
-    ("Vanilla MLP 9 OFT", "MLP", OFTConfig, {"r": 2, "target_modules": ["lin0"], "coft": True, "block_share": True}),
-    ("Conv2d 1 OFT", "Conv2d", OFTConfig, {"r": 5, "target_modules": ["conv2d"]}),
-    ("Conv2d 3 OFT", "Conv2d", OFTConfig, {"r": 5, "target_modules": ["conv2d"], "coft": True}),
-    ("Conv2d 4 OFT", "Conv2d", OFTConfig, {"r": 5, "target_modules": ["conv2d"], "block_share": True}),
-    ("Conv2d 5 OFT", "Conv2d", OFTConfig, {"r": 5, "target_modules": ["conv2d"], "coft": True, "block_share": True}),
+    (
+        "Vanilla MLP 7 OFT",
+        "MLP",
+        OFTConfig,
+        {"r": 2, "oft_block_size": 0, "target_modules": ["lin0"], "coft": True, "eps": 1e-2},
+    ),
+    (
+        "Vanilla MLP 8 OFT",
+        "MLP",
+        OFTConfig,
+        {"r": 2, "oft_block_size": 0, "target_modules": ["lin0"], "block_share": True, "use_cayley_neumann": False},
+    ),
+    (
+        "Vanilla MLP 9 OFT",
+        "MLP",
+        OFTConfig,
+        {"r": 2, "oft_block_size": 0, "target_modules": ["lin0"], "coft": True, "eps": 1e-2, "block_share": True},
+    ),
+    (
+        "Vanilla MLP 10 OFT",
+        "MLP",
+        OFTConfig,
+        {"r": 0, "oft_block_size": 2, "target_modules": ["lin0"], "use_cayley_neumann": True},
+    ),
+    (
+        "Vanilla MLP 11 OFT",
+        "MLP",
+        OFTConfig,
+        {"r": 0, "oft_block_size": 2, "target_modules": ["lin0"], "use_cayley_neumann": False},
+    ),
+    (
+        "Vanilla MLP 12 OFT",
+        "MLP",
+        OFTConfig,
+        {
+            "r": 0,
+            "oft_block_size": 2,
+            "target_modules": ["lin0"],
+            "coft": True,
+            "eps": 1e-2,
+            "block_share": True,
+            "use_cayley_neumann": True,
+        },
+    ),
+    (
+        "Vanilla MLP 13 OFT",
+        "MLP",
+        OFTConfig,
+        {
+            "r": 0,
+            "oft_block_size": 2,
+            "target_modules": ["lin0"],
+            "coft": True,
+            "eps": 1e-2,
+            "block_share": True,
+            "use_cayley_neumann": False,
+        },
+    ),
+    ("Conv2d 1 OFT", "Conv2d", OFTConfig, {"r": 5, "oft_block_size": 0, "target_modules": ["conv2d"]}),
+    ("Conv2d 3 OFT", "Conv2d", OFTConfig, {"r": 5, "oft_block_size": 0, "target_modules": ["conv2d"], "coft": True}),
+    (
+        "Conv2d 4 OFT",
+        "Conv2d",
+        OFTConfig,
+        {"r": 5, "oft_block_size": 0, "target_modules": ["conv2d"], "block_share": True},
+    ),
+    (
+        "Conv2d 5 OFT",
+        "Conv2d",
+        OFTConfig,
+        {"r": 5, "oft_block_size": 0, "target_modules": ["conv2d"], "coft": True, "block_share": True},
+    ),
     ########
     # HRA #
     ########
@@ -497,6 +602,60 @@ TEST_CASES = [
         TrainableTokensConfig,
         {"target_modules": ["emb"], "token_indices": [0, 1, 3], "init_weights": False},
     ),
+    ########
+    # RandLora #
+    ########
+    # We have to reduce the default scaling parameter to avoid nans when using large learning rates
+    ("Vanilla MLP 1 RandLora", "MLP", RandLoraConfig, {"target_modules": "lin0", "randlora_alpha": 1}),
+    ("Vanilla MLP 2 RandLora", "MLP", RandLoraConfig, {"target_modules": ["lin0"], "randlora_alpha": 1}),
+    ("Vanilla MLP 3 RandLora", "MLP", RandLoraConfig, {"target_modules": ["lin1"], "randlora_alpha": 1}),
+    ("Vanilla MLP 4 RandLora", "MLP", RandLoraConfig, {"target_modules": ["lin0", "lin1"], "randlora_alpha": 1}),
+    (
+        "Vanilla MLP 5 RandLora",
+        "MLP",
+        RandLoraConfig,
+        {"target_modules": ["lin0", "lin1"], "sparse": True, "randlora_alpha": 1},
+    ),
+    (
+        "Vanilla MLP 6 RandLora",
+        "MLP",
+        RandLoraConfig,
+        {"target_modules": ["lin0", "lin1"], "very_sparse": True, "randlora_alpha": 1},
+    ),
+    (
+        "Vanilla MLP 7 RandLora",
+        "MLP",
+        RandLoraConfig,
+        {"target_modules": ["lin0"], "modules_to_save": ["lin1"], "randlora_alpha": 1},
+    ),
+    ########
+    # C3A #
+    ########
+    ("Vanilla MLP 1 C3A", "MLP", C3AConfig, {"block_size": 2, "target_modules": "lin0"}),
+    ("Vanilla MLP 2 C3A", "MLP", C3AConfig, {"block_size": 2, "target_modules": ["lin0"]}),
+    ("Vanilla MLP 3 C3A", "MLP", C3AConfig, {"block_size": 2, "target_modules": ["lin1"]}),
+    (
+        "Vanilla MLP 5 C3A",
+        "MLP",
+        C3AConfig,
+        {"block_size": 10, "target_modules": ["lin0"], "modules_to_save": ["lin1"]},
+    ),
+    (
+        "Vanilla MLP 6 C3A",
+        "MLP",
+        C3AConfig,
+        {"block_size": 10, "target_modules": ["lin0", "lin1"], "modules_to_save": ["lin1"]},
+    ),
+    (
+        "Vanilla MLP 7 C3A",
+        "MLP",
+        C3AConfig,
+        {
+            "block_size_pattern": {"lin0": 5, "lin1": 10},
+            "target_modules": ["lin0", "lin1"],
+            "modules_to_save": ["lin1"],
+        },
+    ),
 ]
 
 # For this test matrix, each tuple consists of:
@@ -603,6 +762,14 @@ MULTIPLE_ACTIVE_ADAPTERS_TEST_CASES = [
         {"target_modules": ["lin0"], "init_weights": False},
         {"target_modules": ["lin0"], "init_weights": False},
     ),
+    # Note: RandLora may present the same problem mentioned above for Vera.
+    (
+        "RandLora Same",
+        "randlora",
+        RandLoraConfig,
+        {"target_modules": ["lin0"], "init_weights": False},
+        {"target_modules": ["lin0"], "init_weights": False},
+    ),
     (
         "HRA Same",
         "hra",
@@ -670,7 +837,9 @@ PREFIXES = {
     BOFTConfig: "boft_",
     LNTuningConfig: "ln_tuning_",
     VeraConfig: "vera_lambda_",
+    RandLoraConfig: "randlora_",
     FourierFTConfig: "fourierft_",
+    C3AConfig: "c3a_",
     HRAConfig: "hra_",
     VBLoRAConfig: "vblora_",
     BoneConfig: "bone_",
@@ -686,9 +855,10 @@ class MLP(nn.Module):
         self.drop = nn.Dropout(0.5)
         self.lin1 = nn.Linear(20, 2, bias=bias)
         self.sm = nn.LogSoftmax(dim=-1)
+        self.dtype = torch.float
 
     def forward(self, X):
-        X = X.float()
+        X = X.to(self.dtype)
         X = self.lin0(X)
         X = self.relu(X)
         X = self.drop(X)
@@ -706,9 +876,10 @@ class MLPWithGRU(nn.Module):
         self.gru = nn.GRU(input_size=20, hidden_size=20, num_layers=1, batch_first=True, bias=bias)
         self.fc = nn.Linear(20, 2, bias=bias)
         self.sm = nn.LogSoftmax(dim=-1)
+        self.dtype = torch.float
 
     def forward(self, X):
-        X = X.float()
+        X = X.to(self.dtype)
         X = self.lin0(X)
         X = self.relu(X)
         X = self.drop(X)
@@ -730,9 +901,10 @@ class MLP_LayerNorm(nn.Module):
         self.layernorm1 = nn.LayerNorm(20, 20)
         self.lin1 = nn.Linear(20, 2, bias=bias)
         self.sm = nn.LogSoftmax(dim=-1)
+        self.dtype = torch.float
 
     def forward(self, X):
-        X = X.float()
+        X = X.to(self.dtype)
         X = self.layernorm0(X)
         X = self.lin0(X)
         X = self.relu(X)
@@ -751,9 +923,10 @@ class MLP2(nn.Module):
         self.drop = nn.Dropout(0.5)
         self.lin1 = nn.Linear(32, 2, bias=bias)
         self.sm = nn.LogSoftmax(dim=-1)
+        self.dtype = torch.float
 
     def forward(self, X):
-        X = X.float()
+        X = X.to(self.dtype)
         X = self.lin0(X)
         X = self.relu(X)
         X = self.drop(X)
@@ -850,9 +1023,11 @@ class ModelConv1D(nn.Module):
         self.flat = nn.Flatten()
         self.lin0 = nn.Linear(9, 2)
         self.sm = nn.LogSoftmax(dim=-1)
+        self.dtype = torch.float
 
     def forward(self, X):
-        X = X.float().reshape(-1, 1, 10)
+        X = X.to(self.dtype)
+        X = X.reshape(-1, 1, 10)
         X = self.conv1d(X)
         X = self.relu(X)
         X = self.flat(X)
@@ -869,9 +1044,11 @@ class ModelConv2D(nn.Module):
         self.flat = nn.Flatten()
         self.lin0 = nn.Linear(10, 2)
         self.sm = nn.LogSoftmax(dim=-1)
+        self.dtype = torch.float
 
     def forward(self, X):
-        X = X.float().reshape(-1, 5, 3, 3)
+        X = X.to(self.dtype)
+        X = X.reshape(-1, 5, 3, 3)
         X = self.conv2d(X)
         X = self.relu(X)
         X = self.flat(X)
@@ -889,9 +1066,10 @@ class ModelConv2D2(nn.Module):
         self.flat = nn.Flatten()
         self.lin1 = nn.Linear(32, 2)
         self.sm = nn.LogSoftmax(dim=-1)
+        self.dtype = torch.float
 
     def forward(self, X):
-        X = X.float()
+        X = X.to(self.dtype)
         X = self.lin0(X)
         X = self.relu(X)
         X = X.reshape(-1, 8, 3, 3)
@@ -899,6 +1077,54 @@ class ModelConv2D2(nn.Module):
         X = self.relu(X)
         X = self.flat(X)
         X = self.lin1(X)
+        X = self.sm(X)
+        return X
+
+
+class ModelConv2DGroups(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.lin0 = nn.Linear(90, 288)
+        # groups is set as 8 since default r=8
+        # hence to make r divisible by groups
+        self.conv2d = nn.Conv2d(16, 16, 3, groups=8)
+        self.relu = nn.ReLU()
+        self.flat = nn.Flatten()
+        self.lin1 = nn.Linear(16, 2)
+        self.sm = nn.LogSoftmax(dim=-1)
+        self.dtype = torch.float
+
+    def forward(self, X):
+        X = X.to(self.dtype)
+        X = X.flatten()
+        X = self.lin0(X)
+        X = X.reshape(2, 16, 3, 3)
+        X = self.conv2d(X)
+        X = self.relu(X)
+        X = self.flat(X)
+        X = self.lin1(X)
+        X = self.sm(X)
+        return X
+
+
+class ModelConv2DGroups2(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.conv2d = nn.Conv2d(16, 32, 3, padding=1, groups=2)
+        self.relu = nn.ReLU()
+        self.flat = nn.Flatten()
+        self.lin0 = nn.Linear(12800, 2)
+        self.sm = nn.LogSoftmax(dim=-1)
+        self.dtype = torch.float
+
+    def forward(self, X):
+        # Note: needs a different input shape, thus ignore original input
+        X = torch.arange(9 * 16 * 20 * 20).view([9, 16, 20, 20]).to(self.conv2d.weight.device)
+        X = X.to(self.dtype)
+        X = self.conv2d(X)
+        X = self.relu(X)
+        X = self.flat(X)
+        X = self.lin0(X)
         X = self.sm(X)
         return X
 
@@ -911,12 +1137,14 @@ class ModelConv3D(nn.Module):
         self.flat = nn.Flatten()
         self.lin0 = nn.Linear(10, 2)
         self.sm = nn.LogSoftmax(dim=-1)
+        self.dtype = torch.float
 
     def forward(self, X):
+        X = X.to(self.dtype)
         # If necessary, convert from 2D image to 3D volume
         if X.dim() == 2:
             X = torch.stack([X] * 3, dim=-1)
-        X = X.float().reshape(-1, 5, 3, 3, 3)
+        X = X.reshape(-1, 5, 3, 3, 3)
         X = self.conv3d(X)
         X = self.relu(X)
         X = self.flat(X)
@@ -931,9 +1159,10 @@ class ModelMha(nn.Module):
         self.mha = nn.MultiheadAttention(10, 2)
         self.lin0 = nn.Linear(10, 2)
         self.sm = nn.LogSoftmax(dim=-1)
+        self.dtype = torch.float
 
     def forward(self, X):
-        X = X.float()
+        X = X.to(self.dtype)
         X, _ = self.mha(X, X, X)
         X = self.lin0(X)
         X = self.sm(X)
@@ -967,6 +1196,12 @@ class MockTransformerWrapper:
         if model_id == "Conv2d":
             return ModelConv2D().to(torch_dtype)
 
+        if model_id == "Conv2dGroups":
+            return ModelConv2DGroups().to(torch_dtype)
+
+        if model_id == "Conv2dGroups2":
+            return ModelConv2DGroups2().to(torch_dtype)
+
         if model_id == "Conv3d":
             return ModelConv3D().to(torch_dtype)
 
@@ -985,7 +1220,7 @@ class MockTransformerWrapper:
         raise ValueError(f"model_id {model_id} not implemented")
 
 
-class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
+class TestPeftCustomModel(PeftCommonTester):
     """
     Implements the tests for custom models.
 
@@ -1000,15 +1235,15 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
         X = torch.arange(90).view(9, 10).to(self.torch_device)
         return {"X": X}
 
-    @parameterized.expand(TEST_CASES)
+    @pytest.mark.parametrize("test_name, model_id, config_cls, config_kwargs", TEST_CASES)
     def test_attributes_parametrized(self, test_name, model_id, config_cls, config_kwargs):
         self._test_model_attr(model_id, config_cls, config_kwargs)
 
-    @parameterized.expand(TEST_CASES)
+    @pytest.mark.parametrize("test_name, model_id, config_cls, config_kwargs", TEST_CASES)
     def test_adapter_name(self, test_name, model_id, config_cls, config_kwargs):
         self._test_adapter_name(model_id, config_cls, config_kwargs)
 
-    @parameterized.expand(TEST_CASES)
+    @pytest.mark.parametrize("test_name, model_id, config_cls, config_kwargs", TEST_CASES)
     def test_prepare_for_training_parametrized(self, test_name, model_id, config_cls, config_kwargs):
         # This test does not work with custom models because it assumes that
         # there is always a method get_input_embeddings that returns a layer
@@ -1016,28 +1251,34 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
         # checks that LoRA works as expected.
         pass
 
-    @parameterized.expand(TEST_CASES)
+    @pytest.mark.parametrize("test_name, model_id, config_cls, config_kwargs", TEST_CASES)
     def test_save_pretrained(self, test_name, model_id, config_cls, config_kwargs):
         self._test_save_pretrained(model_id, config_cls, config_kwargs)
 
-    @parameterized.expand(TEST_CASES)
+    @pytest.mark.parametrize("test_name, model_id, config_cls, config_kwargs", TEST_CASES)
     def test_save_pretrained_pickle(self, test_name, model_id, config_cls, config_kwargs):
         self._test_save_pretrained(model_id, config_cls, config_kwargs, safe_serialization=False)
 
-    @parameterized.expand(TEST_CASES)
+    @pytest.mark.parametrize("test_name, model_id, config_cls, config_kwargs", TEST_CASES)
     def test_load_model_low_cpu_mem_usage(self, test_name, model_id, config_cls, config_kwargs):
         self._test_load_model_low_cpu_mem_usage(model_id, config_cls, config_kwargs)
 
-    @parameterized.expand(TEST_CASES)
+    @pytest.mark.parametrize("test_name, model_id, config_cls, config_kwargs", TEST_CASES)
     def test_from_pretrained_config_construction(self, test_name, model_id, config_cls, config_kwargs):
         self._test_from_pretrained_config_construction(model_id, config_cls, config_kwargs)
 
-    @parameterized.expand(TEST_CASES)
+    @pytest.mark.parametrize("test_name, model_id, config_cls, config_kwargs", TEST_CASES)
     def test_load_multiple_adapters(self, test_name, model_id, config_cls, config_kwargs):
         self._test_load_multiple_adapters(model_id, config_cls, config_kwargs)
 
-    @parameterized.expand(TEST_CASES)
+    @pytest.mark.parametrize("test_name, model_id, config_cls, config_kwargs", TEST_CASES)
     def test_merge_layers(self, test_name, model_id, config_cls, config_kwargs):
+        # https://github.com/huggingface/peft/pull/2403
+        if model_id in ["Conv2dGroups", "Conv2dGroups2"]:
+            pytest.skip(
+                f"Skipping test for {model_id} as merging is not supported. (See https://github.com/huggingface/peft/pull/2403 for details)"
+            )
+
         config_kwargs = config_kwargs.copy()
         if issubclass(config_cls, LoraConfig):
             config_kwargs["init_lora_weights"] = False
@@ -1053,8 +1294,14 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
             config_kwargs["init_weights"] = False
         self._test_merge_layers(model_id, config_cls, config_kwargs)
 
-    @parameterized.expand(TEST_CASES)
+    @pytest.mark.parametrize("test_name, model_id, config_cls, config_kwargs", TEST_CASES)
     def test_merge_layers_fp16(self, test_name, model_id, config_cls, config_kwargs):
+        # https://github.com/huggingface/peft/pull/2403
+        if model_id in ["Conv2dGroups", "Conv2dGroups2"]:
+            pytest.skip(
+                f"Skipping test for {model_id} as merging is not supported. (See https://github.com/huggingface/peft/pull/2403 for details)"
+            )
+
         config_kwargs = config_kwargs.copy()
         if issubclass(config_cls, LoraConfig):
             config_kwargs["init_lora_weights"] = False
@@ -1062,8 +1309,14 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
             config_kwargs["init_ia3_weights"] = False
         self._test_merge_layers_fp16(model_id, config_cls, config_kwargs)
 
-    @parameterized.expand(TEST_CASES)
+    @pytest.mark.parametrize("test_name, model_id, config_cls, config_kwargs", TEST_CASES)
     def test_merge_layers_is_idempotent(self, test_name, model_id, config_cls, config_kwargs):
+        # https://github.com/huggingface/peft/pull/2403
+        if model_id in ["Conv2dGroups", "Conv2dGroups2"]:
+            pytest.skip(
+                f"Skipping test for {model_id} as merging is not supported. (See https://github.com/huggingface/peft/pull/2403 for details)"
+            )
+
         # calling merge twice with the same arguments should not change the output
         config_kwargs = config_kwargs.copy()
         if issubclass(config_cls, LoraConfig):
@@ -1072,8 +1325,14 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
             config_kwargs["init_ia3_weights"] = False
         self._test_merge_layers_is_idempotent(model_id, config_cls, config_kwargs)
 
-    @parameterized.expand(TEST_CASES)
+    @pytest.mark.parametrize("test_name, model_id, config_cls, config_kwargs", TEST_CASES)
     def test_safe_merge(self, test_name, model_id, config_cls, config_kwargs):
+        # https://github.com/huggingface/peft/pull/2403
+        if model_id in ["Conv2dGroups", "Conv2dGroups2"]:
+            pytest.skip(
+                f"Skipping test for {model_id} as merging is not supported. (See https://github.com/huggingface/peft/pull/2403 for details)"
+            )
+
         # calling merge twice with the same arguments should not change the output
         config_kwargs = config_kwargs.copy()
         if issubclass(config_cls, LoraConfig):
@@ -1090,39 +1349,39 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
             config_kwargs["init_weights"] = False
         self._test_safe_merge(model_id, config_cls, config_kwargs)
 
-    @parameterized.expand(TEST_CASES)
+    @pytest.mark.parametrize("test_name, model_id, config_cls, config_kwargs", TEST_CASES)
     def test_generate(self, test_name, model_id, config_cls, config_kwargs):
         # Custom models do not (necessarily) have a generate method, so this test is not performed
         pass
 
-    @parameterized.expand(TEST_CASES)
+    @pytest.mark.parametrize("test_name, model_id, config_cls, config_kwargs", TEST_CASES)
     def test_generate_half_prec(self, test_name, model_id, config_cls, config_kwargs):
         # Custom models do not (necessarily) have a generate method, so this test is not performed
         pass
 
-    @parameterized.expand(TEST_CASES)
+    @pytest.mark.parametrize("test_name, model_id, config_cls, config_kwargs", TEST_CASES)
     def test_training_custom_models(self, test_name, model_id, config_cls, config_kwargs):
         self._test_training(model_id, config_cls, config_kwargs)
 
-    @parameterized.expand(TEST_CASES)
+    @pytest.mark.parametrize("test_name, model_id, config_cls, config_kwargs", TEST_CASES)
     def test_training_custom_models_layer_indexing(self, test_name, model_id, config_cls, config_kwargs):
         # At the moment, layer indexing only works when layer names conform to a specific pattern, which is not
         # guaranteed here. Therefore, this test is not performed.
         pass
 
-    @parameterized.expand(TEST_CASES)
+    @pytest.mark.parametrize("test_name, model_id, config_cls, config_kwargs", TEST_CASES)
     def test_training_custom_models_gradient_checkpointing(self, test_name, model_id, config_cls, config_kwargs):
         self._test_training_gradient_checkpointing(model_id, config_cls, config_kwargs)
 
-    @parameterized.expand(TEST_CASES)
+    @pytest.mark.parametrize("test_name, model_id, config_cls, config_kwargs", TEST_CASES)
     def test_inference_safetensors(self, test_name, model_id, config_cls, config_kwargs):
         self._test_inference_safetensors(model_id, config_cls, config_kwargs)
 
-    @parameterized.expand(TEST_CASES)
+    @pytest.mark.parametrize("test_name, model_id, config_cls, config_kwargs", TEST_CASES)
     def test_peft_model_device_map(self, test_name, model_id, config_cls, config_kwargs):
         self._test_peft_model_device_map(model_id, config_cls, config_kwargs)
 
-    @parameterized.expand(TEST_CASES)
+    @pytest.mark.parametrize("test_name, model_id, config_cls, config_kwargs", TEST_CASES)
     def test_forward_output_finite(self, test_name, model_id, config_cls, config_kwargs):
         X = self.prepare_inputs_for_testing()
         model = self.transformers_class.from_pretrained(model_id).to(self.torch_device)
@@ -1136,7 +1395,173 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
             output = model(**X)
         assert torch.isfinite(output).all()
 
-    @parameterized.expand(TEST_CASES)
+    @pytest.mark.parametrize("test_name, model_id, config_cls, config_kwargs", TEST_CASES)
+    def test_forward_float16(self, test_name, model_id, config_cls, config_kwargs):
+        # The user manually sets the dtype of the base model to fp16 precision. This should not cause an error for the
+        # different PEFT methods.
+        try:
+            torch.zeros(1, dtype=torch.float16)
+        except Exception:
+            # skip this test if float16 is not supported on this machine
+            pytest.skip(reason="Test requires float16 support")
+
+        # skip on MacOS
+        if platform.system() == "Darwin":
+            pytest.skip(reason="MacOS does not support multiple ops in float16")
+
+        X = self.prepare_inputs_for_testing()
+        model = self.transformers_class.from_pretrained(model_id, torch_dtype=torch.float16).to(self.torch_device)
+        model.dtype = torch.float16
+        config = config_cls(
+            base_model_name_or_path=model_id,
+            **config_kwargs,
+        )
+        model = get_peft_model(model, config)
+        model.eval()
+
+        # check that none of this raises an error
+        model(**X)
+
+        if model_id in ["Conv2dGroups", "Conv2dGroups2"]:
+            # this model does not support merging
+            return
+
+        model.merge_adapter(safe_merge=False)
+        model(**X)
+        model.unmerge_adapter()
+        model(**X)
+        model.merge_adapter(safe_merge=True)
+        model(**X)
+        model.unmerge_adapter()
+        model(**X)
+        model = model.merge_and_unload()
+        model(**X)
+
+    @pytest.mark.parametrize("test_name, model_id, config_cls, config_kwargs", TEST_CASES)
+    def test_forward_bfloat16(self, test_name, model_id, config_cls, config_kwargs):
+        # The user manually sets the dtype of the base model to bf16 precision. This should not cause an error for the
+        # different PEFT methods.
+        try:
+            torch.zeros(1, dtype=torch.bfloat16)
+        except Exception:
+            # skip this test if float16 is not supported on this machine
+            pytest.skip(reason="Test requires bfloat16 support")
+
+        # skip on MacOS
+        if platform.system() == "Darwin":
+            pytest.skip(reason="MacOS does not support multiple ops in bfloat16")
+
+        X = self.prepare_inputs_for_testing()
+        model = self.transformers_class.from_pretrained(model_id, torch_dtype=torch.bfloat16).to(self.torch_device)
+        model.dtype = torch.bfloat16
+        config = config_cls(
+            base_model_name_or_path=model_id,
+            **config_kwargs,
+        )
+        model = get_peft_model(model, config)
+        model.eval()
+
+        # check that none of this raises an error
+        model(**X)
+
+        if model_id in ["Conv2dGroups", "Conv2dGroups2"]:
+            # this model does not support merging
+            return
+
+        model.merge_adapter(safe_merge=False)
+        model(**X)
+        model.unmerge_adapter()
+        model(**X)
+        model.merge_adapter(safe_merge=True)
+        model(**X)
+        model.unmerge_adapter()
+        model(**X)
+        model = model.merge_and_unload()
+        model(**X)
+
+    @pytest.mark.parametrize("test_name, model_id, config_cls, config_kwargs", TEST_CASES)
+    def test_forward_float16_no_autocast(self, test_name, model_id, config_cls, config_kwargs):
+        # Same as above but don't autocast adapter weights to float32 automatically
+        try:
+            torch.zeros(1, dtype=torch.float16)
+        except Exception:
+            # skip this test if float16 is not supported on this machine
+            pytest.skip(reason="Test requires float16 support")
+
+        # skip on MacOS
+        if platform.system() == "Darwin":
+            pytest.skip(reason="MacOS does not support multiple ops in float16")
+
+        X = self.prepare_inputs_for_testing()
+        model = self.transformers_class.from_pretrained(model_id, torch_dtype=torch.float16).to(self.torch_device)
+        model.dtype = torch.float16
+        config = config_cls(
+            base_model_name_or_path=model_id,
+            **config_kwargs,
+        )
+        model = get_peft_model(model, config, autocast_adapter_dtype=False)
+        model.eval()
+
+        # check that none of this raises an error
+        model(**X)
+
+        if model_id in ["Conv2dGroups", "Conv2dGroups2"]:
+            # this model does not support merging
+            return
+
+        model.merge_adapter(safe_merge=False)
+        model(**X)
+        model.unmerge_adapter()
+        model(**X)
+        model.merge_adapter(safe_merge=True)
+        model(**X)
+        model.unmerge_adapter()
+        model(**X)
+        model = model.merge_and_unload()
+        model(**X)
+
+    @pytest.mark.parametrize("test_name, model_id, config_cls, config_kwargs", TEST_CASES)
+    def test_forward_bfloat16_no_autocast(self, test_name, model_id, config_cls, config_kwargs):
+        # Same as above but don't autocast adapter weights to float32 automatically
+        try:
+            torch.zeros(1, dtype=torch.bfloat16)
+        except Exception:
+            # skip this test if float16 is not supported on this machine
+            pytest.skip(reason="Test requires bfloat16 support")
+
+        # skip on MacOS
+        if platform.system() == "Darwin":
+            pytest.skip(reason="MacOS does not support multiple ops in bfloat16")
+
+        X = self.prepare_inputs_for_testing()
+        model = self.transformers_class.from_pretrained(model_id, torch_dtype=torch.bfloat16).to(self.torch_device)
+        model.dtype = torch.bfloat16
+        config = config_cls(
+            base_model_name_or_path=model_id,
+            **config_kwargs,
+        )
+        model = get_peft_model(model, config, autocast_adapter_dtype=False)
+        model.eval()
+
+        # check that none of this raises an error
+        model(**X)
+
+        if model_id in ["Conv2dGroups", "Conv2dGroups2"]:
+            # this model does not support merging
+            return
+
+        model.merge_adapter(safe_merge=False)
+        model(**X)
+        model.unmerge_adapter()
+        model(**X)
+        model.merge_adapter(safe_merge=True)
+        model(**X)
+        model.unmerge_adapter()
+        model(**X)
+        model = model.merge_and_unload()
+        model(**X)
+
+    @pytest.mark.parametrize("test_name, model_id, config_cls, config_kwargs", TEST_CASES)
     def test_only_params_are_updated(self, test_name, model_id, config_cls, config_kwargs):
         # An explicit test that when using an adapter on a custom model, only the adapter parameters are updated during
         # training
@@ -1182,7 +1607,7 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
             else:
                 assert torch.allclose(param_before, param_after, atol=tol, rtol=tol)
 
-    @parameterized.expand(TEST_CASES)
+    @pytest.mark.parametrize("test_name, model_id, config_cls, config_kwargs", TEST_CASES)
     def test_parameters_after_loading_model(self, test_name, model_id, config_cls, config_kwargs):
         # An explicit test that when loading a trained model, the parameters are loaded correctly
         # see issue #808
@@ -1200,7 +1625,7 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
             lr = 0.1  # otherwise we get nan
         elif "mha" in model_id.lower():
             lr = 1e-3  # we get exploding gradients with MHA when learning rate is too high
-        elif issubclass(config_cls, VBLoRAConfig):
+        elif issubclass(config_cls, VBLoRAConfig) or issubclass(config_cls, RandLoraConfig):
             lr = 0.01  # otherwise we get nan
         optimizer = torch.optim.SGD(model.parameters(), lr=lr)
 
@@ -1229,12 +1654,12 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
                 param_after = params_after[name]
                 assert torch.allclose(param_before, param_after, atol=tol, rtol=tol)
 
-    @parameterized.expand(TEST_CASES)
+    @pytest.mark.parametrize("test_name, model_id, config_cls, config_kwargs", TEST_CASES)
     def test_disable_adapters(self, test_name, model_id, config_cls, config_kwargs):
         X = self.prepare_inputs_for_testing()
         model = self.transformers_class.from_pretrained(model_id).to(self.torch_device).eval()
         outputs_base = model(**X)
-        if issubclass(config_cls, (FourierFTConfig, TrainableTokensConfig)):
+        if issubclass(config_cls, (FourierFTConfig, TrainableTokensConfig, C3AConfig)):
             config_kwargs = config_kwargs.copy()
             # override the default value and make PEFT operation a no-op
             config_kwargs["init_weights"] = True
@@ -1289,12 +1714,18 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
         assert torch.allclose(outputs_before, outputs_disabled)
         assert torch.allclose(outputs_after, outputs_enabled_after_disable)
 
-    @parameterized.expand(TEST_CASES)
+    @pytest.mark.parametrize("test_name, model_id, config_cls, config_kwargs", TEST_CASES)
     def test_disable_adapters_with_merging(self, test_name, model_id, config_cls, config_kwargs):
+        # https://github.com/huggingface/peft/pull/2403
+        if model_id in ["Conv2dGroups", "Conv2dGroups2"]:
+            pytest.skip(
+                f"Skipping test for {model_id} as merging is not supported. (See https://github.com/huggingface/peft/pull/2403 for details)"
+            )
+
         # same as test_disable_adapters, but with merging
         X = self.prepare_inputs_for_testing()
         model = self.transformers_class.from_pretrained(model_id).to(self.torch_device)
-        if issubclass(config_cls, FourierFTConfig):
+        if issubclass(config_cls, (FourierFTConfig, C3AConfig)):
             config_kwargs = config_kwargs.copy()
             config_kwargs["init_weights"] = True
         config = config_cls(
@@ -1348,6 +1779,9 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
         if issubclass(config_cls, (IA3Config, LoraConfig)) and model_id in conv_ids:  # more instability with Conv
             atol, rtol = 1e-3, 1e-3
 
+        if issubclass(config_cls, OFTConfig):
+            atol, rtol = 1e-4, 1e-4
+
         if config_kwargs.get("use_dora") and model_id == "EmbConv1D":
             atol, rtol = 1e-4, 1e-4
 
@@ -1366,7 +1800,7 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
         # check that enabling + disabling adapters does not change the results
         assert torch.allclose(outputs_after, outputs_enabled_after_disable, atol=atol, rtol=rtol)
 
-    @parameterized.expand(TEST_CASES)
+    @pytest.mark.parametrize("test_name, model_id, config_cls, config_kwargs", TEST_CASES)
     def test_disable_adapter_with_bias_warns(self, test_name, model_id, config_cls, config_kwargs):
         # When training biases in lora, disabling adapters does not reset the biases, so the output is not what users
         # might expect. Therefore, a warning should be given.
@@ -1375,10 +1809,10 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
         # thing with decoder, encoder_decoder, etc.
         if config_cls != LoraConfig or config_cls != BOFTConfig:
             # skip this test for other configs as bias is specific to Lora
-            self.skipTest("Testing bias warnings only for LoraConfig or BOFTConfig")
+            pytest.skip("Testing bias warnings only for LoraConfig or BOFTConfig")
 
         if not issubclass(config_cls, (LoraConfig, BOFTConfig)):
-            self.skipTest("Bias argument is only supported for LoRA or BOFT models")
+            pytest.skip("Bias argument is only supported for LoRA or BOFT models")
 
         def run_with_disable(config_kwargs, bias):
             config_kwargs = config_kwargs.copy()
@@ -1412,7 +1846,7 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
         # given, therefore, we check that the unittest gives us an AssertionError if we check for a warning
         bias_warning_was_given = False
         try:
-            with self.assertWarns(UserWarning) as cm:
+            with pytest.warns(UserWarning) as cm:
                 run_with_disable(config_kwargs, bias="none")
                 # if we get here, it means there was no AssertionError, i.e. there are warnings -- let's check that they
                 # are not related to the bias setting
@@ -1425,7 +1859,7 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
             # This is bad, there was a warning about the bias when there should not have been any.
             self.fail("There should be no warning when bias is set to 'none'")
 
-    @parameterized.expand(TEST_CASES)
+    @pytest.mark.parametrize("test_name, model_id, config_cls, config_kwargs", TEST_CASES)
     def test_active_adapter(self, test_name, model_id, config_cls, config_kwargs):
         model = self.transformers_class.from_pretrained(model_id).to(self.torch_device)
         config = config_cls(
@@ -1455,7 +1889,7 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
         # model.active_adapter would not work, thus we have to check the base_model directly
         assert model.base_model.active_adapter == ["default", "other"]
 
-    @parameterized.expand(TEST_CASES)
+    @pytest.mark.parametrize("test_name, model_id, config_cls, config_kwargs", TEST_CASES)
     def test_disable_adapters_exiting_context_restores_previous_state(
         self, test_name, model_id, config_cls, config_kwargs
     ):
@@ -1483,7 +1917,7 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
             pass
         assert all(module.disable_adapters for module in tuner_modules)
 
-    @parameterized.expand(TEST_CASES)
+    @pytest.mark.parametrize("test_name, model_id, config_cls, config_kwargs", TEST_CASES)
     def test_disable_adapters_exiting_context_irregular_state(self, test_name, model_id, config_cls, config_kwargs):
         # When we have a model where some adapters are enabled and others are disabled, we should get a warning when
         # entering the disable_adapter context because we cannot correctly restore the state of the adapters from
@@ -1508,22 +1942,138 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
         assert {module.disable_adapters for module in tuner_modules} == {True, False}
         # check that we get a warning with irregular states
         msg = "The model contains some adapter layers that are enabled and others that are disabled"
-        with self.assertWarnsRegex(UserWarning, expected_regex=msg):
+        with pytest.warns(UserWarning, match=msg):
             with model.disable_adapter():
                 pass
 
         # when encountering irregular adapters, we enable all adapters at the end of the context
         assert all(not module.disable_adapters for module in tuner_modules)
 
-    @parameterized.expand(TEST_CASES)
+    @pytest.mark.parametrize("test_name, model_id, config_cls, config_kwargs", TEST_CASES)
     def test_delete_adapter(self, test_name, model_id, config_cls, config_kwargs):
         self._test_delete_adapter(model_id, config_cls, config_kwargs)
 
-    @parameterized.expand(TEST_CASES)
+    @pytest.mark.parametrize("test_name, model_id, config_cls, config_kwargs", TEST_CASES)
     def test_delete_inactive_adapter(self, test_name, model_id, config_cls, config_kwargs):
         self._test_delete_inactive_adapter(model_id, config_cls, config_kwargs)
 
-    @parameterized.expand(TEST_CASES)
+    @pytest.mark.parametrize("test_name, model_id, config_cls, config_kwargs", TEST_CASES)
+    def test_delete_unknown_adapter_raises(self, test_name, model_id, config_cls, config_kwargs):
+        self._test_delete_unknown_adapter_raises(model_id, config_cls, config_kwargs)
+
+    def test_delete_adapter_with_multiple_adapters_works(self):
+        # Add 3 adapters, delete the active one, the next one should be active, delete the inactive one, the active one
+        # should stay the same.
+        config0 = LoraConfig(target_modules=["lin0"])
+        config1 = LoraConfig(target_modules=["lin0"])
+        config2 = LoraConfig(target_modules=["lin0"])
+        model = get_peft_model(MLP(), config0, adapter_name="adapter0").to(self.torch_device)
+        model.add_adapter("adapter1", config1)
+        model.add_adapter("adapter2", config2)
+
+        inputs = self.prepare_inputs_for_testing()
+        assert model.active_adapters == ["adapter0"]
+        model(**inputs)  # does not raise
+
+        # delete the active adapter, next one should become active
+        model.delete_adapter("adapter0")
+        assert model.active_adapters == ["adapter1"]
+        model(**inputs)  # does not raise
+
+        # delete an inactive adapter, should not affect the active adapter
+        model.delete_adapter("adapter2")
+        assert model.active_adapters == ["adapter1"]
+        model(**inputs)  # does not raise
+
+    def test_delete_adapter_multiple_adapters_with_modules_to_save(self):
+        # There are 3 adapters. Adapter 0 has modules_to_save. Delete it, we should switch to adapter 1, which does not
+        # have modules_to_save. Then, we delete it too, switching to adapter 2, which has modules_to_save. Finally, we
+        # delete the last adapter (state is updated but forward is no longer possible).
+        model = MLP()
+        inputs = self.prepare_inputs_for_testing()
+
+        config0 = LoraConfig(target_modules=["lin0"], modules_to_save=["lin1"])
+        config1 = LoraConfig(target_modules=["lin0"])
+        config2 = LoraConfig(target_modules=["lin0"], modules_to_save=["lin1"])
+        model = get_peft_model(model, config0, adapter_name="adapter0").to(self.torch_device)
+        model.add_adapter("adapter1", config1)
+        model.add_adapter("adapter2", config2)
+
+        assert model.active_adapters == ["adapter0"]
+        assert model.modules_to_save == {"lin1"}
+        assert set(model.base_model.model.lin1.modules_to_save) == {"adapter0", "adapter2"}
+        model(**inputs)  # does not raise
+
+        # delete active adapter, should switch to the next adapter (which does not have modules_to_save)
+        model.delete_adapter("adapter0")
+        assert model.active_adapters == ["adapter1"]
+        assert model.modules_to_save == {"lin1"}
+        assert set(model.base_model.model.lin1.modules_to_save) == {"adapter2"}
+        model(**inputs)  # does not raise
+
+        # delete active adapter, should switch to the next adapter (which *does* have modules_to_save)
+        model.delete_adapter("adapter1")
+        assert model.active_adapters == ["adapter2"]
+        assert model.modules_to_save == {"lin1"}
+        assert set(model.base_model.model.lin1.modules_to_save) == {"adapter2"}
+        model(**inputs)  # does not raise
+
+        # delete last adapter
+        model.delete_adapter("adapter2")
+        assert model.active_adapters == []
+        assert model.modules_to_save is None
+        assert set(model.base_model.model.lin1.modules_to_save) == set()
+
+    def test_delete_adapter_multiple_adapters_with_trainable_token_indices(self):
+        # Same as the previous test, just using trainable_token_indices instead of modules_to_save
+        # Note that we need to use a transformers model for trainable_token_indices
+        model = AutoModelForCausalLM.from_pretrained("hf-internal-testing/tiny-random-OPTForCausalLM")
+        inputs = {"input_ids": torch.arange(10).view(-1, 1).to(self.torch_device)}
+
+        config0 = LoraConfig(target_modules=["q_proj"], trainable_token_indices=[0, 1])
+        config1 = LoraConfig(target_modules=["q_proj"])
+        config2 = LoraConfig(target_modules=["q_proj"], trainable_token_indices=[1, 3])
+        model = get_peft_model(model, config0, adapter_name="adapter0").to(self.torch_device)
+        model.add_adapter("adapter1", config1)
+        model.add_adapter("adapter2", config2)
+
+        embed_tokens = model.base_model.model.model.decoder.embed_tokens
+        lm_head = model.base_model.model.lm_head
+
+        assert model.active_adapters == ["adapter0"]
+        assert set(embed_tokens.token_adapter.trainable_tokens_delta) == {"adapter0", "adapter2"}
+        assert set(embed_tokens.token_adapter.trainable_tokens_original) == {"adapter0", "adapter2"}
+        assert set(lm_head.token_adapter.trainable_tokens_delta) == {"adapter0", "adapter2"}
+        assert set(lm_head.token_adapter.trainable_tokens_original) == {"adapter0", "adapter2"}
+        model(**inputs)  # does not raise
+
+        # delete active adapter, should switch to the next adapter (which does not have modules_to_save)
+        model.delete_adapter("adapter0")
+        assert model.active_adapters == ["adapter1"]
+        assert set(embed_tokens.token_adapter.trainable_tokens_delta) == {"adapter2"}
+        assert set(embed_tokens.token_adapter.trainable_tokens_original) == {"adapter2"}
+        assert set(lm_head.token_adapter.trainable_tokens_delta) == {"adapter2"}
+        assert set(lm_head.token_adapter.trainable_tokens_original) == {"adapter2"}
+        model(**inputs)  # does not raise
+
+        # delete active adapter, should switch to the next adapter (which *does* have modules_to_save)
+        model.delete_adapter("adapter1")
+        assert model.active_adapters == ["adapter2"]
+        assert set(embed_tokens.token_adapter.trainable_tokens_delta) == {"adapter2"}
+        assert set(embed_tokens.token_adapter.trainable_tokens_original) == {"adapter2"}
+        assert set(lm_head.token_adapter.trainable_tokens_delta) == {"adapter2"}
+        assert set(lm_head.token_adapter.trainable_tokens_original) == {"adapter2"}
+        model(**inputs)  # does not raise
+
+        # delete last adapter
+        model.delete_adapter("adapter2")
+        assert model.active_adapters == []
+        assert set(embed_tokens.token_adapter.trainable_tokens_delta) == set()
+        assert set(embed_tokens.token_adapter.trainable_tokens_original) == set()
+        assert set(lm_head.token_adapter.trainable_tokens_delta) == set()
+        assert set(lm_head.token_adapter.trainable_tokens_original) == set()
+
+    @pytest.mark.parametrize("test_name, model_id, config_cls, config_kwargs", TEST_CASES)
     def test_adding_multiple_adapters_with_bias_raises(self, test_name, model_id, config_cls, config_kwargs):
         self._test_adding_multiple_adapters_with_bias_raises(model_id, config_cls, config_kwargs)
 
@@ -1550,7 +2100,7 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
         assert "default" in model.base_model.classifier.modules_to_save
         assert "other" in model.base_model.classifier.modules_to_save
 
-    @parameterized.expand([IA3Config, LoHaConfig, LoKrConfig, LoraConfig, HRAConfig, BoneConfig])
+    @pytest.mark.parametrize("config_cls", [IA3Config, LoHaConfig, LoKrConfig, LoraConfig, HRAConfig, BoneConfig])
     def test_multiple_adapters_mixed_modules_to_save(self, config_cls):
         # See issue 1574
         # Check that we can have a model where one adapter has modules_to_save and the other doesn't. It should be
@@ -1578,7 +2128,7 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
         model.set_adapter("other")
         model(**inputs)
 
-    @parameterized.expand([IA3Config, LoHaConfig, LoKrConfig, LoraConfig, HRAConfig, BoneConfig])
+    @pytest.mark.parametrize("config_cls", [IA3Config, LoHaConfig, LoKrConfig, LoraConfig, HRAConfig, BoneConfig])
     def test_multiple_adapters_mixed_modules_to_save_order_switched(self, config_cls):
         # See issue 1574
         # Same test as test_multiple_adapters_mixed_modules_to_save, but this time the 2nd adapter has modules_to_save.
@@ -1665,6 +2215,18 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
         with pytest.raises(ValueError, match=msg):
             model.add_weighted_adapter(["default", "other"], weights=[1.0, 1.0], adapter_name="merged")
 
+    @pytest.mark.parametrize("config_cls", [IA3Config, LoHaConfig, LoKrConfig, LoraConfig, HRAConfig, BoneConfig])
+    def test_add_weighted_adapter_cat_with_rank_pattern(self, config_cls):
+        # Fixes a bug described in #2512, which resulted from the rank_pattern not being taken into account
+        config0 = LoraConfig(target_modules=["lin0", "lin1"], r=8, rank_pattern={"lin0": 2})
+        config1 = LoraConfig(target_modules=["lin0", "lin1"], r=8, rank_pattern={"lin0": 16})
+        model = MLP()
+        model = get_peft_model(model, config0).to(self.torch_device)
+        model.add_adapter("other", config1)
+        model.add_weighted_adapter(
+            ["default", "other"], weights=[1.0, 1.0], adapter_name="merged", combination_type="cat"
+        )
+
     def test_multiple_adapters_no_needless_copy_modules_to_save(self):
         # See 2206
         # The problem was that we keep a "global" modules_to_save on the model which contains all possible
@@ -1720,7 +2282,7 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
         # rough check that the model card is pre-filled
         assert len(model_card) > 1000
 
-    @parameterized.expand(["auto", True, False])
+    @pytest.mark.parametrize("save_embedding_layers", ["auto", True, False])
     def test_targeting_lora_to_embedding_layer(self, save_embedding_layers):
         model = ModelEmbWithEmbeddingUtils()
         config = LoraConfig(target_modules=["embed_tokens", "lin0"], init_lora_weights=False)
@@ -1747,7 +2309,7 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
                 assert "base_model.model.embed_tokens.base_layer.weight" not in state_dict
             del state_dict
 
-    @parameterized.expand(["auto", True, False])
+    @pytest.mark.parametrize("save_embedding_layers", ["auto", True, False])
     def test_targeting_lora_to_embedding_layer_non_transformers(self, save_embedding_layers):
         model = ModelEmbConv1D()
         config = LoraConfig(target_modules=["emb", "lin0"], init_lora_weights=False)
@@ -1797,18 +2359,19 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
                 # windows error
                 pass
 
-    @parameterized.expand(
+    @pytest.mark.parametrize(
+        "config0",
         [
             LoraConfig(target_modules=["lin0"], init_lora_weights=False),
             LoKrConfig(target_modules=["lin0"], init_weights=False),
             LoHaConfig(target_modules=["lin0"], init_weights=False),
             AdaLoraConfig(target_modules=["lin0"], init_lora_weights=False, total_step=1),
             IA3Config(target_modules=["lin0"], feedforward_modules=["lin0"], init_ia3_weights=False),
-            OFTConfig(target_modules=["lin0"], init_weights=False, r=2),
+            OFTConfig(target_modules=["lin0"], init_weights=False, r=2, oft_block_size=0),
             BOFTConfig(target_modules=["lin0"], init_weights=False, boft_block_size=2),
             HRAConfig(target_modules=["lin0"], init_weights=False),
             BoneConfig(target_modules=["lin0"], init_weights=False, r=2),
-        ]
+        ],
     )
     def test_adapter_name_makes_no_difference(self, config0):
         # It should not matter whether we use the default adapter name or a custom one
@@ -1921,7 +2484,7 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
         for k in state_dict:
             assert torch.allclose(state_dict[k], state_dict_loaded[k])
 
-    @parameterized.expand([False, True])
+    @pytest.mark.parametrize("with_forward_call", [False, True])
     def test_mha_gradients_set_correctly(self, with_forward_call):
         # check for this bug: https://github.com/huggingface/peft/issues/761#issuecomment-1893804738
         base_model = ModelMha()
@@ -1953,7 +2516,7 @@ class PeftCustomModelTester(unittest.TestCase, PeftCommonTester):
         assert model.base_model.model.mha.base_layer.in_proj_weight.requires_grad is True
 
 
-class TestMultiRankAdapter(unittest.TestCase):
+class TestMultiRankAdapter:
     """Tests related to multirank LoRA adapters"""
 
     def test_multirank(self):
@@ -2021,7 +2584,7 @@ class TestMultiRankAdapter(unittest.TestCase):
                     )
 
 
-class TestRepr(unittest.TestCase):
+class TestLayerRepr:
     """Tests related to the repr of adapted models"""
 
     def test_repr_lora_linear(self):
@@ -2069,7 +2632,7 @@ class TestRepr(unittest.TestCase):
         assert "default" in print_output
 
 
-class MultipleActiveAdaptersTester(unittest.TestCase):
+class TestMultipleActiveAdapters:
     """
     A test class to test the functionality of multiple active adapters.
 
@@ -2096,7 +2659,9 @@ class MultipleActiveAdaptersTester(unittest.TestCase):
             return MLP(bias=False)
         return MLP(bias=True)
 
-    @parameterized.expand(MULTIPLE_ACTIVE_ADAPTERS_TEST_CASES)
+    @pytest.mark.parametrize(
+        "test_name, tuner_method, config_cls, config_kwargs_1, config_kwargs_2", MULTIPLE_ACTIVE_ADAPTERS_TEST_CASES
+    )
     def test_multiple_active_adapters_forward(
         self, test_name, tuner_method, config_cls, config_kwargs_1, config_kwargs_2
     ):
@@ -2152,7 +2717,9 @@ class MultipleActiveAdaptersTester(unittest.TestCase):
             new_combined_output = peft_model(**X)
             assert torch.allclose(new_combined_output, combined_output, atol=1e-5)
 
-    @parameterized.expand(MULTIPLE_ACTIVE_ADAPTERS_TEST_CASES)
+    @pytest.mark.parametrize(
+        "test_name, tuner_method, config_cls, config_kwargs_1, config_kwargs_2", MULTIPLE_ACTIVE_ADAPTERS_TEST_CASES
+    )
     def test_multiple_active_adapters_merge_and_unmerge(
         self, test_name, tuner_method, config_cls, config_kwargs_1, config_kwargs_2
     ):
@@ -2185,7 +2752,9 @@ class MultipleActiveAdaptersTester(unittest.TestCase):
 
         assert torch.allclose(disabled_adapter_output, base_output, atol=1e-4)
 
-    @parameterized.expand(MULTIPLE_ACTIVE_ADAPTERS_TEST_CASES)
+    @pytest.mark.parametrize(
+        "test_name, tuner_method, config_cls, config_kwargs_1, config_kwargs_2", MULTIPLE_ACTIVE_ADAPTERS_TEST_CASES
+    )
     def test_merge_layers_multi(self, test_name, tuner_method, config_cls, config_kwargs_1, config_kwargs_2):
         torch.manual_seed(0)
 
@@ -2262,7 +2831,7 @@ class MultipleActiveAdaptersTester(unittest.TestCase):
         assert torch.allclose(logits_merged_adapter_default, logits_adapter_1, atol=1e-3, rtol=1e-3)
 
 
-class RequiresGradTester(unittest.TestCase):
+class TestRequiresGrad:
     """Test that requires_grad is set correctly in specific circumstances
 
     # See issue #899.
@@ -2969,33 +3538,30 @@ class RequiresGradTester(unittest.TestCase):
 
     def test_requires_grad_oft_different_targets(self):
         # test two different OFT adapters that target different modules
-        config0 = OFTConfig(target_modules=["lin0"], r=2)
+        config0 = OFTConfig(target_modules=["lin0"], r=2, oft_block_size=0)
         peft_model = get_peft_model(MLP(), config0)
 
-        config1 = OFTConfig(target_modules=["lin1"], r=2, inference_mode=True)
+        config1 = OFTConfig(target_modules=["lin1"], r=2, oft_block_size=0, inference_mode=True)
         peft_model.add_adapter("adapter1", config1)
 
         # active adapter is still "default"
         self.check_requires_grad(
             peft_model,
-            "base_model.model.lin0.oft_r.default",
-            "base_model.model.lin0.oft_s.default",
+            "base_model.model.lin0.oft_R.default.weight",
         )
 
         # set config0 as active, should not change anything
         peft_model.set_adapter("default")
         self.check_requires_grad(
             peft_model,
-            "base_model.model.lin0.oft_r.default",
-            "base_model.model.lin0.oft_s.default",
+            "base_model.model.lin0.oft_R.default.weight",
         )
 
         # change activate pter to pter1
         peft_model.set_adapter("adapter1")
         self.check_requires_grad(
             peft_model,
-            "base_model.model.lin1.oft_r.adapter1",
-            "base_model.model.lin1.oft_s.adapter1",
+            "base_model.model.lin1.oft_R.adapter1.weight",
         )
 
         # disable all pters
@@ -3005,39 +3571,35 @@ class RequiresGradTester(unittest.TestCase):
         # after context is exited, return to the previous state
         self.check_requires_grad(
             peft_model,
-            "base_model.model.lin1.oft_r.adapter1",
-            "base_model.model.lin1.oft_s.adapter1",
+            "base_model.model.lin1.oft_R.adapter1.weight",
         )
 
     def test_requires_grad_oft_same_targets(self):
         # same as previous test, except that OFT adapters target the same layer
-        config0 = OFTConfig(target_modules=["lin0"], r=2)
+        config0 = OFTConfig(target_modules=["lin0"], r=2, oft_block_size=0)
         peft_model = get_peft_model(MLP(), config0)
 
-        config1 = OFTConfig(target_modules=["lin0"], r=2, inference_mode=True)
+        config1 = OFTConfig(target_modules=["lin0"], r=2, oft_block_size=0, inference_mode=True)
         peft_model.add_adapter("adapter1", config1)
 
         # active adapter is still "default"
         self.check_requires_grad(
             peft_model,
-            "base_model.model.lin0.oft_r.default",
-            "base_model.model.lin0.oft_s.default",
+            "base_model.model.lin0.oft_R.default.weight",
         )
 
         # set config0 as active, should not change anything
         peft_model.set_adapter("default")
         self.check_requires_grad(
             peft_model,
-            "base_model.model.lin0.oft_r.default",
-            "base_model.model.lin0.oft_s.default",
+            "base_model.model.lin0.oft_R.default.weight",
         )
 
         # change activate adapter to adapter1
         peft_model.set_adapter("adapter1")
         self.check_requires_grad(
             peft_model,
-            "base_model.model.lin0.oft_r.adapter1",
-            "base_model.model.lin0.oft_s.adapter1",
+            "base_model.model.lin0.oft_R.adapter1.weight",
         )
 
         # disable all adapters
@@ -3048,8 +3610,7 @@ class RequiresGradTester(unittest.TestCase):
         peft_model.set_adapter("adapter1")
         self.check_requires_grad(
             peft_model,
-            "base_model.model.lin0.oft_r.adapter1",
-            "base_model.model.lin0.oft_s.adapter1",
+            "base_model.model.lin0.oft_R.adapter1.weight",
         )
 
     def test_requires_grad_hra_different_targets(self):
@@ -3522,6 +4083,148 @@ class RequiresGradTester(unittest.TestCase):
             "base_model.model.lin1.vera_lambda_d.adapter1",
             "base_model.model.lin2.vera_lambda_b.adapter1",
             "base_model.model.lin2.vera_lambda_d.adapter1",
+        )
+
+    def test_requires_grad_randlora_different_targets(self):
+        # Test two different RandLora adapters that target different modules. Most notably, ensure that randbasis_A and randbasis_B
+        # don't require grads.
+
+        # requires a model with at least 2 layers with the same shapes
+        class MLP2(nn.Module):
+            def __init__(self, bias=True):
+                super().__init__()
+                self.relu = nn.ReLU()
+                self.lin0 = nn.Linear(10, 20, bias=bias)
+                self.lin1 = nn.Linear(20, 20, bias=bias)  # lin1 and lin2 have same shape
+                self.lin2 = nn.Linear(20, 20, bias=bias)
+                self.lin3 = nn.Linear(20, 2, bias=bias)
+                self.sm = nn.LogSoftmax(dim=-1)
+
+            def forward(self, X):
+                X = X.float()
+                X = self.lin0(X)
+                X = self.relu(X)
+                X = self.lin1(X)
+                X = self.relu(X)
+                X = self.lin2(X)
+                X = self.relu(X)
+                X = self.lin3(X)
+                X = self.sm(X)
+                return X
+
+        config0 = RandLoraConfig(target_modules=["lin1"])
+        peft_model = get_peft_model(MLP2(), config0)
+
+        config1 = RandLoraConfig(target_modules=["lin2"])
+        peft_model.add_adapter("adapter1", config1)
+
+        # active adapter is still "default"
+        self.check_requires_grad(
+            peft_model,
+            "base_model.model.lin1.randlora_lambda.default",
+            "base_model.model.lin1.randlora_gamma.default",
+        )
+
+        # set config0 as active, should not change anything
+        peft_model.set_adapter("default")
+        self.check_requires_grad(
+            peft_model,
+            "base_model.model.lin1.randlora_lambda.default",
+            "base_model.model.lin1.randlora_gamma.default",
+        )
+
+        # change activate adapter to adapter1
+        peft_model.set_adapter("adapter1")
+        self.check_requires_grad(
+            peft_model,
+            "base_model.model.lin2.randlora_lambda.adapter1",
+            "base_model.model.lin2.randlora_gamma.adapter1",
+        )
+
+        # disable all adapters
+        with peft_model.disable_adapter():
+            self.check_requires_grad(peft_model)
+
+        # after context is exited, return to the previous state
+        self.check_requires_grad(
+            peft_model,
+            "base_model.model.lin2.randlora_lambda.adapter1",
+            "base_model.model.lin2.randlora_gamma.adapter1",
+        )
+
+    def test_requires_grad_randlora_same_targets(self):
+        # Test two different RandLora adapters that target the same module. Most notably, ensure that randbasis_A and randbasis_B
+        # don't require grads.
+
+        # requires a model with at least 2 layers with the same shapes
+        class MLP2(nn.Module):
+            def __init__(self, bias=True):
+                super().__init__()
+                self.relu = nn.ReLU()
+                self.lin0 = nn.Linear(10, 20, bias=bias)
+                self.lin1 = nn.Linear(20, 20, bias=bias)  # lin1 and lin2 have same shape
+                self.lin2 = nn.Linear(20, 20, bias=bias)
+                self.lin3 = nn.Linear(20, 2, bias=bias)
+                self.sm = nn.LogSoftmax(dim=-1)
+
+            def forward(self, X):
+                X = X.float()
+                X = self.lin0(X)
+                X = self.relu(X)
+                X = self.lin1(X)
+                X = self.relu(X)
+                X = self.lin2(X)
+                X = self.relu(X)
+                X = self.lin3(X)
+                X = self.sm(X)
+                return X
+
+        config0 = RandLoraConfig(target_modules=["lin1", "lin2"])
+        peft_model = get_peft_model(MLP2(), config0)
+
+        config1 = RandLoraConfig(target_modules=["lin1", "lin2"])
+        peft_model.add_adapter("adapter1", config1)
+
+        # active adapter is still "default"
+        self.check_requires_grad(
+            peft_model,
+            "base_model.model.lin1.randlora_lambda.default",
+            "base_model.model.lin1.randlora_gamma.default",
+            "base_model.model.lin2.randlora_lambda.default",
+            "base_model.model.lin2.randlora_gamma.default",
+        )
+
+        # set config0 as active, should not change anything
+        peft_model.set_adapter("default")
+        self.check_requires_grad(
+            peft_model,
+            "base_model.model.lin1.randlora_lambda.default",
+            "base_model.model.lin1.randlora_gamma.default",
+            "base_model.model.lin2.randlora_lambda.default",
+            "base_model.model.lin2.randlora_gamma.default",
+        )
+
+        # change activate adapter to adapter1
+        peft_model.set_adapter("adapter1")
+        self.check_requires_grad(
+            peft_model,
+            "base_model.model.lin1.randlora_lambda.adapter1",
+            "base_model.model.lin1.randlora_gamma.adapter1",
+            "base_model.model.lin2.randlora_lambda.adapter1",
+            "base_model.model.lin2.randlora_gamma.adapter1",
+        )
+
+        # disable all adapters
+        with peft_model.disable_adapter():
+            self.check_requires_grad(peft_model)
+
+        # after context is exited, return to the previous state
+        self.check_requires_grad(
+            peft_model,
+            "base_model.model.lin1.randlora_lambda.adapter1",
+            "base_model.model.lin1.randlora_gamma.adapter1",
+            "base_model.model.lin2.randlora_lambda.adapter1",
+            "base_model.model.lin2.randlora_gamma.adapter1",
         )
 
     def test_requires_grad_vblora_different_targets(self):
@@ -4080,9 +4783,9 @@ class TestDynamicDispatch:
         config._register_custom_module({custom_module_cls: custom_lora_cls})
 
         peft_model = get_peft_model(model, config)
-        sd_before = peft_model.state_dict()
+        sd_before = copy.deepcopy(peft_model.state_dict())
         inputs = torch.randn(16, 10)
-        optimizer = torch.optim.SGD(peft_model.parameters(), lr=1e-1)
+        optimizer = torch.optim.SGD(peft_model.parameters(), lr=1e-4)
 
         for _ in range(5):
             optimizer.zero_grad()
@@ -4092,6 +4795,13 @@ class TestDynamicDispatch:
             optimizer.step()
 
         sd_after = peft_model.state_dict()
+
+        # sanity check that for finite results, since nan != nan, which would make the test pass trivially
+        for val in sd_before.values():
+            assert torch.isfinite(val).all()
+        for val in sd_after.values():
+            assert torch.isfinite(val).all()
+
         assert not torch.allclose(
             sd_before["base_model.model.my_module.lora_A.default.weight"],
             sd_after["base_model.model.my_module.lora_A.default.weight"],

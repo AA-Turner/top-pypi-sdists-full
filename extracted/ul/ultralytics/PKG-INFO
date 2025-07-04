@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ultralytics
-Version: 8.3.161
+Version: 8.3.162
 Summary: Ultralytics YOLO 🚀 for SOTA object detection, multi-object tracking, instance segmentation, pose estimation and image classification.
 Author-email: Glenn Jocher <glenn.jocher@ultralytics.com>, Jing Qiu <jing.qiu@ultralytics.com>
 Maintainer-email: Ultralytics <hello@ultralytics.com>
@@ -79,6 +79,14 @@ Requires-Dist: hub-sdk>=0.0.12; extra == "extra"
 Requires-Dist: ipython; extra == "extra"
 Requires-Dist: albumentations>=1.4.6; extra == "extra"
 Requires-Dist: faster-coco-eval>=1.6.7; extra == "extra"
+Provides-Extra: typing
+Requires-Dist: pandas-stubs; extra == "typing"
+Requires-Dist: scipy-stubs; extra == "typing"
+Requires-Dist: types-pillow; extra == "typing"
+Requires-Dist: types-psutil; extra == "typing"
+Requires-Dist: types-pyyaml; extra == "typing"
+Requires-Dist: types-requests; extra == "typing"
+Requires-Dist: types-shapely; extra == "typing"
 Dynamic: license-file
 
 <div align="center">

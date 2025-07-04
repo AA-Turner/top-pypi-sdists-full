@@ -1,7 +1,7 @@
 from pydantic import Field
 from maleo_foundation.models.responses import BaseResponses
 from maleo_metadata.enums.medical_role import MaleoMetadataMedicalRoleEnums
-from maleo_metadata.models.transfers.general.medical_role import MedicalRoleTransfers, StructuredMedicalRoleTransfers
+from maleo_metadata.models.transfers.general.medical_role import MedicalRoleTransfers
 
 class MaleoMetadataMedicalRoleResponses:
     class InvalidIdentifierType(BaseResponses.BadRequest):
@@ -27,14 +27,14 @@ class MaleoMetadataMedicalRoleResponses:
         description:str = "Requested medical roles found in database"
         data:list[MedicalRoleTransfers] = Field(..., description="Medical roles")
 
-    class GetSingleStructured(BaseResponses.SingleData):
-        code:str = "MDT-MRO-005"
-        message:str = "Structured medical role found"
-        description:str = "Requested structured medical role found in database"
-        data:StructuredMedicalRoleTransfers = Field(..., description="Structured medical role")
+    # class GetSingleStructured(BaseResponses.SingleData):
+    #     code:str = "MDT-MRO-005"
+    #     message:str = "Structured medical role found"
+    #     description:str = "Requested structured medical role found in database"
+    #     data:StructuredMedicalRoleTransfers = Field(..., description="Structured medical role")
 
-    class GetStructuredMultiple(BaseResponses.PaginatedMultipleData):
-        code:str = "MDT-MRO-006"
-        message:str = "Structured medical roles found"
-        description:str = "Requested structured medical roles found in database"
-        data:list[StructuredMedicalRoleTransfers] = Field(..., description="Structured medical roles")
+    # class GetStructuredMultiple(BaseResponses.PaginatedMultipleData):
+    #     code:str = "MDT-MRO-006"
+    #     message:str = "Structured medical roles found"
+    #     description:str = "Requested structured medical roles found in database"
+    #     data:list[StructuredMedicalRoleTransfers] = Field(..., description="Structured medical roles")

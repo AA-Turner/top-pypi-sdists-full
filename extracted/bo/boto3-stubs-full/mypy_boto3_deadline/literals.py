@@ -252,7 +252,7 @@ SortOrderType = Literal["ASCENDING", "DESCENDING"]
 StepLifecycleStatusType = Literal[
     "CREATE_COMPLETE", "UPDATE_FAILED", "UPDATE_IN_PROGRESS", "UPDATE_SUCCEEDED"
 ]
-StepParameterTypeType = Literal["FLOAT", "INT", "PATH", "STRING"]
+StepParameterTypeType = Literal["CHUNK_INT", "FLOAT", "INT", "PATH", "STRING"]
 StepTargetTaskRunStatusType = Literal[
     "CANCELED", "FAILED", "PENDING", "READY", "SUCCEEDED", "SUSPENDED"
 ]

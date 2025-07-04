@@ -1,17 +1,18 @@
 Metadata-Version: 2.3
 Name: neo4j-graphrag
-Version: 1.7.0
+Version: 1.8.0
 Summary: Python package to allow easy integration to Neo4j's GraphRAG features
 License: Apache License, Version 2.0
 Author: Neo4j, Inc
 Author-email: team-gen-ai@neo4j.com
-Requires-Python: >=3.9.0,<3.13
+Requires-Python: >=3.9.0,<3.14
 Classifier: License :: Other/Proprietary License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Provides-Extra: anthropic
 Provides-Extra: cohere
 Provides-Extra: examples
@@ -37,6 +38,8 @@ Requires-Dist: llama-index (>=0.12.0,<0.13.0) ; extra == "experimental"
 Requires-Dist: mistralai (>=1.0.3,<2.0.0) ; extra == "mistralai"
 Requires-Dist: neo4j (>=5.17.0,<6.0.0)
 Requires-Dist: neo4j-viz (>=0.2.2,<0.3.0) ; extra == "kg-creation-tools" or extra == "experimental"
+Requires-Dist: numpy (>=2.0.0,<3.0.0) ; python_version >= "3.9" and python_version < "3.13"
+Requires-Dist: numpy (>=2.1.0,<3.0.0) ; python_version == "3.13"
 Requires-Dist: ollama (>=0.4.4,<0.5.0) ; extra == "ollama"
 Requires-Dist: openai (>=1.51.1,<2.0.0) ; extra == "openai"
 Requires-Dist: pinecone-client (>=4.1.0,<5.0.0) ; extra == "pinecone"
@@ -45,8 +48,10 @@ Requires-Dist: pypdf (>=5.1.0,<6.0.0)
 Requires-Dist: pyyaml (>=6.0.2,<7.0.0)
 Requires-Dist: qdrant-client (>=1.11.3,<2.0.0) ; extra == "qdrant"
 Requires-Dist: rapidfuzz (>=3.12.2,<4.0.0) ; extra == "fuzzy-matching"
+Requires-Dist: scipy (>=1.13.0,<2.0.0) ; python_version >= "3.9" and python_version < "3.13"
+Requires-Dist: scipy (>=1.15.0,<2.0.0) ; python_version == "3.13"
 Requires-Dist: sentence-transformers (>=3.0.0,<4.0.0) ; extra == "sentence-transformers"
-Requires-Dist: spacy (==3.8.3) ; extra == "nlp"
+Requires-Dist: spacy (==3.8.7) ; extra == "nlp"
 Requires-Dist: types-pyyaml (>=6.0.12.20240917,<7.0.0.0)
 Requires-Dist: weaviate-client (>=4.6.1,<5.0.0) ; extra == "weaviate"
 Project-URL: Homepage, https://neo4j.com/
@@ -81,7 +86,8 @@ A list of Neo4j GenAI-related features can also be found at [Neo4j GenAI Ecosyst
 ## 🐍 Python Version Support
 
 | Version | Supported? |
-| ------- | ---------: |
+|---------| ---------: |
+| 3.13    | &check;    |
 | 3.12    | &check;    |
 | 3.11    | &check;    |
 | 3.10    | &check;    |
@@ -157,9 +163,9 @@ NEO4J_PASSWORD = "password"
 driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USERNAME, NEO4J_PASSWORD))
 
 # List the entities and relations the LLM should look for in the text
-entities = ["Person", "House", "Planet"]
-relations = ["PARENT_OF", "HEIR_OF", "RULES"]
-potential_schema = [
+node_types = ["Person", "House", "Planet"]
+relationship_types = ["PARENT_OF", "HEIR_OF", "RULES"]
+patterns = [
     ("Person", "PARENT_OF", "Person"),
     ("Person", "HEIR_OF", "House"),
     ("House", "RULES", "Planet"),
@@ -183,8 +189,11 @@ kg_builder = SimpleKGPipeline(
     llm=llm,
     driver=driver,
     embedder=embedder,
-    entities=entities,
-    relations=relations,
+    schema={
+        "node_types": node_types,
+        "relationship_types": relationship_types,
+        "patterns": patterns,
+    },
     on_error="IGNORE",
     from_pdf=False,
 )
@@ -420,7 +429,7 @@ When you're finished with your changes, create a pull request (PR) using the fol
 
 ## 🧪 Tests
 
-To be able to run all tests, all extra packages needs to be installed.  
+To be able to run all tests, all extra packages needs to be installed.
 This is achieved by:
 
 ```bash

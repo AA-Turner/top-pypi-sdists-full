@@ -1099,3 +1099,30 @@ def add_attn_pool():
     logits, intermediates = model(x, return_intermediates = True)
 
     assert intermediates.attn_pooled_tokens.shape[1] == 3
+
+@pytest.mark.parametrize('keep_buffer_on_cpu', (False, True))
+def test_up(
+    keep_buffer_on_cpu
+):
+    from x_transformers.up_wrapper import UniversalPretrainWrapper
+
+    model = TransformerWrapper(
+        num_tokens = 256,
+        max_seq_len = 1024,
+        attn_pool = True,
+        num_attn_pool_queries =  3,
+        attn_layers = Decoder(
+            dim = 512,
+            depth = 12,
+            heads = 8
+        ),
+    )
+
+    up_wrapper = UniversalPretrainWrapper(
+        model,
+        seq_len = 16,
+        keep_buffer_on_cpu = keep_buffer_on_cpu
+    )
+
+    loss = up_wrapper()
+    loss.backward()

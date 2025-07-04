@@ -1,7 +1,4 @@
 # coding: utf-8
-# Copyright 2025 Daytona Platforms Inc.
-# SPDX-License-Identifier: Apache-2.0
-
 
 """
     Daytona
@@ -37,6 +34,7 @@ class SnapshotState(str, Enum):
     PENDING_VALIDATION = "pending_validation"
     VALIDATING = "validating"
     ACTIVE = "active"
+    INACTIVE = "inactive"
     ERROR = "error"
     BUILD_FAILED = "build_failed"
     REMOVING = "removing"

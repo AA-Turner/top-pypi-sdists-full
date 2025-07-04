@@ -6,7 +6,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import platform
-from typing import Any, Coroutine, Iterable, no_type_check
+from collections.abc import Coroutine, Iterable
+from typing import Any, no_type_check
 
 import async_interrupt
 import bleak
@@ -36,11 +37,10 @@ IS_LINUX = SYSTEM == "Linux"
 IS_MACOS = SYSTEM == "Darwin"
 
 if IS_LINUX:
+    from bleak.args.bluez import BlueZScannerArgs, OrPattern
     from bleak.backends.bluezdbus.advertisement_monitor import (
         AdvertisementMonitor,
-        OrPattern,
     )
-    from bleak.backends.bluezdbus.scanner import BlueZScannerArgs
     from dbus_fast import InvalidMessageError
     from dbus_fast.service import method
 
@@ -354,7 +354,7 @@ class HaScanner(BaseHaScanner):
         except FileNotFoundError as ex:
             await self._async_stop_scanner()
             self._raise_for_file_not_found_error(ex)
-        except asyncio.TimeoutError as ex:
+        except TimeoutError as ex:
             await self._async_stop_scanner()
             if attempt == 2:
                 await self._async_reset_adapter(False)
@@ -574,7 +574,7 @@ class HaScanner(BaseHaScanner):
         try:
             async with asyncio.timeout(STOP_TIMEOUT):
                 await self.scanner.stop()
-        except (asyncio.TimeoutError, BleakError) as ex:
+        except (TimeoutError, BleakError) as ex:
             # This is not fatal, and they may want to reload
             # the config entry to restart the scanner if they
             # change the bluetooth dongle.
@@ -587,7 +587,7 @@ class HaScanner(BaseHaScanner):
         try:
             async with asyncio.timeout(STOP_TIMEOUT):
                 await stop_discovery(self.adapter)
-        except asyncio.TimeoutError as ex:
+        except TimeoutError as ex:
             _LOGGER.error("%s: Timeout force stopping scanner: %s", self.name, ex)
         except Exception as ex:
             _LOGGER.error("%s: Failed to force stop scanner: %s", self.name, ex)

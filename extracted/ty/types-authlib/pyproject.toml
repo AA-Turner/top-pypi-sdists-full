@@ -4,7 +4,7 @@ requires = ["setuptools>=77.0.3"]
 
 [project]
 name = "types-Authlib"
-version = "1.5.0.20250608"
+version = "1.5.2.20250704"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for Authlib"
@@ -20,7 +20,7 @@ It can be used by type-checking tools like
 [Pyre](https://pyre-check.org/),
 PyCharm, etc. to check code that uses `Authlib`. This version of
 `types-Authlib` aims to provide accurate annotations for
-`Authlib==1.5.0`.
+`Authlib~=1.5.2`.
 
 This stub package is marked as [partial](https://peps.python.org/pep-0561/#partial-stub-packages).
 If you find that annotations are missing, feel free to contribute and help complete them.
@@ -34,11 +34,11 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with
-mypy 1.16.0,
+mypy 1.16.1,
 pyright 1.1.400,
 and pytype 2024.10.11.
 It was generated from typeshed commit
-[`b7bc6f32cfa60d66d2df5ab8d93af61f303a646d`](https://github.com/python/typeshed/commit/b7bc6f32cfa60d66d2df5ab8d93af61f303a646d).
+[`2408c028f4f677e0db4eabef0c70e9f6ab33e365`](https://github.com/python/typeshed/commit/2408c028f4f677e0db4eabef0c70e9f6ab33e365).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

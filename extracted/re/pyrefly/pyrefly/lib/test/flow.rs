@@ -983,23 +983,12 @@ assert_type(f(True), int)
 );
 
 testcase!(
-    test_nested_loops,
+    test_nested_loops_simple,
     r#"
 def f(cond1: bool, cond2: bool):
     n = 0
     while cond1:
         while cond2:
-            n += 1
-"#,
-);
-
-testcase!(
-    test_augassign_in_loop,
-    r#"
-def f(args, cond):
-    n = 0
-    for arg in args:
-        if cond:
             n += 1
 "#,
 );
@@ -1017,6 +1006,17 @@ def f(cond1: bool, cond2: bool):
     return n
 
 assert_type(f(True, True), int)
+"#,
+);
+
+testcase!(
+    test_augassign_in_loop_simple,
+    r#"
+def f(args, cond):
+    n = 0
+    for arg in args:
+        if cond:
+            n += 1
 "#,
 );
 

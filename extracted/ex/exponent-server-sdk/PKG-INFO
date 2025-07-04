@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: exponent_server_sdk
-Version: 2.1.0
+Version: 2.2.0
 Summary: Expo Server SDK for Python
 Home-page: https://github.com/expo/exponent-server-sdk-python
 Author: Expo Team
@@ -10,6 +10,15 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: requests
 Requires-Dist: six
+Dynamic: author
+Dynamic: author-email
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
 
 # exponent-server-sdk-python
 

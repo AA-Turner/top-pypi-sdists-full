@@ -176,79 +176,79 @@ class MaleoMetadataMedicalRoleClientService(MaleoClientService):
             headers=headers
         )
 
-    async def get_structured_medical_roles(
-        self,
-        parameters:MaleoMetadataMedicalRoleClientParametersTransfers.GetStructuredMultiple,
-        controller_type:MaleoMetadataGeneralEnums.ClientControllerType = MaleoMetadataGeneralEnums.ClientControllerType.HTTP,
-        authorization:Optional[Authorization] = None,
-        headers:Optional[Dict[str, str]] = None
-    ) -> MaleoMetadataMedicalRoleClientResultsTypes.GetStructuredMultiple:
-        """Retrieve structured medical roles from MaleoMetadata"""
-        @BaseExceptions.service_exception_handler(
-            operation="retrieving structured medical roles",
-            logger=self._logger,
-            fail_result_class=MaleoMetadataMedicalRoleClientResultsTransfers.Fail
-        )
-        async def _impl(
-            parameters:MaleoMetadataMedicalRoleClientParametersTransfers.GetStructuredMultiple,
-            controller_type:MaleoMetadataGeneralEnums.ClientControllerType = MaleoMetadataGeneralEnums.ClientControllerType.HTTP,
-            authorization:Optional[Authorization] = None,
-            headers:Optional[Dict[str, str]] = None
-        ):
-            #* Validate chosen controller type
-            if not isinstance(
-                controller_type,
-                MaleoMetadataGeneralEnums.ClientControllerType
-            ):
-                message = "Invalid controller type"
-                description = "The provided controller type did not exists"
-                return MaleoMetadataMedicalRoleClientResultsTransfers.Fail(
-                    message=message,
-                    description=description
-                )
-            #* Retrieve structured medical roles using chosen controller
-            if controller_type == MaleoMetadataGeneralEnums.ClientControllerType.HTTP:
-                controller_result = (
-                    await self._controllers.http
-                    .get_structured_medical_roles(
-                        parameters=parameters,
-                        authorization=authorization,
-                        headers=headers
-                    )
-                )
-            else:
-                message = "Invalid controller type"
-                description = "The provided controller type has not been implemented"
-                return MaleoMetadataMedicalRoleClientResultsTransfers.Fail(
-                    message=message,
-                    description=description
-                )
-            #* Return proper response
-            if not controller_result.success:
-                return (
-                    MaleoMetadataMedicalRoleClientResultsTransfers
-                    .Fail
-                    .model_validate(controller_result.content)
-                )
-            else:
-                if controller_result.content["data"] is None:
-                    return (
-                        MaleoMetadataMedicalRoleClientResultsTransfers
-                        .NoData
-                        .model_validate(controller_result.content)
-                    )
-                else:
-                    return (
-                        MaleoMetadataMedicalRoleClientResultsTransfers
-                        .MultipleStructured
-                        .model_validate(controller_result.content)
-                    )
-        return await _impl(
-            parameters=parameters,
-            controller_type=controller_type,
-            authorization=authorization,
-            headers=headers
-        )
+    # async def get_structured_medical_roles(
+    #     self,
+    #     parameters:MaleoMetadataMedicalRoleClientParametersTransfers.GetStructuredMultiple,
+    #     controller_type:MaleoMetadataGeneralEnums.ClientControllerType = MaleoMetadataGeneralEnums.ClientControllerType.HTTP,
+    #     authorization:Optional[Authorization] = None,
+    #     headers:Optional[Dict[str, str]] = None
+    # ) -> MaleoMetadataMedicalRoleClientResultsTypes.GetStructuredMultiple:
+    #     """Retrieve structured medical roles from MaleoMetadata"""
+    #     @BaseExceptions.service_exception_handler(
+    #         operation="retrieving structured medical roles",
+    #         logger=self._logger,
+    #         fail_result_class=MaleoMetadataMedicalRoleClientResultsTransfers.Fail
+    #     )
+    #     async def _impl(
+    #         parameters:MaleoMetadataMedicalRoleClientParametersTransfers.GetStructuredMultiple,
+    #         controller_type:MaleoMetadataGeneralEnums.ClientControllerType = MaleoMetadataGeneralEnums.ClientControllerType.HTTP,
+    #         authorization:Optional[Authorization] = None,
+    #         headers:Optional[Dict[str, str]] = None
+    #     ):
+    #         #* Validate chosen controller type
+    #         if not isinstance(
+    #             controller_type,
+    #             MaleoMetadataGeneralEnums.ClientControllerType
+    #         ):
+    #             message = "Invalid controller type"
+    #             description = "The provided controller type did not exists"
+    #             return MaleoMetadataMedicalRoleClientResultsTransfers.Fail(
+    #                 message=message,
+    #                 description=description
+    #             )
+    #         #* Retrieve structured medical roles using chosen controller
+    #         if controller_type == MaleoMetadataGeneralEnums.ClientControllerType.HTTP:
+    #             controller_result = (
+    #                 await self._controllers.http
+    #                 .get_structured_medical_roles(
+    #                     parameters=parameters,
+    #                     authorization=authorization,
+    #                     headers=headers
+    #                 )
+    #             )
+    #         else:
+    #             message = "Invalid controller type"
+    #             description = "The provided controller type has not been implemented"
+    #             return MaleoMetadataMedicalRoleClientResultsTransfers.Fail(
+    #                 message=message,
+    #                 description=description
+    #             )
+    #         #* Return proper response
+    #         if not controller_result.success:
+    #             return (
+    #                 MaleoMetadataMedicalRoleClientResultsTransfers
+    #                 .Fail
+    #                 .model_validate(controller_result.content)
+    #             )
+    #         else:
+    #             if controller_result.content["data"] is None:
+    #                 return (
+    #                     MaleoMetadataMedicalRoleClientResultsTransfers
+    #                     .NoData
+    #                     .model_validate(controller_result.content)
+    #                 )
+    #             else:
+    #                 return (
+    #                     MaleoMetadataMedicalRoleClientResultsTransfers
+    #                     .MultipleStructured
+    #                     .model_validate(controller_result.content)
+    #                 )
+    #     return await _impl(
+    #         parameters=parameters,
+    #         controller_type=controller_type,
+    #         authorization=authorization,
+    #         headers=headers
+    #     )
 
     async def get_medical_role(
         self,
@@ -391,69 +391,69 @@ class MaleoMetadataMedicalRoleClientService(MaleoClientService):
             headers=headers
         )
 
-    async def get_structured_medical_role(
-        self,
-        parameters:MaleoMetadataMedicalRoleGeneralParametersTransfers.GetSingle,
-        controller_type:MaleoMetadataGeneralEnums.ClientControllerType = MaleoMetadataGeneralEnums.ClientControllerType.HTTP,
-        authorization:Optional[Authorization] = None,
-        headers:Optional[Dict[str, str]] = None
-    ) -> MaleoMetadataMedicalRoleClientResultsTypes.GetSingleStructured:
-        """Retrieve structured medical role from MaleoMetadata"""
-        @BaseExceptions.service_exception_handler(
-            operation="retrieving structured medical role",
-            logger=self._logger,
-            fail_result_class=MaleoMetadataMedicalRoleClientResultsTransfers.Fail
-        )
-        async def _impl(
-            parameters:MaleoMetadataMedicalRoleGeneralParametersTransfers.GetSingle,
-            controller_type:MaleoMetadataGeneralEnums.ClientControllerType = MaleoMetadataGeneralEnums.ClientControllerType.HTTP,
-            authorization:Optional[Authorization] = None,
-            headers:Optional[Dict[str, str]] = None
-        ):
-            #* Validate chosen controller type
-            if not isinstance(
-                controller_type,
-                MaleoMetadataGeneralEnums.ClientControllerType
-            ):
-                message = "Invalid controller type"
-                description = "The provided controller type did not exists"
-                return MaleoMetadataMedicalRoleClientResultsTransfers.Fail(
-                    message=message,
-                    description=description
-                )
-            #* Retrieve structured medical role using chosen controller
-            if controller_type == MaleoMetadataGeneralEnums.ClientControllerType.HTTP:
-                controller_result = (
-                    await self._controllers.http
-                    .get_structured_medical_role(
-                        parameters=parameters,
-                        authorization=authorization,
-                        headers=headers
-                    )
-                )
-            else:
-                message = "Invalid controller type"
-                description = "The provided controller type has not been implemented"
-                return MaleoMetadataMedicalRoleClientResultsTransfers.Fail(
-                    message=message,
-                    description=description
-                )
-            #* Return proper response
-            if not controller_result.success:
-                return (
-                    MaleoMetadataMedicalRoleClientResultsTransfers
-                    .Fail
-                    .model_validate(controller_result.content)
-                )
-            else:
-                return (
-                    MaleoMetadataMedicalRoleClientResultsTransfers
-                    .SingleStructured
-                    .model_validate(controller_result.content)
-                )
-        return await _impl(
-            parameters=parameters,
-            controller_type=controller_type,
-            authorization=authorization,
-            headers=headers
-        )
+    # async def get_structured_medical_role(
+    #     self,
+    #     parameters:MaleoMetadataMedicalRoleGeneralParametersTransfers.GetSingle,
+    #     controller_type:MaleoMetadataGeneralEnums.ClientControllerType = MaleoMetadataGeneralEnums.ClientControllerType.HTTP,
+    #     authorization:Optional[Authorization] = None,
+    #     headers:Optional[Dict[str, str]] = None
+    # ) -> MaleoMetadataMedicalRoleClientResultsTypes.GetSingleStructured:
+    #     """Retrieve structured medical role from MaleoMetadata"""
+    #     @BaseExceptions.service_exception_handler(
+    #         operation="retrieving structured medical role",
+    #         logger=self._logger,
+    #         fail_result_class=MaleoMetadataMedicalRoleClientResultsTransfers.Fail
+    #     )
+    #     async def _impl(
+    #         parameters:MaleoMetadataMedicalRoleGeneralParametersTransfers.GetSingle,
+    #         controller_type:MaleoMetadataGeneralEnums.ClientControllerType = MaleoMetadataGeneralEnums.ClientControllerType.HTTP,
+    #         authorization:Optional[Authorization] = None,
+    #         headers:Optional[Dict[str, str]] = None
+    #     ):
+    #         #* Validate chosen controller type
+    #         if not isinstance(
+    #             controller_type,
+    #             MaleoMetadataGeneralEnums.ClientControllerType
+    #         ):
+    #             message = "Invalid controller type"
+    #             description = "The provided controller type did not exists"
+    #             return MaleoMetadataMedicalRoleClientResultsTransfers.Fail(
+    #                 message=message,
+    #                 description=description
+    #             )
+    #         #* Retrieve structured medical role using chosen controller
+    #         if controller_type == MaleoMetadataGeneralEnums.ClientControllerType.HTTP:
+    #             controller_result = (
+    #                 await self._controllers.http
+    #                 .get_structured_medical_role(
+    #                     parameters=parameters,
+    #                     authorization=authorization,
+    #                     headers=headers
+    #                 )
+    #             )
+    #         else:
+    #             message = "Invalid controller type"
+    #             description = "The provided controller type has not been implemented"
+    #             return MaleoMetadataMedicalRoleClientResultsTransfers.Fail(
+    #                 message=message,
+    #                 description=description
+    #             )
+    #         #* Return proper response
+    #         if not controller_result.success:
+    #             return (
+    #                 MaleoMetadataMedicalRoleClientResultsTransfers
+    #                 .Fail
+    #                 .model_validate(controller_result.content)
+    #             )
+    #         else:
+    #             return (
+    #                 MaleoMetadataMedicalRoleClientResultsTransfers
+    #                 .SingleStructured
+    #                 .model_validate(controller_result.content)
+    #             )
+    #     return await _impl(
+    #         parameters=parameters,
+    #         controller_type=controller_type,
+    #         authorization=authorization,
+    #         headers=headers
+    #     )

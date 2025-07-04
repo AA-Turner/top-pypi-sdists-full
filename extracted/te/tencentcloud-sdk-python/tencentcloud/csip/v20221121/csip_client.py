@@ -141,6 +141,29 @@ class CsipClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DescribeAccessKeyAsset(self, request):
+        """获取用户访问密钥资产列表
+
+        :param request: Request instance for DescribeAccessKeyAsset.
+        :type request: :class:`tencentcloud.csip.v20221121.models.DescribeAccessKeyAssetRequest`
+        :rtype: :class:`tencentcloud.csip.v20221121.models.DescribeAccessKeyAssetResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeAccessKeyAsset", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeAccessKeyAssetResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DescribeAlertList(self, request):
         """告警中心全量告警列表接口
 
@@ -155,6 +178,29 @@ class CsipClient(AbstractClient):
             body = self.call("DescribeAlertList", params, headers=headers)
             response = json.loads(body)
             model = models.DescribeAlertListResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeAssetProcessList(self, request):
+        """查询云边界分析-暴露路径下主机节点的进程列表
+
+        :param request: Request instance for DescribeAssetProcessList.
+        :type request: :class:`tencentcloud.csip.v20221121.models.DescribeAssetProcessListRequest`
+        :rtype: :class:`tencentcloud.csip.v20221121.models.DescribeAssetProcessListResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeAssetProcessList", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeAssetProcessListResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -293,6 +339,29 @@ class CsipClient(AbstractClient):
             body = self.call("DescribeCVMAssets", params, headers=headers)
             response = json.loads(body)
             model = models.DescribeCVMAssetsResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeCallRecord(self, request):
+        """获取调用记录列表
+
+        :param request: Request instance for DescribeCallRecord.
+        :type request: :class:`tencentcloud.csip.v20221121.models.DescribeCallRecordRequest`
+        :rtype: :class:`tencentcloud.csip.v20221121.models.DescribeCallRecordResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeCallRecord", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeCallRecordResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -441,7 +510,7 @@ class CsipClient(AbstractClient):
 
 
     def DescribeExposeAssetCategory(self, request):
-        """暴露面资产分类
+        """云边界分析资产分类
 
         :param request: Request instance for DescribeExposeAssetCategory.
         :type request: :class:`tencentcloud.csip.v20221121.models.DescribeExposeAssetCategoryRequest`
@@ -464,7 +533,7 @@ class CsipClient(AbstractClient):
 
 
     def DescribeExposePath(self, request):
-        """查询互联网暴露节点
+        """查询云边界分析路径节点
 
         :param request: Request instance for DescribeExposePath.
         :type request: :class:`tencentcloud.csip.v20221121.models.DescribeExposePathRequest`
@@ -487,7 +556,7 @@ class CsipClient(AbstractClient):
 
 
     def DescribeExposures(self, request):
-        """互联网暴露资产列表
+        """云边界分析资产列表
 
         :param request: Request instance for DescribeExposures.
         :type request: :class:`tencentcloud.csip.v20221121.models.DescribeExposuresRequest`
@@ -523,6 +592,29 @@ class CsipClient(AbstractClient):
             body = self.call("DescribeGatewayAssets", params, headers=headers)
             response = json.loads(body)
             model = models.DescribeGatewayAssetsResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeHighBaseLineRiskList(self, request):
+        """查询云边界分析-暴露路径下主机节点的高危基线风险列表
+
+        :param request: Request instance for DescribeHighBaseLineRiskList.
+        :type request: :class:`tencentcloud.csip.v20221121.models.DescribeHighBaseLineRiskListRequest`
+        :rtype: :class:`tencentcloud.csip.v20221121.models.DescribeHighBaseLineRiskListResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeHighBaseLineRiskList", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeHighBaseLineRiskListResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -993,7 +1085,7 @@ class CsipClient(AbstractClient):
 
 
     def DescribeScanStatistic(self, request):
-        """查询互联网暴露扫描结果统计信息
+        """查询云边界分析扫描结果统计信息
 
         :param request: Request instance for DescribeScanStatistic.
         :type request: :class:`tencentcloud.csip.v20221121.models.DescribeScanStatisticRequest`
@@ -1052,6 +1144,29 @@ class CsipClient(AbstractClient):
             body = self.call("DescribeSearchBugInfo", params, headers=headers)
             response = json.loads(body)
             model = models.DescribeSearchBugInfoResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeSourceIPAsset(self, request):
+        """获取用户访问密钥资产列表（源IP视角）
+
+        :param request: Request instance for DescribeSourceIPAsset.
+        :type request: :class:`tencentcloud.csip.v20221121.models.DescribeSourceIPAssetRequest`
+        :rtype: :class:`tencentcloud.csip.v20221121.models.DescribeSourceIPAssetResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeSourceIPAsset", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeSourceIPAssetResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -1282,6 +1397,29 @@ class CsipClient(AbstractClient):
             body = self.call("DescribeVpcAssets", params, headers=headers)
             response = json.loads(body)
             model = models.DescribeVpcAssetsResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeVulRiskList(self, request):
+        """查询云边界分析-暴露路径下主机节点的漏洞列表
+
+        :param request: Request instance for DescribeVulRiskList.
+        :type request: :class:`tencentcloud.csip.v20221121.models.DescribeVulRiskListRequest`
+        :rtype: :class:`tencentcloud.csip.v20221121.models.DescribeVulRiskListResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeVulRiskList", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeVulRiskListResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:

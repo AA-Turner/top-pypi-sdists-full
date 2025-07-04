@@ -277,6 +277,10 @@ def is_windows() -> bool:
     return platform.system().lower() == "windows"
 
 
+def is_wsl() -> bool:
+    return platform.system().lower() == "linux" and os.environ.get("WSL_DISTRO_NAME") is not None
+
+
 def ping(host):
     """Returns True if the host responds to a ping request"""
     is_in_windows = is_windows()
@@ -384,6 +388,8 @@ OVERRIDE_IN_DOCKER = parse_boolean_env("OVERRIDE_IN_DOCKER")
 is_in_docker = in_docker()
 is_in_linux = is_linux()
 is_in_macos = is_macos()
+is_in_windows = is_windows()
+is_in_wsl = is_wsl()
 default_ip = "0.0.0.0" if is_in_docker else "127.0.0.1"
 
 # CLI specific: the configuration profile to load
@@ -1007,6 +1013,7 @@ LAMBDA_RUNTIME_ENVIRONMENT_TIMEOUT = int(os.environ.get("LAMBDA_RUNTIME_ENVIRONM
 # b) json dict mapping the <runtime> to an image, e.g. {"python3.9": "custom-repo/lambda-py:thon3.9"}
 LAMBDA_RUNTIME_IMAGE_MAPPING = os.environ.get("LAMBDA_RUNTIME_IMAGE_MAPPING", "").strip()
 
+
 # PUBLIC: 0 (default)
 # Whether to disable usage of deprecated runtimes
 LAMBDA_RUNTIME_VALIDATION = int(os.environ.get("LAMBDA_RUNTIME_VALIDATION") or 0)
@@ -1244,6 +1251,9 @@ DISTRIBUTED_MODE = is_env_true("DISTRIBUTED_MODE")
 # This flag enables `connect_to` to be in-memory only and not do networking calls
 IN_MEMORY_CLIENT = is_env_true("IN_MEMORY_CLIENT")
 
+# This flag enables all responses from LocalStack to contain a `x-localstack` HTTP header.
+LOCALSTACK_RESPONSE_HEADER_ENABLED = is_env_not_false("LOCALSTACK_RESPONSE_HEADER_ENABLED")
+
 # List of environment variable names used for configuration that are passed from the host into the LocalStack container.
 # => Synchronize this list with the above and the configuration docs:
 # https://docs.localstack.cloud/references/configuration/
@@ -1350,6 +1360,7 @@ CONFIG_ENV_VARS = [
     "LOCALSTACK_API_KEY",
     "LOCALSTACK_AUTH_TOKEN",
     "LOCALSTACK_HOST",
+    "LOCALSTACK_RESPONSE_HEADER_ENABLED",
     "LOG_LICENSE_ISSUES",
     "LS_LOG",
     "MAIN_CONTAINER_NAME",

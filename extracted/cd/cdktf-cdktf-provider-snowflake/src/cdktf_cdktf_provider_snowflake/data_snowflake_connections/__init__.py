@@ -1,7 +1,7 @@
 r'''
 # `data_snowflake_connections`
 
-Refer to the Terraform Registry for docs: [`data_snowflake_connections`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/connections).
+Refer to the Terraform Registry for docs: [`data_snowflake_connections`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/data-sources/connections).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataSnowflakeConnections(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-snowflake.dataSnowflakeConnections.DataSnowflakeConnections",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/connections snowflake_connections}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/data-sources/connections snowflake_connections}.'''
 
     def __init__(
         self,
@@ -61,12 +61,12 @@ class DataSnowflakeConnections(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/connections snowflake_connections} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/data-sources/connections snowflake_connections} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/connections#id DataSnowflakeConnections#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param like: Filters the output with **case-insensitive** pattern, with support for SQL wildcard characters (``%`` and ``_``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/connections#like DataSnowflakeConnections#like}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/data-sources/connections#id DataSnowflakeConnections#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param like: Filters the output with **case-insensitive** pattern, with support for SQL wildcard characters (``%`` and ``_``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/data-sources/connections#like DataSnowflakeConnections#like}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -106,7 +106,7 @@ class DataSnowflakeConnections(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataSnowflakeConnections to import.
-        :param import_from_id: The id of the existing DataSnowflakeConnections that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/connections#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataSnowflakeConnections that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/data-sources/connections#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataSnowflakeConnections to import is found.
         '''
         if __debug__:
@@ -215,8 +215,8 @@ class DataSnowflakeConnectionsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/connections#id DataSnowflakeConnections#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param like: Filters the output with **case-insensitive** pattern, with support for SQL wildcard characters (``%`` and ``_``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/connections#like DataSnowflakeConnections#like}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/data-sources/connections#id DataSnowflakeConnections#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param like: Filters the output with **case-insensitive** pattern, with support for SQL wildcard characters (``%`` and ``_``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/data-sources/connections#like DataSnowflakeConnections#like}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -317,7 +317,7 @@ class DataSnowflakeConnectionsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/connections#id DataSnowflakeConnections#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/data-sources/connections#id DataSnowflakeConnections#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -329,7 +329,7 @@ class DataSnowflakeConnectionsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def like(self) -> typing.Optional[builtins.str]:
         '''Filters the output with **case-insensitive** pattern, with support for SQL wildcard characters (``%`` and ``_``).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/data-sources/connections#like DataSnowflakeConnections#like}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/data-sources/connections#like DataSnowflakeConnections#like}
         '''
         result = self._values.get("like")
         return typing.cast(typing.Optional[builtins.str], result)

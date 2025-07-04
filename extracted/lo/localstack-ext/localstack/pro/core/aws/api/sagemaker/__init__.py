@@ -57,6 +57,13 @@ CapacityUnit = int
 Catalog = str
 Cents = int
 CertifyForMarketplace = bool
+CfnStackId = str
+CfnStackName = str
+CfnStackParameterKey = str
+CfnStackParameterValue = str
+CfnStackStatusMessage = str
+CfnTemplateName = str
+CfnTemplateURL = str
 ChannelName = str
 Cidr = str
 ClarifyContentTemplate = str
@@ -1262,6 +1269,7 @@ class ClusterInstanceType(StrEnum):
     ml_g6e_48xlarge = "ml.g6e.48xlarge"
     ml_p5e_48xlarge = "ml.p5e.48xlarge"
     ml_p5en_48xlarge = "ml.p5en.48xlarge"
+    ml_p6_b200_48xlarge = "ml.p6-b200.48xlarge"
     ml_trn2_48xlarge = "ml.trn2.48xlarge"
     ml_c6i_large = "ml.c6i.large"
     ml_c6i_xlarge = "ml.c6i.xlarge"
@@ -2545,6 +2553,33 @@ class ProcessingInstanceType(StrEnum):
     ml_c6i_16xlarge = "ml.c6i.16xlarge"
     ml_c6i_24xlarge = "ml.c6i.24xlarge"
     ml_c6i_32xlarge = "ml.c6i.32xlarge"
+    ml_m7i_large = "ml.m7i.large"
+    ml_m7i_xlarge = "ml.m7i.xlarge"
+    ml_m7i_2xlarge = "ml.m7i.2xlarge"
+    ml_m7i_4xlarge = "ml.m7i.4xlarge"
+    ml_m7i_8xlarge = "ml.m7i.8xlarge"
+    ml_m7i_12xlarge = "ml.m7i.12xlarge"
+    ml_m7i_16xlarge = "ml.m7i.16xlarge"
+    ml_m7i_24xlarge = "ml.m7i.24xlarge"
+    ml_m7i_48xlarge = "ml.m7i.48xlarge"
+    ml_c7i_large = "ml.c7i.large"
+    ml_c7i_xlarge = "ml.c7i.xlarge"
+    ml_c7i_2xlarge = "ml.c7i.2xlarge"
+    ml_c7i_4xlarge = "ml.c7i.4xlarge"
+    ml_c7i_8xlarge = "ml.c7i.8xlarge"
+    ml_c7i_12xlarge = "ml.c7i.12xlarge"
+    ml_c7i_16xlarge = "ml.c7i.16xlarge"
+    ml_c7i_24xlarge = "ml.c7i.24xlarge"
+    ml_c7i_48xlarge = "ml.c7i.48xlarge"
+    ml_r7i_large = "ml.r7i.large"
+    ml_r7i_xlarge = "ml.r7i.xlarge"
+    ml_r7i_2xlarge = "ml.r7i.2xlarge"
+    ml_r7i_4xlarge = "ml.r7i.4xlarge"
+    ml_r7i_8xlarge = "ml.r7i.8xlarge"
+    ml_r7i_12xlarge = "ml.r7i.12xlarge"
+    ml_r7i_16xlarge = "ml.r7i.16xlarge"
+    ml_r7i_24xlarge = "ml.r7i.24xlarge"
+    ml_r7i_48xlarge = "ml.r7i.48xlarge"
 
 
 class ProcessingJobStatus(StrEnum):
@@ -2826,6 +2861,45 @@ class ProductionVariantInstanceType(StrEnum):
     ml_r7i_16xlarge = "ml.r7i.16xlarge"
     ml_r7i_24xlarge = "ml.r7i.24xlarge"
     ml_r7i_48xlarge = "ml.r7i.48xlarge"
+    ml_c8g_medium = "ml.c8g.medium"
+    ml_c8g_large = "ml.c8g.large"
+    ml_c8g_xlarge = "ml.c8g.xlarge"
+    ml_c8g_2xlarge = "ml.c8g.2xlarge"
+    ml_c8g_4xlarge = "ml.c8g.4xlarge"
+    ml_c8g_8xlarge = "ml.c8g.8xlarge"
+    ml_c8g_12xlarge = "ml.c8g.12xlarge"
+    ml_c8g_16xlarge = "ml.c8g.16xlarge"
+    ml_c8g_24xlarge = "ml.c8g.24xlarge"
+    ml_c8g_48xlarge = "ml.c8g.48xlarge"
+    ml_r7gd_medium = "ml.r7gd.medium"
+    ml_r7gd_large = "ml.r7gd.large"
+    ml_r7gd_xlarge = "ml.r7gd.xlarge"
+    ml_r7gd_2xlarge = "ml.r7gd.2xlarge"
+    ml_r7gd_4xlarge = "ml.r7gd.4xlarge"
+    ml_r7gd_8xlarge = "ml.r7gd.8xlarge"
+    ml_r7gd_12xlarge = "ml.r7gd.12xlarge"
+    ml_r7gd_16xlarge = "ml.r7gd.16xlarge"
+    ml_m8g_medium = "ml.m8g.medium"
+    ml_m8g_large = "ml.m8g.large"
+    ml_m8g_xlarge = "ml.m8g.xlarge"
+    ml_m8g_2xlarge = "ml.m8g.2xlarge"
+    ml_m8g_4xlarge = "ml.m8g.4xlarge"
+    ml_m8g_8xlarge = "ml.m8g.8xlarge"
+    ml_m8g_12xlarge = "ml.m8g.12xlarge"
+    ml_m8g_16xlarge = "ml.m8g.16xlarge"
+    ml_m8g_24xlarge = "ml.m8g.24xlarge"
+    ml_m8g_48xlarge = "ml.m8g.48xlarge"
+    ml_c6in_large = "ml.c6in.large"
+    ml_c6in_xlarge = "ml.c6in.xlarge"
+    ml_c6in_2xlarge = "ml.c6in.2xlarge"
+    ml_c6in_4xlarge = "ml.c6in.4xlarge"
+    ml_c6in_8xlarge = "ml.c6in.8xlarge"
+    ml_c6in_12xlarge = "ml.c6in.12xlarge"
+    ml_c6in_16xlarge = "ml.c6in.16xlarge"
+    ml_c6in_24xlarge = "ml.c6in.24xlarge"
+    ml_c6in_32xlarge = "ml.c6in.32xlarge"
+    ml_p6_b200_48xlarge = "ml.p6-b200.48xlarge"
+    ml_p6e_gb200_36xlarge = "ml.p6e-gb200.36xlarge"
 
 
 class ProfilingStatus(StrEnum):
@@ -2933,6 +3007,7 @@ class ReservedCapacityInstanceType(StrEnum):
     ml_p5en_48xlarge = "ml.p5en.48xlarge"
     ml_trn1_32xlarge = "ml.trn1.32xlarge"
     ml_trn2_48xlarge = "ml.trn2.48xlarge"
+    ml_p6_b200_48xlarge = "ml.p6-b200.48xlarge"
 
 
 class ReservedCapacityStatus(StrEnum):
@@ -3011,6 +3086,7 @@ class S3DataType(StrEnum):
     ManifestFile = "ManifestFile"
     S3Prefix = "S3Prefix"
     AugmentedManifestFile = "AugmentedManifestFile"
+    Converse = "Converse"
 
 
 class S3ModelDataType(StrEnum):
@@ -3484,6 +3560,34 @@ class TrainingInstanceType(StrEnum):
     ml_r5_12xlarge = "ml.r5.12xlarge"
     ml_r5_16xlarge = "ml.r5.16xlarge"
     ml_r5_24xlarge = "ml.r5.24xlarge"
+    ml_p6_b200_48xlarge = "ml.p6-b200.48xlarge"
+    ml_m7i_large = "ml.m7i.large"
+    ml_m7i_xlarge = "ml.m7i.xlarge"
+    ml_m7i_2xlarge = "ml.m7i.2xlarge"
+    ml_m7i_4xlarge = "ml.m7i.4xlarge"
+    ml_m7i_8xlarge = "ml.m7i.8xlarge"
+    ml_m7i_12xlarge = "ml.m7i.12xlarge"
+    ml_m7i_16xlarge = "ml.m7i.16xlarge"
+    ml_m7i_24xlarge = "ml.m7i.24xlarge"
+    ml_m7i_48xlarge = "ml.m7i.48xlarge"
+    ml_c7i_large = "ml.c7i.large"
+    ml_c7i_xlarge = "ml.c7i.xlarge"
+    ml_c7i_2xlarge = "ml.c7i.2xlarge"
+    ml_c7i_4xlarge = "ml.c7i.4xlarge"
+    ml_c7i_8xlarge = "ml.c7i.8xlarge"
+    ml_c7i_12xlarge = "ml.c7i.12xlarge"
+    ml_c7i_16xlarge = "ml.c7i.16xlarge"
+    ml_c7i_24xlarge = "ml.c7i.24xlarge"
+    ml_c7i_48xlarge = "ml.c7i.48xlarge"
+    ml_r7i_large = "ml.r7i.large"
+    ml_r7i_xlarge = "ml.r7i.xlarge"
+    ml_r7i_2xlarge = "ml.r7i.2xlarge"
+    ml_r7i_4xlarge = "ml.r7i.4xlarge"
+    ml_r7i_8xlarge = "ml.r7i.8xlarge"
+    ml_r7i_12xlarge = "ml.r7i.12xlarge"
+    ml_r7i_16xlarge = "ml.r7i.16xlarge"
+    ml_r7i_24xlarge = "ml.r7i.24xlarge"
+    ml_r7i_48xlarge = "ml.r7i.48xlarge"
 
 
 class TrainingJobEarlyStoppingType(StrEnum):
@@ -5503,6 +5607,85 @@ class CategoricalParameterRangeSpecification(TypedDict, total=False):
 
 CategoricalParameterRanges = List[CategoricalParameterRange]
 CategoricalParameters = List[CategoricalParameter]
+
+
+class CfnStackCreateParameter(TypedDict, total=False):
+    """A key-value pair that represents a parameter for the CloudFormation
+    stack.
+    """
+
+    Key: CfnStackParameterKey
+    Value: Optional[CfnStackParameterValue]
+
+
+CfnStackCreateParameters = List[CfnStackCreateParameter]
+
+
+class CfnCreateTemplateProvider(TypedDict, total=False):
+    """The CloudFormation template provider configuration for creating
+    infrastructure resources.
+    """
+
+    TemplateName: CfnTemplateName
+    TemplateURL: CfnTemplateURL
+    RoleARN: Optional[RoleArn]
+    Parameters: Optional[CfnStackCreateParameters]
+
+
+class CfnStackDetail(TypedDict, total=False):
+    """Details about the CloudFormation stack."""
+
+    Name: Optional[CfnStackName]
+    Id: Optional[CfnStackId]
+    StatusMessage: CfnStackStatusMessage
+
+
+class CfnStackParameter(TypedDict, total=False):
+    """A key-value pair representing a parameter used in the CloudFormation
+    stack.
+    """
+
+    Key: CfnStackParameterKey
+    Value: Optional[CfnStackParameterValue]
+
+
+CfnStackParameters = List[CfnStackParameter]
+
+
+class CfnStackUpdateParameter(TypedDict, total=False):
+    """A key-value pair representing a parameter used in the CloudFormation
+    stack.
+    """
+
+    Key: CfnStackParameterKey
+    Value: Optional[CfnStackParameterValue]
+
+
+CfnStackUpdateParameters = List[CfnStackUpdateParameter]
+
+
+class CfnTemplateProviderDetail(TypedDict, total=False):
+    """Details about a CloudFormation template provider configuration and
+    associated provisioning information.
+    """
+
+    TemplateName: CfnTemplateName
+    TemplateURL: CfnTemplateURL
+    RoleARN: Optional[RoleArn]
+    Parameters: Optional[CfnStackParameters]
+    StackDetail: Optional[CfnStackDetail]
+
+
+class CfnUpdateTemplateProvider(TypedDict, total=False):
+    """Contains configuration details for updating an existing CloudFormation
+    template provider in the project.
+    """
+
+    TemplateName: CfnTemplateName
+    TemplateURL: CfnTemplateURL
+    Parameters: Optional[CfnStackUpdateParameters]
+
+
 InputModes = List[TrainingInputMode]
 CompressionTypes = List[CompressionType]
 
@@ -9285,6 +9468,17 @@ class CreateProcessingJobResponse(TypedDict, total=False):
     ProcessingJobArn: ProcessingJobArn
 
 
+class CreateTemplateProvider(TypedDict, total=False):
+    """Contains configuration details for a template provider. Only one type of
+    template provider can be specified.
+    """
+
+    CfnTemplateProvider: Optional[CfnCreateTemplateProvider]
+
+
+CreateTemplateProviderList = List[CreateTemplateProvider]
+
+
 class ProvisioningParameter(TypedDict, total=False):
     """A key value pair used when you provision a project as a service catalog
     product. For information, see `What is Amazon Web Services Service
@@ -9316,6 +9510,7 @@ class CreateProjectInput(ServiceRequest):
     ProjectDescription: Optional[EntityDescription]
     ServiceCatalogProvisioningDetails: Optional[ServiceCatalogProvisioningDetails]
     Tags: Optional[TagList]
+    TemplateProviders: Optional[CreateTemplateProviderList]
 
 
 class CreateProjectOutput(TypedDict, total=False):
@@ -11988,6 +12183,17 @@ class DescribeProjectInput(ServiceRequest):
     ProjectName: ProjectEntityName
 
 
+class TemplateProviderDetail(TypedDict, total=False):
+    """Details about a template provider configuration and associated
+    provisioning information.
+    """
+
+    CfnTemplateProviderDetail: Optional[CfnTemplateProviderDetail]
+
+
+TemplateProviderDetailList = List[TemplateProviderDetail]
+
+
 class ServiceCatalogProvisionedProductDetails(TypedDict, total=False):
     """Details of a provisioned service catalog product. For information about
     service catalog, see `What is Amazon Web Services Service
@@ -12006,6 +12212,7 @@ class DescribeProjectOutput(TypedDict, total=False):
     ServiceCatalogProvisioningDetails: Optional[ServiceCatalogProvisioningDetails]
     ServiceCatalogProvisionedProductDetails: Optional[ServiceCatalogProvisionedProductDetails]
     ProjectStatus: ProjectStatus
+    TemplateProviderDetails: Optional[TemplateProviderDetailList]
     CreatedBy: Optional[UserContext]
     CreationTime: Timestamp
     LastModifiedTime: Optional[Timestamp]
@@ -15646,6 +15853,7 @@ class Project(TypedDict, total=False):
     ProjectStatus: Optional[ProjectStatus]
     CreatedBy: Optional[UserContext]
     CreationTime: Optional[Timestamp]
+    TemplateProviderDetails: Optional[TemplateProviderDetailList]
     Tags: Optional[TagList]
     LastModifiedTime: Optional[Timestamp]
     LastModifiedBy: Optional[UserContext]
@@ -16666,11 +16874,23 @@ class UpdatePipelineResponse(TypedDict, total=False):
     PipelineArn: Optional[PipelineArn]
 
 
+class UpdateTemplateProvider(TypedDict, total=False):
+    """Contains configuration details for updating an existing template
+    provider in the project.
+    """
+
+    CfnTemplateProvider: Optional[CfnUpdateTemplateProvider]
+
+
+UpdateTemplateProviderList = List[UpdateTemplateProvider]
+
+
 class UpdateProjectInput(ServiceRequest):
     ProjectName: ProjectEntityName
     ProjectDescription: Optional[EntityDescription]
     ServiceCatalogProvisioningUpdateDetails: Optional[ServiceCatalogProvisioningUpdateDetails]
     Tags: Optional[TagList]
+    TemplateProvidersToUpdate: Optional[UpdateTemplateProviderList]
 
 
 class UpdateProjectOutput(TypedDict, total=False):
@@ -19224,6 +19444,7 @@ class SagemakerApi:
         project_description: EntityDescription | None = None,
         service_catalog_provisioning_details: ServiceCatalogProvisioningDetails | None = None,
         tags: TagList | None = None,
+        template_providers: CreateTemplateProviderList | None = None,
         **kwargs,
     ) -> CreateProjectOutput:
         """Creates a machine learning (ML) project that can contain one or more
@@ -19236,6 +19457,8 @@ class SagemakerApi:
         catalog.
         :param tags: An array of key-value pairs that you want to use to organize and track
         your Amazon Web Services resource costs.
+        :param template_providers: An array of template provider configurations for creating infrastructure
+        resources for the project.
         :returns: CreateProjectOutput
         :raises ResourceLimitExceeded:
         """
@@ -25998,6 +26221,7 @@ class SagemakerApi:
         service_catalog_provisioning_update_details: ServiceCatalogProvisioningUpdateDetails
         | None = None,
         tags: TagList | None = None,
+        template_providers_to_update: UpdateTemplateProviderList | None = None,
         **kwargs,
     ) -> UpdateProjectOutput:
         """Updates a machine learning (ML) project that is created from a template
@@ -26014,6 +26238,7 @@ class SagemakerApi:
         :param service_catalog_provisioning_update_details: The product ID and provisioning artifact ID to provision a service
         catalog.
         :param tags: An array of key-value pairs.
+        :param template_providers_to_update: The template providers to update in the project.
         :returns: UpdateProjectOutput
         :raises ConflictException:
         """

@@ -10,6 +10,8 @@ IntegerWithLengthBetween0And3600 = int
 IntegerWithLengthBetween50And30000 = int
 IntegerWithLengthBetweenMinus1And86400 = int
 NextToken = str
+RoutingRulePriority = int
+MaxResults = int
 SelectionExpression = str
 SelectionKey = str
 StringWithLengthBetween0And1024 = str
@@ -96,6 +98,12 @@ class PassthroughBehavior(StrEnum):
 class ProtocolType(StrEnum):
     WEBSOCKET = "WEBSOCKET"
     HTTP = "HTTP"
+
+
+class RoutingMode(StrEnum):
+    API_MAPPING_ONLY = "API_MAPPING_ONLY"
+    ROUTING_RULE_ONLY = "ROUTING_RULE_ONLY"
+    ROUTING_RULE_THEN_API_MAPPING = "ROUTING_RULE_THEN_API_MAPPING"
 
 
 class SecurityPolicy(StrEnum):
@@ -467,6 +475,7 @@ class CreateDomainNameInput(TypedDict, total=False):
     DomainName: StringWithLengthBetween1And512
     DomainNameConfigurations: Optional[DomainNameConfigurations]
     MutualTlsAuthentication: Optional[MutualTlsAuthenticationInput]
+    RoutingMode: Optional[RoutingMode]
     Tags: Optional[Tags]
 
 
@@ -476,6 +485,7 @@ class CreateDomainNameRequest(ServiceRequest):
     DomainName: StringWithLengthBetween1And512
     DomainNameConfigurations: Optional[DomainNameConfigurations]
     MutualTlsAuthentication: Optional[MutualTlsAuthenticationInput]
+    RoutingMode: Optional[RoutingMode]
     Tags: Optional[Tags]
 
 
@@ -488,8 +498,10 @@ class MutualTlsAuthentication(TypedDict, total=False):
 class CreateDomainNameResponse(TypedDict, total=False):
     ApiMappingSelectionExpression: Optional[SelectionExpression]
     DomainName: Optional[StringWithLengthBetween1And512]
+    DomainNameArn: Optional[Arn]
     DomainNameConfigurations: Optional[DomainNameConfigurations]
     MutualTlsAuthentication: Optional[MutualTlsAuthentication]
+    RoutingMode: Optional[RoutingMode]
     Tags: Optional[Tags]
 
 
@@ -733,6 +745,74 @@ class CreateRouteResponseResponse(TypedDict, total=False):
     RouteResponseKey: Optional[SelectionKey]
 
 
+class RoutingRuleMatchHeaderValue(TypedDict, total=False):
+    """Represents a MatchHeaderValue."""
+
+    Header: SelectionKey
+    ValueGlob: SelectionExpression
+
+
+_listOfRoutingRuleMatchHeaderValue = List[RoutingRuleMatchHeaderValue]
+
+
+class RoutingRuleMatchHeaders(TypedDict, total=False):
+    """Represents a MatchHeaders condition."""
+
+    AnyOf: _listOfRoutingRuleMatchHeaderValue
+
+
+_listOfSelectionKey = List[SelectionKey]
+
+
+class RoutingRuleMatchBasePaths(TypedDict, total=False):
+    """Represents a MatchBasePaths condition."""
+
+    AnyOf: _listOfSelectionKey
+
+
+class RoutingRuleCondition(TypedDict, total=False):
+    """Represents a routing rule condition."""
+
+    MatchBasePaths: Optional[RoutingRuleMatchBasePaths]
+    MatchHeaders: Optional[RoutingRuleMatchHeaders]
+
+
+_listOfRoutingRuleCondition = List[RoutingRuleCondition]
+
+
+class RoutingRuleActionInvokeApi(TypedDict, total=False):
+    """Represents an InvokeApi action."""
+
+    ApiId: Id
+    Stage: StringWithLengthBetween1And128
+    StripBasePath: Optional[_boolean]
+
+
+class RoutingRuleAction(TypedDict, total=False):
+    """The routing rule action."""
+
+    InvokeApi: RoutingRuleActionInvokeApi
+
+
+_listOfRoutingRuleAction = List[RoutingRuleAction]
+
+
+class CreateRoutingRuleRequest(ServiceRequest):
+    Actions: _listOfRoutingRuleAction
+    Conditions: _listOfRoutingRuleCondition
+    DomainName: _string
+    DomainNameId: Optional[_string]
+    Priority: RoutingRulePriority
+
+
+class CreateRoutingRuleResponse(TypedDict, total=False):
+    Actions: Optional[_listOfRoutingRuleAction]
+    Conditions: Optional[_listOfRoutingRuleCondition]
+    Priority: Optional[RoutingRulePriority]
+    RoutingRuleArn: Optional[Arn]
+    RoutingRuleId: Optional[Id]
+
+
 StageVariablesMap = Dict[_string, StringWithLengthBetween0And2048]
 
 
@@ -902,6 +982,12 @@ class DeleteRouteSettingsRequest(ServiceRequest):
     StageName: _string
 
 
+class DeleteRoutingRuleRequest(ServiceRequest):
+    DomainName: _string
+    DomainNameId: Optional[_string]
+    RoutingRuleId: _string
+
+
 class DeleteStageRequest(ServiceRequest):
     ApiId: _string
     StageName: _string
@@ -948,8 +1034,10 @@ class DomainName(TypedDict, total=False):
 
     ApiMappingSelectionExpression: Optional[SelectionExpression]
     DomainName: StringWithLengthBetween1And512
+    DomainNameArn: Optional[Arn]
     DomainNameConfigurations: Optional[DomainNameConfigurations]
     MutualTlsAuthentication: Optional[MutualTlsAuthentication]
+    RoutingMode: Optional[RoutingMode]
     Tags: Optional[Tags]
 
 
@@ -1103,8 +1191,10 @@ class GetDomainNameRequest(ServiceRequest):
 class GetDomainNameResponse(TypedDict, total=False):
     ApiMappingSelectionExpression: Optional[SelectionExpression]
     DomainName: Optional[StringWithLengthBetween1And512]
+    DomainNameArn: Optional[Arn]
     DomainNameConfigurations: Optional[DomainNameConfigurations]
     MutualTlsAuthentication: Optional[MutualTlsAuthentication]
+    RoutingMode: Optional[RoutingMode]
     Tags: Optional[Tags]
 
 
@@ -1367,6 +1457,45 @@ class GetRoutesResponse(TypedDict, total=False):
     NextToken: Optional[NextToken]
 
 
+class GetRoutingRuleRequest(ServiceRequest):
+    DomainName: _string
+    DomainNameId: Optional[_string]
+    RoutingRuleId: _string
+
+
+class GetRoutingRuleResponse(TypedDict, total=False):
+    Actions: Optional[_listOfRoutingRuleAction]
+    Conditions: Optional[_listOfRoutingRuleCondition]
+    Priority: Optional[RoutingRulePriority]
+    RoutingRuleArn: Optional[Arn]
+    RoutingRuleId: Optional[Id]
+
+
+class ListRoutingRulesRequest(ServiceRequest):
+    DomainName: _string
+    DomainNameId: Optional[_string]
+    MaxResults: Optional[MaxResults]
+    NextToken: Optional[_string]
+
+
+class RoutingRule(TypedDict, total=False):
+    """Represents a routing rule."""
+
+    Actions: Optional[_listOfRoutingRuleAction]
+    Conditions: Optional[_listOfRoutingRuleCondition]
+    Priority: Optional[RoutingRulePriority]
+    RoutingRuleArn: Optional[Arn]
+    RoutingRuleId: Optional[Id]
+
+
+_listOfRoutingRule = List[RoutingRule]
+
+
+class ListRoutingRulesResponse(TypedDict, total=False):
+    NextToken: Optional[NextToken]
+    RoutingRules: Optional[_listOfRoutingRule]
+
+
 class GetStageRequest(ServiceRequest):
     ApiId: _string
     StageName: _string
@@ -1538,6 +1667,23 @@ class Models(TypedDict, total=False):
     NextToken: Optional[NextToken]
 
 
+class PutRoutingRuleRequest(ServiceRequest):
+    Actions: _listOfRoutingRuleAction
+    Conditions: _listOfRoutingRuleCondition
+    DomainName: _string
+    DomainNameId: Optional[_string]
+    Priority: RoutingRulePriority
+    RoutingRuleId: _string
+
+
+class PutRoutingRuleResponse(TypedDict, total=False):
+    Actions: Optional[_listOfRoutingRuleAction]
+    Conditions: Optional[_listOfRoutingRuleCondition]
+    Priority: Optional[RoutingRulePriority]
+    RoutingRuleArn: Optional[Arn]
+    RoutingRuleId: Optional[Id]
+
+
 class ReimportApiInput(TypedDict, total=False):
     """Overwrites the configuration of an existing API using the provided
     definition. Supported only for HTTP APIs.
@@ -1585,6 +1731,19 @@ class Routes(TypedDict, total=False):
 
     Items: Optional[_listOfRoute]
     NextToken: Optional[NextToken]
+
+
+class RoutingRuleInput(TypedDict, total=False):
+    Actions: _listOfRoutingRuleAction
+    Conditions: _listOfRoutingRuleCondition
+    Priority: RoutingRulePriority
+
+
+class RoutingRules(TypedDict, total=False):
+    """A collection of routing rules."""
+
+    NextToken: Optional[NextToken]
+    RoutingRules: Optional[_listOfRoutingRule]
 
 
 class Stages(TypedDict, total=False):
@@ -1778,6 +1937,7 @@ class UpdateDomainNameInput(TypedDict, total=False):
 
     DomainNameConfigurations: Optional[DomainNameConfigurations]
     MutualTlsAuthentication: Optional[MutualTlsAuthenticationInput]
+    RoutingMode: Optional[RoutingMode]
 
 
 class UpdateDomainNameRequest(ServiceRequest):
@@ -1786,13 +1946,16 @@ class UpdateDomainNameRequest(ServiceRequest):
     DomainName: _string
     DomainNameConfigurations: Optional[DomainNameConfigurations]
     MutualTlsAuthentication: Optional[MutualTlsAuthenticationInput]
+    RoutingMode: Optional[RoutingMode]
 
 
 class UpdateDomainNameResponse(TypedDict, total=False):
     ApiMappingSelectionExpression: Optional[SelectionExpression]
     DomainName: Optional[StringWithLengthBetween1And512]
+    DomainNameArn: Optional[Arn]
     DomainNameConfigurations: Optional[DomainNameConfigurations]
     MutualTlsAuthentication: Optional[MutualTlsAuthentication]
+    RoutingMode: Optional[RoutingMode]
     Tags: Optional[Tags]
 
 
@@ -2232,6 +2395,7 @@ class Apigatewayv2Api:
         domain_name: StringWithLengthBetween1And512,
         domain_name_configurations: DomainNameConfigurations | None = None,
         mutual_tls_authentication: MutualTlsAuthenticationInput | None = None,
+        routing_mode: RoutingMode | None = None,
         tags: Tags | None = None,
         **kwargs,
     ) -> CreateDomainNameResponse:
@@ -2240,6 +2404,7 @@ class Apigatewayv2Api:
         :param domain_name: The domain name.
         :param domain_name_configurations: The domain name configurations.
         :param mutual_tls_authentication: The mutual TLS authentication configuration for a custom domain name.
+        :param routing_mode: The routing mode.
         :param tags: The collection of tags associated with a domain name.
         :returns: CreateDomainNameResponse
         :raises NotFoundException:
@@ -2428,6 +2593,32 @@ class Apigatewayv2Api:
         :param response_models: The response models for the route response.
         :param response_parameters: The route response parameters.
         :returns: CreateRouteResponseResponse
+        :raises NotFoundException:
+        :raises TooManyRequestsException:
+        :raises BadRequestException:
+        :raises ConflictException:
+        """
+        raise NotImplementedError
+
+    @handler("CreateRoutingRule")
+    def create_routing_rule(
+        self,
+        context: RequestContext,
+        domain_name: _string,
+        actions: _listOfRoutingRuleAction,
+        priority: RoutingRulePriority,
+        conditions: _listOfRoutingRuleCondition,
+        domain_name_id: _string | None = None,
+        **kwargs,
+    ) -> CreateRoutingRuleResponse:
+        """Creates a RoutingRule.
+
+        :param domain_name: The domain name.
+        :param actions: Represents a routing rule action.
+        :param priority: Represents the priority of the routing rule.
+        :param conditions: Represents a condition.
+        :param domain_name_id: The domain name ID.
+        :returns: CreateRoutingRuleResponse
         :raises NotFoundException:
         :raises TooManyRequestsException:
         :raises BadRequestException:
@@ -2692,6 +2883,26 @@ class Apigatewayv2Api:
         :param api_id: The API identifier.
         :raises NotFoundException:
         :raises TooManyRequestsException:
+        """
+        raise NotImplementedError
+
+    @handler("DeleteRoutingRule")
+    def delete_routing_rule(
+        self,
+        context: RequestContext,
+        routing_rule_id: _string,
+        domain_name: _string,
+        domain_name_id: _string | None = None,
+        **kwargs,
+    ) -> None:
+        """Deletes a routing rule.
+
+        :param routing_rule_id: The routing rule ID.
+        :param domain_name: The domain name.
+        :param domain_name_id: The domain name ID.
+        :raises NotFoundException:
+        :raises TooManyRequestsException:
+        :raises BadRequestException:
         """
         raise NotImplementedError
 
@@ -3136,6 +3347,50 @@ class Apigatewayv2Api:
         """
         raise NotImplementedError
 
+    @handler("GetRoutingRule")
+    def get_routing_rule(
+        self,
+        context: RequestContext,
+        routing_rule_id: _string,
+        domain_name: _string,
+        domain_name_id: _string | None = None,
+        **kwargs,
+    ) -> GetRoutingRuleResponse:
+        """Gets a routing rule.
+
+        :param routing_rule_id: The routing rule ID.
+        :param domain_name: The domain name.
+        :param domain_name_id: The domain name ID.
+        :returns: GetRoutingRuleResponse
+        :raises NotFoundException:
+        :raises TooManyRequestsException:
+        :raises BadRequestException:
+        """
+        raise NotImplementedError
+
+    @handler("ListRoutingRules")
+    def list_routing_rules(
+        self,
+        context: RequestContext,
+        domain_name: _string,
+        domain_name_id: _string | None = None,
+        max_results: MaxResults | None = None,
+        next_token: _string | None = None,
+        **kwargs,
+    ) -> ListRoutingRulesResponse:
+        """Lists routing rules.
+
+        :param domain_name: The domain name.
+        :param domain_name_id: The domain name ID.
+        :param max_results: The maximum number of elements to be returned for this resource.
+        :param next_token: The next page of elements from this collection.
+        :returns: ListRoutingRulesResponse
+        :raises NotFoundException:
+        :raises TooManyRequestsException:
+        :raises BadRequestException:
+        """
+        raise NotImplementedError
+
     @handler("GetStage")
     def get_stage(
         self, context: RequestContext, stage_name: _string, api_id: _string, **kwargs
@@ -3231,6 +3486,34 @@ class Apigatewayv2Api:
         :param fail_on_warnings: Specifies whether to rollback the API creation when a warning is
         encountered.
         :returns: ImportApiResponse
+        :raises NotFoundException:
+        :raises TooManyRequestsException:
+        :raises BadRequestException:
+        :raises ConflictException:
+        """
+        raise NotImplementedError
+
+    @handler("PutRoutingRule")
+    def put_routing_rule(
+        self,
+        context: RequestContext,
+        routing_rule_id: _string,
+        domain_name: _string,
+        actions: _listOfRoutingRuleAction,
+        priority: RoutingRulePriority,
+        conditions: _listOfRoutingRuleCondition,
+        domain_name_id: _string | None = None,
+        **kwargs,
+    ) -> PutRoutingRuleResponse:
+        """Updates a routing rule.
+
+        :param routing_rule_id: The routing rule ID.
+        :param domain_name: The domain name.
+        :param actions: The routing rule action.
+        :param priority: The routing rule priority.
+        :param conditions: The routing rule condition.
+        :param domain_name_id: The domain name ID.
+        :returns: PutRoutingRuleResponse
         :raises NotFoundException:
         :raises TooManyRequestsException:
         :raises BadRequestException:
@@ -3435,6 +3718,7 @@ class Apigatewayv2Api:
         domain_name: _string,
         domain_name_configurations: DomainNameConfigurations | None = None,
         mutual_tls_authentication: MutualTlsAuthenticationInput | None = None,
+        routing_mode: RoutingMode | None = None,
         **kwargs,
     ) -> UpdateDomainNameResponse:
         """Updates a domain name.
@@ -3442,6 +3726,7 @@ class Apigatewayv2Api:
         :param domain_name: The domain name.
         :param domain_name_configurations: The domain name configurations.
         :param mutual_tls_authentication: The mutual TLS authentication configuration for a custom domain name.
+        :param routing_mode: The routing mode.
         :returns: UpdateDomainNameResponse
         :raises NotFoundException:
         :raises TooManyRequestsException:

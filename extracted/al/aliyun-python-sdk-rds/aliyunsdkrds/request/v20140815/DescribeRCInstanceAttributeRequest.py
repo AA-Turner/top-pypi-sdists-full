@@ -41,3 +41,8 @@ class DescribeRCInstanceAttributeRequest(RpcRequest):
 
 	def set_InstanceId(self, InstanceId):  # String
 		self.add_query_param('InstanceId', InstanceId)
+	def get_MaxDisksResults(self): # Long
+		return self.get_query_params().get('MaxDisksResults')
+
+	def set_MaxDisksResults(self, MaxDisksResults):  # Long
+		self.add_query_param('MaxDisksResults', MaxDisksResults)

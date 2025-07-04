@@ -19,6 +19,7 @@ Usage::
         ListObjectTypeAttributesPaginator,
         ListRuleBasedMatchesPaginator,
         ListSegmentDefinitionsPaginator,
+        ListUploadJobsPaginator,
     )
 
     session = Session()
@@ -31,6 +32,7 @@ Usage::
     list_object_type_attributes_paginator: ListObjectTypeAttributesPaginator = client.get_paginator("list_object_type_attributes")
     list_rule_based_matches_paginator: ListRuleBasedMatchesPaginator = client.get_paginator("list_rule_based_matches")
     list_segment_definitions_paginator: ListSegmentDefinitionsPaginator = client.get_paginator("list_segment_definitions")
+    list_upload_jobs_paginator: ListUploadJobsPaginator = client.get_paginator("list_upload_jobs")
     ```
 """
 
@@ -43,6 +45,7 @@ from .paginator import (
     ListObjectTypeAttributesPaginator,
     ListRuleBasedMatchesPaginator,
     ListSegmentDefinitionsPaginator,
+    ListUploadJobsPaginator,
 )
 
 Client = CustomerProfilesClient
@@ -57,4 +60,5 @@ __all__ = (
     "ListObjectTypeAttributesPaginator",
     "ListRuleBasedMatchesPaginator",
     "ListSegmentDefinitionsPaginator",
+    "ListUploadJobsPaginator",
 )

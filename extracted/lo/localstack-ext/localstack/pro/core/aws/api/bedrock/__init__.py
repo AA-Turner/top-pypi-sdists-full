@@ -111,6 +111,8 @@ ModelInvocationJobTimeoutDurationInHours = int
 ModelName = str
 ModelSourceIdentifier = str
 NonBlankString = str
+OfferId = str
+OfferToken = str
 PaginationToken = str
 PositiveInteger = int
 PromptRouterArn = str
@@ -144,9 +146,21 @@ UsePromptResponse = bool
 kBS3Uri = str
 
 
+class AgreementStatus(StrEnum):
+    AVAILABLE = "AVAILABLE"
+    PENDING = "PENDING"
+    NOT_AVAILABLE = "NOT_AVAILABLE"
+    ERROR = "ERROR"
+
+
 class ApplicationType(StrEnum):
     ModelEvaluation = "ModelEvaluation"
     RagEvaluation = "RagEvaluation"
+
+
+class AuthorizationStatus(StrEnum):
+    AUTHORIZED = "AUTHORIZED"
+    NOT_AUTHORIZED = "NOT_AUTHORIZED"
 
 
 class CommitmentDuration(StrEnum):
@@ -158,6 +172,12 @@ class CustomizationType(StrEnum):
     FINE_TUNING = "FINE_TUNING"
     CONTINUED_PRE_TRAINING = "CONTINUED_PRE_TRAINING"
     DISTILLATION = "DISTILLATION"
+    IMPORTED = "IMPORTED"
+
+
+class EntitlementAvailability(StrEnum):
+    AVAILABLE = "AVAILABLE"
+    NOT_AVAILABLE = "NOT_AVAILABLE"
 
 
 class EvaluationJobStatus(StrEnum):
@@ -212,6 +232,11 @@ class GuardrailContentFilterType(StrEnum):
     INSULTS = "INSULTS"
     MISCONDUCT = "MISCONDUCT"
     PROMPT_ATTACK = "PROMPT_ATTACK"
+
+
+class GuardrailContentFiltersTierName(StrEnum):
+    CLASSIC = "CLASSIC"
+    STANDARD = "STANDARD"
 
 
 class GuardrailContextualGroundingAction(StrEnum):
@@ -298,6 +323,11 @@ class GuardrailTopicType(StrEnum):
     DENY = "DENY"
 
 
+class GuardrailTopicsTierName(StrEnum):
+    CLASSIC = "CLASSIC"
+    STANDARD = "STANDARD"
+
+
 class GuardrailWordAction(StrEnum):
     BLOCK = "BLOCK"
     NONE = "NONE"
@@ -371,6 +401,17 @@ class ModelModality(StrEnum):
     EMBEDDING = "EMBEDDING"
 
 
+class ModelStatus(StrEnum):
+    Active = "Active"
+    Creating = "Creating"
+    Failed = "Failed"
+
+
+class OfferType(StrEnum):
+    ALL = "ALL"
+    PUBLIC = "PUBLIC"
+
+
 class PerformanceConfigLatency(StrEnum):
     standard = "standard"
     optimized = "optimized"
@@ -394,6 +435,11 @@ class ProvisionedModelStatus(StrEnum):
 
 class QueryTransformationType(StrEnum):
     QUERY_DECOMPOSITION = "QUERY_DECOMPOSITION"
+
+
+class RegionAvailability(StrEnum):
+    AVAILABLE = "AVAILABLE"
+    NOT_AVAILABLE = "NOT_AVAILABLE"
 
 
 class RetrieveAndGenerateType(StrEnum):
@@ -514,6 +560,9 @@ class ValidationException(ServiceException):
     status_code: int = 400
 
 
+AcknowledgementFormDataBody = bytes
+
+
 class AdditionalModelRequestFieldsValue(TypedDict, total=False):
     pass
 
@@ -521,6 +570,13 @@ class AdditionalModelRequestFieldsValue(TypedDict, total=False):
 AdditionalModelRequestFields = Dict[
     AdditionalModelRequestFieldsKey, AdditionalModelRequestFieldsValue
 ]
+
+
+class AgreementAvailability(TypedDict, total=False):
+    """Information about the agreement availability"""
+
+    status: AgreementStatus
+    errorMessage: Optional[String]
 
 
 class CustomMetricBedrockEvaluatorModel(TypedDict, total=False):
@@ -728,6 +784,41 @@ class CloudWatchConfig(TypedDict, total=False):
     logGroupName: LogGroupName
     roleArn: RoleArn
     largeDataDeliveryS3Config: Optional[S3Config]
+
+
+class Tag(TypedDict, total=False):
+    """Definition of the key/value pair for a tag."""
+
+    key: TagKey
+    value: TagValue
+
+
+TagList = List[Tag]
+
+
+class S3DataSource(TypedDict, total=False):
+    """The Amazon S3 data source of the model to import."""
+
+    s3Uri: S3Uri
+
+
+class ModelDataSource(TypedDict, total=False):
+    """The data source of the model to import."""
+
+    s3DataSource: Optional[S3DataSource]
+
+
+class CreateCustomModelRequest(ServiceRequest):
+    modelName: CustomModelName
+    modelSourceConfig: ModelDataSource
+    modelKmsKeyArn: Optional[KmsKeyArn]
+    roleArn: Optional[RoleArn]
+    modelTags: Optional[TagList]
+    clientRequestToken: Optional[IdempotencyToken]
+
+
+class CreateCustomModelResponse(TypedDict, total=False):
+    modelArn: ModelArn
 
 
 class EvaluationOutputDataConfig(TypedDict, total=False):
@@ -1090,16 +1181,6 @@ class EvaluationConfig(TypedDict, total=False):
     human: Optional[HumanEvaluationConfig]
 
 
-class Tag(TypedDict, total=False):
-    """Definition of the key/value pair for a tag."""
-
-    key: TagKey
-    value: TagValue
-
-
-TagList = List[Tag]
-
-
 class CreateEvaluationJobRequest(ServiceRequest):
     jobName: EvaluationJobName
     jobDescription: Optional[EvaluationJobDescription]
@@ -1115,6 +1196,15 @@ class CreateEvaluationJobRequest(ServiceRequest):
 
 class CreateEvaluationJobResponse(TypedDict, total=False):
     jobArn: EvaluationJobArn
+
+
+class CreateFoundationModelAgreementRequest(ServiceRequest):
+    offerToken: OfferToken
+    modelId: BedrockModelId
+
+
+class CreateFoundationModelAgreementResponse(TypedDict, total=False):
+    modelId: BedrockModelId
 
 
 class GuardrailCrossRegionConfig(TypedDict, total=False):
@@ -1224,6 +1314,15 @@ class GuardrailWordPolicyConfig(TypedDict, total=False):
     managedWordListsConfig: Optional[GuardrailManagedWordListsConfig]
 
 
+class GuardrailContentFiltersTierConfig(TypedDict, total=False):
+    """The tier that your guardrail uses for content filters. Consider using a
+    tier that balances performance, accuracy, and compatibility with your
+    existing generative AI workflows.
+    """
+
+    tierName: GuardrailContentFiltersTierName
+
+
 GuardrailModalities = List[GuardrailModality]
 GuardrailContentFilterConfig = TypedDict(
     "GuardrailContentFilterConfig",
@@ -1247,6 +1346,16 @@ class GuardrailContentPolicyConfig(TypedDict, total=False):
     """Contains details about how to handle harmful content."""
 
     filtersConfig: GuardrailContentFiltersConfig
+    tierConfig: Optional[GuardrailContentFiltersTierConfig]
+
+
+class GuardrailTopicsTierConfig(TypedDict, total=False):
+    """The tier that your guardrail uses for denied topic filters. Consider
+    using a tier that balances performance, accuracy, and compatibility with
+    your existing generative AI workflows.
+    """
+
+    tierName: GuardrailTopicsTierName
 
 
 GuardrailTopicExamples = List[GuardrailTopicExample]
@@ -1273,6 +1382,7 @@ class GuardrailTopicPolicyConfig(TypedDict, total=False):
     """
 
     topicsConfig: GuardrailTopicsConfig
+    tierConfig: Optional[GuardrailTopicsTierConfig]
 
 
 class CreateGuardrailRequest(ServiceRequest):
@@ -1521,18 +1631,6 @@ class CreateModelCustomizationJobResponse(TypedDict, total=False):
     jobArn: ModelCustomizationJobArn
 
 
-class S3DataSource(TypedDict, total=False):
-    """The Amazon S3 data source of the imported job."""
-
-    s3Uri: S3Uri
-
-
-class ModelDataSource(TypedDict, total=False):
-    """Data source for the imported model."""
-
-    s3DataSource: Optional[S3DataSource]
-
-
 class CreateModelImportJobRequest(ServiceRequest):
     jobName: JobName
     importedModelName: ImportedModelName
@@ -1645,6 +1743,7 @@ class CustomModelSummary(TypedDict, total=False):
     baseModelName: ModelName
     customizationType: Optional[CustomizationType]
     ownerAccountId: Optional[AccountId]
+    modelStatus: Optional[ModelStatus]
 
 
 CustomModelSummaryList = List[CustomModelSummary]
@@ -1682,6 +1781,14 @@ class DeleteCustomModelRequest(ServiceRequest):
 
 
 class DeleteCustomModelResponse(TypedDict, total=False):
+    pass
+
+
+class DeleteFoundationModelAgreementRequest(ServiceRequest):
+    modelId: BedrockModelId
+
+
+class DeleteFoundationModelAgreementResponse(TypedDict, total=False):
     pass
 
 
@@ -1748,6 +1855,15 @@ class DeregisterMarketplaceModelEndpointRequest(ServiceRequest):
 
 class DeregisterMarketplaceModelEndpointResponse(TypedDict, total=False):
     pass
+
+
+class DimensionalPriceRate(TypedDict, total=False):
+    """Dimensional price rate."""
+
+    dimension: Optional[String]
+    price: Optional[String]
+    description: Optional[String]
+    unit: Optional[String]
 
 
 ErrorMessages = List[ErrorMessage]
@@ -1883,18 +1999,20 @@ class GetCustomModelResponse(TypedDict, total=False):
     modelArn: ModelArn
     modelName: CustomModelName
     jobName: Optional[JobName]
-    jobArn: ModelCustomizationJobArn
-    baseModelArn: ModelArn
+    jobArn: Optional[ModelCustomizationJobArn]
+    baseModelArn: Optional[ModelArn]
     customizationType: Optional[CustomizationType]
     modelKmsKeyArn: Optional[KmsKeyArn]
     hyperParameters: Optional[ModelCustomizationHyperParameters]
-    trainingDataConfig: TrainingDataConfig
+    trainingDataConfig: Optional[TrainingDataConfig]
     validationDataConfig: Optional[ValidationDataConfig]
-    outputDataConfig: OutputDataConfig
+    outputDataConfig: Optional[OutputDataConfig]
     trainingMetrics: Optional[TrainingMetrics]
     validationMetrics: Optional[ValidationMetrics]
     creationTime: Timestamp
     customizationConfig: Optional[CustomizationConfig]
+    modelStatus: Optional[ModelStatus]
+    failureMessage: Optional[ErrorMessage]
 
 
 class GetEvaluationJobRequest(ServiceRequest):
@@ -1916,6 +2034,18 @@ class GetEvaluationJobResponse(TypedDict, total=False):
     creationTime: Timestamp
     lastModifiedTime: Optional[Timestamp]
     failureMessages: Optional[ErrorMessages]
+
+
+class GetFoundationModelAvailabilityRequest(ServiceRequest):
+    modelId: BedrockModelId
+
+
+class GetFoundationModelAvailabilityResponse(TypedDict, total=False):
+    modelId: BedrockModelId
+    agreementAvailability: AgreementAvailability
+    authorizationStatus: AuthorizationStatus
+    entitlementAvailability: EntitlementAvailability
+    regionAvailability: RegionAvailability
 
 
 class GetFoundationModelRequest(ServiceRequest):
@@ -2038,6 +2168,12 @@ class GuardrailWordPolicy(TypedDict, total=False):
     managedWordLists: Optional[GuardrailManagedWordLists]
 
 
+class GuardrailContentFiltersTier(TypedDict, total=False):
+    """The tier that your guardrail uses for content filters."""
+
+    tierName: GuardrailContentFiltersTierName
+
+
 GuardrailContentFilter = TypedDict(
     "GuardrailContentFilter",
     {
@@ -2066,6 +2202,13 @@ class GuardrailContentPolicy(TypedDict, total=False):
     """
 
     filters: Optional[GuardrailContentFilters]
+    tier: Optional[GuardrailContentFiltersTier]
+
+
+class GuardrailTopicsTier(TypedDict, total=False):
+    """The tier that your guardrail uses for denied topic filters."""
+
+    tierName: GuardrailTopicsTierName
 
 
 GuardrailTopic = TypedDict(
@@ -2096,6 +2239,7 @@ class GuardrailTopicPolicy(TypedDict, total=False):
     """
 
     topics: GuardrailTopics
+    tier: Optional[GuardrailTopicsTier]
 
 
 class GetGuardrailResponse(TypedDict, total=False):
@@ -2245,8 +2389,8 @@ class GetModelCustomizationJobResponse(TypedDict, total=False):
     clientRequestToken: Optional[IdempotencyToken]
     roleArn: RoleArn
     status: Optional[ModelCustomizationJobStatus]
-    failureMessage: Optional[ErrorMessage]
     statusDetails: Optional[StatusDetails]
+    failureMessage: Optional[ErrorMessage]
     creationTime: Timestamp
     lastModifiedTime: Optional[Timestamp]
     endTime: Optional[Timestamp]
@@ -2366,6 +2510,14 @@ class GetProvisionedModelThroughputResponse(TypedDict, total=False):
     commitmentExpirationTime: Optional[Timestamp]
 
 
+class GetUseCaseForModelAccessRequest(ServiceRequest):
+    pass
+
+
+class GetUseCaseForModelAccessResponse(TypedDict, total=False):
+    formData: AcknowledgementFormDataBody
+
+
 class GuardrailSummary(TypedDict, total=False):
     """Contains details about a guardrail.
 
@@ -2418,6 +2570,12 @@ InferenceProfileSummary = TypedDict(
 InferenceProfileSummaries = List[InferenceProfileSummary]
 
 
+class LegalTerm(TypedDict, total=False):
+    """The legal term of the agreement."""
+
+    url: Optional[String]
+
+
 class ListCustomModelsRequest(ServiceRequest):
     creationTimeBefore: Optional[Timestamp]
     creationTimeAfter: Optional[Timestamp]
@@ -2429,6 +2587,7 @@ class ListCustomModelsRequest(ServiceRequest):
     sortBy: Optional[SortModelsBy]
     sortOrder: Optional[SortOrder]
     isOwned: Optional[Boolean]
+    modelStatus: Optional[ModelStatus]
 
 
 class ListCustomModelsResponse(TypedDict, total=False):
@@ -2451,6 +2610,57 @@ class ListEvaluationJobsRequest(ServiceRequest):
 class ListEvaluationJobsResponse(TypedDict, total=False):
     nextToken: Optional[PaginationToken]
     jobSummaries: Optional[EvaluationSummaries]
+
+
+class ListFoundationModelAgreementOffersRequest(ServiceRequest):
+    modelId: BedrockModelId
+    offerType: Optional[OfferType]
+
+
+class ValidityTerm(TypedDict, total=False):
+    """Describes the validity terms."""
+
+    agreementDuration: Optional[String]
+
+
+class SupportTerm(TypedDict, total=False):
+    """Describes a support term."""
+
+    refundPolicyDescription: Optional[String]
+
+
+RateCard = List[DimensionalPriceRate]
+
+
+class PricingTerm(TypedDict, total=False):
+    """Describes the usage-based pricing term."""
+
+    rateCard: RateCard
+
+
+class TermDetails(TypedDict, total=False):
+    """Describes the usage terms of an offer."""
+
+    usageBasedPricingTerm: PricingTerm
+    legalTerm: LegalTerm
+    supportTerm: SupportTerm
+    validityTerm: Optional[ValidityTerm]
+
+
+class Offer(TypedDict, total=False):
+    """An offer dictates usage terms for the model."""
+
+    offerId: Optional[OfferId]
+    offerToken: OfferToken
+    termDetails: TermDetails
+
+
+Offers = List[Offer]
+
+
+class ListFoundationModelAgreementOffersResponse(TypedDict, total=False):
+    modelId: BedrockModelId
+    offers: Offers
 
 
 class ListFoundationModelsRequest(ServiceRequest):
@@ -2589,8 +2799,8 @@ class ModelCustomizationJobSummary(TypedDict, total=False):
     baseModelArn: ModelArn
     jobName: JobName
     status: ModelCustomizationJobStatus
-    lastModifiedTime: Optional[Timestamp]
     statusDetails: Optional[StatusDetails]
+    lastModifiedTime: Optional[Timestamp]
     creationTime: Timestamp
     endTime: Optional[Timestamp]
     customModelArn: Optional[CustomModelArn]
@@ -2769,6 +2979,14 @@ class PutModelInvocationLoggingConfigurationResponse(TypedDict, total=False):
     pass
 
 
+class PutUseCaseForModelAccessRequest(ServiceRequest):
+    formData: AcknowledgementFormDataBody
+
+
+class PutUseCaseForModelAccessResponse(TypedDict, total=False):
+    pass
+
+
 class RegisterMarketplaceModelEndpointRequest(ServiceRequest):
     endpointIdentifier: Arn
     modelSourceIdentifier: ModelSourceIdentifier
@@ -2890,6 +3108,66 @@ class BedrockApi:
         """
         raise NotImplementedError
 
+    @handler("CreateCustomModel")
+    def create_custom_model(
+        self,
+        context: RequestContext,
+        model_name: CustomModelName,
+        model_source_config: ModelDataSource,
+        model_kms_key_arn: KmsKeyArn | None = None,
+        role_arn: RoleArn | None = None,
+        model_tags: TagList | None = None,
+        client_request_token: IdempotencyToken | None = None,
+        **kwargs,
+    ) -> CreateCustomModelResponse:
+        """Creates a new custom model in Amazon Bedrock. After the model is active,
+        you can use it for inference.
+
+        To use the model for inference, you must purchase Provisioned Throughput
+        for it. You can't use On-demand inference with these custom models. For
+        more information about Provisioned Throughput, see `Provisioned
+        Throughput <https://docs.aws.amazon.com/bedrock/latest/userguide/prov-throughput.html>`__.
+
+        The model appears in ``ListCustomModels`` with a ``customizationType``
+        of ``imported``. To track the status of the new model, you use the
+        ``GetCustomModel`` API operation. The model can be in the following
+        states:
+
+        -  ``Creating`` - Initial state during validation and registration
+
+        -  ``Active`` - Model is ready for use in inference
+
+        -  ``Failed`` - Creation process encountered an error
+
+        **Related APIs**
+
+        -  `GetCustomModel <https://docs.aws.amazon.com/bedrock/latest/APIReference/API_GetCustomModel.html>`__
+
+        -  `ListCustomModels <https://docs.aws.amazon.com/bedrock/latest/APIReference/API_ListCustomModels.html>`__
+
+        -  `DeleteCustomModel <https://docs.aws.amazon.com/bedrock/latest/APIReference/API_DeleteCustomModel.html>`__
+
+        :param model_name: A unique name for the custom model.
+        :param model_source_config: The data source for the model.
+        :param model_kms_key_arn: The Amazon Resource Name (ARN) of the customer managed KMS key to
+        encrypt the custom model.
+        :param role_arn: The Amazon Resource Name (ARN) of an IAM service role that Amazon
+        Bedrock assumes to perform tasks on your behalf.
+        :param model_tags: A list of key-value pairs to associate with the custom model resource.
+        :param client_request_token: A unique, case-sensitive identifier to ensure that the API request
+        completes no more than one time.
+        :returns: CreateCustomModelResponse
+        :raises ResourceNotFoundException:
+        :raises AccessDeniedException:
+        :raises ValidationException:
+        :raises ConflictException:
+        :raises InternalServerException:
+        :raises TooManyTagsException:
+        :raises ServiceQuotaExceededException:
+        :raises ThrottlingException:
+        """
+        raise NotImplementedError
+
     @handler("CreateEvaluationJob")
     def create_evaluation_job(
         self,
@@ -2932,6 +3210,24 @@ class BedrockApi:
         :raises ConflictException:
         :raises InternalServerException:
         :raises ServiceQuotaExceededException:
+        :raises ThrottlingException:
+        """
+        raise NotImplementedError
+
+    @handler("CreateFoundationModelAgreement")
+    def create_foundation_model_agreement(
+        self, context: RequestContext, offer_token: OfferToken, model_id: BedrockModelId, **kwargs
+    ) -> CreateFoundationModelAgreementResponse:
+        """Request a model access agreement for the specified model.
+
+        :param offer_token: An offer token encapsulates the information for an offer.
+        :param model_id: Model Id of the model for the access request.
+        :returns: CreateFoundationModelAgreementResponse
+        :raises ResourceNotFoundException:
+        :raises AccessDeniedException:
+        :raises ValidationException:
+        :raises ConflictException:
+        :raises InternalServerException:
         :raises ThrottlingException:
         """
         raise NotImplementedError
@@ -3415,6 +3711,23 @@ class BedrockApi:
         """
         raise NotImplementedError
 
+    @handler("DeleteFoundationModelAgreement")
+    def delete_foundation_model_agreement(
+        self, context: RequestContext, model_id: BedrockModelId, **kwargs
+    ) -> DeleteFoundationModelAgreementResponse:
+        """Delete the model access agreement for the specified model.
+
+        :param model_id: Model Id of the model access to delete.
+        :returns: DeleteFoundationModelAgreementResponse
+        :raises ResourceNotFoundException:
+        :raises AccessDeniedException:
+        :raises ValidationException:
+        :raises ConflictException:
+        :raises InternalServerException:
+        :raises ThrottlingException:
+        """
+        raise NotImplementedError
+
     @handler("DeleteGuardrail")
     def delete_guardrail(
         self,
@@ -3582,7 +3895,7 @@ class BedrockApi:
         self, context: RequestContext, model_identifier: ModelIdentifier, **kwargs
     ) -> GetCustomModelResponse:
         """Get the properties associated with a Amazon Bedrock custom model that
-        you have created.For more information, see `Custom
+        you have created. For more information, see `Custom
         models <https://docs.aws.amazon.com/bedrock/latest/userguide/custom-models.html>`__
         in the `Amazon Bedrock User
         Guide <https://docs.aws.amazon.com/bedrock/latest/userguide/what-is-service.html>`__.
@@ -3622,6 +3935,22 @@ class BedrockApi:
 
         :param model_identifier: The model identifier.
         :returns: GetFoundationModelResponse
+        :raises ResourceNotFoundException:
+        :raises AccessDeniedException:
+        :raises ValidationException:
+        :raises InternalServerException:
+        :raises ThrottlingException:
+        """
+        raise NotImplementedError
+
+    @handler("GetFoundationModelAvailability")
+    def get_foundation_model_availability(
+        self, context: RequestContext, model_id: BedrockModelId, **kwargs
+    ) -> GetFoundationModelAvailabilityResponse:
+        """Get information about the Foundation model availability.
+
+        :param model_id: The model Id of the foundation model.
+        :returns: GetFoundationModelAvailabilityResponse
         :raises ResourceNotFoundException:
         :raises AccessDeniedException:
         :raises ValidationException:
@@ -3836,6 +4165,20 @@ class BedrockApi:
         """
         raise NotImplementedError
 
+    @handler("GetUseCaseForModelAccess")
+    def get_use_case_for_model_access(
+        self, context: RequestContext, **kwargs
+    ) -> GetUseCaseForModelAccessResponse:
+        """Get usecase for model access.
+
+        :returns: GetUseCaseForModelAccessResponse
+        :raises ResourceNotFoundException:
+        :raises ValidationException:
+        :raises InternalServerException:
+        :raises ThrottlingException:
+        """
+        raise NotImplementedError
+
     @handler("ListCustomModels")
     def list_custom_models(
         self,
@@ -3850,6 +4193,7 @@ class BedrockApi:
         sort_by: SortModelsBy | None = None,
         sort_order: SortOrder | None = None,
         is_owned: Boolean | None = None,
+        model_status: ModelStatus | None = None,
         **kwargs,
     ) -> ListCustomModelsResponse:
         """Returns a list of the custom models that you have created with the
@@ -3875,6 +4219,7 @@ class BedrockApi:
         :param sort_order: The sort order of the results.
         :param is_owned: Return custom models depending on if the current account owns them
         (``true``) or if they were shared with the current account (``false``).
+        :param model_status: The status of them model to filter results by.
         :returns: ListCustomModelsResponse
         :raises AccessDeniedException:
         :raises ValidationException:
@@ -3915,6 +4260,27 @@ class BedrockApi:
         :param sort_order: Specifies whether to sort the list of evaluation jobs by either
         ascending or descending order.
         :returns: ListEvaluationJobsResponse
+        :raises AccessDeniedException:
+        :raises ValidationException:
+        :raises InternalServerException:
+        :raises ThrottlingException:
+        """
+        raise NotImplementedError
+
+    @handler("ListFoundationModelAgreementOffers")
+    def list_foundation_model_agreement_offers(
+        self,
+        context: RequestContext,
+        model_id: BedrockModelId,
+        offer_type: OfferType | None = None,
+        **kwargs,
+    ) -> ListFoundationModelAgreementOffersResponse:
+        """Get the offers associated with the specified model.
+
+        :param model_id: Model Id of the foundation model.
+        :param offer_type: Type of offer associated with the model.
+        :returns: ListFoundationModelAgreementOffersResponse
+        :raises ResourceNotFoundException:
         :raises AccessDeniedException:
         :raises ValidationException:
         :raises InternalServerException:
@@ -4333,6 +4699,21 @@ class BedrockApi:
 
         :param logging_config: The logging configuration values to set.
         :returns: PutModelInvocationLoggingConfigurationResponse
+        :raises AccessDeniedException:
+        :raises ValidationException:
+        :raises InternalServerException:
+        :raises ThrottlingException:
+        """
+        raise NotImplementedError
+
+    @handler("PutUseCaseForModelAccess")
+    def put_use_case_for_model_access(
+        self, context: RequestContext, form_data: AcknowledgementFormDataBody, **kwargs
+    ) -> PutUseCaseForModelAccessResponse:
+        """Put usecase for model access.
+
+        :param form_data: Put customer profile Request.
+        :returns: PutUseCaseForModelAccessResponse
         :raises AccessDeniedException:
         :raises ValidationException:
         :raises InternalServerException:

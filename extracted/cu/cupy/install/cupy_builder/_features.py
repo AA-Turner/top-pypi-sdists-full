@@ -128,7 +128,6 @@ _cuda_files = [
     'cupy._core.internal',
     'cupy._core.fusion',
     'cupy._core.new_fusion',
-    'cupy._core.numpy_allocator',
     'cupy._core.raw',
     'cupy.cuda.common',
     'cupy.cuda.cufft',
@@ -380,9 +379,7 @@ def get_features(ctx: Context) -> Dict[str, Feature]:
             ('cupy.cuda.thrust', ['cupy/cuda/cupy_thrust.cu']),
         ],
         'include': [
-            # WAR #9098:
-            # rocThrust 3.3.0 (ROCm 6.4.0) cannot be compiled by host compiler
-            # 'thrust/version.h',
+            'thrust/version.h',
         ],
         'libraries': [
             'amdhip64',  # was hiprtc and hip_hcc before ROCm 3.8.0

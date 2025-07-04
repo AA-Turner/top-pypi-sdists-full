@@ -33,7 +33,7 @@ class CloudDeploymentComputeConfig(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'cloud_deployment': 'CloudDeploymentSelector',
+        'cloud_deployment': 'str',
         'allowed_azs': 'list[str]',
         'head_node_type': 'ComputeNodeType',
         'worker_node_types': 'list[WorkerNodeType]',
@@ -85,10 +85,10 @@ class CloudDeploymentComputeConfig(object):
     def cloud_deployment(self):
         """Gets the cloud_deployment of this CloudDeploymentComputeConfig.  # noqa: E501
 
-        The cloud deployment to use for this compute config. If not specified, the default cloud deployment for the cloud will be used.  # noqa: E501
+        The name of the cloud deployment to use for this compute config. If not specified, the primary cloud deployment for the cloud will be used.  # noqa: E501
 
         :return: The cloud_deployment of this CloudDeploymentComputeConfig.  # noqa: E501
-        :rtype: CloudDeploymentSelector
+        :rtype: str
         """
         return self._cloud_deployment
 
@@ -96,10 +96,10 @@ class CloudDeploymentComputeConfig(object):
     def cloud_deployment(self, cloud_deployment):
         """Sets the cloud_deployment of this CloudDeploymentComputeConfig.
 
-        The cloud deployment to use for this compute config. If not specified, the default cloud deployment for the cloud will be used.  # noqa: E501
+        The name of the cloud deployment to use for this compute config. If not specified, the primary cloud deployment for the cloud will be used.  # noqa: E501
 
         :param cloud_deployment: The cloud_deployment of this CloudDeploymentComputeConfig.  # noqa: E501
-        :type: CloudDeploymentSelector
+        :type: str
         """
 
         self._cloud_deployment = cloud_deployment

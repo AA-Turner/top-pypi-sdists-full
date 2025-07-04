@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arize-phoenix
-Version: 11.3.0
+Version: 11.4.0
 Summary: AI Observability and Evaluation
 Project-URL: Documentation, https://arize.com/docs/phoenix/
 Project-URL: Issues, https://github.com/Arize-ai/phoenix/issues
@@ -43,6 +43,7 @@ Requires-Dist: protobuf<6.0,>=4.25.8
 Requires-Dist: psutil
 Requires-Dist: pyarrow
 Requires-Dist: pydantic>=2.1.0
+Requires-Dist: python-dateutil
 Requires-Dist: python-multipart
 Requires-Dist: scikit-learn
 Requires-Dist: scipy
@@ -108,6 +109,7 @@ Requires-Dist: tabulate; extra == 'dev'
 Requires-Dist: tox-uv==1.11.3; extra == 'dev'
 Requires-Dist: tox==4.18.1; extra == 'dev'
 Requires-Dist: types-jsonschema; extra == 'dev'
+Requires-Dist: types-python-dateutil; extra == 'dev'
 Requires-Dist: types-tabulate; extra == 'dev'
 Requires-Dist: uv==0.7.12; extra == 'dev'
 Requires-Dist: uvloop; (platform_system != 'Windows') and extra == 'dev'

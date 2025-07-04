@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: arelle-release
-Version: 2.37.30
+Version: 2.37.32
 Summary: An open source XBRL platform.
 Author-email: "arelle.org" <support@arelle.org>
-License: Apache-2.0
+License-Expression: Apache-2.0
 Project-URL: Homepage, https://arelle.org/
 Project-URL: Downloads, https://arelle.org/arelle/pub/
 Project-URL: Documentation, https://arelle.org/arelle/documentation/
@@ -16,7 +16,6 @@ Platform: any
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: End Users/Desktop
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: squawk-cli
-Version: 2.17.0
+Version: 2.18.0
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: MacOS
@@ -55,6 +55,10 @@ docker run --rm -v $(pwd):/data ghcr.io/sbdchd/squawk:latest *.sql
 Use the WASM powered playground to check your SQL locally in the browser!
 
 <https://play.squawkhq.com>
+
+### Or via VSCode
+
+<https://marketplace.visualstudio.com/items?itemName=sbdchd.squawk>
 
 ## Usage
 

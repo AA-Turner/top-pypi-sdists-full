@@ -1,6 +1,6 @@
 from typing import List, Optional
 from maleo_metadata.enums.medical_role import MaleoMetadataMedicalRoleEnums
-from maleo_metadata.models.transfers.general.medical_role import MedicalRoleTransfers, StructuredMedicalRoleTransfers
+from maleo_metadata.models.transfers.general.medical_role import MedicalRoleTransfers
 
 class MaleoMetadataMedicalRoleGeneralTypes:
     #* Simple medical role
@@ -16,7 +16,7 @@ class MaleoMetadataMedicalRoleGeneralTypes:
     OptionalListOfExpandedMedicalRoles = Optional[List[ExpandedMedicalRole]]
 
     #* Structured medical role
-    StructuredMedicalRole = StructuredMedicalRoleTransfers
-    OptionalStructuredMedicalRole = Optional[StructuredMedicalRole]
-    ListOfStructuredMedicalRoles = List[StructuredMedicalRole]
-    OptionalListOfStructuredMedicalRoles = Optional[List[StructuredMedicalRole]]
+    # StructuredMedicalRole = StructuredMedicalRoleTransfers
+    # OptionalStructuredMedicalRole = Optional[StructuredMedicalRole]
+    # ListOfStructuredMedicalRoles = List[StructuredMedicalRole]
+    # OptionalListOfStructuredMedicalRoles = Optional[List[StructuredMedicalRole]]

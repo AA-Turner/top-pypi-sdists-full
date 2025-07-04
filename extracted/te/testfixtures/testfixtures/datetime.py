@@ -1,15 +1,17 @@
 from calendar import timegm
 from datetime import datetime, timedelta, date, tzinfo as TZInfo
-from typing import Optional, Callable, Type, Tuple, Dict, Any, cast, overload
+from typing import Callable, Self, Tuple, TypeVar, Generic
+
+T = TypeVar('T', bound=datetime | date)
 
 
-class Queue(list):
+class Queue(list[T]):
 
     delta: float
     delta_delta: float
     delta_type: str
 
-    def __init__(self, delta: Optional[float], delta_delta: float, delta_type: str):
+    def __init__(self, delta: float | None, delta_delta: float, delta_type: str) -> None:
         super().__init__()
         if delta is None:
             self.delta = 0
@@ -20,35 +22,36 @@ class Queue(list):
         self.delta_type = delta_type
 
     def advance_next(self, delta: timedelta) -> None:
-        self[-1] += delta
+        self[-1] += delta  # type: ignore[assignment]
 
-    def next(self) -> 'MockedCurrent':
+    def next(self) -> T:
         instance = self.pop(0)
         if not self:
             self.delta += self.delta_delta
             n = instance + timedelta(**{self.delta_type: self.delta})
-            self.append(n)
+            self.append(n)  # type: ignore[arg-type]
         return instance
 
 
-class MockedCurrent:
+class MockedCurrent(Generic[T]):
 
-    _mock_queue: Queue
-    _mock_base_class: Type
-    _mock_class: Type
-    _mock_tzinfo: Optional[TZInfo]
-    _mock_date_type: Type[date]
-    _correct_mock_type: Callable = None
+    _mock_queue: Queue[T]
+    _mock_base_class: type
+    _mock_class: type
+    _mock_tzinfo: TZInfo | None
+    _mock_date_type: type[date]
+    _correct_mock_type: Callable[[T], Self] | None = None
 
     def __init_subclass__(
             cls,
             concrete: bool = False,
-            queue: Queue = None,
-            strict: bool = None,
-            tzinfo: TZInfo = None,
-            date_type: Type[date] = None
-    ):
+            queue: Queue[T] | None = None,
+            strict: bool | None = None,
+            tzinfo: TZInfo | None = None,
+            date_type: type[date] = date,
+    ) -> None:
         if concrete:
+            assert not queue is None, 'queue must be passed if concrete=True'
             cls._mock_queue = queue
             cls._mock_base_class = cls.__bases__[0].__bases__[1]
             cls._mock_class = cls if strict else cls._mock_base_class
@@ -56,7 +59,7 @@ class MockedCurrent:
             cls._mock_date_type = date_type
 
     @classmethod
-    def add(cls, *args, **kw):
+    def add(cls, *args: int | T, **kw: int | TZInfo | None) -> None:
         if 'tzinfo' in kw or len(args) > 7:
             raise TypeError('Cannot add using tzinfo on %s' % cls.__name__)
         if args and isinstance(args[0], cls._mock_base_class):
@@ -68,53 +71,53 @@ class MockedCurrent:
                         'Cannot add %s with tzinfo of %s as configured to use %s' % (
                             instance.__class__.__name__, instance_tzinfo, cls._mock_tzinfo
                         ))
-                instance = instance.replace(tzinfo=None)
+                instance = instance.replace(tzinfo=None)  # type: ignore[attr-defined]
             if cls._correct_mock_type:
                 instance = cls._correct_mock_type(instance)
         else:
-            instance = cls(*args, **kw)
+            instance = cls(*args, **kw)  # type: ignore[arg-type]
         cls._mock_queue.append(instance)
 
     @classmethod
-    def set(cls, *args, **kw) -> None:
+    def set(cls, *args: int | T, **kw: int | TZInfo | None) -> None:
         cls._mock_queue.clear()
         cls.add(*args, **kw)
 
     @classmethod
-    def tick(cls, *args, **kw) -> None:
+    def tick(cls, *args: timedelta, **kw: float) -> None:
         if kw:
             delta = timedelta(**kw)
         else:
             delta, = args
         cls._mock_queue.advance_next(delta)
 
-    def __add__(self, other) -> 'MockedCurrent':
-        instance = super().__add__(other)
+    def __add__(self, other: timedelta) -> Self:
+        instance = super().__add__(other)  # type: ignore[misc]
         if self._correct_mock_type:
             instance = self._correct_mock_type(instance)
         return instance
 
-    def __new__(cls, *args, **kw):
+    def __new__(cls, *args: int, **kw: int | TZInfo | None) -> Self:
         if cls is cls._mock_class:
-            return super().__new__(cls, *args, **kw)
+            return super().__new__(cls, *args, **kw)  # type: ignore[misc]
         else:
-            return cls._mock_class(*args, **kw)
+            return cls._mock_class(*args, **kw)  # type: ignore[misc]
 
 
 def mock_factory(
         type_name: str,
-        mock_class: Type[MockedCurrent],
+        mock_class: type[MockedCurrent[T]],
         default: Tuple[int, ...],
-        args: tuple,
-        kw: Dict[str, Any],
-        delta: Optional[float],
+        args: tuple[int | T | None | TZInfo, ...],
+        kw: dict[str, int | TZInfo | None],
+        delta: float | None,
         delta_type: str,
         delta_delta: float = 1,
-        date_type: Type[date] = None,
-        tzinfo: TZInfo = None,
+        date_type: type[date] | None = None,
+        tzinfo: TZInfo | None = None,
         strict: bool = False
-):
-    cls = cast(Type[MockedCurrent], type(
+) -> type[MockedCurrent[T]]:
+    cls = type(
         type_name,
         (mock_class,),
         {},
@@ -123,43 +126,20 @@ def mock_factory(
         strict=strict,
         tzinfo=tzinfo,
         date_type=date_type,
-    ))
+    )
 
     if args != (None,):
         if not (args or kw):
             args = default
-        cls.add(*args, **kw)
+        cls.add(*args, **kw)  # type: ignore[attr-defined]
 
     return cls
 
 
-class MockDateTime(MockedCurrent, datetime):
-
-    @overload
-    @classmethod
-    def add(
-            cls,
-            year: int,
-            month: int,
-            day: int,
-            hour: int = ...,
-            minute: int = ...,
-            second: int = ...,
-            microsecond: int = ...,
-            tzinfo: TZInfo = ...,
-    ) -> None:
-        ...
-
-    @overload
-    @classmethod
-    def add(
-            cls,
-            instance: datetime,
-    ) -> None:
-        ...
+class MockDateTime(MockedCurrent[datetime], datetime):
 
     @classmethod
-    def add(cls, *args, **kw):
+    def add(cls, *args: int | datetime, **kw: int | TZInfo | None) -> None:
         """
         This will add the :class:`datetime.datetime` created from the
         supplied parameters to the queue of datetimes to be returned by
@@ -169,31 +149,8 @@ class MockDateTime(MockedCurrent, datetime):
         """
         return super().add(*args, **kw)
 
-    @overload
     @classmethod
-    def set(
-            cls,
-            year: int,
-            month: int,
-            day: int,
-            hour: int = ...,
-            minute: int = ...,
-            second: int = ...,
-            microsecond: int = ...,
-            tzinfo: TZInfo = ...,
-    ) -> None:
-        ...
-
-    @overload
-    @classmethod
-    def set(
-            cls,
-            instance: datetime,
-    ) -> None:
-        ...
-
-    @classmethod
-    def set(cls, *args, **kw):
+    def set(cls, *args: int | datetime, **kw: int | TZInfo | None) -> None:
         """
         This will set the :class:`datetime.datetime` created from the
         supplied parameters as the next datetime to be returned by
@@ -204,30 +161,8 @@ class MockDateTime(MockedCurrent, datetime):
         """
         return super().set(*args, **kw)
 
-    @overload
     @classmethod
-    def tick(
-            cls,
-            days: float = ...,
-            seconds: float = ...,
-            microseconds: float = ...,
-            milliseconds: float = ...,
-            minutes: float = ...,
-            hours: float = ...,
-            weeks: float = ...,
-    ) -> None:
-        ...
-
-    @overload
-    @classmethod
-    def tick(
-            cls,
-            delta: timedelta,  # can become positional-only when Python 3.8 minimum
-    ) -> None:
-        ...
-
-    @classmethod
-    def tick(cls, *args, **kw) -> None:
+    def tick(cls, *args: timedelta, **kw: float) -> None:
         """
         This method should be called either with a :class:`~datetime.timedelta`
         as a positional argument, or with keyword parameters that will be used
@@ -238,8 +173,8 @@ class MockDateTime(MockedCurrent, datetime):
         """
         return super().tick(*args, **kw)
 
-    @classmethod
-    def _correct_mock_type(cls, instance):
+    @classmethod  
+    def _correct_mock_type(cls, instance: datetime) -> Self:
         return cls._mock_class(
             instance.year,
             instance.month,
@@ -251,8 +186,18 @@ class MockDateTime(MockedCurrent, datetime):
             instance.tzinfo,
         )
 
+
     @classmethod
-    def now(cls, tz: TZInfo = None) -> datetime:
+    def _adjust_instance_using_tzinfo(cls, instance: datetime) -> Self:
+        if cls._mock_tzinfo:
+            offset = cls._mock_tzinfo.utcoffset(instance)
+            if offset is None:
+                raise TypeError('tzinfo with .utcoffset() returning None is not supported')
+            instance = instance - offset
+        return instance  # type: ignore[return-value]
+
+    @classmethod
+    def now(cls, tz: TZInfo | None = None) -> Self:
         """
         :param tz: An optional timezone to apply to the returned time.
                 If supplied, it must be an instance of a
@@ -263,25 +208,21 @@ class MockDateTime(MockedCurrent, datetime):
 
         If `tz` is supplied, see :ref:`timezones`.
         """
-        instance = cast(datetime, cls._mock_queue.next())
+        instance = cls._mock_queue.next()
         if tz is not None:
-            if cls._mock_tzinfo:
-                instance = instance - cls._mock_tzinfo.utcoffset(instance)
-            instance = tz.fromutc(instance.replace(tzinfo=tz))
+            instance = tz.fromutc(cls._adjust_instance_using_tzinfo(instance).replace(tzinfo=tz))
         return cls._correct_mock_type(instance)
 
     @classmethod
-    def utcnow(cls) -> datetime:
+    def utcnow(cls) -> Self:
         """
         This will return the next supplied or calculated datetime from the
         internal queue, rather than the actual current UTC datetime.
 
         If you care about timezones, see :ref:`timezones`.
         """
-        instance = cast(datetime, cls._mock_queue.next())
-        if cls._mock_tzinfo is not None:
-            instance = instance - cls._mock_tzinfo.utcoffset(instance)
-        return instance
+        instance = cls._mock_queue.next()
+        return cls._adjust_instance_using_tzinfo(instance)
 
     def date(self) -> date:
         """
@@ -295,68 +236,15 @@ class MockDateTime(MockedCurrent, datetime):
             )
 
 
-@overload
 def mock_datetime(
-        tzinfo: TZInfo = None,
-        delta: float = None,
+        *args: int | datetime | None | TZInfo,
+        tzinfo: TZInfo | None = None,
+        delta: float | None = None,
         delta_type: str = 'seconds',
-        date_type: Type[date] = date,
-        strict: bool = False
-) -> Type[MockDateTime]:
-    ...
-
-
-@overload
-def mock_datetime(
-        year: int,
-        month: int,
-        day: int,
-        hour: int = ...,
-        minute: int = ...,
-        second: int = ...,
-        microsecond: int = ...,
-        tzinfo: TZInfo = None,
-        delta: float = None,
-        delta_type: str = 'seconds',
-        date_type: Type[date] = date,
-        strict: bool = False
-) -> Type[MockDateTime]:
-    ...
-
-
-@overload
-def mock_datetime(
-        default: datetime,
-        tzinfo: TZInfo = None,
-        delta: float = None,
-        delta_type: str = 'seconds',
-        date_type: Type[date] = date,
-        strict: bool = False
-) -> Type[MockDateTime]:
-    ...
-
-
-@overload
-def mock_datetime(
-        default: None,  # explicit None positional
-        tzinfo: TZInfo = None,
-        delta: float = None,
-        delta_type: str = 'seconds',
-        date_type: Type[date] = date,
-        strict: bool = False
-) -> Type[MockDateTime]:
-    ...
-
-
-def mock_datetime(
-        *args,
-        tzinfo: TZInfo = None,
-        delta: float = None,
-        delta_type: str = 'seconds',
-        date_type: Type[date] = date,
+        date_type: type[date] = date,
         strict: bool = False,
-        **kw,
-) -> Type[MockDateTime]:
+        **kw: int | TZInfo | None,
+) -> type[MockDateTime]:
     """
     .. currentmodule:: testfixtures.datetime
 
@@ -420,11 +308,11 @@ def mock_datetime(
     as well as being a subclass of :class:`~testfixtures.datetime.MockDateTime`.
     """
     if len(args) > 7:
-        tzinfo = args[7]
+        tzinfo = args[7]  # type: ignore[assignment]
         args = args[:7]
     else:
         tzinfo = tzinfo or (getattr(args[0], 'tzinfo', None) if args else None)
-    return cast(Type[MockDateTime], mock_factory(
+    return mock_factory(
         'MockDateTime',
         MockDateTime,
         (2001, 1, 1, 0, 0, 0),
@@ -436,39 +324,21 @@ def mock_datetime(
         delta_type=delta_type,
         date_type=date_type,
         strict=strict,
-        ))
+    )  # type: ignore[return-value]
 
 
-class MockDate(MockedCurrent, date):
+class MockDate(MockedCurrent[date], date):
 
     @classmethod
-    def _correct_mock_type(cls, instance):
+    def _correct_mock_type(cls, instance: date) -> Self:
         return cls._mock_class(
             instance.year,
             instance.month,
             instance.day,
         )
 
-    @overload
     @classmethod
-    def add(
-            cls,
-            year: int,
-            month: int,
-            day: int,
-    ) -> None:
-        ...
-
-    @overload
-    @classmethod
-    def add(
-            cls,
-            instance: date,
-    ) -> None:
-        ...
-
-    @classmethod
-    def add(cls, *args, **kw):
+    def add(cls, *args: int | date, **kw: int | TZInfo | None) -> None:
         """
         This will add the :class:`datetime.date` created from the
         supplied parameters to the queue of dates to be returned by
@@ -478,26 +348,8 @@ class MockDate(MockedCurrent, date):
         """
         return super().add(*args, **kw)
 
-    @overload
     @classmethod
-    def set(
-            cls,
-            year: int,
-            month: int,
-            day: int,
-    ) -> None:
-        ...
-
-    @overload
-    @classmethod
-    def set(
-            cls,
-            instance: date,
-    ) -> None:
-        ...
-
-    @classmethod
-    def set(cls, *args, **kw) -> None:
+    def set(cls, *args: int | date, **kw: int | TZInfo | None) -> None:
         """
         This will set the :class:`datetime.date` created from the
         supplied parameters as the next date to be returned by
@@ -508,25 +360,8 @@ class MockDate(MockedCurrent, date):
         """
         return super().set(*args, **kw)
 
-    @overload
     @classmethod
-    def tick(
-            cls,
-            days: float = ...,
-            weeks: float = ...,
-    ) -> None:
-        ...
-
-    @overload
-    @classmethod
-    def tick(
-            cls,
-            delta: timedelta,  # can become positional-only when Python 3.8 minimum
-    ) -> None:
-        ...
-
-    @classmethod
-    def tick(cls, *args, **kw) -> None:
+    def tick(cls, *args: timedelta, **kw: float) -> None:
         """
         This method should be called either with a :class:`~datetime.timedelta`
         as a positional argument, or with keyword parameters that will be used
@@ -538,64 +373,22 @@ class MockDate(MockedCurrent, date):
         return super().tick(*args, **kw)
 
     @classmethod
-    def today(cls) -> date:
+    def today(cls) -> Self:
         """
         This will return the next supplied or calculated date from the
         internal queue, rather than the actual current date.
 
         """
-        return cast(date, cls._mock_queue.next())
+        return cls._mock_queue.next()  # type: ignore[return-value]
 
 
-@overload
 def mock_date(
-        delta: float = None,
-        delta_type: str = None,
-        date_type: Type[date] = date,
-        strict: bool = False
-) -> Type[MockDate]:
-    ...
-
-
-@overload
-def mock_date(
-        year: int,
-        month: int,
-        day: int,
-        delta: float = None,
+        *args: int | date | None,
+        delta: float | None = None,
         delta_type: str = 'days',
         strict: bool = False,
-) -> Type[MockDate]:
-    ...
-
-
-@overload
-def mock_date(
-        default: date,
-        delta: float = None,
-        delta_type: str = 'days',
-        strict: bool = False,
-) -> Type[MockDate]:
-    ...
-
-
-@overload
-def mock_date(
-        default: None,  # explicit None positional
-        delta: float = None,
-        delta_type: str = 'days',
-        strict: bool = False,
-) -> Type[MockDate]:
-    ...
-
-
-def mock_date(
-        *args,
-        delta: float = None,
-        delta_type: str = 'days',
-        strict: bool = False,
-        **kw
-) -> Type[MockDate]:
+        **kw: int
+) -> type[MockDate]:
     """
     .. currentmodule:: testfixtures.datetime
 
@@ -637,43 +430,21 @@ def mock_date(
     The mock returned will behave exactly as the :class:`datetime.date` class
     as well as being a subclass of :class:`~testfixtures.datetime.MockDate`.
     """
-    return cast(Type[MockDate], mock_factory(
-        'MockDate', MockDate, (2001, 1, 1), args, kw,
+    return mock_factory(
+        'MockDate', MockDate, (2001, 1, 1), args, kw,  # type: ignore[arg-type]
         delta=delta,
         delta_type=delta_type,
         strict=strict,
-        ))
+    )  # type: ignore[return-value]
 
 
 ms = 10**6
 
 
-class MockTime(MockedCurrent, datetime):
-
-    @overload
-    @classmethod
-    def add(
-            cls,
-            year: int,
-            month: int,
-            day: int,
-            hour: int = ...,
-            minute: int = ...,
-            second: int = ...,
-            microsecond: int = ...,
-    ) -> None:
-        ...
-
-    @overload
-    @classmethod
-    def add(
-            cls,
-            instance: datetime,
-    ) -> None:
-        ...
+class MockTime(MockedCurrent[datetime], datetime):
 
     @classmethod
-    def add(cls, *args, **kw):
+    def add(cls, *args: int | datetime, **kw: int | TZInfo | None) -> None:
         """
         This will add the time specified by the supplied parameters to the
         queue of times to be returned by calls to the mock. The
@@ -683,30 +454,8 @@ class MockTime(MockedCurrent, datetime):
         """
         return super().add(*args, **kw)
 
-    @overload
     @classmethod
-    def set(
-            cls,
-            year: int,
-            month: int,
-            day: int,
-            hour: int = ...,
-            minute: int = ...,
-            second: int = ...,
-            microsecond: int = ...,
-    ) -> None:
-        ...
-
-    @overload
-    @classmethod
-    def set(
-            cls,
-            instance: datetime,
-    ) -> None:
-        ...
-
-    @classmethod
-    def set(cls, *args, **kw):
+    def set(cls, *args: int | datetime, **kw: int | TZInfo | None) -> None:
         """
         This will set the time specified by the supplied parameters as
         the next time to be returned by a call to the mock, regardless of
@@ -717,30 +466,8 @@ class MockTime(MockedCurrent, datetime):
         """
         return super().set(*args, **kw)
 
-    @overload
     @classmethod
-    def tick(
-            cls,
-            days: float = ...,
-            seconds: float = ...,
-            microseconds: float = ...,
-            milliseconds: float = ...,
-            minutes: float = ...,
-            hours: float = ...,
-            weeks: float = ...,
-    ) -> None:
-        ...
-
-    @overload
-    @classmethod
-    def tick(
-            cls,
-            delta: timedelta,  # can become positional-only when Python 3.8 minimum
-    ) -> None:
-        ...
-
-    @classmethod
-    def tick(cls, *args, **kw):
+    def tick(cls, *args: timedelta, **kw: float) -> None:
         """
         This method should be called either with a :class:`~datetime.timedelta`
         as a positional argument, or with keyword parameters that will be used
@@ -751,63 +478,26 @@ class MockTime(MockedCurrent, datetime):
         """
         return super().tick(*args, **kw)
 
-    def __new__(cls, *args, **kw) -> float:
+    def __new__(cls, *args: int, **kw: int) -> Self | float:  # type: ignore[misc]
         """
         Return a :class:`float` representing the mocked current time as would normally
         be returned by :func:`time.time`.
         """
         if args or kw:
             # Used when adding stuff to the queue
-            return super().__new__(cls, *args, **kw)
+            return super().__new__(cls, *args, **kw)  # type: ignore[misc]
         else:
-            instance = cast(datetime, cls._mock_queue.next())
-            time = timegm(instance.utctimetuple())
-            time += (float(instance.microsecond)/ms)
+            instance = cls._mock_queue.next()
+            time: float = timegm(instance.utctimetuple())
+            time += (float(instance.microsecond) / ms)
             return time
 
-
-@overload
 def mock_time(
-        delta: float = None,
+        *args: int | datetime | None,
+        delta: float | None = None,
         delta_type: str = 'seconds',
-) -> Type[MockTime]:
-    ...
-
-
-@overload
-def mock_time(
-        year: int,
-        month: int,
-        day: int,
-        hour: int = ...,
-        minute: int = ...,
-        second: int = ...,
-        microsecond: int = ...,
-        delta: float = None,
-        delta_type: str = 'seconds',
-) -> Type[MockTime]:
-    ...
-
-
-@overload
-def mock_time(
-        default: datetime,
-        delta: float = None,
-        delta_type: str = 'seconds',
-) -> Type[MockTime]:
-    ...
-
-
-@overload
-def mock_time(
-        default: None,  # explicit None positional
-        delta: float = None,
-        delta_type: str = 'seconds',
-) -> Type[MockTime]:
-    ...
-
-
-def mock_time(*args, delta: float = None, delta_type: str = 'seconds', **kw) -> Type[MockTime]:
+        **kw: int,
+) -> type[MockTime]:
     """
     .. currentmodule:: testfixtures.datetime
 
@@ -851,8 +541,8 @@ def mock_time(*args, delta: float = None, delta_type: str = 'seconds', **kw) -> 
     """
     if 'tzinfo' in kw or len(args) > 7 or (args and getattr(args[0], 'tzinfo', None)):
         raise TypeError("You don't want to use tzinfo with test_time")
-    return cast(Type[MockTime], mock_factory(
-        'MockTime', MockTime, (2001, 1, 1, 0, 0, 0), args, kw,
+    return mock_factory(
+        'MockTime', MockTime, (2001, 1, 1, 0, 0, 0), args, kw,  # type: ignore[arg-type]
         delta=delta,
         delta_type=delta_type,
-        ))
+    )  # type: ignore[return-value]

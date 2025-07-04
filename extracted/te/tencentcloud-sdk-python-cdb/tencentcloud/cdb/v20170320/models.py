@@ -4984,21 +4984,21 @@ class CheckMigrateClusterRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _InstanceId: 实例Id。
+        :param _InstanceId: 实例 ID。可通过 [DescribeDBInstances](https://cloud.tencent.com/document/product/236/15872) 接口获取。
         :type InstanceId: str
-        :param _Cpu: 实例CPU核数
+        :param _Cpu: 实例 CPU 核数。当 InstanceId 为主实例时必传。
         :type Cpu: int
-        :param _Memory: 实例内存大小，单位：MB
+        :param _Memory: 实例内存大小，单位：MB。当 InstanceId 为主实例时必传。
         :type Memory: int
-        :param _Volume: 实例硬盘大小，单位：GB
+        :param _Volume: 实例硬盘大小，单位：GB。
         :type Volume: int
-        :param _DiskType: 磁盘类型。 CLOUD_SSD: SSD云硬盘; CLOUD_HSSD: 增强型SSD云硬盘
+        :param _DiskType: 磁盘类型。 CLOUD_SSD: SSD 云硬盘; CLOUD_HSSD: 增强型 SSD 云硬盘。
         :type DiskType: str
-        :param _ClusterTopology: 云盘版节点拓扑配置。
+        :param _ClusterTopology: 云盘版节点拓扑配置。当 InstanceId 为主实例时必传。
         :type ClusterTopology: :class:`tencentcloud.cdb.v20170320.models.ClusterTopology`
         :param _DeviceType: 迁移实例类型。支持值包括： "CLOUD_NATIVE_CLUSTER" - 标准型云盘版实例， "CLOUD_NATIVE_CLUSTER_EXCLUSIVE" - 加强型云盘版实例。
         :type DeviceType: str
-        :param _RoInfo: 只读实例信息
+        :param _RoInfo: 只读实例信息。
         :type RoInfo: list of MigrateClusterRoInfo
         """
         self._InstanceId = None
@@ -5012,7 +5012,7 @@ class CheckMigrateClusterRequest(AbstractModel):
 
     @property
     def InstanceId(self):
-        """实例Id。
+        """实例 ID。可通过 [DescribeDBInstances](https://cloud.tencent.com/document/product/236/15872) 接口获取。
         :rtype: str
         """
         return self._InstanceId
@@ -5023,7 +5023,7 @@ class CheckMigrateClusterRequest(AbstractModel):
 
     @property
     def Cpu(self):
-        """实例CPU核数
+        """实例 CPU 核数。当 InstanceId 为主实例时必传。
         :rtype: int
         """
         return self._Cpu
@@ -5034,7 +5034,7 @@ class CheckMigrateClusterRequest(AbstractModel):
 
     @property
     def Memory(self):
-        """实例内存大小，单位：MB
+        """实例内存大小，单位：MB。当 InstanceId 为主实例时必传。
         :rtype: int
         """
         return self._Memory
@@ -5045,7 +5045,7 @@ class CheckMigrateClusterRequest(AbstractModel):
 
     @property
     def Volume(self):
-        """实例硬盘大小，单位：GB
+        """实例硬盘大小，单位：GB。
         :rtype: int
         """
         return self._Volume
@@ -5056,7 +5056,7 @@ class CheckMigrateClusterRequest(AbstractModel):
 
     @property
     def DiskType(self):
-        """磁盘类型。 CLOUD_SSD: SSD云硬盘; CLOUD_HSSD: 增强型SSD云硬盘
+        """磁盘类型。 CLOUD_SSD: SSD 云硬盘; CLOUD_HSSD: 增强型 SSD 云硬盘。
         :rtype: str
         """
         return self._DiskType
@@ -5067,7 +5067,7 @@ class CheckMigrateClusterRequest(AbstractModel):
 
     @property
     def ClusterTopology(self):
-        """云盘版节点拓扑配置。
+        """云盘版节点拓扑配置。当 InstanceId 为主实例时必传。
         :rtype: :class:`tencentcloud.cdb.v20170320.models.ClusterTopology`
         """
         return self._ClusterTopology
@@ -5089,7 +5089,7 @@ class CheckMigrateClusterRequest(AbstractModel):
 
     @property
     def RoInfo(self):
-        """只读实例信息
+        """只读实例信息。
         :rtype: list of MigrateClusterRoInfo
         """
         return self._RoInfo
@@ -6020,8 +6020,10 @@ class ClusterTopology(AbstractModel):
     def __init__(self):
         r"""
         :param _ReadWriteNode: RW 节点拓扑。
+说明：NodeId 可通过 [DescribeDBInstances](https://cloud.tencent.com/document/product/236/15872) 获取。
         :type ReadWriteNode: :class:`tencentcloud.cdb.v20170320.models.ReadWriteNode`
         :param _ReadOnlyNodes: RO 节点拓扑。
+说明：NodeId 可通过 [DescribeDBInstances](https://cloud.tencent.com/document/product/236/15872) 获取。
         :type ReadOnlyNodes: list of ReadonlyNode
         """
         self._ReadWriteNode = None
@@ -6030,6 +6032,7 @@ class ClusterTopology(AbstractModel):
     @property
     def ReadWriteNode(self):
         """RW 节点拓扑。
+说明：NodeId 可通过 [DescribeDBInstances](https://cloud.tencent.com/document/product/236/15872) 获取。
         :rtype: :class:`tencentcloud.cdb.v20170320.models.ReadWriteNode`
         """
         return self._ReadWriteNode
@@ -6041,6 +6044,7 @@ class ClusterTopology(AbstractModel):
     @property
     def ReadOnlyNodes(self):
         """RO 节点拓扑。
+说明：NodeId 可通过 [DescribeDBInstances](https://cloud.tencent.com/document/product/236/15872) 获取。
         :rtype: list of ReadonlyNode
         """
         return self._ReadOnlyNodes
@@ -6481,18 +6485,15 @@ class CreateAuditLogFileRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _InstanceId: 实例 ID，与云数据库控制台页面中显示的实例 ID 相同。
+        :param _InstanceId: 实例 ID。可通过 [DescribeDBInstances](https://cloud.tencent.com/document/product/236/15872) 接口获取。
         :type InstanceId: str
-        :param _StartTime: 开始时间。
+        :param _StartTime: 开始时间(建议开始到结束时间区间最大7天)。
         :type StartTime: str
-        :param _EndTime: 结束时间。
+        :param _EndTime: 结束时间(建议开始到结束时间区间最大7天）。
         :type EndTime: str
-        :param _Order: 排序方式。支持值包括："ASC" - 升序，"DESC" - 降序。
+        :param _Order: 排序方式。支持值包括："ASC" - 升序，"DESC" - 降序，默认降序排序。
         :type Order: str
-        :param _OrderBy: 排序字段。支持值包括：
-"timestamp" - 时间戳；
-"affectRows" - 影响行数；
-"execTime" - 执行时间。
+        :param _OrderBy: 排序字段。支持值包括(默认按照时间戳排序)： "timestamp" - 时间戳； "affectRows" - 影响行数； "execTime" - 执行时间。
         :type OrderBy: str
         :param _Filter: 已废弃。
         :type Filter: :class:`tencentcloud.cdb.v20170320.models.AuditLogFilter`
@@ -6512,7 +6513,7 @@ class CreateAuditLogFileRequest(AbstractModel):
 
     @property
     def InstanceId(self):
-        """实例 ID，与云数据库控制台页面中显示的实例 ID 相同。
+        """实例 ID。可通过 [DescribeDBInstances](https://cloud.tencent.com/document/product/236/15872) 接口获取。
         :rtype: str
         """
         return self._InstanceId
@@ -6523,7 +6524,7 @@ class CreateAuditLogFileRequest(AbstractModel):
 
     @property
     def StartTime(self):
-        """开始时间。
+        """开始时间(建议开始到结束时间区间最大7天)。
         :rtype: str
         """
         return self._StartTime
@@ -6534,7 +6535,7 @@ class CreateAuditLogFileRequest(AbstractModel):
 
     @property
     def EndTime(self):
-        """结束时间。
+        """结束时间(建议开始到结束时间区间最大7天）。
         :rtype: str
         """
         return self._EndTime
@@ -6545,7 +6546,7 @@ class CreateAuditLogFileRequest(AbstractModel):
 
     @property
     def Order(self):
-        """排序方式。支持值包括："ASC" - 升序，"DESC" - 降序。
+        """排序方式。支持值包括："ASC" - 升序，"DESC" - 降序，默认降序排序。
         :rtype: str
         """
         return self._Order
@@ -6556,10 +6557,7 @@ class CreateAuditLogFileRequest(AbstractModel):
 
     @property
     def OrderBy(self):
-        """排序字段。支持值包括：
-"timestamp" - 时间戳；
-"affectRows" - 影响行数；
-"execTime" - 执行时间。
+        """排序字段。支持值包括(默认按照时间戳排序)： "timestamp" - 时间戳； "affectRows" - 影响行数； "execTime" - 执行时间。
         :rtype: str
         """
         return self._OrderBy
@@ -11117,14 +11115,14 @@ class DeleteAuditRuleTemplatesRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _RuleTemplateIds: 审计规则模板ID。
+        :param _RuleTemplateIds: 审计规则模板ID,可通过[DescribeAuditRuleTemplates](https://cloud.tencent.com/document/api/236/101811)接口获取，单次允许最多删除5个规则模板。
         :type RuleTemplateIds: list of str
         """
         self._RuleTemplateIds = None
 
     @property
     def RuleTemplateIds(self):
-        """审计规则模板ID。
+        """审计规则模板ID,可通过[DescribeAuditRuleTemplates](https://cloud.tencent.com/document/api/236/101811)接口获取，单次允许最多删除5个规则模板。
         :rtype: list of str
         """
         return self._RuleTemplateIds
@@ -12652,19 +12650,19 @@ class DescribeAuditLogsRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _InstanceId: 实例 ID。
+        :param _InstanceId: 实例 ID。可通过 [DescribeDBInstances](https://cloud.tencent.com/document/product/236/15872) 接口获取。
         :type InstanceId: str
-        :param _StartTime: 开始时间。
+        :param _StartTime: 开始时间(建议开始到结束时间区间最大7天)。
         :type StartTime: str
-        :param _EndTime: 结束时间。
+        :param _EndTime: 结束时间(建议开始到结束时间区间最大7天）。
         :type EndTime: str
         :param _Limit: 分页参数，单次返回的数据条数。默认值为100，最大值为100。
         :type Limit: int
         :param _Offset: 日志偏移量，最多支持偏移查询65535条日志。可填写范围：0 - 65535。
         :type Offset: int
-        :param _Order: 排序方式。支持值包括："ASC" - 升序，"DESC" - 降序。
+        :param _Order: 排序方式。支持值包括："ASC" - 升序，"DESC" - 降序，默认降序排序。
         :type Order: str
-        :param _OrderBy: 排序字段。支持值包括：
+        :param _OrderBy: 排序字段。支持值包括(默认按照时间戳排序)：
 "timestamp" - 时间戳；
 "affectRows" - 影响行数；
 "execTime" - 执行时间。
@@ -12683,7 +12681,7 @@ class DescribeAuditLogsRequest(AbstractModel):
 
     @property
     def InstanceId(self):
-        """实例 ID。
+        """实例 ID。可通过 [DescribeDBInstances](https://cloud.tencent.com/document/product/236/15872) 接口获取。
         :rtype: str
         """
         return self._InstanceId
@@ -12694,7 +12692,7 @@ class DescribeAuditLogsRequest(AbstractModel):
 
     @property
     def StartTime(self):
-        """开始时间。
+        """开始时间(建议开始到结束时间区间最大7天)。
         :rtype: str
         """
         return self._StartTime
@@ -12705,7 +12703,7 @@ class DescribeAuditLogsRequest(AbstractModel):
 
     @property
     def EndTime(self):
-        """结束时间。
+        """结束时间(建议开始到结束时间区间最大7天）。
         :rtype: str
         """
         return self._EndTime
@@ -12738,7 +12736,7 @@ class DescribeAuditLogsRequest(AbstractModel):
 
     @property
     def Order(self):
-        """排序方式。支持值包括："ASC" - 升序，"DESC" - 降序。
+        """排序方式。支持值包括："ASC" - 升序，"DESC" - 降序，默认降序排序。
         :rtype: str
         """
         return self._Order
@@ -12749,7 +12747,7 @@ class DescribeAuditLogsRequest(AbstractModel):
 
     @property
     def OrderBy(self):
-        """排序字段。支持值包括：
+        """排序字段。支持值包括(默认按照时间戳排序)：
 "timestamp" - 时间戳；
 "affectRows" - 影响行数；
 "execTime" - 执行时间。
@@ -13060,17 +13058,17 @@ class DescribeAuditRuleTemplateModifyHistoryRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _RuleTemplateIds: 模板ID
+        :param _RuleTemplateIds: 审计规则模板ID,可通过[DescribeAuditRuleTemplates](https://cloud.tencent.com/document/api/236/101811)接口获取。
         :type RuleTemplateIds: list of str
         :param _StartTime: 查询范围的开始时间。
         :type StartTime: str
         :param _EndTime: 查询范围的结束时间。
         :type EndTime: str
-        :param _Limit: 返回条数。
+        :param _Limit: 返回条数,默认值-20，最大值-1000。
         :type Limit: int
         :param _Offset: 偏移量。
         :type Offset: int
-        :param _Order: 排序方式。DESC-按修改时间倒排，ASC-正序。
+        :param _Order: 排序方式，DESC-按修改时间倒排，ASC-正序，默认：DESC。
         :type Order: str
         """
         self._RuleTemplateIds = None
@@ -13082,7 +13080,7 @@ class DescribeAuditRuleTemplateModifyHistoryRequest(AbstractModel):
 
     @property
     def RuleTemplateIds(self):
-        """模板ID
+        """审计规则模板ID,可通过[DescribeAuditRuleTemplates](https://cloud.tencent.com/document/api/236/101811)接口获取。
         :rtype: list of str
         """
         return self._RuleTemplateIds
@@ -13115,7 +13113,7 @@ class DescribeAuditRuleTemplateModifyHistoryRequest(AbstractModel):
 
     @property
     def Limit(self):
-        """返回条数。
+        """返回条数,默认值-20，最大值-1000。
         :rtype: int
         """
         return self._Limit
@@ -13137,7 +13135,7 @@ class DescribeAuditRuleTemplateModifyHistoryRequest(AbstractModel):
 
     @property
     def Order(self):
-        """排序方式。DESC-按修改时间倒排，ASC-正序。
+        """排序方式，DESC-按修改时间倒排，ASC-正序，默认：DESC。
         :rtype: str
         """
         return self._Order
@@ -15645,15 +15643,15 @@ class DescribeCpuExpandHistoryRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _InstanceId: 实例 ID
+        :param _InstanceId: 实例 ID。可通过 [DescribeDBInstances](https://cloud.tencent.com/document/product/236/15872) 接口获取。
         :type InstanceId: str
         :param _ExpandStrategy: 扩容策略，值包括：all，manual，auto
         :type ExpandStrategy: str
         :param _Status: 扩容状态，值包括：all，extend，reduce，extend_failed
         :type Status: str
-        :param _StartTime: 查询的开始时间。只能查看30天内的扩容历史
+        :param _StartTime: 查询的开始时间。只能查看30天内的扩容历史，格式为 Integer 的时间戳（秒级）。
         :type StartTime: int
-        :param _EndTime: 查询的结束时间。只能查看30天内的扩容历史
+        :param _EndTime: 查询的结束时间。只能查看30天内的扩容历史，格式为 Integer 的时间戳（秒级）。
         :type EndTime: int
         :param _Offset: 分页入参
         :type Offset: int
@@ -15670,7 +15668,7 @@ class DescribeCpuExpandHistoryRequest(AbstractModel):
 
     @property
     def InstanceId(self):
-        """实例 ID
+        """实例 ID。可通过 [DescribeDBInstances](https://cloud.tencent.com/document/product/236/15872) 接口获取。
         :rtype: str
         """
         return self._InstanceId
@@ -15703,7 +15701,7 @@ class DescribeCpuExpandHistoryRequest(AbstractModel):
 
     @property
     def StartTime(self):
-        """查询的开始时间。只能查看30天内的扩容历史
+        """查询的开始时间。只能查看30天内的扩容历史，格式为 Integer 的时间戳（秒级）。
         :rtype: int
         """
         return self._StartTime
@@ -15714,7 +15712,7 @@ class DescribeCpuExpandHistoryRequest(AbstractModel):
 
     @property
     def EndTime(self):
-        """查询的结束时间。只能查看30天内的扩容历史
+        """查询的结束时间。只能查看30天内的扩容历史，格式为 Integer 的时间戳（秒级）。
         :rtype: int
         """
         return self._EndTime
@@ -16922,9 +16920,10 @@ class DescribeDBInstancesRequest(AbstractModel):
         :type CdbErrors: list of int
         :param _OrderBy: 返回结果集排序的字段，目前支持："InstanceId"，"InstanceName"，"CreateTime"，"DeadlineTime"。
         :type OrderBy: str
-        :param _OrderDirection: 返回结果集排序方式，目前支持："ASC" 或者 "DESC"。
+        :param _OrderDirection: 返回结果集排序方式。目前支持值："ASC" - 表示升序，"DESC" - 表示降序，默认为 "DESC"。
         :type OrderDirection: str
         :param _WithSecurityGroup: 是否以安全组 ID 为过滤条件。
+说明：0表示否，1表示是。
         :type WithSecurityGroup: int
         :param _WithExCluster: 是否包含独享集群详细信息，可取值：0 - 不包含，1 - 包含。
         :type WithExCluster: int
@@ -16959,9 +16958,9 @@ class DescribeDBInstancesRequest(AbstractModel):
         :type ProxyVips: list of str
         :param _ProxyIds: 数据库代理 ID 。
         :type ProxyIds: list of str
-        :param _EngineTypes: 数据库引擎类型。
+        :param _EngineTypes: 数据库引擎类型。可选值为：InnoDB、RocksDB。
         :type EngineTypes: list of str
-        :param _QueryClusterInfo: 是否获取集群版实例节点信息，可填：true或false
+        :param _QueryClusterInfo: 是否获取集群版实例节点信息，可填：true 或 false。默认为 false。
         :type QueryClusterInfo: bool
         """
         self._ProjectId = None
@@ -17179,7 +17178,7 @@ class DescribeDBInstancesRequest(AbstractModel):
 
     @property
     def OrderDirection(self):
-        """返回结果集排序方式，目前支持："ASC" 或者 "DESC"。
+        """返回结果集排序方式。目前支持值："ASC" - 表示升序，"DESC" - 表示降序，默认为 "DESC"。
         :rtype: str
         """
         return self._OrderDirection
@@ -17191,6 +17190,7 @@ class DescribeDBInstancesRequest(AbstractModel):
     @property
     def WithSecurityGroup(self):
         """是否以安全组 ID 为过滤条件。
+说明：0表示否，1表示是。
         :rtype: int
         """
         return self._WithSecurityGroup
@@ -17378,7 +17378,7 @@ class DescribeDBInstancesRequest(AbstractModel):
 
     @property
     def EngineTypes(self):
-        """数据库引擎类型。
+        """数据库引擎类型。可选值为：InnoDB、RocksDB。
         :rtype: list of str
         """
         return self._EngineTypes
@@ -17389,7 +17389,7 @@ class DescribeDBInstancesRequest(AbstractModel):
 
     @property
     def QueryClusterInfo(self):
-        """是否获取集群版实例节点信息，可填：true或false
+        """是否获取集群版实例节点信息，可填：true 或 false。默认为 false。
         :rtype: bool
         """
         return self._QueryClusterInfo
@@ -19080,7 +19080,7 @@ class DescribeInstanceAlarmEventsRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _InstanceId: 实例 ID。
+        :param _InstanceId: 实例 ID。可通过 [DescribeDBInstances](https://cloud.tencent.com/document/product/236/15872) 接口获取。
         :type InstanceId: str
         :param _StartTime: 事件查询范围开始时间，闭区间。
         :type StartTime: str
@@ -19092,7 +19092,7 @@ class DescribeInstanceAlarmEventsRequest(AbstractModel):
         :type EventStatus: str
         :param _Order: 排序方式。按事件发生事件进行排序，"DESC"-倒排；”ASC“-正序，默认倒排。
         :type Order: str
-        :param _Limit: 事件展示数量。
+        :param _Limit: 事件展示数量。默认为100，最大为200。
         :type Limit: str
         :param _Offset: 偏移量。
         :type Offset: str
@@ -19111,7 +19111,7 @@ class DescribeInstanceAlarmEventsRequest(AbstractModel):
 
     @property
     def InstanceId(self):
-        """实例 ID。
+        """实例 ID。可通过 [DescribeDBInstances](https://cloud.tencent.com/document/product/236/15872) 接口获取。
         :rtype: str
         """
         return self._InstanceId
@@ -19177,7 +19177,7 @@ class DescribeInstanceAlarmEventsRequest(AbstractModel):
 
     @property
     def Limit(self):
-        """事件展示数量。
+        """事件展示数量。默认为100，最大为200。
         :rtype: str
         """
         return self._Limit
@@ -19638,31 +19638,31 @@ class DescribeInstanceUpgradeTypeRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _InstanceId: 实例 ID。
+        :param _InstanceId: 实例 ID。可通过 [DescribeDBInstances](https://cloud.tencent.com/document/product/236/15872) 接口获取。
         :type InstanceId: str
-        :param _DstCpu: 目标实例 CPU 的核数。
+        :param _DstCpu: 目标实例 CPU 的核数。为保证传入值有效，请使用 [DescribeCdbZoneConfig](https://cloud.tencent.com/document/product/236/80281) 获取实例可售卖的 CPU 值范围。
         :type DstCpu: float
-        :param _DstMemory: 目标实例内存大小，单位：MB。
+        :param _DstMemory: 目标实例内存大小，单位：MB。为保证传入值有效，请使用 [DescribeCdbZoneConfig](https://cloud.tencent.com/document/product/236/80281) 获取实例可售卖的内存大小范围。
         :type DstMemory: int
-        :param _DstDisk: 目标实例磁盘大小，单位：GB。
+        :param _DstDisk: 目标实例磁盘大小，单位：GB。为保证传入值有效，请使用 [DescribeCdbZoneConfig](https://cloud.tencent.com/document/product/236/80281) 获取实例可售卖的磁盘大小范围。
         :type DstDisk: int
-        :param _DstVersion: 目标实例数据库版本。
+        :param _DstVersion: 目标实例数据库版本。可选值：5.6，5.7，8.0。
         :type DstVersion: str
-        :param _DstDeployMode: 目标实例部署模型。
+        :param _DstDeployMode: 目标实例部署模型。默认为0，支持值包括：0 - 表示单可用区，1 - 表示多可用区。
         :type DstDeployMode: int
-        :param _DstProtectMode: 目标实例复制类型。
+        :param _DstProtectMode: 目标实例复制类型，支持值包括：0 - 表示异步复制，1 - 表示半同步复制，2 - 表示强同步复制。
         :type DstProtectMode: int
-        :param _DstSlaveZone: 目标实例备机1可用区。
+        :param _DstSlaveZone: 目标实例备机1可用区 ID。可使用 [DescribeCdbZoneConfig](https://cloud.tencent.com/document/product/236/80281) 获取可用区 ID。
         :type DstSlaveZone: int
-        :param _DstBackupZone: 目标实例备机2可用区。
+        :param _DstBackupZone: 目标实例备机2可用区 ID。可使用 [DescribeCdbZoneConfig](https://cloud.tencent.com/document/product/236/80281) 获取可用区 ID。
         :type DstBackupZone: int
-        :param _DstCdbType: 目标实例类型。
+        :param _DstCdbType: 目标实例类型。支持值包括："CUSTOM" - 通用型实例，"EXCLUSIVE" - 独享型实例，"ONTKE" - ONTKE 单节点实例，"CLOUD_NATIVE_CLUSTER" - 云盘版标准型，"CLOUD_NATIVE_CLUSTER_EXCLUSIVE" - 云盘版加强型。
         :type DstCdbType: str
-        :param _DstZoneId: 目标实例主可用区。
+        :param _DstZoneId: 目标实例主可用区 ID。可使用 [DescribeCdbZoneConfig](https://cloud.tencent.com/document/product/236/80281) 获取可用区 ID。
         :type DstZoneId: int
         :param _NodeDistribution: 独享集群 CDB 实例的节点分布情况。
         :type NodeDistribution: :class:`tencentcloud.cdb.v20170320.models.NodeDistribution`
-        :param _ClusterTopology: 集群版的节点拓扑配置
+        :param _ClusterTopology: 集群版的节点拓扑配置。Nodeld信息可通过 [DescribeClusterInfo](https://cloud.tencent.com/document/api/236/105116) 接口获取。
         :type ClusterTopology: :class:`tencentcloud.cdb.v20170320.models.ClusterTopology`
         """
         self._InstanceId = None
@@ -19681,7 +19681,7 @@ class DescribeInstanceUpgradeTypeRequest(AbstractModel):
 
     @property
     def InstanceId(self):
-        """实例 ID。
+        """实例 ID。可通过 [DescribeDBInstances](https://cloud.tencent.com/document/product/236/15872) 接口获取。
         :rtype: str
         """
         return self._InstanceId
@@ -19692,7 +19692,7 @@ class DescribeInstanceUpgradeTypeRequest(AbstractModel):
 
     @property
     def DstCpu(self):
-        """目标实例 CPU 的核数。
+        """目标实例 CPU 的核数。为保证传入值有效，请使用 [DescribeCdbZoneConfig](https://cloud.tencent.com/document/product/236/80281) 获取实例可售卖的 CPU 值范围。
         :rtype: float
         """
         return self._DstCpu
@@ -19703,7 +19703,7 @@ class DescribeInstanceUpgradeTypeRequest(AbstractModel):
 
     @property
     def DstMemory(self):
-        """目标实例内存大小，单位：MB。
+        """目标实例内存大小，单位：MB。为保证传入值有效，请使用 [DescribeCdbZoneConfig](https://cloud.tencent.com/document/product/236/80281) 获取实例可售卖的内存大小范围。
         :rtype: int
         """
         return self._DstMemory
@@ -19714,7 +19714,7 @@ class DescribeInstanceUpgradeTypeRequest(AbstractModel):
 
     @property
     def DstDisk(self):
-        """目标实例磁盘大小，单位：GB。
+        """目标实例磁盘大小，单位：GB。为保证传入值有效，请使用 [DescribeCdbZoneConfig](https://cloud.tencent.com/document/product/236/80281) 获取实例可售卖的磁盘大小范围。
         :rtype: int
         """
         return self._DstDisk
@@ -19725,7 +19725,7 @@ class DescribeInstanceUpgradeTypeRequest(AbstractModel):
 
     @property
     def DstVersion(self):
-        """目标实例数据库版本。
+        """目标实例数据库版本。可选值：5.6，5.7，8.0。
         :rtype: str
         """
         return self._DstVersion
@@ -19736,7 +19736,7 @@ class DescribeInstanceUpgradeTypeRequest(AbstractModel):
 
     @property
     def DstDeployMode(self):
-        """目标实例部署模型。
+        """目标实例部署模型。默认为0，支持值包括：0 - 表示单可用区，1 - 表示多可用区。
         :rtype: int
         """
         return self._DstDeployMode
@@ -19747,7 +19747,7 @@ class DescribeInstanceUpgradeTypeRequest(AbstractModel):
 
     @property
     def DstProtectMode(self):
-        """目标实例复制类型。
+        """目标实例复制类型，支持值包括：0 - 表示异步复制，1 - 表示半同步复制，2 - 表示强同步复制。
         :rtype: int
         """
         return self._DstProtectMode
@@ -19758,7 +19758,7 @@ class DescribeInstanceUpgradeTypeRequest(AbstractModel):
 
     @property
     def DstSlaveZone(self):
-        """目标实例备机1可用区。
+        """目标实例备机1可用区 ID。可使用 [DescribeCdbZoneConfig](https://cloud.tencent.com/document/product/236/80281) 获取可用区 ID。
         :rtype: int
         """
         return self._DstSlaveZone
@@ -19769,7 +19769,7 @@ class DescribeInstanceUpgradeTypeRequest(AbstractModel):
 
     @property
     def DstBackupZone(self):
-        """目标实例备机2可用区。
+        """目标实例备机2可用区 ID。可使用 [DescribeCdbZoneConfig](https://cloud.tencent.com/document/product/236/80281) 获取可用区 ID。
         :rtype: int
         """
         return self._DstBackupZone
@@ -19780,7 +19780,7 @@ class DescribeInstanceUpgradeTypeRequest(AbstractModel):
 
     @property
     def DstCdbType(self):
-        """目标实例类型。
+        """目标实例类型。支持值包括："CUSTOM" - 通用型实例，"EXCLUSIVE" - 独享型实例，"ONTKE" - ONTKE 单节点实例，"CLOUD_NATIVE_CLUSTER" - 云盘版标准型，"CLOUD_NATIVE_CLUSTER_EXCLUSIVE" - 云盘版加强型。
         :rtype: str
         """
         return self._DstCdbType
@@ -19791,7 +19791,7 @@ class DescribeInstanceUpgradeTypeRequest(AbstractModel):
 
     @property
     def DstZoneId(self):
-        """目标实例主可用区。
+        """目标实例主可用区 ID。可使用 [DescribeCdbZoneConfig](https://cloud.tencent.com/document/product/236/80281) 获取可用区 ID。
         :rtype: int
         """
         return self._DstZoneId
@@ -19813,7 +19813,7 @@ class DescribeInstanceUpgradeTypeRequest(AbstractModel):
 
     @property
     def ClusterTopology(self):
-        """集群版的节点拓扑配置
+        """集群版的节点拓扑配置。Nodeld信息可通过 [DescribeClusterInfo](https://cloud.tencent.com/document/api/236/105116) 接口获取。
         :rtype: :class:`tencentcloud.cdb.v20170320.models.ClusterTopology`
         """
         return self._ClusterTopology
@@ -19860,7 +19860,7 @@ class DescribeInstanceUpgradeTypeResponse(AbstractModel):
         r"""
         :param _InstanceId: 实例 ID。
         :type InstanceId: str
-        :param _UpgradeType: 实例升级类型。
+        :param _UpgradeType: 实例升级类型。Trsf - 迁移升级，InPlace - 原地升级，Topology - 架构升级。
         :type UpgradeType: str
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
@@ -19882,7 +19882,7 @@ class DescribeInstanceUpgradeTypeResponse(AbstractModel):
 
     @property
     def UpgradeType(self):
-        """实例升级类型。
+        """实例升级类型。Trsf - 迁移升级，InPlace - 原地升级，Topology - 架构升级。
         :rtype: str
         """
         return self._UpgradeType
@@ -22320,11 +22320,11 @@ class DescribeTagsOfInstanceIdsRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _InstanceIds: 实例列表。
+        :param _InstanceIds: 实例列表。实例 ID 可通过 [DescribeDBInstances](https://cloud.tencent.com/document/product/236/15872) 接口获取。可传入的数组长度暂无限制。
         :type InstanceIds: list of str
         :param _Offset: 分页偏移量。
         :type Offset: int
-        :param _Limit: 分页大小。
+        :param _Limit: 分页大小。默认为15。
         :type Limit: int
         """
         self._InstanceIds = None
@@ -22333,7 +22333,7 @@ class DescribeTagsOfInstanceIdsRequest(AbstractModel):
 
     @property
     def InstanceIds(self):
-        """实例列表。
+        """实例列表。实例 ID 可通过 [DescribeDBInstances](https://cloud.tencent.com/document/product/236/15872) 接口获取。可传入的数组长度暂无限制。
         :rtype: list of str
         """
         return self._InstanceIds
@@ -22355,7 +22355,7 @@ class DescribeTagsOfInstanceIdsRequest(AbstractModel):
 
     @property
     def Limit(self):
-        """分页大小。
+        """分页大小。默认为15。
         :rtype: int
         """
         return self._Limit
@@ -23371,11 +23371,11 @@ class DisassociateSecurityGroupsRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _SecurityGroupId: 安全组 ID。
+        :param _SecurityGroupId: 安全组 ID。可通过 [DescribeDBSecurityGroups](https://cloud.tencent.com/document/api/236/15854) 接口获取。
         :type SecurityGroupId: str
-        :param _InstanceIds: 实例 ID 列表，一个或者多个实例 ID 组成的数组。
+        :param _InstanceIds: 实例 ID 列表，一个或者多个实例 ID 组成的数组。可通过 [DescribeDBInstances](https://cloud.tencent.com/document/product/236/15872) 接口获取。
         :type InstanceIds: list of str
-        :param _ForReadonlyInstance: 当传入只读实例ID时，默认操作的是对应只读组的安全组。如果需要操作只读实例ID的安全组， 需要将该入参置为True
+        :param _ForReadonlyInstance: 当传入只读实例 ID 时，默认操作的是对应只读组的安全组。如果需要操作只读实例 ID 的安全组，需要将该入参置为 True，默认为 False。
         :type ForReadonlyInstance: bool
         """
         self._SecurityGroupId = None
@@ -23384,7 +23384,7 @@ class DisassociateSecurityGroupsRequest(AbstractModel):
 
     @property
     def SecurityGroupId(self):
-        """安全组 ID。
+        """安全组 ID。可通过 [DescribeDBSecurityGroups](https://cloud.tencent.com/document/api/236/15854) 接口获取。
         :rtype: str
         """
         return self._SecurityGroupId
@@ -23395,7 +23395,7 @@ class DisassociateSecurityGroupsRequest(AbstractModel):
 
     @property
     def InstanceIds(self):
-        """实例 ID 列表，一个或者多个实例 ID 组成的数组。
+        """实例 ID 列表，一个或者多个实例 ID 组成的数组。可通过 [DescribeDBInstances](https://cloud.tencent.com/document/product/236/15872) 接口获取。
         :rtype: list of str
         """
         return self._InstanceIds
@@ -23406,7 +23406,7 @@ class DisassociateSecurityGroupsRequest(AbstractModel):
 
     @property
     def ForReadonlyInstance(self):
-        """当传入只读实例ID时，默认操作的是对应只读组的安全组。如果需要操作只读实例ID的安全组， 需要将该入参置为True
+        """当传入只读实例 ID 时，默认操作的是对应只读组的安全组。如果需要操作只读实例 ID 的安全组，需要将该入参置为 True，默认为 False。
         :rtype: bool
         """
         return self._ForReadonlyInstance
@@ -23797,11 +23797,11 @@ class ImportRecord(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _Status: 状态值
+        :param _Status: 状态值。0 - 初始化中，1 - 运行中，2 - 运行成功，3 - 运行失败。
         :type Status: int
-        :param _Code: 状态值
+        :param _Code: 状态值，为负数时任务异常。
         :type Code: int
-        :param _CostTime: 执行时间
+        :param _CostTime: 执行时间，单位：秒。
         :type CostTime: int
         :param _InstanceId: 实例ID
         :type InstanceId: str
@@ -23809,11 +23809,11 @@ class ImportRecord(AbstractModel):
         :type WorkId: str
         :param _FileName: 导入文件名
         :type FileName: str
-        :param _Process: 执行进度
+        :param _Process: 执行进度，单位：百分比。
         :type Process: int
         :param _CreateTime: 任务创建时间
         :type CreateTime: str
-        :param _FileSize: 文件大小
+        :param _FileSize: 文件大小，单位：byte。
         :type FileSize: str
         :param _Message: 任务执行信息
         :type Message: str
@@ -23840,7 +23840,7 @@ class ImportRecord(AbstractModel):
 
     @property
     def Status(self):
-        """状态值
+        """状态值。0 - 初始化中，1 - 运行中，2 - 运行成功，3 - 运行失败。
         :rtype: int
         """
         return self._Status
@@ -23851,7 +23851,7 @@ class ImportRecord(AbstractModel):
 
     @property
     def Code(self):
-        """状态值
+        """状态值，为负数时任务异常。
         :rtype: int
         """
         return self._Code
@@ -23862,7 +23862,7 @@ class ImportRecord(AbstractModel):
 
     @property
     def CostTime(self):
-        """执行时间
+        """执行时间，单位：秒。
         :rtype: int
         """
         return self._CostTime
@@ -23906,7 +23906,7 @@ class ImportRecord(AbstractModel):
 
     @property
     def Process(self):
-        """执行进度
+        """执行进度，单位：百分比。
         :rtype: int
         """
         return self._Process
@@ -23928,7 +23928,7 @@ class ImportRecord(AbstractModel):
 
     @property
     def FileSize(self):
-        """文件大小
+        """文件大小，单位：byte。
         :rtype: str
         """
         return self._FileSize
@@ -24566,17 +24566,32 @@ class InstanceDbAuditStatus(AbstractModel):
         :type AuditStatus: str
         :param _AuditTask: 任务状态。0-无任务；1-审计开启中，2-审计关闭中。
         :type AuditTask: int
-        :param _LogExpireDay: 日志保留时长。
+        :param _LogExpireDay: 日志保留时长。支持值包括：
+7 - 一周；
+30 - 一个月；
+90 - 三个月；
+180 - 六个月；
+365 - 一年；
+1095 - 三年；
+1825 - 五年。
         :type LogExpireDay: int
-        :param _HighLogExpireDay: 高频存储时长。
+        :param _HighLogExpireDay: 高频存储时长。支持值包括：
+3 - 3天；
+7 - 一周；
+30 - 一个月；
+90 - 三个月；
+180 - 六个月；
+365 - 一年；
+1095 - 三年；
+1825 - 五年。
         :type HighLogExpireDay: int
-        :param _LowLogExpireDay: 低频存储时长。
+        :param _LowLogExpireDay: 低频存储时长。单位：天，等于日志保存时长减去高频存储时长。
         :type LowLogExpireDay: int
-        :param _BillingAmount: 日志存储量。
+        :param _BillingAmount: 日志存储量(单位：GB)。
         :type BillingAmount: float
-        :param _HighRealStorage: 高频存储量。
+        :param _HighRealStorage: 高频存储量(单位：GB)。
         :type HighRealStorage: float
-        :param _LowRealStorage: 低频存储量。
+        :param _LowRealStorage: 低频存储量(单位：GB)。
         :type LowRealStorage: float
         :param _AuditAll: 是否为全审计。true-表示全审计。
         :type AuditAll: bool
@@ -24584,7 +24599,7 @@ class InstanceDbAuditStatus(AbstractModel):
         :type CreateAt: str
         :param _InstanceInfo: 实例相关信息
         :type InstanceInfo: :class:`tencentcloud.cdb.v20170320.models.AuditInstanceInfo`
-        :param _RealStorage: 总存储量。
+        :param _RealStorage: 总存储量(单位：GB)。
         :type RealStorage: float
         :param _OldRule: 是否包含审计策略
         :type OldRule: bool
@@ -24642,7 +24657,14 @@ class InstanceDbAuditStatus(AbstractModel):
 
     @property
     def LogExpireDay(self):
-        """日志保留时长。
+        """日志保留时长。支持值包括：
+7 - 一周；
+30 - 一个月；
+90 - 三个月；
+180 - 六个月；
+365 - 一年；
+1095 - 三年；
+1825 - 五年。
         :rtype: int
         """
         return self._LogExpireDay
@@ -24653,7 +24675,15 @@ class InstanceDbAuditStatus(AbstractModel):
 
     @property
     def HighLogExpireDay(self):
-        """高频存储时长。
+        """高频存储时长。支持值包括：
+3 - 3天；
+7 - 一周；
+30 - 一个月；
+90 - 三个月；
+180 - 六个月；
+365 - 一年；
+1095 - 三年；
+1825 - 五年。
         :rtype: int
         """
         return self._HighLogExpireDay
@@ -24664,7 +24694,7 @@ class InstanceDbAuditStatus(AbstractModel):
 
     @property
     def LowLogExpireDay(self):
-        """低频存储时长。
+        """低频存储时长。单位：天，等于日志保存时长减去高频存储时长。
         :rtype: int
         """
         return self._LowLogExpireDay
@@ -24675,7 +24705,7 @@ class InstanceDbAuditStatus(AbstractModel):
 
     @property
     def BillingAmount(self):
-        """日志存储量。
+        """日志存储量(单位：GB)。
         :rtype: float
         """
         return self._BillingAmount
@@ -24686,7 +24716,7 @@ class InstanceDbAuditStatus(AbstractModel):
 
     @property
     def HighRealStorage(self):
-        """高频存储量。
+        """高频存储量(单位：GB)。
         :rtype: float
         """
         return self._HighRealStorage
@@ -24697,7 +24727,7 @@ class InstanceDbAuditStatus(AbstractModel):
 
     @property
     def LowRealStorage(self):
-        """低频存储量。
+        """低频存储量(单位：GB)。
         :rtype: float
         """
         return self._LowRealStorage
@@ -24741,7 +24771,7 @@ class InstanceDbAuditStatus(AbstractModel):
 
     @property
     def RealStorage(self):
-        """总存储量。
+        """总存储量(单位：GB)。
         :rtype: float
         """
         return self._RealStorage
@@ -25610,9 +25640,9 @@ class InstanceRebootTime(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _InstanceId: 实例ID，格式如：cdb-c1nl9rpv，与云数据库控制台页面中显示的实例ID相同
+        :param _InstanceId: 实例 ID，格式如：cdb-c1nl9rpv，与云数据库控制台页面中显示的实例 ID 相同。
         :type InstanceId: str
-        :param _TimeInSeconds: 预期重启时间
+        :param _TimeInSeconds: 预期重启时间，单位：秒。
         :type TimeInSeconds: int
         """
         self._InstanceId = None
@@ -25620,7 +25650,7 @@ class InstanceRebootTime(AbstractModel):
 
     @property
     def InstanceId(self):
-        """实例ID，格式如：cdb-c1nl9rpv，与云数据库控制台页面中显示的实例ID相同
+        """实例 ID，格式如：cdb-c1nl9rpv，与云数据库控制台页面中显示的实例 ID 相同。
         :rtype: str
         """
         return self._InstanceId
@@ -25631,7 +25661,7 @@ class InstanceRebootTime(AbstractModel):
 
     @property
     def TimeInSeconds(self):
-        """预期重启时间
+        """预期重启时间，单位：秒。
         :rtype: int
         """
         return self._TimeInSeconds
@@ -26543,9 +26573,9 @@ class ModifyAccountDescriptionRequest(AbstractModel):
         r"""
         :param _InstanceId: 实例 ID，格式如：cdb-c1nl9rpv，与云数据库控制台页面中显示的实例 ID 相同。
         :type InstanceId: str
-        :param _Accounts: 云数据库账号。
+        :param _Accounts: 云数据库账号。可通过 [DescribeAccounts](https://cloud.tencent.com/document/api/236/17499) 接口获取。
         :type Accounts: list of Account
-        :param _Description: 数据库账号的备注信息。
+        :param _Description: 数据库账号的备注信息。最多支持输入255个字符。
         :type Description: str
         """
         self._InstanceId = None
@@ -26565,7 +26595,7 @@ class ModifyAccountDescriptionRequest(AbstractModel):
 
     @property
     def Accounts(self):
-        """云数据库账号。
+        """云数据库账号。可通过 [DescribeAccounts](https://cloud.tencent.com/document/api/236/17499) 接口获取。
         :rtype: list of Account
         """
         return self._Accounts
@@ -26576,7 +26606,7 @@ class ModifyAccountDescriptionRequest(AbstractModel):
 
     @property
     def Description(self):
-        """数据库账号的备注信息。
+        """数据库账号的备注信息。最多支持输入255个字符。
         :rtype: str
         """
         return self._Description
@@ -28989,7 +29019,7 @@ class ModifyDBInstanceNameRequest(AbstractModel):
         r"""
         :param _InstanceId: 实例 ID，格式如：cdb-c1nl9rpv，与云数据库控制台页面中显示的实例 ID 相同，可使用 [查询实例列表](https://cloud.tencent.com/document/api/236/15872) 接口获取，其值为输出参数中字段 InstanceId 的值。
         :type InstanceId: str
-        :param _InstanceName: 修改后的实例名称。
+        :param _InstanceName: 修改后的实例名称，仅支持数字,英文大小写字母、中文以及特殊字符-_./()[]（）+=:：@ 且长度不能超过60。
         :type InstanceName: str
         """
         self._InstanceId = None
@@ -29008,7 +29038,7 @@ class ModifyDBInstanceNameRequest(AbstractModel):
 
     @property
     def InstanceName(self):
-        """修改后的实例名称。
+        """修改后的实例名称，仅支持数字,英文大小写字母、中文以及特殊字符-_./()[]（）+=:：@ 且长度不能超过60。
         :rtype: str
         """
         return self._InstanceName
@@ -29238,12 +29268,12 @@ class ModifyDBInstanceSecurityGroupsRequest(AbstractModel):
         r"""
         :param _InstanceId: 实例 ID，格式如：cdb-c1nl9rpv 或者 cdbro-c1nl9rpv，与云数据库控制台页面中显示的实例 ID 相同。
         :type InstanceId: str
-        :param _SecurityGroupIds: 要修改的安全组 ID 列表，一个或者多个安全组 ID 组成的数组。
+        :param _SecurityGroupIds: 要修改的安全组 ID 列表，一个或者多个安全组 ID 组成的数组。可通过 [DescribeDBSecurityGroups](hhttps://cloud.tencent.com/document/api/236/15854) 接口获取。输入的安全组 ID 数组无长度限制。
 注意：该入参会全量替换存量已有集合，非增量更新。修改需传入预期的全量集合。
         :type SecurityGroupIds: list of str
-        :param _ForReadonlyInstance: 当传入只读实例ID时，默认操作的是对应只读组的安全组。如果需要操作只读实例ID的安全组， 需要将该入参置为True
+        :param _ForReadonlyInstance: 当传入只读实例 ID 时，默认操作的是对应只读组的安全组。如果需要操作只读实例 ID 的安全组， 需要将该入参置为 True。默认为 False。
         :type ForReadonlyInstance: bool
-        :param _OpResourceId: 变更集群版实例只读组时，InstanceId传实例id，需要额外指定该参数表示操作只读组。 如果操作读写节点则不需指定该参数。
+        :param _OpResourceId: 变更集群版实例只读组时，InstanceId 传实例 ID，需要额外指定该参数表示操作只读组。 如果操作读写节点则不需指定该参数。
         :type OpResourceId: str
         """
         self._InstanceId = None
@@ -29264,7 +29294,7 @@ class ModifyDBInstanceSecurityGroupsRequest(AbstractModel):
 
     @property
     def SecurityGroupIds(self):
-        """要修改的安全组 ID 列表，一个或者多个安全组 ID 组成的数组。
+        """要修改的安全组 ID 列表，一个或者多个安全组 ID 组成的数组。可通过 [DescribeDBSecurityGroups](hhttps://cloud.tencent.com/document/api/236/15854) 接口获取。输入的安全组 ID 数组无长度限制。
 注意：该入参会全量替换存量已有集合，非增量更新。修改需传入预期的全量集合。
         :rtype: list of str
         """
@@ -29276,7 +29306,7 @@ class ModifyDBInstanceSecurityGroupsRequest(AbstractModel):
 
     @property
     def ForReadonlyInstance(self):
-        """当传入只读实例ID时，默认操作的是对应只读组的安全组。如果需要操作只读实例ID的安全组， 需要将该入参置为True
+        """当传入只读实例 ID 时，默认操作的是对应只读组的安全组。如果需要操作只读实例 ID 的安全组， 需要将该入参置为 True。默认为 False。
         :rtype: bool
         """
         return self._ForReadonlyInstance
@@ -29287,7 +29317,7 @@ class ModifyDBInstanceSecurityGroupsRequest(AbstractModel):
 
     @property
     def OpResourceId(self):
-        """变更集群版实例只读组时，InstanceId传实例id，需要额外指定该参数表示操作只读组。 如果操作读写节点则不需指定该参数。
+        """变更集群版实例只读组时，InstanceId 传实例 ID，需要额外指定该参数表示操作只读组。 如果操作读写节点则不需指定该参数。
         :rtype: str
         """
         return self._OpResourceId
@@ -32463,9 +32493,9 @@ class ProxyGroupInfo(AbstractModel):
         :type ProxyVersion: str
         :param _SupportUpgradeProxyVersion: 代理支持升级版本
         :type SupportUpgradeProxyVersion: str
-        :param _Status: 代理状态
+        :param _Status: 代理状态。0 - 初始化中，1 - 在线中，2 - 在线中-读写分离中，3 - 下线，4 - 销毁。
         :type Status: str
-        :param _TaskStatus: 代理任务状态
+        :param _TaskStatus: 代理任务状态，Upgrading - 升级中，UpgradeTo - 升级待切换，UpgradeSwitching - 升级切换中，ProxyCreateAddress - 配置地址中，ProxyModifyAddress - 修改地址中，ProxyCloseAddress - 关闭地址中。
         :type TaskStatus: str
         :param _ProxyNode: 代理组节点信息
         :type ProxyNode: list of ProxyNode
@@ -32524,7 +32554,7 @@ class ProxyGroupInfo(AbstractModel):
 
     @property
     def Status(self):
-        """代理状态
+        """代理状态。0 - 初始化中，1 - 在线中，2 - 在线中-读写分离中，3 - 下线，4 - 销毁。
         :rtype: str
         """
         return self._Status
@@ -32535,7 +32565,7 @@ class ProxyGroupInfo(AbstractModel):
 
     @property
     def TaskStatus(self):
-        """代理任务状态
+        """代理任务状态，Upgrading - 升级中，UpgradeTo - 升级待切换，UpgradeSwitching - 升级切换中，ProxyCreateAddress - 配置地址中，ProxyModifyAddress - 修改地址中，ProxyCloseAddress - 关闭地址中。
         :rtype: str
         """
         return self._TaskStatus
@@ -32798,9 +32828,9 @@ class ProxyNode(AbstractModel):
         :type ProxyId: str
         :param _Cpu: CPU核数
         :type Cpu: int
-        :param _Mem: 内存大小
+        :param _Mem: 内存大小，单位为 MB。
         :type Mem: int
-        :param _Status: 节点状态
+        :param _Status: 节点状态，0 - 初始化中，1 - 在线中，2 - 下线中，3 - 销毁中，4 - 故障恢复中，5 - 节点故障，6 - 切换中。
         :type Status: str
         :param _Zone: 代理节点可用区
         :type Zone: str
@@ -32841,7 +32871,7 @@ class ProxyNode(AbstractModel):
 
     @property
     def Mem(self):
-        """内存大小
+        """内存大小，单位为 MB。
         :rtype: int
         """
         return self._Mem
@@ -32852,7 +32882,7 @@ class ProxyNode(AbstractModel):
 
     @property
     def Status(self):
-        """节点状态
+        """节点状态，0 - 初始化中，1 - 在线中，2 - 下线中，3 - 销毁中，4 - 故障恢复中，5 - 节点故障，6 - 切换中。
         :rtype: str
         """
         return self._Status
@@ -33293,9 +33323,9 @@ class ReloadBalanceProxyNodeRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _ProxyGroupId: 代理组ID
+        :param _ProxyGroupId: 代理组 ID。可通过 [DescribeCdbProxyInfo](https://cloud.tencent.com/document/api/236/90585) 接口获取。
         :type ProxyGroupId: str
-        :param _ProxyAddressId: 代理组地址ID
+        :param _ProxyAddressId: 代理组地址 ID。可通过 [DescribeCdbProxyInfo](https://cloud.tencent.com/document/api/236/90585) 接口获取。如果不传则会对所有代理组地址进行负载均衡。
         :type ProxyAddressId: str
         """
         self._ProxyGroupId = None
@@ -33303,7 +33333,7 @@ class ReloadBalanceProxyNodeRequest(AbstractModel):
 
     @property
     def ProxyGroupId(self):
-        """代理组ID
+        """代理组 ID。可通过 [DescribeCdbProxyInfo](https://cloud.tencent.com/document/api/236/90585) 接口获取。
         :rtype: str
         """
         return self._ProxyGroupId
@@ -33314,7 +33344,7 @@ class ReloadBalanceProxyNodeRequest(AbstractModel):
 
     @property
     def ProxyAddressId(self):
-        """代理组地址ID
+        """代理组地址 ID。可通过 [DescribeCdbProxyInfo](https://cloud.tencent.com/document/api/236/90585) 接口获取。如果不传则会对所有代理组地址进行负载均衡。
         :rtype: str
         """
         return self._ProxyAddressId
@@ -37877,7 +37907,7 @@ class TaskDetail(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _Code: 错误码。
+        :param _Code: 错误码。0代表成功，其他对应不同的报错场景。
         :type Code: int
         :param _Message: 错误信息。
         :type Message: str
@@ -37935,7 +37965,7 @@ class TaskDetail(AbstractModel):
 
     @property
     def Code(self):
-        """错误码。
+        """错误码。0代表成功，其他对应不同的报错场景。
         :rtype: int
         """
         return self._Code
@@ -38357,15 +38387,16 @@ class UpgradeDBInstanceEngineVersionRequest(AbstractModel):
         r"""
         :param _InstanceId: 实例 ID，格式如：cdb-c1nl9rpv 或者 cdbro-c1nl9rpv。与云数据库控制台页面中显示的实例 ID 相同，可使用 [查询实例列表](https://cloud.tencent.com/document/api/236/15872) 接口获取，其值为输出参数中字段 InstanceId 的值。
         :type InstanceId: str
-        :param _EngineVersion: 主实例数据库引擎版本，支持值包括：5.6 和 5.7。
+        :param _EngineVersion: 主实例数据库引擎版本，支持值包括：5.6、5.7、8.0。
+说明：不支持越级升级，升级后不支持降级。
         :type EngineVersion: str
         :param _WaitSwitch: 切换访问新实例的方式，默认为 0。支持值包括：0 - 立刻切换，1 - 时间窗切换；当该值为 1 时，升级过程中，切换访问新实例的流程将会在时间窗内进行，或者用户主动调用接口 [切换访问新实例](https://cloud.tencent.com/document/product/236/15864) 触发该流程。
         :type WaitSwitch: int
-        :param _UpgradeSubversion: 是否是内核子版本升级，支持的值：1 - 升级内核子版本；0 - 升级数据库引擎版本。
+        :param _UpgradeSubversion: 是否是内核子版本升级，支持的值：1 - 升级内核子版本；0 - 升级数据库引擎版本。无默认值，请指定要升级的版本类型。
         :type UpgradeSubversion: int
-        :param _MaxDelayTime: 延迟阈值。取值范围1~10
+        :param _MaxDelayTime: 延迟阈值。取值范围：1 - 10。无默认值，不传此参数时，延迟阈值为0，表示延迟阈值不做设置。
         :type MaxDelayTime: int
-        :param _IgnoreErrKeyword: 5.7升级8.0是否忽略关键字错误，取值范围[0,1]，1表示忽略，0表示不忽略
+        :param _IgnoreErrKeyword: 5.7升级8.0是否忽略关键字错误，取值范围[0,1]，1表示忽略，0表示不忽略。无默认值，不传此参数表示不做处理。
         :type IgnoreErrKeyword: int
         :param _ParamList: 版本升级支持指定参数
         :type ParamList: list of UpgradeEngineVersionParams
@@ -38391,7 +38422,8 @@ class UpgradeDBInstanceEngineVersionRequest(AbstractModel):
 
     @property
     def EngineVersion(self):
-        """主实例数据库引擎版本，支持值包括：5.6 和 5.7。
+        """主实例数据库引擎版本，支持值包括：5.6、5.7、8.0。
+说明：不支持越级升级，升级后不支持降级。
         :rtype: str
         """
         return self._EngineVersion
@@ -38413,7 +38445,7 @@ class UpgradeDBInstanceEngineVersionRequest(AbstractModel):
 
     @property
     def UpgradeSubversion(self):
-        """是否是内核子版本升级，支持的值：1 - 升级内核子版本；0 - 升级数据库引擎版本。
+        """是否是内核子版本升级，支持的值：1 - 升级内核子版本；0 - 升级数据库引擎版本。无默认值，请指定要升级的版本类型。
         :rtype: int
         """
         return self._UpgradeSubversion
@@ -38424,7 +38456,7 @@ class UpgradeDBInstanceEngineVersionRequest(AbstractModel):
 
     @property
     def MaxDelayTime(self):
-        """延迟阈值。取值范围1~10
+        """延迟阈值。取值范围：1 - 10。无默认值，不传此参数时，延迟阈值为0，表示延迟阈值不做设置。
         :rtype: int
         """
         return self._MaxDelayTime
@@ -38435,7 +38467,7 @@ class UpgradeDBInstanceEngineVersionRequest(AbstractModel):
 
     @property
     def IgnoreErrKeyword(self):
-        """5.7升级8.0是否忽略关键字错误，取值范围[0,1]，1表示忽略，0表示不忽略
+        """5.7升级8.0是否忽略关键字错误，取值范围[0,1]，1表示忽略，0表示不忽略。无默认值，不传此参数表示不做处理。
         :rtype: int
         """
         return self._IgnoreErrKeyword

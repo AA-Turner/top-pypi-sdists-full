@@ -1521,6 +1521,8 @@ from .waiter import (
     NetworkInterfaceAvailableWaiter,
     PasswordDataAvailableWaiter,
     SecurityGroupExistsWaiter,
+    SecurityGroupVpcAssociationAssociatedWaiter,
+    SecurityGroupVpcAssociationDisassociatedWaiter,
     SnapshotCompletedWaiter,
     SnapshotImportedWaiter,
     SpotInstanceRequestFulfilledWaiter,
@@ -10528,6 +10530,28 @@ class EC2Client(BaseClient):
     def get_waiter(  # type: ignore[override]
         self, waiter_name: Literal["security_group_exists"]
     ) -> SecurityGroupExistsWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_waiter.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["security_group_vpc_association_associated"]
+    ) -> SecurityGroupVpcAssociationAssociatedWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_waiter.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["security_group_vpc_association_disassociated"]
+    ) -> SecurityGroupVpcAssociationDisassociatedWaiter:
         """
         Returns an object that can wait for some condition.
 

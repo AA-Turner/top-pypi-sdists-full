@@ -308,7 +308,7 @@ fn definition_in_builtins_enabled() {
         expected_messages_from_language_server: vec![Message::Response(Response {
             id: RequestId::from(2),
             result: Some(serde_json::json!({
-                "range":{"end":{"character":4,"line":426},"start":{"character":0,"line":426}},"uri":format!("contentsasuri://$$MATCH_EVERYTHING$$")})),
+                "range":{"end":{"character":4,"line":425},"start":{"character":0,"line":425}},"uri":format!("contentsasuri://$$MATCH_EVERYTHING$$")})),
             error: None,
         })],
         contents_as_uri: true,
@@ -515,7 +515,7 @@ fn test_completion_with_autoimport() {
                         "detail":"from autoimport_provider import this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search\n",
                         "kind":3,
                         "label":"this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search",
-                        "sortText":"0"
+                        "sortText":"3"
                     },
                 ]
             })),
@@ -553,7 +553,7 @@ fn test_module_completion() {
         expected_messages_from_language_server: vec![Message::Response(Response {
             id: RequestId::from(2),
             result: Some(
-                serde_json::json!({"isIncomplete":false,"items":[{"detail":"bar","kind":9,"label":"bar","sortText":"0"},{"detail":"bar","kind":9,"label":"bar","sortText":"0"}]}),
+                serde_json::json!({"isIncomplete":false,"items":[{"detail":"bar","kind":9,"label":"bar","sortText":"0"}]}),
             ),
             error: None,
         })],
@@ -1579,6 +1579,53 @@ fn test_diagnostics_in_workspace() {
     let expected_messages_from_language_server = vec![Message::Response(Response {
         id: RequestId::from(1),
         result: Some(get_diagnostics_result()),
+        error: None,
+    })];
+
+    run_test_lsp(TestCase {
+        messages_from_language_client,
+        expected_messages_from_language_server,
+        workspace_folders: Some(vec![(
+            "test".to_owned(),
+            Url::from_file_path(root).unwrap(),
+        )]),
+        ..Default::default()
+    });
+}
+
+#[test]
+fn test_unexpected_keyword_range() {
+    let root = get_test_files_root();
+    let file_path = root.path().join("unexpected_keyword.py");
+    let messages_from_language_client = vec![
+        Message::from(build_did_open_notification(file_path.clone())),
+        Message::from(Request {
+            id: RequestId::from(1),
+            method: "textDocument/diagnostic".to_owned(),
+            params: serde_json::json!({
+            "textDocument": {
+                "uri": Url::from_file_path(file_path.clone()).unwrap().to_string()
+            }}),
+        }),
+    ];
+
+    let expected_messages_from_language_server = vec![Message::Response(Response {
+        id: RequestId::from(1),
+        result: Some(serde_json::json!({
+            "items": [
+                {
+                    "code": "unexpected-keyword",
+                    "message": "Unexpected keyword argument `foo` in function `test`",
+                    "range": {
+                        "end": {"character": 8, "line": 4},
+                        "start": {"character": 5, "line": 4}
+                    },
+                    "severity": 1,
+                    "source": "Pyrefly"
+                }
+            ],
+            "kind": "full"
+        })),
         error: None,
     })];
 

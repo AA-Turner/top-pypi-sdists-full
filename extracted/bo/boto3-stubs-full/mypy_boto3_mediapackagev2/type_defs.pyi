@@ -33,6 +33,7 @@ from .literals import (
     EndpointErrorConditionType,
     HarvestJobStatusType,
     InputTypeType,
+    MssManifestLayoutType,
     PresetSpeke20AudioType,
     PresetSpeke20VideoType,
     ScteFilterType,
@@ -63,6 +64,7 @@ __all__ = (
     "CreateHarvestJobResponseTypeDef",
     "CreateHlsManifestConfigurationTypeDef",
     "CreateLowLatencyHlsManifestConfigurationTypeDef",
+    "CreateMssManifestConfigurationTypeDef",
     "CreateOriginEndpointRequestTypeDef",
     "CreateOriginEndpointResponseTypeDef",
     "DashBaseUrlTypeDef",
@@ -104,6 +106,7 @@ __all__ = (
     "GetHarvestJobResponseTypeDef",
     "GetHlsManifestConfigurationTypeDef",
     "GetLowLatencyHlsManifestConfigurationTypeDef",
+    "GetMssManifestConfigurationTypeDef",
     "GetOriginEndpointPolicyRequestTypeDef",
     "GetOriginEndpointPolicyResponseTypeDef",
     "GetOriginEndpointRequestTypeDef",
@@ -132,6 +135,7 @@ __all__ = (
     "ListHarvestJobsResponseTypeDef",
     "ListHlsManifestConfigurationTypeDef",
     "ListLowLatencyHlsManifestConfigurationTypeDef",
+    "ListMssManifestConfigurationTypeDef",
     "ListOriginEndpointsRequestPaginateTypeDef",
     "ListOriginEndpointsRequestTypeDef",
     "ListOriginEndpointsResponseTypeDef",
@@ -294,6 +298,7 @@ class EncryptionContractConfigurationTypeDef(TypedDict):
 class EncryptionMethodTypeDef(TypedDict):
     TsEncryptionMethod: NotRequired[TsEncryptionMethodType]
     CmafEncryptionMethod: NotRequired[CmafEncryptionMethodType]
+    IsmEncryptionMethod: NotRequired[Literal["CENC"]]
 
 class FilterConfigurationOutputTypeDef(TypedDict):
     ManifestFilter: NotRequired[str]
@@ -381,6 +386,10 @@ class ListHlsManifestConfigurationTypeDef(TypedDict):
 class ListLowLatencyHlsManifestConfigurationTypeDef(TypedDict):
     ManifestName: str
     ChildManifestName: NotRequired[str]
+    Url: NotRequired[str]
+
+class ListMssManifestConfigurationTypeDef(TypedDict):
+    ManifestName: str
     Url: NotRequired[str]
 
 class ListOriginEndpointsRequestTypeDef(TypedDict):
@@ -623,6 +632,13 @@ class GetLowLatencyHlsManifestConfigurationTypeDef(TypedDict):
     StartTag: NotRequired[StartTagTypeDef]
     UrlEncodeChildManifest: NotRequired[bool]
 
+class GetMssManifestConfigurationTypeDef(TypedDict):
+    ManifestName: str
+    Url: str
+    FilterConfiguration: NotRequired[FilterConfigurationOutputTypeDef]
+    ManifestWindowSeconds: NotRequired[int]
+    ManifestLayout: NotRequired[MssManifestLayoutType]
+
 class FilterConfigurationTypeDef(TypedDict):
     ManifestFilter: NotRequired[str]
     Start: NotRequired[TimestampTypeDef]
@@ -686,6 +702,7 @@ class OriginEndpointListConfigurationTypeDef(TypedDict):
     HlsManifests: NotRequired[List[ListHlsManifestConfigurationTypeDef]]
     LowLatencyHlsManifests: NotRequired[List[ListLowLatencyHlsManifestConfigurationTypeDef]]
     DashManifests: NotRequired[List[ListDashManifestConfigurationTypeDef]]
+    MssManifests: NotRequired[List[ListMssManifestConfigurationTypeDef]]
     ForceEndpointErrorConfiguration: NotRequired[ForceEndpointErrorConfigurationOutputTypeDef]
 
 DashDvbSettingsUnionTypeDef = Union[DashDvbSettingsTypeDef, DashDvbSettingsOutputTypeDef]
@@ -715,12 +732,14 @@ class EncryptionOutputTypeDef(TypedDict):
     SpekeKeyProvider: SpekeKeyProviderOutputTypeDef
     ConstantInitializationVector: NotRequired[str]
     KeyRotationIntervalSeconds: NotRequired[int]
+    CmafExcludeSegmentDrmMetadata: NotRequired[bool]
 
 class EncryptionTypeDef(TypedDict):
     EncryptionMethod: EncryptionMethodTypeDef
     SpekeKeyProvider: SpekeKeyProviderTypeDef
     ConstantInitializationVector: NotRequired[str]
     KeyRotationIntervalSeconds: NotRequired[int]
+    CmafExcludeSegmentDrmMetadata: NotRequired[bool]
 
 FilterConfigurationUnionTypeDef = Union[
     FilterConfigurationTypeDef, FilterConfigurationOutputTypeDef
@@ -845,6 +864,12 @@ class CreateLowLatencyHlsManifestConfigurationTypeDef(TypedDict):
     FilterConfiguration: NotRequired[FilterConfigurationUnionTypeDef]
     UrlEncodeChildManifest: NotRequired[bool]
 
+class CreateMssManifestConfigurationTypeDef(TypedDict):
+    ManifestName: str
+    ManifestWindowSeconds: NotRequired[int]
+    FilterConfiguration: NotRequired[FilterConfigurationUnionTypeDef]
+    ManifestLayout: NotRequired[MssManifestLayoutType]
+
 class ListHarvestJobsResponseTypeDef(TypedDict):
     Items: List[HarvestJobTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -876,6 +901,7 @@ class CreateOriginEndpointResponseTypeDef(TypedDict):
     HlsManifests: List[GetHlsManifestConfigurationTypeDef]
     LowLatencyHlsManifests: List[GetLowLatencyHlsManifestConfigurationTypeDef]
     DashManifests: List[GetDashManifestConfigurationTypeDef]
+    MssManifests: List[GetMssManifestConfigurationTypeDef]
     ForceEndpointErrorConfiguration: ForceEndpointErrorConfigurationOutputTypeDef
     ETag: str
     Tags: Dict[str, str]
@@ -896,6 +922,7 @@ class GetOriginEndpointResponseTypeDef(TypedDict):
     HlsManifests: List[GetHlsManifestConfigurationTypeDef]
     LowLatencyHlsManifests: List[GetLowLatencyHlsManifestConfigurationTypeDef]
     DashManifests: List[GetDashManifestConfigurationTypeDef]
+    MssManifests: List[GetMssManifestConfigurationTypeDef]
     ForceEndpointErrorConfiguration: ForceEndpointErrorConfigurationOutputTypeDef
     ETag: str
     Tags: Dict[str, str]
@@ -914,6 +941,7 @@ class UpdateOriginEndpointResponseTypeDef(TypedDict):
     StartoverWindowSeconds: int
     HlsManifests: List[GetHlsManifestConfigurationTypeDef]
     LowLatencyHlsManifests: List[GetLowLatencyHlsManifestConfigurationTypeDef]
+    MssManifests: List[GetMssManifestConfigurationTypeDef]
     ForceEndpointErrorConfiguration: ForceEndpointErrorConfigurationOutputTypeDef
     ETag: str
     Tags: Dict[str, str]
@@ -934,6 +962,7 @@ class CreateOriginEndpointRequestTypeDef(TypedDict):
     HlsManifests: NotRequired[Sequence[CreateHlsManifestConfigurationTypeDef]]
     LowLatencyHlsManifests: NotRequired[Sequence[CreateLowLatencyHlsManifestConfigurationTypeDef]]
     DashManifests: NotRequired[Sequence[CreateDashManifestConfigurationTypeDef]]
+    MssManifests: NotRequired[Sequence[CreateMssManifestConfigurationTypeDef]]
     ForceEndpointErrorConfiguration: NotRequired[ForceEndpointErrorConfigurationUnionTypeDef]
     Tags: NotRequired[Mapping[str, str]]
 
@@ -948,5 +977,6 @@ class UpdateOriginEndpointRequestTypeDef(TypedDict):
     HlsManifests: NotRequired[Sequence[CreateHlsManifestConfigurationTypeDef]]
     LowLatencyHlsManifests: NotRequired[Sequence[CreateLowLatencyHlsManifestConfigurationTypeDef]]
     DashManifests: NotRequired[Sequence[CreateDashManifestConfigurationTypeDef]]
+    MssManifests: NotRequired[Sequence[CreateMssManifestConfigurationTypeDef]]
     ForceEndpointErrorConfiguration: NotRequired[ForceEndpointErrorConfigurationUnionTypeDef]
     ETag: NotRequired[str]

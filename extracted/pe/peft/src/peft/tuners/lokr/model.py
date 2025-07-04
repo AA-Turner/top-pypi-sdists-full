@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Dict, Type, Union
+from typing import Union
 
 import torch
 from torch import nn
@@ -26,8 +26,8 @@ from .layer import Conv2d, Linear, LoKrLayer
 class LoKrModel(LycorisTuner):
     """
     Creates Low-Rank Kronecker Product model from a pretrained model. The original method is partially described in
-    https://arxiv.org/abs/2108.06098 and in https://arxiv.org/abs/2309.14859 Current implementation heavily borrows
-    from
+    https://huggingface.co/papers/2108.06098 and in https://huggingface.co/papers/2309.14859 Current implementation
+    heavily borrows from
     https://github.com/KohakuBlueleaf/LyCORIS/blob/eb460098187f752a5d66406d3affade6f0a07ece/lycoris/modules/lokr.py
 
     Args:
@@ -83,7 +83,7 @@ class LoKrModel(LycorisTuner):
     """
 
     prefix: str = "lokr_"
-    layers_mapping: Dict[Type[torch.nn.Module], Type[LoKrLayer]] = {
+    layers_mapping: dict[type[torch.nn.Module], type[LoKrLayer]] = {
         torch.nn.Conv2d: Conv2d,
         torch.nn.Linear: Linear,
     }

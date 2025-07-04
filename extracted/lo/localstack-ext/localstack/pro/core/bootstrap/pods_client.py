@@ -1,4 +1,6 @@
-_J='versions'
+_L='versions'
+_K='Retrieving state from the container'
+_J='Content-Length'
 _I='services'
 _H='status'
 _G='service'
@@ -12,7 +14,7 @@ import io,json,logging,os,zipfile
 from abc import ABC,abstractmethod
 from functools import singledispatch
 from pathlib import Path
-from typing import Any,Dict,List,Optional,Tuple,TypedDict,Union
+from typing import IO,Any,Dict,List,Optional,Tuple,TypedDict,Union
 from urllib import parse
 from urllib.parse import urlparse
 import click,requests,yaml
@@ -29,7 +31,7 @@ from localstack.pro.core.bootstrap.pods.remotes.params import get_remote_params_
 from localstack.pro.core.config import CLI_INJECT_POD_IDENTITY,POD_LOAD_CLI_TIMEOUT
 from localstack.pro.core.constants import API_PATH_PODS,CLOUDPODS_METADATA_FILE,HEADER_POD_SECRET
 from localstack.utils.bootstrap import in_ci
-from localstack.utils.files import load_file,save_file
+from localstack.utils.files import load_file
 from localstack.utils.http import safe_requests
 from localstack.utils.strings import to_str
 from packaging import version
@@ -43,14 +45,22 @@ DiffResult=Dict[str,List[Dict[str,Any]]]
 class CloudPodNotFound(Exception):
 	def __init__(A,pod_name):super().__init__(f"Cloud pod '{pod_name}' not found")
 class PodInfo(TypedDict,total=_B):name:str;pod_id:str;version:int;services:List[str];description:str;size:int;remote:str;localstack_version:str;encrypted:bool
+def fetch_state_response_from_instance(services=_A):
+	B=services;C=f"{get_runtime_pods_endpoint()}/state";D=','.join(B)if B else'';E={INTERNAL_REQUEST_PARAMS_HEADER:'{}'};F=in_ci();A=requests.get(C,params={_I:D},headers=E,stream=not F)
+	if not A.ok:raise Exception(f"An error occurred while retrieving the LocalStack state (code {A.status_code})")
+	G=PodInfo(services=A.headers.get('x-localstack-pod-services','').split(','),size=int(A.headers.get('x-localstack-pod-size',0)));return A,G
+def write_state_zip_to_file(open_file,services=_A,chunk_size=100000):
+	A,D=fetch_state_response_from_instance(services);E=int(A.headers.get(_J,0))
+	with Progress()as B:
+		F=B.add_task(_K,total=E)
+		for C in A.iter_content(chunk_size=chunk_size):open_file.write(C);B.update(F,advance=len(C))
+	return D
 def get_state_zip_from_instance(services=_A):
-	C=services;G=f"{get_runtime_pods_endpoint()}/state";H=','.join(C)if C else'';I={INTERNAL_REQUEST_PARAMS_HEADER:'{}'};D=in_ci();A=requests.get(G,params={_I:H},headers=I,stream=not D);J=int(A.headers.get('Content-Length',0));B=A.content if D else b''
-	with Progress()as E:
-		K=E.add_task('Retrieving state from the container',total=J)
-		for F in A.iter_content(chunk_size=100000):B+=F;E.update(K,advance=len(F))
-	L=PodInfo(services=A.headers.get('x-localstack-pod-services','').split(','),size=int(A.headers.get('x-localstack-pod-size',0)))
-	if not A.ok:raise Exception(f"An error occurred while retrieving the LocalStack state (code {A.status_code}): {B})")
-	return B,L
+	A,E=fetch_state_response_from_instance(services);F=int(A.headers.get(_J,0));G=in_ci();B=A.content if G else b''
+	with Progress()as C:
+		H=C.add_task(_K,total=F)
+		for D in A.iter_content(chunk_size=100000):B+=D;C.update(H,advance=len(D))
+	return B,E
 class CloudPodRemoteAttributes(TypedDict,total=_B):is_public:bool;description:Optional[str];services:Optional[List[str]]
 class PodSaveRequest(TypedDict,total=_B):remote:Optional[Dict[str,Union[str,Dict]]];attributes:Optional[CloudPodRemoteAttributes]
 class CloudPodsService(ABC):
@@ -71,7 +81,7 @@ class CloudPodsService(ABC):
 		if not A.ok:_raise_exception_with_formatted_message(f"Unable to get info for pod: {B}",A)
 		return json.loads(A.content)
 	def _get_localstack_pod_version(H,pod_name,cloud_pods_dict,version=_A):
-		B=cloud_pods_dict;A=version;C=B[_J];D=int(B['max_version'])
+		B=cloud_pods_dict;A=version;C=B[_L];D=int(B['max_version'])
 		if A and A>D:raise Exception(f"Unable to load pod {pod_name} with version {A}. The maximum version available in the remote storage is {D}")
 		E=list(filter(lambda v:v[_E]==A,C));F=E[0]if E else C[-1];G=F['localstack_version'];return G
 	def get_state_data(B):
@@ -154,7 +164,7 @@ class CloudPodsClient(CloudPodsService):
 		B=pod_name;C=_get_remote_params_payload(remote);A=requests.get(url=f"{get_runtime_pods_endpoint()}/{B}/versions",json=C,headers=_get_headers())
 		if A.status_code==404:raise Exception(f"Cloud Pod {B} not found")
 		if not A.ok:_raise_exception_with_formatted_message(f"Unable to get versions for pod {B}",A)
-		return json.loads(A.content).get(_J,[])
+		return json.loads(A.content).get(_L,[])
 	def diff(G,pod_name,remote=_A,version=_A):
 		C=version;B=pod_name;D=f"{get_runtime_pods_endpoint()}/{B}/diff";E={}
 		if C:E[_E]=C;D+=f"?{parse.urlencode(E)}"
@@ -177,7 +187,8 @@ class StateService:
 	def export_pod(I,target,services=_A):
 		C=target;D=urlparse(C);A=os.path.abspath(os.path.join(D.netloc,D.path));E=Path(A).parent.absolute()
 		if not os.path.exists(E):raise Exception(f"{E} is not a valid path")
-		G,F=get_state_zip_from_instance(services=services);save_file(file=A,content=G);B=get_environment_metadata();B['name']=os.path.basename(C);B.update(F)
+		with open(A,'wb')as G:F=write_state_zip_to_file(G,services)
+		B=get_environment_metadata();B['name']=os.path.basename(C);B.update(F)
 		with zipfile.ZipFile(file=A,mode='a')as H:H.writestr(CLOUDPODS_METADATA_FILE,yaml.dump(B))
 		return F
 	def import_pod(I,source,show_progress=_C):

@@ -14,14 +14,17 @@ __all__ = (
     # synchronization
     'Event', 'ExclusiveEvent', 'StatefulEvent', 'StatelessEvent',
 )
+from typing import Any, Union
+from collections.abc import (
+    Iterable, Coroutine, Awaitable, AsyncIterator, Generator, Callable, Sequence,
+)
 import types
-import typing as T
 from inspect import getcoroutinestate, CORO_CREATED, CORO_SUSPENDED, isawaitable
 import sys
 import itertools
 from functools import cached_property, partial
 import enum
-from contextlib import asynccontextmanager, contextmanager
+from contextlib import asynccontextmanager, contextmanager, AbstractAsyncContextManager
 
 # -----------------------------------------------------------------------------
 # Core
@@ -108,7 +111,7 @@ class Task:
         '_cancel_disabled', '_current_depth', '_requested_cancel_level',
     )
 
-    def __init__(self, aw: T.Awaitable, /):
+    def __init__(self, aw: Awaitable, /):
         if not isawaitable(aw):
             raise ValueError(str(aw) + " is not awaitable.")
         self._uid = _next_Task_uid()
@@ -133,7 +136,7 @@ class Task:
         return self._uid
 
     @property
-    def root_coro(self) -> T.Coroutine:
+    def root_coro(self) -> Coroutine:
         '''
         The starting point of the coroutine chain for the task.
         '''
@@ -157,7 +160,7 @@ class Task:
         return self._state is TaskState.CANCELLED
 
     @property
-    def result(self) -> T.Any:
+    def result(self) -> Any:
         '''Result of the task. If the task is not finished, :exc:`InvalidStateError` will be raised. '''
         state = self._state
         if state is TaskState.FINISHED:
@@ -291,14 +294,14 @@ class Task:
     del CancelScope
 
 
-Aw_or_Task = T.Union[T.Awaitable, Task]
+Aw_or_Task = Union[Awaitable, Task]
+YieldType = Callable[[Task], None]
+SendType = tuple[tuple, dict]
 
 
 def start(aw: Aw_or_Task, /) -> Task:
-    '''*Immediately* start a Task/Awaitable.
-
-    If the argument is a :class:`Task`, itself will be returned. If it's an :class:`typing.Awaitable`,
-    it will be wrapped in a Task, and that Task will be returned.
+    '''
+    *Immediately* start a Task.
 
     .. code-block::
 
@@ -306,6 +309,12 @@ def start(aw: Aw_or_Task, /) -> Task:
             ...
 
         task = start(async_func())
+
+    .. warning::
+
+        Tasks started with this function are root tasks.
+        You must ensure they aren't garbage-collected while still running
+        --for example, by explicitly calling :meth:`Task.cancel` before the program exits.
     '''
     if isawaitable(aw):
         task = Task(aw)
@@ -314,7 +323,7 @@ def start(aw: Aw_or_Task, /) -> Task:
         if task._state is not TaskState.CREATED:
             raise ValueError(f"{task} has already started")
     else:
-        raise ValueError("Argument must be either a Task or an awaitable.")
+        raise ValueError("Argument must be either a Task or an Awaitable.")
 
     try:
         task._root_coro_send(None)(task)
@@ -327,11 +336,11 @@ def start(aw: Aw_or_Task, /) -> Task:
 
 
 def _current_task(task):
-    return task._step(task)
+    task._step(task)
 
 
 @types.coroutine
-def current_task(_f=_current_task) -> T.Awaitable[Task]:
+def current_task(_f=_current_task) -> Generator[YieldType, SendType, Task]:
     '''Returns the Task instance corresponding to the caller.
 
     .. code-block::
@@ -346,7 +355,7 @@ def _sleep_forever(task):
 
 
 @types.coroutine
-def sleep_forever(_f=_sleep_forever) -> T.Awaitable:
+def sleep_forever(_f=_sleep_forever):
     '''
     .. code-block::
 
@@ -415,7 +424,7 @@ class ExclusiveEvent:
             f(*args, **kwargs)
 
     @types.coroutine
-    def wait(self) -> T.Awaitable[tuple]:
+    def wait(self) -> Generator[YieldType, SendType, SendType]:
         if self._callback is not None:
             raise InvalidStateError("There's already a task waiting for the event to fire.")
         try:
@@ -471,7 +480,7 @@ class Event:
                 t._step(*args, **kwargs)
 
     @types.coroutine
-    def wait(self) -> T.Awaitable[tuple]:
+    def wait(self) -> Generator[YieldType, SendType, SendType]:
         '''
         Waits for the event to be fired.
         '''
@@ -549,7 +558,7 @@ class StatefulEvent:
         self._params = None
 
     @types.coroutine
-    def wait(self) -> T.Awaitable[tuple]:
+    def wait(self) -> Generator[YieldType, SendType, SendType]:
         if self._params is not None:
             return self._params
         tasks = self._waiting_tasks
@@ -628,8 +637,8 @@ class TaskCounter:
         return not not self._n_children  # 'not not' is not a typo
 
 
-async def _wait_xxx(debug_msg, on_child_end, *aws: T.Iterable[Aw_or_Task]) -> T.Awaitable[T.Sequence[Task]]:
-    children = tuple(v if isinstance(v, Task) else Task(v) for v in aws)
+async def _wait_xxx(debug_msg, on_child_end, *aws: Iterable[Aw_or_Task]) -> Awaitable[Sequence[Task]]:
+    children = [v if isinstance(v, Task) else Task(v) for v in aws]
     if not children:
         return children
     counter = TaskCounter(len(children))
@@ -653,7 +662,7 @@ async def _wait_xxx(debug_msg, on_child_end, *aws: T.Iterable[Aw_or_Task]) -> T.
                     await counter.to_be_zero()
                 finally:
                     parent._cancel_disabled = False
-        exceptions = tuple(e for c in children if (e := c._exc_caught) is not None)
+        exceptions = [e for c in children if (e := c._exc_caught) is not None]
         if exceptions:
             raise ExceptionGroup(debug_msg, exceptions)
         if (parent._requested_cancel_level is not None) and (not parent._cancel_disabled):
@@ -674,29 +683,34 @@ def _on_child_end__ver_any(scope, counter, child):
         scope.cancel()
 
 
-_wait_xxx_type = T.Callable[..., T.Awaitable[T.Sequence[Task]]]
+_wait_xxx_type = Callable[..., Awaitable[Sequence[Task]]]
 wait_all: _wait_xxx_type = partial(_wait_xxx, "wait_all()", _on_child_end__ver_all)
 '''
-Run multiple tasks concurrently, and wait for **all** of them to **end**. When any of them raises an exception, the
-others will be cancelled, and the exception will be propagated to the caller, like :class:`trio.Nursery`.
+Runs multiple tasks concurrently, and waits for all of them to either complete or be cancelled.
 
 .. code-block::
 
-    tasks = await wait_all(async_fn1(), async_fn2(), async_fn3())
-    if tasks[0].finished:
-        print("The return value of async_fn1() :", tasks[0].result)
+    tasks = await wait_any(async_fn0(), async_fn1(), async_fn2())
+    for i, task in enumerate(tasks):
+        if task.finished:
+            print(f"async_fn{i} completed with a return value of {task.result}.")
+        else:
+            print(f"async_fn{i} was cancelled.")
 '''
+
 wait_any: _wait_xxx_type = partial(_wait_xxx, "wait_any()", _on_child_end__ver_any)
 '''
-Run multiple tasks concurrently, and wait for **any** of them to **finish**. As soon as that happens, the others will be
-cancelled. When any of them raises an exception, the others will be cancelled, and the exception will be propagated to
-the caller, like :class:`trio.Nursery`.
+Runs multiple tasks concurrently and waits until either one completes or all are cancelled.
+As soon as one completes, the others will be cancelled.
 
 .. code-block::
 
-    tasks = await wait_any(async_fn1(), async_fn2(), async_fn3())
-    if tasks[0].finished:
-        print("The return value of async_fn1() :", tasks[0].result)
+    tasks = await wait_any(async_fn0(), async_fn1(), async_fn2())
+    for i, task in enumerate(tasks):
+        if task.finished:
+            print(f"async_fn{i} completed with a return value of {task.result}.")
+        else:
+            print(f"async_fn{i} was cancelled.")
 '''
 
 
@@ -724,10 +738,10 @@ async def _wait_xxx_cm(debug_msg, on_child_end, wait_bg, aw: Aw_or_Task):
                 await counter.to_be_zero()
             finally:
                 fg_task._cancel_disabled = False
-        excs = tuple(
+        excs = [
             e for e in (exc, bg_task._exc_caught, )
             if e is not None
-        )
+        ]
         if excs:
             raise ExceptionGroup(debug_msg, excs)
         if (fg_task._requested_cancel_level is not None) and (not fg_task._cancel_disabled):
@@ -735,44 +749,78 @@ async def _wait_xxx_cm(debug_msg, on_child_end, wait_bg, aw: Aw_or_Task):
             assert False, potential_bug_msg
 
 
-_wait_xxx_cm_type = T.Callable[[Aw_or_Task], T.AsyncContextManager[Task]]
+_wait_xxx_cm_type = Callable[[Aw_or_Task], AbstractAsyncContextManager[Task]]
 wait_all_cm: _wait_xxx_cm_type = partial(_wait_xxx_cm, "wait_all_cm()", _on_child_end__ver_all, True)
 '''
-The context manager form of :func:`wait_all`.
+Runs the given task and the code inside the with-block concurrently,
+and waits for the with-block to complete and for the task to either complete or be cancelled.
 
 .. code-block::
 
-    async with wait_all_cm(async_fn()) as bg_task:
+    async with wait_all_cm(async_fn()) as task:
         ...
+    if task.finished:
+        print(f"async_fn completed with a return value of {task.result}.")
+    else:
+        print(f"async_fn was cancelled.")
 '''
+
 wait_any_cm: _wait_xxx_cm_type = partial(_wait_xxx_cm, "wait_any_cm()", _on_child_end__ver_any, False)
 '''
-The context manager form of :func:`wait_any`, an equivalence of :func:`trio_util.move_on_when`.
+Runs the given task and the code inside the with-block concurrently,
+and waits for either one to complete.
+As soon as that happens, the other will be cancelled if it is still running.
+
+This is equivalent to :func:`trio_util.move_on_when`.
 
 .. code-block::
 
-    async with wait_any_cm(async_fn()) as bg_task:
+    async with wait_any_cm(async_fn()) as task:
         ...
+    if task.finished:
+        print(f"async_fn completed with a return value of {task.result}.")
+    else:
+        print(f"async_fn was cancelled.")
 '''
+
 run_as_main: _wait_xxx_cm_type = partial(_wait_xxx_cm, "run_as_main()", _on_child_end__ver_any, True)
 '''
+Runs the given task and the code inside the with-block concurrently,
+and waits for the task to either complete or be cancelled.
+As soon as that happens, the with-block will be cancelled if it is still running.
+
 .. code-block::
 
     async with run_as_main(async_fn()) as task:
         ...
+    if task.finished:
+        print(f"async_fn completed with a return value of {task.result}.")
+    else:
+        print(f"async_fn was cancelled.")
 '''
+
 run_as_daemon: _wait_xxx_cm_type = partial(_wait_xxx_cm, "run_as_daemon()", _on_child_end__ver_all, False)
 '''
+Runs the given task and the code inside the with-block concurrently,
+and waits for the with-block to complete.
+As soon as that happens, the task will be cancelled if it is still running.
+
+This is equivalent to :func:`trio_util.run_and_cancelling`.
+
 .. code-block::
 
-    async with run_as_daemon(async_fn()) as bg_task:
+    async with run_as_daemon(async_fn()) as task:
         ...
+    if task.finished:
+        print(f"async_fn completed with a return value of {task.result}.")
+    else:
+        print(f"async_fn was cancelled.")
 '''
 
 
 class Nursery:
     '''
-    Similar to :class:`trio.Nursery`.
+    An equivalent of :class:`trio.Nursery`.
     You should not directly instantiate this, use :func:`open_nursery`.
     '''
 
@@ -791,9 +839,9 @@ class Nursery:
 
     def start(self, aw: Aw_or_Task, /, *, daemon=False) -> Task:
         '''
-        *Immediately* start a Task/Awaitable under the supervision of the nursery.
+        *Immediately* start a Task under the supervision of the nursery.
 
-        If the argument is a :class:`Task`, itself will be returned. If it's an :class:`typing.Awaitable`,
+        If the argument is a :class:`Task`, itself will be returned. If it's an :class:`~collections.abc.Awaitable`,
         it will be wrapped in a Task, and that Task will be returned.
 
         The ``daemon`` parameter acts like the one in the :mod:`threading` module.
@@ -829,9 +877,9 @@ class Nursery:
 
 
 @asynccontextmanager
-async def open_nursery(*, _gc_in_every=1000) -> T.AsyncContextManager[Nursery]:
+async def open_nursery(*, _gc_in_every=1000) -> AsyncIterator[Nursery]:
     '''
-    Similar to :func:`trio.open_nursery`.
+    An equivalent of :func:`trio.open_nursery`.
 
     .. code-block::
 
@@ -862,10 +910,9 @@ async def open_nursery(*, _gc_in_every=1000) -> T.AsyncContextManager[Nursery]:
             await counter.to_be_zero()
         finally:
             parent._cancel_disabled = False
-        excs = tuple(
-            e for e in itertools.chain((exc, ), (c._exc_caught for c in children))
-            if e is not None
-        )
+        excs = [e for c in children if (e := c._exc_caught) is not None]
+        if exc is not None:
+            excs.append(exc)
         if excs:
             raise ExceptionGroup("Nursery", excs)
         if (parent._requested_cancel_level is not None) and (not parent._cancel_disabled):

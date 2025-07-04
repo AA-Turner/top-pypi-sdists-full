@@ -1,15 +1,15 @@
-# SPDX-FileCopyrightText: 2014-2024 Fredrik Ahlberg, Angus Gratton,
+# SPDX-FileCopyrightText: 2014-2025 Fredrik Ahlberg, Angus Gratton,
 # Espressif Systems (Shanghai) CO LTD, other contributors as noted.
 #
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 import struct
 from time import sleep
-from typing import Dict
 
 from .esp32 import ESP32ROM
-from ..loader import ESPLoader
-from ..util import FatalError, NotImplementedInROMError
+from ..loader import ESPLoader, StubMixin
+from ..logger import log
+from ..util import FatalError, NotSupportedError
 
 
 class ESP32S3ROM(ESP32ROM):
@@ -126,8 +126,7 @@ class ESP32S3ROM(ESP32ROM):
 
     UF2_FAMILY_ID = 0xC47E5767
 
-    EFUSE_MAX_KEY = 5
-    KEY_PURPOSES: Dict[int, str] = {
+    KEY_PURPOSES: dict[int, str] = {
         0: "USER/EMPTY",
         1: "RESERVED",
         2: "XTS_AES_256_KEY_1",
@@ -195,7 +194,7 @@ class ESP32S3ROM(ESP32ROM):
         chip_name = {
             0: "ESP32-S3 (QFN56)",
             1: "ESP32-S3-PICO-1 (LGA56)",
-        }.get(pkg_version, "unknown ESP32-S3")
+        }.get(pkg_version, "Unknown ESP32-S3")
 
         return f"{chip_name} (revision v{major_rev}.{minor_rev})"
 
@@ -223,7 +222,7 @@ class ESP32S3ROM(ESP32ROM):
         return {1: "AP_3v3", 2: "AP_1v8"}.get(vendor_id, "")
 
     def get_chip_features(self):
-        features = ["WiFi", "BLE"]
+        features = ["Wi-Fi", "BT 5 (LE)", "Dual Core + LP Core", "240MHz"]
 
         flash = {
             0: None,
@@ -291,9 +290,7 @@ class ESP32S3ROM(ESP32ROM):
         return None  # not supported on ESP32-S3
 
     def override_vddsdio(self, new_voltage):
-        raise NotImplementedInROMError(
-            "VDD_SDIO overrides are not supported for ESP32-S3"
-        )
+        raise NotSupportedError(self, "Overriding VDDSDIO")
 
     def read_mac(self, mac_type="BASE_MAC"):
         """Read MAC from EFUSE region"""
@@ -353,7 +350,7 @@ class ESP32S3ROM(ESP32ROM):
             self.disable_watchdogs()
 
     def watchdog_reset(self):
-        print("Hard resetting with a watchdog...")
+        log.print("Hard resetting with a watchdog...")
         self.write_reg(self.RTC_CNTL_WDTWPROTECT_REG, self.RTC_CNTL_WDT_WKEY)  # unlock
         self.write_reg(self.RTC_CNTL_WDTCONFIG1_REG, 2000)  # set WDT timeout
         self.write_reg(
@@ -364,13 +361,15 @@ class ESP32S3ROM(ESP32ROM):
 
     def hard_reset(self):
         try:
-            # Clear force download boot mode to avoid the chip being stuck in download mode after reset
-            # workaround for issue: https://github.com/espressif/arduino-esp32/issues/6762
+            # Clear force download boot mode to avoid chip being stuck in download mode
+            # after reset. Workaround for issue:
+            # https://github.com/espressif/arduino-esp32/issues/6762
             self.write_reg(
                 self.RTC_CNTL_OPTION1_REG, 0, self.RTC_CNTL_FORCE_DOWNLOAD_BOOT_MASK
             )
         except Exception:
-            # Skip if response was not valid and proceed to reset; e.g. when monitoring while resetting
+            # Skip invalid response and continue reset (can happen when monitoring
+            # during reset)
             pass
         uses_usb_otg = self.uses_usb_otg()
         if uses_usb_otg:
@@ -395,30 +394,17 @@ class ESP32S3ROM(ESP32ROM):
         if spi_connection[3] > 46:  # hd_gpio_num must be <= SPI_GPIO_NUM_LIMIT (46)
             raise FatalError("SPI HD Pin number must be <= 46.")
         if any([v for v in spi_connection if v in [19, 20]]):
-            print(
-                "WARNING: GPIO pins 19 and 20 are used by USB-Serial/JTAG and USB-OTG, "
+            log.warning(
+                "GPIO pins 19 and 20 are used by USB-Serial/JTAG and USB-OTG, "
                 "consider using other pins for SPI flash connection."
             )
 
 
-class ESP32S3StubLoader(ESP32S3ROM):
-    """Access class for ESP32S3 stub loader, runs on top of ROM.
-
-    (Basically the same as ESP32StubLoader, but different base class.
-    Can possibly be made into a mixin.)
-    """
-
-    FLASH_WRITE_SIZE = 0x4000  # matches MAX_WRITE_BLOCK in stub_loader.c
-    STATUS_BYTES_LENGTH = 2  # same as ESP8266, different to ESP32 ROM
-    IS_STUB = True
+class ESP32S3StubLoader(StubMixin, ESP32S3ROM):
+    """Stub loader for ESP32-S3, runs on top of ROM."""
 
     def __init__(self, rom_loader):
-        self.secure_download_mode = rom_loader.secure_download_mode
-        self._port = rom_loader._port
-        self._trace_enabled = rom_loader._trace_enabled
-        self.cache = rom_loader.cache
-        self.flush_input()  # resets _slip_reader
-
+        super().__init__(rom_loader)  # Initialize the mixin
         if rom_loader.uses_usb_otg():
             self.ESP_RAM_BLOCK = self.USB_RAM_BLOCK
             self.FLASH_WRITE_SIZE = self.USB_RAM_BLOCK

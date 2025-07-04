@@ -1,7 +1,7 @@
 r'''
 # `snowflake_git_repository`
 
-Refer to the Terraform Registry for docs: [`snowflake_git_repository`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/git_repository).
+Refer to the Terraform Registry for docs: [`snowflake_git_repository`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/git_repository).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GitRepository(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-snowflake.gitRepository.GitRepository",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/git_repository snowflake_git_repository}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/git_repository snowflake_git_repository}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class GitRepository(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/git_repository snowflake_git_repository} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/git_repository snowflake_git_repository} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param api_integration: Identifier of API INTEGRATION containing information about the remote Git repository such as allowed credentials and prefixes for target URLs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/git_repository#api_integration GitRepository#api_integration}
-        :param database: The database in which to create the git repository. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/git_repository#database GitRepository#database}
-        :param name: Specifies the identifier for the git repository; must be unique for the schema in which the git repository is created. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/git_repository#name GitRepository#name}
-        :param origin: Specifies the origin URL of the remote Git repository that this Git repository clone represents. The URL must use HTTPS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/git_repository#origin GitRepository#origin}
-        :param schema: The schema in which to create the git repository. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/git_repository#schema GitRepository#schema}
-        :param comment: Specifies a comment for the git repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/git_repository#comment GitRepository#comment}
-        :param git_credentials: Specifies the Snowflake secret fully qualified name (e.g ``"\\"<db_name>\\".\\"<schema_name>\\".\\"<secret_name>\\""``) containing the credentials to use for authenticating with the remote Git repository. Omit this parameter to use the default secret specified by the API integration or if this integration does not require authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/git_repository#git_credentials GitRepository#git_credentials}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/git_repository#id GitRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/git_repository#timeouts GitRepository#timeouts}
+        :param api_integration: Identifier of API INTEGRATION containing information about the remote Git repository such as allowed credentials and prefixes for target URLs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/git_repository#api_integration GitRepository#api_integration}
+        :param database: The database in which to create the git repository. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/git_repository#database GitRepository#database}
+        :param name: Specifies the identifier for the git repository; must be unique for the schema in which the git repository is created. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/git_repository#name GitRepository#name}
+        :param origin: Specifies the origin URL of the remote Git repository that this Git repository clone represents. The URL must use HTTPS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/git_repository#origin GitRepository#origin}
+        :param schema: The schema in which to create the git repository. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/git_repository#schema GitRepository#schema}
+        :param comment: Specifies a comment for the git repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/git_repository#comment GitRepository#comment}
+        :param git_credentials: Specifies the Snowflake secret fully qualified name (e.g ``"\\"<db_name>\\".\\"<schema_name>\\".\\"<secret_name>\\""``) containing the credentials to use for authenticating with the remote Git repository. Omit this parameter to use the default secret specified by the API integration or if this integration does not require authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/git_repository#git_credentials GitRepository#git_credentials}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/git_repository#id GitRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/git_repository#timeouts GitRepository#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class GitRepository(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GitRepository to import.
-        :param import_from_id: The id of the existing GitRepository that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/git_repository#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GitRepository that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/git_repository#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GitRepository to import is found.
         '''
         if __debug__:
@@ -148,10 +148,10 @@ class GitRepository(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/git_repository#create GitRepository#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/git_repository#delete GitRepository#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/git_repository#read GitRepository#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/git_repository#update GitRepository#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/git_repository#create GitRepository#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/git_repository#delete GitRepository#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/git_repository#read GitRepository#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/git_repository#update GitRepository#update}.
         '''
         value = GitRepositoryTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -403,15 +403,15 @@ class GitRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param api_integration: Identifier of API INTEGRATION containing information about the remote Git repository such as allowed credentials and prefixes for target URLs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/git_repository#api_integration GitRepository#api_integration}
-        :param database: The database in which to create the git repository. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/git_repository#database GitRepository#database}
-        :param name: Specifies the identifier for the git repository; must be unique for the schema in which the git repository is created. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/git_repository#name GitRepository#name}
-        :param origin: Specifies the origin URL of the remote Git repository that this Git repository clone represents. The URL must use HTTPS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/git_repository#origin GitRepository#origin}
-        :param schema: The schema in which to create the git repository. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/git_repository#schema GitRepository#schema}
-        :param comment: Specifies a comment for the git repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/git_repository#comment GitRepository#comment}
-        :param git_credentials: Specifies the Snowflake secret fully qualified name (e.g ``"\\"<db_name>\\".\\"<schema_name>\\".\\"<secret_name>\\""``) containing the credentials to use for authenticating with the remote Git repository. Omit this parameter to use the default secret specified by the API integration or if this integration does not require authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/git_repository#git_credentials GitRepository#git_credentials}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/git_repository#id GitRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/git_repository#timeouts GitRepository#timeouts}
+        :param api_integration: Identifier of API INTEGRATION containing information about the remote Git repository such as allowed credentials and prefixes for target URLs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/git_repository#api_integration GitRepository#api_integration}
+        :param database: The database in which to create the git repository. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/git_repository#database GitRepository#database}
+        :param name: Specifies the identifier for the git repository; must be unique for the schema in which the git repository is created. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/git_repository#name GitRepository#name}
+        :param origin: Specifies the origin URL of the remote Git repository that this Git repository clone represents. The URL must use HTTPS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/git_repository#origin GitRepository#origin}
+        :param schema: The schema in which to create the git repository. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/git_repository#schema GitRepository#schema}
+        :param comment: Specifies a comment for the git repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/git_repository#comment GitRepository#comment}
+        :param git_credentials: Specifies the Snowflake secret fully qualified name (e.g ``"\\"<db_name>\\".\\"<schema_name>\\".\\"<secret_name>\\""``) containing the credentials to use for authenticating with the remote Git repository. Omit this parameter to use the default secret specified by the API integration or if this integration does not require authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/git_repository#git_credentials GitRepository#git_credentials}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/git_repository#id GitRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/git_repository#timeouts GitRepository#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -533,7 +533,7 @@ class GitRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def api_integration(self) -> builtins.str:
         '''Identifier of API INTEGRATION containing information about the remote Git repository such as allowed credentials and prefixes for target URLs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/git_repository#api_integration GitRepository#api_integration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/git_repository#api_integration GitRepository#api_integration}
         '''
         result = self._values.get("api_integration")
         assert result is not None, "Required property 'api_integration' is missing"
@@ -545,7 +545,7 @@ class GitRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/git_repository#database GitRepository#database}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/git_repository#database GitRepository#database}
         '''
         result = self._values.get("database")
         assert result is not None, "Required property 'database' is missing"
@@ -557,7 +557,7 @@ class GitRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         must be unique for the schema in which the git repository is created. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/git_repository#name GitRepository#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/git_repository#name GitRepository#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -569,7 +569,7 @@ class GitRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         The URL must use HTTPS.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/git_repository#origin GitRepository#origin}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/git_repository#origin GitRepository#origin}
         '''
         result = self._values.get("origin")
         assert result is not None, "Required property 'origin' is missing"
@@ -581,7 +581,7 @@ class GitRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/git_repository#schema GitRepository#schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/git_repository#schema GitRepository#schema}
         '''
         result = self._values.get("schema")
         assert result is not None, "Required property 'schema' is missing"
@@ -591,7 +591,7 @@ class GitRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def comment(self) -> typing.Optional[builtins.str]:
         '''Specifies a comment for the git repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/git_repository#comment GitRepository#comment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/git_repository#comment GitRepository#comment}
         '''
         result = self._values.get("comment")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -600,14 +600,14 @@ class GitRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def git_credentials(self) -> typing.Optional[builtins.str]:
         '''Specifies the Snowflake secret fully qualified name (e.g ``"\\"<db_name>\\".\\"<schema_name>\\".\\"<secret_name>\\""``) containing the credentials to use for authenticating with the remote Git repository. Omit this parameter to use the default secret specified by the API integration or if this integration does not require authentication.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/git_repository#git_credentials GitRepository#git_credentials}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/git_repository#git_credentials GitRepository#git_credentials}
         '''
         result = self._values.get("git_credentials")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/git_repository#id GitRepository#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/git_repository#id GitRepository#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -619,7 +619,7 @@ class GitRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GitRepositoryTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/git_repository#timeouts GitRepository#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/git_repository#timeouts GitRepository#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GitRepositoryTimeouts"], result)
@@ -1035,10 +1035,10 @@ class GitRepositoryTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/git_repository#create GitRepository#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/git_repository#delete GitRepository#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/git_repository#read GitRepository#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/git_repository#update GitRepository#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/git_repository#create GitRepository#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/git_repository#delete GitRepository#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/git_repository#read GitRepository#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/git_repository#update GitRepository#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__eb2811f7614a1ac1abbd5ee7c9112f79ea9f04a0676b654c488d2a5dc5f9d594)
@@ -1058,25 +1058,25 @@ class GitRepositoryTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/git_repository#create GitRepository#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/git_repository#create GitRepository#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/git_repository#delete GitRepository#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/git_repository#delete GitRepository#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/git_repository#read GitRepository#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/git_repository#read GitRepository#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.2.0/docs/resources/git_repository#update GitRepository#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/git_repository#update GitRepository#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

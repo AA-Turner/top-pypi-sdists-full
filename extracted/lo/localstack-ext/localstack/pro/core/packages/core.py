@@ -4,6 +4,7 @@ from abc import ABC
 from typing import Callable,List
 from localstack import config
 from localstack.packages import InstallTarget,PackageInstaller,SystemNotSupportedException,package
+from localstack.packages.core import ArchiveDownloadAndExtractInstaller
 from localstack.utils.platform import in_docker,is_debian,is_redhat
 from localstack.utils.run import run
 LOG=logging.getLogger(__name__)
@@ -38,4 +39,13 @@ class OSPackageInstaller(PackageInstaller,ABC):
 	def _redhat_prepare_install(A,target):0
 	def _redhat_install(A,target):run(['dnf',_A,'-y']+A._redhat_packages())
 	def _redhat_post_process(A,target):run(['dnf','clean','all'])
+class MirrorArchiveInstaller(ArchiveDownloadAndExtractInstaller):
+	def __init__(A,name,version,extract_single_directory=False):super().__init__(name=name,version=version,extract_single_directory=extract_single_directory)
+	def _get_primary_url(A):raise NotImplementedError
+	def _get_mirror_url(A):raise NotImplementedError
+	def _get_download_url(A):return A._get_primary_url()
+	def _install(A,target):
+		B=target
+		try:A._download_archive(B,A._get_mirror_url())
+		except Exception as C:LOG.debug('Failed to download from mirror %s, falling back to archive: %s',A._get_mirror_url(),C);super()._install(B)
 pro_package=functools.partial(package,scope='ext')

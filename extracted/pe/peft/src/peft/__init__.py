@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-__version__ = "0.15.2"
+__version__ = "0.16.0"
 
 from .auto import (
     MODEL_TYPE_TO_PEFT_MODEL_MAPPING,
@@ -54,6 +54,8 @@ from .tuners import (
     BOFTModel,
     BoneConfig,
     BoneModel,
+    C3AConfig,
+    C3AModel,
     CPTConfig,
     CPTEmbedding,
     EvaConfig,
@@ -87,6 +89,8 @@ from .tuners import (
     PromptEncoderReparameterizationType,
     PromptTuningConfig,
     PromptTuningInit,
+    RandLoraConfig,
+    RandLoraModel,
     TrainableTokensConfig,
     TrainableTokensModel,
     VBLoRAConfig,
@@ -134,6 +138,8 @@ __all__ = [
     "BOFTModel",
     "BoneConfig",
     "BoneModel",
+    "C3AConfig",
+    "C3AModel",
     "CPTConfig",
     "CPTEmbedding",
     "EvaConfig",
@@ -178,6 +184,8 @@ __all__ = [
     "PromptLearningConfig",
     "PromptTuningConfig",
     "PromptTuningInit",
+    "RandLoraConfig",
+    "RandLoraModel",
     "TaskType",
     "TrainableTokensConfig",
     "TrainableTokensModel",

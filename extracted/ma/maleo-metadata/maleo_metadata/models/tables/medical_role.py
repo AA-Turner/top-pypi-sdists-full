@@ -28,16 +28,16 @@ class MedicalRolesTable(
     parent = relationship(
         "MedicalRolesTable",
         remote_side="MedicalRolesTable.id",
-        back_populates="specializations"
+        # back_populates="specializations"
     )
-    specializations = relationship(
-        "MedicalRolesTable",
-        back_populates="parent",
-        cascade="all",
-        lazy="select",
-        foreign_keys="[MedicalRolesTable.parent_id]",
-        order_by="MedicalRolesTable.order"
-    )
+    # specializations = relationship(
+    #     "MedicalRolesTable",
+    #     back_populates="parent",
+    #     cascade="all",
+    #     lazy="select",
+    #     foreign_keys="[MedicalRolesTable.parent_id]",
+    #     order_by="MedicalRolesTable.order"
+    # )
 
 class MedicalRolesAccessTable(
     MedicalRolesMixin,

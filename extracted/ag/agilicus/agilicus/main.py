@@ -377,9 +377,14 @@ def cli(
         context.save_refreshable_token(ctx, tokens.RefreshableAccessToken())
 
     if not org_id:
-        if not token:
-            token = context.get_token(ctx)
-        org_id = context.get_org_id(ctx, token)
+        # this is optional, used primarily for the prompt
+        try:
+            if not token:
+                token = context.get_token(ctx)
+                org_id = context.get_org_id(ctx, token)
+        except Exception as exc:
+            print("Exception in get_token: ", exc)
+            pass
 
     if org_id:
         org = orgs.get(ctx, org_id)
@@ -8611,6 +8616,7 @@ def delete_connector_services(ctx, *args, **kwargs):
 @cli.command(name="list-support-requests")
 @click.option("--org-id", default=None)
 @click.option("--user-id", default=None)
+@click.option("--supporting-user-org-id", default=None)
 @click.option("--limit", default=500)
 @click.pass_context
 def list_support_requests(ctx, **kwargs):

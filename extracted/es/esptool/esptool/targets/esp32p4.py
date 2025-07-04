@@ -1,15 +1,15 @@
-# SPDX-FileCopyrightText: 2024 Fredrik Ahlberg, Angus Gratton,
+# SPDX-FileCopyrightText: 2024-2025 Fredrik Ahlberg, Angus Gratton,
 # Espressif Systems (Shanghai) CO LTD, other contributors as noted.
 #
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 import struct
 from time import sleep
-from typing import Dict
 
 from .esp32 import ESP32ROM
-from ..loader import ESPLoader
-from ..util import FatalError, NotImplementedInROMError
+from ..loader import ESPLoader, StubMixin
+from ..logger import log
+from ..util import FatalError, NotSupportedError
 
 
 class ESP32P4ROM(ESP32ROM):
@@ -100,8 +100,7 @@ class ESP32P4ROM(ESP32ROM):
 
     UF2_FAMILY_ID = 0x3D308E94
 
-    EFUSE_MAX_KEY = 5
-    KEY_PURPOSES: Dict[int, str] = {
+    KEY_PURPOSES: dict[int, str] = {
         0: "USER/EMPTY",
         1: "ECDSA_KEY",
         2: "XTS_AES_256_KEY_1",
@@ -138,30 +137,29 @@ class ESP32P4ROM(ESP32ROM):
 
     def get_major_chip_version(self):
         num_word = 2
-        return (self.read_reg(self.EFUSE_BLOCK1_ADDR + (4 * num_word)) >> 4) & 0x03
+        word = self.read_reg(self.EFUSE_BLOCK1_ADDR + (4 * num_word))
+        return (((word >> 23) & 1) << 2) | ((word >> 4) & 0x03)
 
     def get_chip_description(self):
         chip_name = {
             0: "ESP32-P4",
-        }.get(self.get_pkg_version(), "unknown ESP32-P4")
+        }.get(self.get_pkg_version(), "Unknown ESP32-P4")
         major_rev = self.get_major_chip_version()
         minor_rev = self.get_minor_chip_version()
         return f"{chip_name} (revision v{major_rev}.{minor_rev})"
 
     def get_chip_features(self):
-        return ["High-Performance MCU"]
+        return ["Dual Core + LP Core", "400MHz"]
 
     def get_crystal_freq(self):
         # ESP32P4 XTAL is fixed to 40MHz
         return 40
 
     def get_flash_voltage(self):
-        pass  # not supported on ESP32-P4
+        raise NotSupportedError(self, "Reading flash voltage")
 
     def override_vddsdio(self, new_voltage):
-        raise NotImplementedInROMError(
-            "VDD_SDIO overrides are not supported for ESP32-P4"
-        )
+        raise NotSupportedError(self, "Overriding VDDSDIO")
 
     def read_mac(self, mac_type="BASE_MAC"):
         """Read MAC from EFUSE region"""
@@ -257,13 +255,13 @@ class ESP32P4ROM(ESP32ROM):
         if not set(spi_connection).issubset(set(range(0, 55))):
             raise FatalError("SPI Pin numbers must be in the range 0-54.")
         if any([v for v in spi_connection if v in [24, 25]]):
-            print(
-                "WARNING: GPIO pins 24 and 25 are used by USB-Serial/JTAG, "
+            log.warning(
+                "GPIO pins 24 and 25 are used by USB-Serial/JTAG, "
                 "consider using other pins for SPI flash connection."
             )
 
     def watchdog_reset(self):
-        print("Hard resetting with a watchdog...")
+        log.print("Hard resetting with a watchdog...")
         self.write_reg(self.RTC_CNTL_WDTWPROTECT_REG, self.RTC_CNTL_WDT_WKEY)  # unlock
         self.write_reg(self.RTC_CNTL_WDTCONFIG1_REG, 2000)  # set WDT timeout
         self.write_reg(
@@ -279,24 +277,11 @@ class ESP32P4ROM(ESP32ROM):
             ESPLoader.hard_reset(self)
 
 
-class ESP32P4StubLoader(ESP32P4ROM):
-    """Access class for ESP32P4 stub loader, runs on top of ROM.
-
-    (Basically the same as ESP32StubLoader, but different base class.
-    Can possibly be made into a mixin.)
-    """
-
-    FLASH_WRITE_SIZE = 0x4000  # matches MAX_WRITE_BLOCK in stub_loader.c
-    STATUS_BYTES_LENGTH = 2  # same as ESP8266, different to ESP32 ROM
-    IS_STUB = True
+class ESP32P4StubLoader(StubMixin, ESP32P4ROM):
+    """Stub loader for ESP32-P4, runs on top of ROM."""
 
     def __init__(self, rom_loader):
-        self.secure_download_mode = rom_loader.secure_download_mode
-        self._port = rom_loader._port
-        self._trace_enabled = rom_loader._trace_enabled
-        self.cache = rom_loader.cache
-        self.flush_input()  # resets _slip_reader
-
+        super().__init__(rom_loader)  # Initialize the mixin
         if rom_loader.uses_usb_otg():
             self.ESP_RAM_BLOCK = self.USB_RAM_BLOCK
             self.FLASH_WRITE_SIZE = self.USB_RAM_BLOCK

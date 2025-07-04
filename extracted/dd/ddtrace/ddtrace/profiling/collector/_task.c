@@ -1504,12 +1504,12 @@ static const char* const __pyx_f[] = {
 /*--- Type declarations ---*/
 struct __pyx_obj_7ddtrace_9profiling_9collector_5_task___pyx_scope_struct__install_greenlet_tracer;
 
-/* "ddtrace/profiling/collector/_task.pyx":14
+/* "ddtrace/profiling/collector/_task.pyx":24
  * 
  * 
- * @when_imported("gevent")             # <<<<<<<<<<<<<<
- * def install_greenlet_tracer(gevent):
- *     global _gevent_tracer
+ *     @when_imported("gevent")             # <<<<<<<<<<<<<<
+ *     def install_greenlet_tracer(gevent):
+ *         global _gevent_tracer
 */
 struct __pyx_obj_7ddtrace_9profiling_9collector_5_task___pyx_scope_struct__install_greenlet_tracer {
   PyObject_HEAD
@@ -1824,6 +1824,19 @@ static CYTHON_INLINE PyObject *__Pyx_CallUnboundCMethod2(__Pyx_CachedCFunction *
 static void __Pyx_RaiseArgtupleInvalid(const char* func_name, int exact,
     Py_ssize_t num_min, Py_ssize_t num_max, Py_ssize_t num_found);
 
+/* Import.proto */
+static PyObject *__Pyx_Import(PyObject *name, PyObject *from_list, int level);
+
+/* ImportFrom.proto */
+static PyObject* __Pyx_ImportFrom(PyObject* module, PyObject* name);
+
+/* PyObjectFastCallMethod.proto */
+#if CYTHON_VECTORCALL && PY_VERSION_HEX >= 0x03090000
+#define __Pyx_PyObject_FastCallMethod(name, args, nargsf) PyObject_VectorcallMethod(name, args, nargsf, NULL)
+#else
+static PyObject *__Pyx_PyObject_FastCallMethod(PyObject *name, PyObject *const *args, size_t nargsf);
+#endif
+
 /* PyObjectDelAttr.proto */
 #if CYTHON_COMPILING_IN_LIMITED_API && __PYX_LIMITED_VERSION_HEX < 0x030d0000
 #define __Pyx_PyObject_DelAttr(o, n) PyObject_SetAttr(o, n, NULL)
@@ -1890,13 +1903,6 @@ static PyObject *__Pyx__GetModuleGlobalName(PyObject *name, PY_UINT64_T *dict_ve
 static CYTHON_INLINE PyObject *__Pyx__GetModuleGlobalName(PyObject *name);
 #endif
 
-/* PyObjectFastCallMethod.proto */
-#if CYTHON_VECTORCALL && PY_VERSION_HEX >= 0x03090000
-#define __Pyx_PyObject_FastCallMethod(name, args, nargsf) PyObject_VectorcallMethod(name, args, nargsf, NULL)
-#else
-static PyObject *__Pyx_PyObject_FastCallMethod(PyObject *name, PyObject *const *args, size_t nargsf);
-#endif
-
 /* GetItemInt.proto */
 #define __Pyx_GetItemInt(o, i, type, is_signed, to_py_func, is_list, wraparound, boundscheck, has_gil)\
     (__Pyx_fits_Py_ssize_t(i, type, is_signed) ?\
@@ -1918,12 +1924,6 @@ static CYTHON_INLINE PyObject *__Pyx_GetItemInt_Tuple_Fast(PyObject *o, Py_ssize
 static PyObject *__Pyx_GetItemInt_Generic(PyObject *o, PyObject* j);
 static CYTHON_INLINE PyObject *__Pyx_GetItemInt_Fast(PyObject *o, Py_ssize_t i,
                                                      int is_list, int wraparound, int boundscheck);
-
-/* Import.proto */
-static PyObject *__Pyx_Import(PyObject *name, PyObject *from_list, int level);
-
-/* ImportFrom.proto */
-static PyObject* __Pyx_ImportFrom(PyObject* module, PyObject* name);
 
 /* GetTopmostException.proto */
 #if CYTHON_USE_EXC_INFO_STACK && CYTHON_FAST_THREAD_STATE
@@ -2391,12 +2391,13 @@ static PyObject *__pyx_builtin_ImportError;
 static PyObject *__pyx_builtin_object;
 static PyObject *__pyx_builtin_id;
 /* #### Code section: string_decls ### */
-static const char __pyx_k_[] = ".";
-static const char __pyx_k_6[] = "\210\001\360\n\000\r\021\220\n\230!\2306\240\027\250\n\260!\260=\300\001";
-static const char __pyx_k__2[] = "";
-static const char __pyx_k__3[] = "?";
+static const char __pyx_k_[] = "";
+static const char __pyx_k__2[] = ".";
+static const char __pyx_k__3[] = "_";
+static const char __pyx_k__4[] = "?";
 static const char __pyx_k_gc[] = "gc";
 static const char __pyx_k_id[] = "id";
+static const char __pyx_k_A_q[] = "\200A\340\010\t\340\010\t\330\023\024\330\023\024\330\014\021\320\021!\240\021\330\014\021\320\021!\240\021\330\014\021\320\021!\240\021\330\017\020\340\014\r\340\010\037\230q\330\014\r\360\022\000\r\016\360\016\000\r\016\360\030\000\t\032\320\031)\250\021\250!";
 static const char __pyx_k_Hub[] = "Hub";
 static const char __pyx_k_doc[] = "__doc__";
 static const char __pyx_k_hub[] = "hub";
@@ -2415,8 +2416,12 @@ static const char __pyx_k_spec[] = "__spec__";
 static const char __pyx_k_test[] = "__test__";
 static const char __pyx_k_event[] = "event";
 static const char __pyx_k_items[] = "items";
+static const char __pyx_k_patch[] = "patch";
+static const char __pyx_k_stack[] = "stack";
 static const char __pyx_k_throw[] = "throw";
 static const char __pyx_k_types[] = "types";
+static const char __pyx_k_A_q_vQ[] = "\200A\340\010\020\220\007\220q\340\010\017\210v\220Q";
+static const char __pyx_k_config[] = "config";
 static const char __pyx_k_enable[] = "enable";
 static const char __pyx_k_gevent[] = "gevent";
 static const char __pyx_k_module[] = "__module__";
@@ -2431,6 +2436,7 @@ static const char __pyx_k_ag_frame[] = "ag_frame";
 static const char __pyx_k_cr_frame[] = "cr_frame";
 static const char __pyx_k_endswith[] = "endswith";
 static const char __pyx_k_get_task[] = "get_task";
+static const char __pyx_k_gevent_2[] = "_gevent";
 static const char __pyx_k_gi_frame[] = "gi_frame";
 static const char __pyx_k_gr_frame[] = "gr_frame";
 static const char __pyx_k_greenlet[] = "greenlet";
@@ -2444,14 +2450,15 @@ static const char __pyx_k_isenabled[] = "isenabled";
 static const char __pyx_k_metaclass[] = "__metaclass__";
 static const char __pyx_k_thread_id[] = "thread_id";
 static const char __pyx_k_threading[] = "_threading";
+static const char __pyx_k_A_JavWJa_A[] = "\210A\360\n\000\021\025\220J\230a\230v\240W\250J\260a\260}\300A";
 static const char __pyx_k_MainThread[] = "_MainThread";
 static const char __pyx_k_ModuleType[] = "ModuleType";
-static const char __pyx_k_Q_Q_Q_1_Qa[] = "\200\001\340\004\005\340\004\005\330\017\020\330\017\020\330\010\r\320\r\035\230Q\330\010\r\320\r\035\230Q\330\010\r\320\r\035\230Q\330\013\014\340\010\t\340\004\033\2301\330\010\t\360\022\000\t\n\360\016\000\t\n\360\030\000\005\026\320\025%\240Q\240a";
 static const char __pyx_k_getcurrent[] = "getcurrent";
 static const char __pyx_k_gevent_hub[] = "gevent.hub";
 static const char __pyx_k_list_tasks[] = "list_tasks";
-static const char __pyx_k_81A_W_8_Q_Q[] = "\210\001\340\014\020\220\n\230!\340\014\020\320\020+\2508\2601\260A\330\014\020\220\r\230W\320$8\270\001\330\014\020\320\020#\240:\250Q\330\014\020\320\020 \240\001\240\024\240Q";
+static const char __pyx_k_v2_enabled[] = "v2_enabled";
 static const char __pyx_k_ImportError[] = "ImportError";
+static const char __pyx_k_is_stack_v2[] = "is_stack_v2";
 static const char __pyx_k_mro_entries[] = "__mro_entries__";
 static const char __pyx_k_current_task[] = "current_task";
 static const char __pyx_k_initializing[] = "_initializing";
@@ -2464,6 +2471,7 @@ static const char __pyx_k_store_greenlet[] = "_store_greenlet";
 static const char __pyx_k_wrapt_importer[] = "wrapt.importer";
 static const char __pyx_k_active_greenlet[] = "active_greenlet";
 static const char __pyx_k_get_thread_name[] = "get_thread_name";
+static const char __pyx_k_A_Ja_xq_M_A_z_AT[] = "\210A\340\020\024\220J\230a\340\020\024\320\024/\250x\260q\270\001\330\020\024\220M\240\027\320(<\270A\330\020\024\320\024'\240z\260\021\330\020\024\320\024$\240A\240T\250\021";
 static const char __pyx_k_DDGreenletTracer[] = "DDGreenletTracer";
 static const char __pyx_k_get_thread_by_id[] = "get_thread_by_id";
 static const char __pyx_k_asyncio_coroutines[] = "asyncio.coroutines";
@@ -2472,9 +2480,10 @@ static const char __pyx_k_WeakValueDictionary[] = "WeakValueDictionary";
 static const char __pyx_k_install_greenlet_tracer[] = "install_greenlet_tracer";
 static const char __pyx_k_previous_trace_function[] = "previous_trace_function";
 static const char __pyx_k_get_event_loop_for_thread[] = "get_event_loop_for_thread";
-static const char __pyx_k_vT_1_4z_at6_Q_4q_Qa_t_G1_AWA[] = "\210\001\330\014\017\210v\220T\230\032\2401\360\010\000\021\024\2204\220z\240\021\240$\240a\240t\2506\260\024\260Q\330\024\030\320\030+\2504\250q\260\001\330\024\030\320\030(\250\001\250\024\250Q\250a\340\014\017\210t\320\023,\250G\2601\330\020\024\320\024,\250A\250W\260A";
-static const char __pyx_k_A_gQ_4q_1Ky_2_1_QnKvUV_t81_8_Qa[] = "\200\001\360\022\000\005\r\210A\340\004\007\200\220g\230Q\330\010\013\2104\210q\220\n\320\032+\2501\250K\260y\300\t\310\021\310!\360\010\000\r\022\220\027\230\001\330\020\021\340\030\031\330\030\"\320\"2\260!\2601\330\030 \240\001\340\024\030\230\r\240\\\260\024\260Q\260n\300K\310v\320UV\330\024\027\220t\2308\2401\360\010\000\005\014\2108\320\023-\250Q\250a\330\004\007\200u\210G\2201\330\010\r\210W\220A\220Q\330\r\017\210q\220\001\330\020\030\230\017\240q\250\001\330\020'\240q\250\001\330\014\020\220\010\230\010\240\n\250!\2501\360\006\000\005\014\2101";
-static const char __pyx_k_a_A_8_Qa_uG1_x_AQ_5_q_b_q_1A_xs[] = "\200\001\340\004\016\210a\330\004\020\220\001\330\004\014\210A\340\004\013\2108\320\023-\250Q\250a\330\004\007\200u\210G\2201\330\010\017\210x\220}\240A\240Q\330\010\013\2105\220\007\220q\330\014\026\220b\230\001\230\021\330\014\030\230\010\240\017\250q\260\001\330\014\024\320\024+\2501\250A\360\n\000\005\010\200x\210s\220%\220t\230?\250'\260\021\330\010\030\230\016\240g\250Q\330\010\022\220-\230z\250\021\250.\270\001\340\010\024\220J\320\036.\250a\250q\330\010\020\220\016\320\036.\250a\340\004\013\2109\220K\230q";
+static const char __pyx_k_ddtrace_settings_profiling[] = "ddtrace.settings.profiling";
+static const char __pyx_k_A_6_Zq_t_Qd_4vT_t1A_AT_4_0_q_0[] = "\210A\330\020\023\2206\230\024\230Z\240q\360\010\000\025\030\220t\230:\240Q\240d\250!\2504\250v\260T\270\021\330\030\034\320\034/\250t\2601\260A\330\030\034\320\034,\250A\250T\260\021\260!\340\020\023\2204\320\0270\260\007\260q\330\024\030\320\0300\260\001\260\027\270\001";
+static const char __pyx_k_A_t_t_4q_1Ky_2_1_QnKvUV_t81_8_Q[] = "\200\001\360\022\000\005\r\210A\340\004\007\200t\210<\220t\230?\250'\260\021\330\010\013\2104\210q\220\n\320\032+\2501\250K\260y\300\t\310\021\310!\360\010\000\r\022\220\027\230\001\330\020\021\340\030\031\330\030\"\320\"2\260!\2601\330\030 \240\001\340\024\030\230\r\240\\\260\024\260Q\260n\300K\310v\320UV\330\024\027\220t\2308\2401\360\010\000\005\014\2108\320\023-\250Q\250a\330\004\007\200u\210G\2201\330\010\r\210W\220A\220Q\330\r\017\210q\220\001\330\020\030\230\017\240q\250\001\330\020'\240q\250\001\330\014\020\220\010\230\010\240\n\250!\2501\360\006\000\005\014\2101";
+static const char __pyx_k_a_A_8_Qa_uG1_x_AQ_5_q_b_q_1A_t1[] = "\200\001\340\004\016\210a\330\004\020\220\001\330\004\014\210A\340\004\013\2108\320\023-\250Q\250a\330\004\007\200u\210G\2201\330\010\017\210x\220}\240A\240Q\330\010\013\2105\220\007\220q\330\014\026\220b\230\001\230\021\330\014\030\230\010\240\017\250q\260\001\330\014\024\320\024+\2501\250A\340\004\007\200t\2101\360\010\000\t\014\2108\2203\220e\2304\230\250g\260Q\330\014\034\230N\250'\260\021\330\014\026\220m\240:\250Q\250n\270A\340\014\030\230\n\320\"2\260!\2601\330\014\024\220N\320\"2\260!\340\004\013\2109\220K\230q";
 static const char __pyx_k_ddtrace_profiling_collector__tas[] = "ddtrace.profiling.collector._task";
 static const char __pyx_k_install_greenlet_tracer_locals_D[] = "install_greenlet_tracer.<locals>.DDGreenletTracer";
 static const char __pyx_k_ddtrace_profiling_collector__tas_2[] = "ddtrace/profiling/collector/_task.pyx";
@@ -2482,12 +2491,13 @@ static const char __pyx_k_install_greenlet_tracer_locals_D_2[] = "install_greenl
 static const char __pyx_k_install_greenlet_tracer_locals_D_3[] = "install_greenlet_tracer.<locals>.DDGreenletTracer._store_greenlet";
 static const char __pyx_k_install_greenlet_tracer_locals_D_4[] = "install_greenlet_tracer.<locals>.DDGreenletTracer.__call__";
 /* #### Code section: decls ### */
+static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5_task__(CYTHON_UNUSED PyObject *__pyx_self, CYTHON_UNUSED PyObject *__pyx_v_gevent); /* proto */
 static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5_task_23install_greenlet_tracer_16DDGreenletTracer___init__(PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_gevent); /* proto */
 static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5_task_23install_greenlet_tracer_16DDGreenletTracer_2_store_greenlet(PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_greenlet); /* proto */
 static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5_task_23install_greenlet_tracer_16DDGreenletTracer_4__call__(PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_event, PyObject *__pyx_v_args); /* proto */
-static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5_task_install_greenlet_tracer(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_gevent); /* proto */
-static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5_task_2get_task(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_thread_id); /* proto */
-static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5_task_4list_tasks(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_thread_id); /* proto */
+static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5_task_2install_greenlet_tracer(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_gevent); /* proto */
+static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5_task_4get_task(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_thread_id); /* proto */
+static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5_task_6list_tasks(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_thread_id); /* proto */
 static PyObject *__pyx_tp_new_7ddtrace_9profiling_9collector_5_task___pyx_scope_struct__install_greenlet_tracer(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
 /* #### Code section: late_includes ### */
 /* #### Code section: module_state ### */
@@ -2531,8 +2541,8 @@ typedef struct {
   PyTypeObject *__pyx_ptype_7ddtrace_9profiling_9collector_5_task___pyx_scope_struct__install_greenlet_tracer;
   __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_pop;
   PyObject *__pyx_tuple[4];
-  PyObject *__pyx_codeobj_tab[6];
-  PyObject *__pyx_string_tab[84];
+  PyObject *__pyx_codeobj_tab[7];
+  PyObject *__pyx_string_tab[92];
 /* #### Code section: module_state_contents ### */
 /* CommonTypesMetaclass.module_state_decls */
 PyTypeObject *__pyx_CommonTypesMetaclassType;
@@ -2575,90 +2585,98 @@ static __pyx_mstatetype __pyx_mstate_global_static =
 static __pyx_mstatetype * const __pyx_mstate_global = &__pyx_mstate_global_static;
 #endif
 /* #### Code section: constant_name_defines ### */
-#define __pyx_kp_u_ __pyx_string_tab[0]
+#define __pyx_n_u_ __pyx_string_tab[0]
 #define __pyx_n_u_DDGreenletTracer __pyx_string_tab[1]
 #define __pyx_n_u_Hub __pyx_string_tab[2]
 #define __pyx_n_u_ImportError __pyx_string_tab[3]
 #define __pyx_n_u_MainThread __pyx_string_tab[4]
 #define __pyx_n_u_ModuleType __pyx_string_tab[5]
 #define __pyx_n_u_WeakValueDictionary __pyx_string_tab[6]
-#define __pyx_n_u__2 __pyx_string_tab[7]
-#define __pyx_kp_u__3 __pyx_string_tab[8]
-#define __pyx_n_u_active_greenlet __pyx_string_tab[9]
-#define __pyx_n_u_ag_frame __pyx_string_tab[10]
-#define __pyx_n_u_all_tasks __pyx_string_tab[11]
-#define __pyx_n_u_args __pyx_string_tab[12]
-#define __pyx_n_u_asyncio __pyx_string_tab[13]
-#define __pyx_n_u_asyncio_coroutines __pyx_string_tab[14]
-#define __pyx_n_u_call __pyx_string_tab[15]
-#define __pyx_n_u_cline_in_traceback __pyx_string_tab[16]
-#define __pyx_n_u_coro __pyx_string_tab[17]
-#define __pyx_n_u_cr_frame __pyx_string_tab[18]
-#define __pyx_n_u_current_task __pyx_string_tab[19]
-#define __pyx_n_u_ddtrace_profiling_collector__tas __pyx_string_tab[20]
-#define __pyx_kp_u_ddtrace_profiling_collector__tas_2 __pyx_string_tab[21]
-#define __pyx_n_u_dead __pyx_string_tab[22]
-#define __pyx_kp_u_disable __pyx_string_tab[23]
-#define __pyx_n_u_doc __pyx_string_tab[24]
-#define __pyx_kp_u_enable __pyx_string_tab[25]
-#define __pyx_n_u_endswith __pyx_string_tab[26]
-#define __pyx_n_u_event __pyx_string_tab[27]
-#define __pyx_n_u_func __pyx_string_tab[28]
-#define __pyx_kp_u_gc __pyx_string_tab[29]
-#define __pyx_n_u_get_event_loop_for_thread __pyx_string_tab[30]
-#define __pyx_n_u_get_ident __pyx_string_tab[31]
-#define __pyx_n_u_get_task __pyx_string_tab[32]
-#define __pyx_n_u_get_thread_by_id __pyx_string_tab[33]
-#define __pyx_n_u_get_thread_name __pyx_string_tab[34]
-#define __pyx_n_u_getcurrent __pyx_string_tab[35]
-#define __pyx_n_u_gevent __pyx_string_tab[36]
-#define __pyx_n_u_gevent_hub __pyx_string_tab[37]
-#define __pyx_n_u_gevent_thread __pyx_string_tab[38]
-#define __pyx_n_u_gevent_tracer __pyx_string_tab[39]
-#define __pyx_n_u_gi_frame __pyx_string_tab[40]
-#define __pyx_n_u_gr_frame __pyx_string_tab[41]
-#define __pyx_n_u_greenlet __pyx_string_tab[42]
-#define __pyx_n_u_greenlets __pyx_string_tab[43]
-#define __pyx_n_u_hub __pyx_string_tab[44]
-#define __pyx_n_u_id __pyx_string_tab[45]
-#define __pyx_n_u_init __pyx_string_tab[46]
-#define __pyx_n_u_initializing __pyx_string_tab[47]
-#define __pyx_n_u_install_greenlet_tracer __pyx_string_tab[48]
-#define __pyx_n_u_install_greenlet_tracer_locals_D __pyx_string_tab[49]
-#define __pyx_n_u_install_greenlet_tracer_locals_D_2 __pyx_string_tab[50]
-#define __pyx_n_u_install_greenlet_tracer_locals_D_3 __pyx_string_tab[51]
-#define __pyx_n_u_install_greenlet_tracer_locals_D_4 __pyx_string_tab[52]
-#define __pyx_n_u_is_coroutine __pyx_string_tab[53]
-#define __pyx_kp_u_isenabled __pyx_string_tab[54]
-#define __pyx_n_u_items __pyx_string_tab[55]
-#define __pyx_n_u_list_tasks __pyx_string_tab[56]
-#define __pyx_n_u_main __pyx_string_tab[57]
-#define __pyx_n_u_metaclass __pyx_string_tab[58]
-#define __pyx_n_u_module __pyx_string_tab[59]
-#define __pyx_n_u_mro_entries __pyx_string_tab[60]
-#define __pyx_n_u_name __pyx_string_tab[61]
-#define __pyx_n_u_object __pyx_string_tab[62]
-#define __pyx_n_u_pop __pyx_string_tab[63]
-#define __pyx_n_u_prepare __pyx_string_tab[64]
-#define __pyx_n_u_previous_trace_function __pyx_string_tab[65]
-#define __pyx_n_u_qualname __pyx_string_tab[66]
-#define __pyx_n_u_self __pyx_string_tab[67]
-#define __pyx_n_u_set_name __pyx_string_tab[68]
-#define __pyx_n_u_settrace __pyx_string_tab[69]
-#define __pyx_n_u_spec __pyx_string_tab[70]
-#define __pyx_n_u_store_greenlet __pyx_string_tab[71]
-#define __pyx_n_u_switch __pyx_string_tab[72]
-#define __pyx_n_u_sys __pyx_string_tab[73]
-#define __pyx_n_u_task_get_name __pyx_string_tab[74]
-#define __pyx_n_u_test __pyx_string_tab[75]
-#define __pyx_n_u_thread __pyx_string_tab[76]
-#define __pyx_n_u_thread_id __pyx_string_tab[77]
-#define __pyx_n_u_threading __pyx_string_tab[78]
-#define __pyx_n_u_throw __pyx_string_tab[79]
-#define __pyx_n_u_types __pyx_string_tab[80]
-#define __pyx_n_u_weakref __pyx_string_tab[81]
-#define __pyx_n_u_when_imported __pyx_string_tab[82]
-#define __pyx_n_u_wrapt_importer __pyx_string_tab[83]
+#define __pyx_kp_u__2 __pyx_string_tab[7]
+#define __pyx_n_u__3 __pyx_string_tab[8]
+#define __pyx_kp_u__4 __pyx_string_tab[9]
+#define __pyx_n_u_active_greenlet __pyx_string_tab[10]
+#define __pyx_n_u_ag_frame __pyx_string_tab[11]
+#define __pyx_n_u_all_tasks __pyx_string_tab[12]
+#define __pyx_n_u_args __pyx_string_tab[13]
+#define __pyx_n_u_asyncio __pyx_string_tab[14]
+#define __pyx_n_u_asyncio_coroutines __pyx_string_tab[15]
+#define __pyx_n_u_call __pyx_string_tab[16]
+#define __pyx_n_u_cline_in_traceback __pyx_string_tab[17]
+#define __pyx_n_u_config __pyx_string_tab[18]
+#define __pyx_n_u_coro __pyx_string_tab[19]
+#define __pyx_n_u_cr_frame __pyx_string_tab[20]
+#define __pyx_n_u_current_task __pyx_string_tab[21]
+#define __pyx_n_u_ddtrace_profiling_collector__tas __pyx_string_tab[22]
+#define __pyx_kp_u_ddtrace_profiling_collector__tas_2 __pyx_string_tab[23]
+#define __pyx_n_u_ddtrace_settings_profiling __pyx_string_tab[24]
+#define __pyx_n_u_dead __pyx_string_tab[25]
+#define __pyx_kp_u_disable __pyx_string_tab[26]
+#define __pyx_n_u_doc __pyx_string_tab[27]
+#define __pyx_kp_u_enable __pyx_string_tab[28]
+#define __pyx_n_u_endswith __pyx_string_tab[29]
+#define __pyx_n_u_event __pyx_string_tab[30]
+#define __pyx_n_u_func __pyx_string_tab[31]
+#define __pyx_kp_u_gc __pyx_string_tab[32]
+#define __pyx_n_u_get_event_loop_for_thread __pyx_string_tab[33]
+#define __pyx_n_u_get_ident __pyx_string_tab[34]
+#define __pyx_n_u_get_task __pyx_string_tab[35]
+#define __pyx_n_u_get_thread_by_id __pyx_string_tab[36]
+#define __pyx_n_u_get_thread_name __pyx_string_tab[37]
+#define __pyx_n_u_getcurrent __pyx_string_tab[38]
+#define __pyx_n_u_gevent __pyx_string_tab[39]
+#define __pyx_n_u_gevent_2 __pyx_string_tab[40]
+#define __pyx_n_u_gevent_hub __pyx_string_tab[41]
+#define __pyx_n_u_gevent_thread __pyx_string_tab[42]
+#define __pyx_n_u_gevent_tracer __pyx_string_tab[43]
+#define __pyx_n_u_gi_frame __pyx_string_tab[44]
+#define __pyx_n_u_gr_frame __pyx_string_tab[45]
+#define __pyx_n_u_greenlet __pyx_string_tab[46]
+#define __pyx_n_u_greenlets __pyx_string_tab[47]
+#define __pyx_n_u_hub __pyx_string_tab[48]
+#define __pyx_n_u_id __pyx_string_tab[49]
+#define __pyx_n_u_init __pyx_string_tab[50]
+#define __pyx_n_u_initializing __pyx_string_tab[51]
+#define __pyx_n_u_install_greenlet_tracer __pyx_string_tab[52]
+#define __pyx_n_u_install_greenlet_tracer_locals_D __pyx_string_tab[53]
+#define __pyx_n_u_install_greenlet_tracer_locals_D_2 __pyx_string_tab[54]
+#define __pyx_n_u_install_greenlet_tracer_locals_D_3 __pyx_string_tab[55]
+#define __pyx_n_u_install_greenlet_tracer_locals_D_4 __pyx_string_tab[56]
+#define __pyx_n_u_is_coroutine __pyx_string_tab[57]
+#define __pyx_n_u_is_stack_v2 __pyx_string_tab[58]
+#define __pyx_kp_u_isenabled __pyx_string_tab[59]
+#define __pyx_n_u_items __pyx_string_tab[60]
+#define __pyx_n_u_list_tasks __pyx_string_tab[61]
+#define __pyx_n_u_main __pyx_string_tab[62]
+#define __pyx_n_u_metaclass __pyx_string_tab[63]
+#define __pyx_n_u_module __pyx_string_tab[64]
+#define __pyx_n_u_mro_entries __pyx_string_tab[65]
+#define __pyx_n_u_name __pyx_string_tab[66]
+#define __pyx_n_u_object __pyx_string_tab[67]
+#define __pyx_n_u_patch __pyx_string_tab[68]
+#define __pyx_n_u_pop __pyx_string_tab[69]
+#define __pyx_n_u_prepare __pyx_string_tab[70]
+#define __pyx_n_u_previous_trace_function __pyx_string_tab[71]
+#define __pyx_n_u_qualname __pyx_string_tab[72]
+#define __pyx_n_u_self __pyx_string_tab[73]
+#define __pyx_n_u_set_name __pyx_string_tab[74]
+#define __pyx_n_u_settrace __pyx_string_tab[75]
+#define __pyx_n_u_spec __pyx_string_tab[76]
+#define __pyx_n_u_stack __pyx_string_tab[77]
+#define __pyx_n_u_store_greenlet __pyx_string_tab[78]
+#define __pyx_n_u_switch __pyx_string_tab[79]
+#define __pyx_n_u_sys __pyx_string_tab[80]
+#define __pyx_n_u_task_get_name __pyx_string_tab[81]
+#define __pyx_n_u_test __pyx_string_tab[82]
+#define __pyx_n_u_thread __pyx_string_tab[83]
+#define __pyx_n_u_thread_id __pyx_string_tab[84]
+#define __pyx_n_u_threading __pyx_string_tab[85]
+#define __pyx_n_u_throw __pyx_string_tab[86]
+#define __pyx_n_u_types __pyx_string_tab[87]
+#define __pyx_n_u_v2_enabled __pyx_string_tab[88]
+#define __pyx_n_u_weakref __pyx_string_tab[89]
+#define __pyx_n_u_when_imported __pyx_string_tab[90]
+#define __pyx_n_u_wrapt_importer __pyx_string_tab[91]
 /* #### Code section: module_state_clear ### */
 #if CYTHON_USE_MODULE_STATE
 static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
@@ -2682,8 +2700,8 @@ static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_ptype_7ddtrace_9profiling_9collector_5_task___pyx_scope_struct__install_greenlet_tracer);
   Py_CLEAR(clear_module_state->__pyx_type_7ddtrace_9profiling_9collector_5_task___pyx_scope_struct__install_greenlet_tracer);
   for (int i=0; i<4; ++i) { Py_CLEAR(clear_module_state->__pyx_tuple[i]); }
-  for (int i=0; i<6; ++i) { Py_CLEAR(clear_module_state->__pyx_codeobj_tab[i]); }
-  for (int i=0; i<84; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<7; ++i) { Py_CLEAR(clear_module_state->__pyx_codeobj_tab[i]); }
+  for (int i=0; i<92; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
   return 0;
 }
 #endif
@@ -2707,31 +2725,200 @@ static CYTHON_SMALL_CODE int __pyx_m_traverse(PyObject *m, visitproc visit, void
   Py_VISIT(traverse_module_state->__pyx_ptype_7ddtrace_9profiling_9collector_5_task___pyx_scope_struct__install_greenlet_tracer);
   Py_VISIT(traverse_module_state->__pyx_type_7ddtrace_9profiling_9collector_5_task___pyx_scope_struct__install_greenlet_tracer);
   for (int i=0; i<4; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_tuple[i]); }
-  for (int i=0; i<6; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_codeobj_tab[i]); }
-  for (int i=0; i<84; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<7; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_codeobj_tab[i]); }
+  for (int i=0; i<92; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
   return 0;
 }
 #endif
 /* #### Code section: module_code ### */
 
 /* "ddtrace/profiling/collector/_task.pyx":14
+ * if (is_stack_v2 := config.stack.v2_enabled):
  * 
- * 
- * @when_imported("gevent")             # <<<<<<<<<<<<<<
- * def install_greenlet_tracer(gevent):
- *     global _gevent_tracer
+ *     @when_imported("gevent")             # <<<<<<<<<<<<<<
+ *     def _(gevent):
+ *         from .. import _gevent
 */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_7ddtrace_9profiling_9collector_5_task_1install_greenlet_tracer(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_7ddtrace_9profiling_9collector_5_task_1_(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-static PyMethodDef __pyx_mdef_7ddtrace_9profiling_9collector_5_task_1install_greenlet_tracer = {"install_greenlet_tracer", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_7ddtrace_9profiling_9collector_5_task_1install_greenlet_tracer, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
-static PyObject *__pyx_pw_7ddtrace_9profiling_9collector_5_task_1install_greenlet_tracer(PyObject *__pyx_self, 
+static PyMethodDef __pyx_mdef_7ddtrace_9profiling_9collector_5_task_1_ = {"_", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_7ddtrace_9profiling_9collector_5_task_1_, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_7ddtrace_9profiling_9collector_5_task_1_(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+) {
+  CYTHON_UNUSED PyObject *__pyx_v_gevent = 0;
+  #if !CYTHON_METH_FASTCALL
+  CYTHON_UNUSED Py_ssize_t __pyx_nargs;
+  #endif
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  PyObject* values[1] = {0};
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("_ (wrapper)", 0);
+  #if !CYTHON_METH_FASTCALL
+  #if CYTHON_ASSUME_SAFE_SIZE
+  __pyx_nargs = PyTuple_GET_SIZE(__pyx_args);
+  #else
+  __pyx_nargs = PyTuple_Size(__pyx_args); if (unlikely(__pyx_nargs < 0)) return NULL;
+  #endif
+  #endif
+  __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
+  {
+    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_gevent,0};
+    const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 14, __pyx_L3_error)
+    if (__pyx_kwds_len > 0) {
+      switch (__pyx_nargs) {
+        case  1:
+        values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 14, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  0: break;
+        default: goto __pyx_L5_argtuple_error;
+      }
+      const Py_ssize_t kwd_pos_args = __pyx_nargs;
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_", 0) < 0) __PYX_ERR(0, 14, __pyx_L3_error)
+      for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_", 1, 1, 1, i); __PYX_ERR(0, 14, __pyx_L3_error) }
+      }
+    } else if (unlikely(__pyx_nargs != 1)) {
+      goto __pyx_L5_argtuple_error;
+    } else {
+      values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 14, __pyx_L3_error)
+    }
+    __pyx_v_gevent = values[0];
+  }
+  goto __pyx_L6_skip;
+  __pyx_L5_argtuple_error:;
+  __Pyx_RaiseArgtupleInvalid("_", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 14, __pyx_L3_error)
+  __pyx_L6_skip:;
+  goto __pyx_L4_argument_unpacking_done;
+  __pyx_L3_error:;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __Pyx_AddTraceback("ddtrace.profiling.collector._task._", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_RefNannyFinishContext();
+  return NULL;
+  __pyx_L4_argument_unpacking_done:;
+  __pyx_r = __pyx_pf_7ddtrace_9profiling_9collector_5_task__(__pyx_self, __pyx_v_gevent);
+
+  /* function exit code */
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5_task__(CYTHON_UNUSED PyObject *__pyx_self, CYTHON_UNUSED PyObject *__pyx_v_gevent) {
+  PyObject *__pyx_v__gevent = NULL;
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  PyObject *__pyx_t_2 = NULL;
+  size_t __pyx_t_3;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("_", 0);
+
+  /* "ddtrace/profiling/collector/_task.pyx":16
+ *     @when_imported("gevent")
+ *     def _(gevent):
+ *         from .. import _gevent             # <<<<<<<<<<<<<<
+ * 
+ *         _gevent.patch()
+*/
+  __pyx_t_1 = PyList_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 16, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_gevent_2);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_n_u_gevent_2);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 0, __pyx_mstate_global->__pyx_n_u_gevent_2) != (0)) __PYX_ERR(0, 16, __pyx_L1_error);
+  __pyx_t_2 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_, __pyx_t_1, 2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 16, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __pyx_t_1 = __Pyx_ImportFrom(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_gevent_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 16, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __Pyx_INCREF(__pyx_t_1);
+  __pyx_v__gevent = __pyx_t_1;
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+
+  /* "ddtrace/profiling/collector/_task.pyx":18
+ *         from .. import _gevent
+ * 
+ *         _gevent.patch()             # <<<<<<<<<<<<<<
+ * 
+ * else:
+*/
+  __pyx_t_1 = __pyx_v__gevent;
+  __Pyx_INCREF(__pyx_t_1);
+  __pyx_t_3 = 0;
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_1, NULL};
+    __pyx_t_2 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_patch, __pyx_callargs+__pyx_t_3, (1-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 18, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+  }
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+
+  /* "ddtrace/profiling/collector/_task.pyx":14
+ * if (is_stack_v2 := config.stack.v2_enabled):
+ * 
+ *     @when_imported("gevent")             # <<<<<<<<<<<<<<
+ *     def _(gevent):
+ *         from .. import _gevent
+*/
+
+  /* function exit code */
+  __pyx_r = Py_None; __Pyx_INCREF(Py_None);
+  goto __pyx_L0;
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_AddTraceback("ddtrace.profiling.collector._task._", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XDECREF(__pyx_v__gevent);
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "ddtrace/profiling/collector/_task.pyx":24
+ * 
+ * 
+ *     @when_imported("gevent")             # <<<<<<<<<<<<<<
+ *     def install_greenlet_tracer(gevent):
+ *         global _gevent_tracer
+*/
+
+/* Python wrapper */
+static PyObject *__pyx_pw_7ddtrace_9profiling_9collector_5_task_3install_greenlet_tracer(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+); /*proto*/
+static PyMethodDef __pyx_mdef_7ddtrace_9profiling_9collector_5_task_3install_greenlet_tracer = {"install_greenlet_tracer", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_7ddtrace_9profiling_9collector_5_task_3install_greenlet_tracer, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_7ddtrace_9profiling_9collector_5_task_3install_greenlet_tracer(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -2761,32 +2948,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_gevent,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 14, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 24, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 14, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 24, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "install_greenlet_tracer", 0) < 0) __PYX_ERR(0, 14, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "install_greenlet_tracer", 0) < 0) __PYX_ERR(0, 24, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("install_greenlet_tracer", 1, 1, 1, i); __PYX_ERR(0, 14, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("install_greenlet_tracer", 1, 1, 1, i); __PYX_ERR(0, 24, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 14, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 24, __pyx_L3_error)
     }
     __pyx_v_gevent = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("install_greenlet_tracer", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 14, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("install_greenlet_tracer", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 24, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -2797,7 +2984,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_7ddtrace_9profiling_9collector_5_task_install_greenlet_tracer(__pyx_self, __pyx_v_gevent);
+  __pyx_r = __pyx_pf_7ddtrace_9profiling_9collector_5_task_2install_greenlet_tracer(__pyx_self, __pyx_v_gevent);
 
   /* function exit code */
   for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
@@ -2807,12 +2994,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-/* "ddtrace/profiling/collector/_task.pyx":29
+/* "ddtrace/profiling/collector/_task.pyx":39
  * 
- *     class DDGreenletTracer(object):
- *         def __init__(self, gevent):             # <<<<<<<<<<<<<<
- *             # type: (ModuleType) -> None
- *             self.gevent = gevent
+ *         class DDGreenletTracer(object):
+ *             def __init__(self, gevent):             # <<<<<<<<<<<<<<
+ *                 # type: (ModuleType) -> None
+ *                 self.gevent = gevent
 */
 
 /* Python wrapper */
@@ -2855,39 +3042,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_gevent,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 29, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 39, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 29, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 39, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 29, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 39, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__init__", 0) < 0) __PYX_ERR(0, 29, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__init__", 0) < 0) __PYX_ERR(0, 39, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, i); __PYX_ERR(0, 29, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, i); __PYX_ERR(0, 39, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 29, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 39, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 29, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 39, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_gevent = values[1];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 29, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 39, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -2925,24 +3112,24 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5_task_23install_greenl
   __pyx_outer_scope = (struct __pyx_obj_7ddtrace_9profiling_9collector_5_task___pyx_scope_struct__install_greenlet_tracer *) __Pyx_CyFunction_GetClosure(__pyx_self);
   __pyx_cur_scope = __pyx_outer_scope;
 
-  /* "ddtrace/profiling/collector/_task.pyx":31
- *         def __init__(self, gevent):
- *             # type: (ModuleType) -> None
- *             self.gevent = gevent             # <<<<<<<<<<<<<<
+  /* "ddtrace/profiling/collector/_task.pyx":41
+ *             def __init__(self, gevent):
+ *                 # type: (ModuleType) -> None
+ *                 self.gevent = gevent             # <<<<<<<<<<<<<<
  * 
- *             self.previous_trace_function = settrace(self)
+ *                 self.previous_trace_function = settrace(self)
 */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_gevent, __pyx_v_gevent) < 0) __PYX_ERR(0, 31, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_gevent, __pyx_v_gevent) < 0) __PYX_ERR(0, 41, __pyx_L1_error)
 
-  /* "ddtrace/profiling/collector/_task.pyx":33
- *             self.gevent = gevent
+  /* "ddtrace/profiling/collector/_task.pyx":43
+ *                 self.gevent = gevent
  * 
- *             self.previous_trace_function = settrace(self)             # <<<<<<<<<<<<<<
- *             self.greenlets = weakref.WeakValueDictionary()
- *             self.active_greenlet = getcurrent()
+ *                 self.previous_trace_function = settrace(self)             # <<<<<<<<<<<<<<
+ *                 self.greenlets = weakref.WeakValueDictionary()
+ *                 self.active_greenlet = getcurrent()
 */
   __pyx_t_2 = NULL;
-  if (unlikely(!__pyx_cur_scope->__pyx_v_settrace)) { __Pyx_RaiseClosureNameError("settrace"); __PYX_ERR(0, 33, __pyx_L1_error) }
+  if (unlikely(!__pyx_cur_scope->__pyx_v_settrace)) { __Pyx_RaiseClosureNameError("settrace"); __PYX_ERR(0, 43, __pyx_L1_error) }
   __Pyx_INCREF(__pyx_cur_scope->__pyx_v_settrace);
   __pyx_t_3 = __pyx_cur_scope->__pyx_v_settrace; 
   __pyx_t_4 = 1;
@@ -2962,23 +3149,23 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5_task_23install_greenl
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 33, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 43, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_previous_trace_function, __pyx_t_1) < 0) __PYX_ERR(0, 33, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_previous_trace_function, __pyx_t_1) < 0) __PYX_ERR(0, 43, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "ddtrace/profiling/collector/_task.pyx":34
+  /* "ddtrace/profiling/collector/_task.pyx":44
  * 
- *             self.previous_trace_function = settrace(self)
- *             self.greenlets = weakref.WeakValueDictionary()             # <<<<<<<<<<<<<<
- *             self.active_greenlet = getcurrent()
- *             self._store_greenlet(self.active_greenlet)
+ *                 self.previous_trace_function = settrace(self)
+ *                 self.greenlets = weakref.WeakValueDictionary()             # <<<<<<<<<<<<<<
+ *                 self.active_greenlet = getcurrent()
+ *                 self._store_greenlet(self.active_greenlet)
 */
   __pyx_t_3 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_weakref); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 34, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_weakref); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 44, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_WeakValueDictionary); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 34, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_WeakValueDictionary); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 44, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_4 = 1;
@@ -2998,21 +3185,21 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5_task_23install_greenl
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 34, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 44, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_greenlets, __pyx_t_1) < 0) __PYX_ERR(0, 34, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_greenlets, __pyx_t_1) < 0) __PYX_ERR(0, 44, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "ddtrace/profiling/collector/_task.pyx":35
- *             self.previous_trace_function = settrace(self)
- *             self.greenlets = weakref.WeakValueDictionary()
- *             self.active_greenlet = getcurrent()             # <<<<<<<<<<<<<<
- *             self._store_greenlet(self.active_greenlet)
+  /* "ddtrace/profiling/collector/_task.pyx":45
+ *                 self.previous_trace_function = settrace(self)
+ *                 self.greenlets = weakref.WeakValueDictionary()
+ *                 self.active_greenlet = getcurrent()             # <<<<<<<<<<<<<<
+ *                 self._store_greenlet(self.active_greenlet)
  * 
 */
   __pyx_t_5 = NULL;
-  if (unlikely(!__pyx_cur_scope->__pyx_v_getcurrent)) { __Pyx_RaiseClosureNameError("getcurrent"); __PYX_ERR(0, 35, __pyx_L1_error) }
+  if (unlikely(!__pyx_cur_scope->__pyx_v_getcurrent)) { __Pyx_RaiseClosureNameError("getcurrent"); __PYX_ERR(0, 45, __pyx_L1_error) }
   __Pyx_INCREF(__pyx_cur_scope->__pyx_v_getcurrent);
   __pyx_t_3 = __pyx_cur_scope->__pyx_v_getcurrent; 
   __pyx_t_4 = 1;
@@ -3032,22 +3219,22 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5_task_23install_greenl
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 35, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 45, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_active_greenlet, __pyx_t_1) < 0) __PYX_ERR(0, 35, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_active_greenlet, __pyx_t_1) < 0) __PYX_ERR(0, 45, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "ddtrace/profiling/collector/_task.pyx":36
- *             self.greenlets = weakref.WeakValueDictionary()
- *             self.active_greenlet = getcurrent()
- *             self._store_greenlet(self.active_greenlet)             # <<<<<<<<<<<<<<
+  /* "ddtrace/profiling/collector/_task.pyx":46
+ *                 self.greenlets = weakref.WeakValueDictionary()
+ *                 self.active_greenlet = getcurrent()
+ *                 self._store_greenlet(self.active_greenlet)             # <<<<<<<<<<<<<<
  * 
- *         def _store_greenlet(
+ *             def _store_greenlet(
 */
   __pyx_t_3 = __pyx_v_self;
   __Pyx_INCREF(__pyx_t_3);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_active_greenlet); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 36, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_active_greenlet); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 46, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_t_4 = 0;
   {
@@ -3055,17 +3242,17 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5_task_23install_greenl
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_store_greenlet, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 36, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 46, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "ddtrace/profiling/collector/_task.pyx":29
+  /* "ddtrace/profiling/collector/_task.pyx":39
  * 
- *     class DDGreenletTracer(object):
- *         def __init__(self, gevent):             # <<<<<<<<<<<<<<
- *             # type: (ModuleType) -> None
- *             self.gevent = gevent
+ *         class DDGreenletTracer(object):
+ *             def __init__(self, gevent):             # <<<<<<<<<<<<<<
+ *                 # type: (ModuleType) -> None
+ *                 self.gevent = gevent
 */
 
   /* function exit code */
@@ -3084,12 +3271,12 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5_task_23install_greenl
   return __pyx_r;
 }
 
-/* "ddtrace/profiling/collector/_task.pyx":38
- *             self._store_greenlet(self.active_greenlet)
+/* "ddtrace/profiling/collector/_task.pyx":48
+ *                 self._store_greenlet(self.active_greenlet)
  * 
- *         def _store_greenlet(             # <<<<<<<<<<<<<<
- *                 self,
- *                 greenlet,  # type: greenlet.greenlet
+ *             def _store_greenlet(             # <<<<<<<<<<<<<<
+ *                     self,
+ *                     greenlet,  # type: greenlet.greenlet
 */
 
 /* Python wrapper */
@@ -3132,39 +3319,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_greenlet,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 38, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 48, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 38, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 48, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 38, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 48, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_store_greenlet", 0) < 0) __PYX_ERR(0, 38, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_store_greenlet", 0) < 0) __PYX_ERR(0, 48, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_store_greenlet", 1, 2, 2, i); __PYX_ERR(0, 38, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_store_greenlet", 1, 2, 2, i); __PYX_ERR(0, 48, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 38, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 48, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 38, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 48, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_greenlet = values[1];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_store_greenlet", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 38, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_store_greenlet", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 48, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -3202,17 +3389,17 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5_task_23install_greenl
   __pyx_outer_scope = (struct __pyx_obj_7ddtrace_9profiling_9collector_5_task___pyx_scope_struct__install_greenlet_tracer *) __Pyx_CyFunction_GetClosure(__pyx_self);
   __pyx_cur_scope = __pyx_outer_scope;
 
-  /* "ddtrace/profiling/collector/_task.pyx":43
- *         ):
- *             # type: (...) -> None
- *             self.greenlets[gevent.thread.get_ident(greenlet)] = greenlet             # <<<<<<<<<<<<<<
+  /* "ddtrace/profiling/collector/_task.pyx":53
+ *             ):
+ *                 # type: (...) -> None
+ *                 self.greenlets[gevent.thread.get_ident(greenlet)] = greenlet             # <<<<<<<<<<<<<<
  * 
- *         def __call__(self, event, args):
+ *             def __call__(self, event, args):
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_greenlets); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 43, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_greenlets); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 53, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (unlikely(!__pyx_cur_scope->__pyx_v_gevent)) { __Pyx_RaiseClosureNameError("gevent"); __PYX_ERR(0, 43, __pyx_L1_error) }
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_gevent, __pyx_mstate_global->__pyx_n_u_thread); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 43, __pyx_L1_error)
+  if (unlikely(!__pyx_cur_scope->__pyx_v_gevent)) { __Pyx_RaiseClosureNameError("gevent"); __PYX_ERR(0, 53, __pyx_L1_error) }
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_gevent, __pyx_mstate_global->__pyx_n_u_thread); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 53, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_t_3 = __pyx_t_4;
   __Pyx_INCREF(__pyx_t_3);
@@ -3222,19 +3409,19 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5_task_23install_greenl
     __pyx_t_2 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_get_ident, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 43, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 53, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
-  if (unlikely((PyObject_SetItem(__pyx_t_1, __pyx_t_2, __pyx_v_greenlet) < 0))) __PYX_ERR(0, 43, __pyx_L1_error)
+  if (unlikely((PyObject_SetItem(__pyx_t_1, __pyx_t_2, __pyx_v_greenlet) < 0))) __PYX_ERR(0, 53, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "ddtrace/profiling/collector/_task.pyx":38
- *             self._store_greenlet(self.active_greenlet)
+  /* "ddtrace/profiling/collector/_task.pyx":48
+ *                 self._store_greenlet(self.active_greenlet)
  * 
- *         def _store_greenlet(             # <<<<<<<<<<<<<<
- *                 self,
- *                 greenlet,  # type: greenlet.greenlet
+ *             def _store_greenlet(             # <<<<<<<<<<<<<<
+ *                     self,
+ *                     greenlet,  # type: greenlet.greenlet
 */
 
   /* function exit code */
@@ -3253,12 +3440,12 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5_task_23install_greenl
   return __pyx_r;
 }
 
-/* "ddtrace/profiling/collector/_task.pyx":45
- *             self.greenlets[gevent.thread.get_ident(greenlet)] = greenlet
+/* "ddtrace/profiling/collector/_task.pyx":55
+ *                 self.greenlets[gevent.thread.get_ident(greenlet)] = greenlet
  * 
- *         def __call__(self, event, args):             # <<<<<<<<<<<<<<
- *             if event in ('switch', 'throw'):
- *                 # Do not trace gevent Hub: the Hub is a greenlet but we want to know the latest active greenlet *before*
+ *             def __call__(self, event, args):             # <<<<<<<<<<<<<<
+ *                 if event in ('switch', 'throw'):
+ *                     # Do not trace gevent Hub: the Hub is a greenlet but we want to know the latest active greenlet *before*
 */
 
 /* Python wrapper */
@@ -3302,38 +3489,38 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_event,&__pyx_mstate_global->__pyx_n_u_args,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 45, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 55, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 45, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 55, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 45, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 55, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 45, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 55, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__call__", 0) < 0) __PYX_ERR(0, 45, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__call__", 0) < 0) __PYX_ERR(0, 55, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 3; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 1, 3, 3, i); __PYX_ERR(0, 45, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__call__", 1, 3, 3, i); __PYX_ERR(0, 55, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 3)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 45, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 55, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 45, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 55, __pyx_L3_error)
       values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 45, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 55, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_event = values[1];
@@ -3341,7 +3528,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__call__", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 45, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__call__", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 55, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -3380,71 +3567,71 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5_task_23install_greenl
   __pyx_outer_scope = (struct __pyx_obj_7ddtrace_9profiling_9collector_5_task___pyx_scope_struct__install_greenlet_tracer *) __Pyx_CyFunction_GetClosure(__pyx_self);
   __pyx_cur_scope = __pyx_outer_scope;
 
-  /* "ddtrace/profiling/collector/_task.pyx":46
+  /* "ddtrace/profiling/collector/_task.pyx":56
  * 
- *         def __call__(self, event, args):
- *             if event in ('switch', 'throw'):             # <<<<<<<<<<<<<<
- *                 # Do not trace gevent Hub: the Hub is a greenlet but we want to know the latest active greenlet *before*
- *                 # the application yielded back to the Hub. There's no point showing the Hub most of the time to the
+ *             def __call__(self, event, args):
+ *                 if event in ('switch', 'throw'):             # <<<<<<<<<<<<<<
+ *                     # Do not trace gevent Hub: the Hub is a greenlet but we want to know the latest active greenlet *before*
+ *                     # the application yielded back to the Hub. There's no point showing the Hub most of the time to the
 */
   __Pyx_INCREF(__pyx_v_event);
   __pyx_t_1 = __pyx_v_event;
-  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_switch, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 46, __pyx_L1_error)
+  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_switch, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 56, __pyx_L1_error)
   if (!__pyx_t_3) {
   } else {
     __pyx_t_2 = __pyx_t_3;
     goto __pyx_L4_bool_binop_done;
   }
-  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_throw, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 46, __pyx_L1_error)
+  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_throw, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 56, __pyx_L1_error)
   __pyx_t_2 = __pyx_t_3;
   __pyx_L4_bool_binop_done:;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_3 = __pyx_t_2;
   if (__pyx_t_3) {
 
-    /* "ddtrace/profiling/collector/_task.pyx":50
- *                 # the application yielded back to the Hub. There's no point showing the Hub most of the time to the
- *                 # users as that does not give any information about user code.
- *                 if not isinstance(args[1], gevent.hub.Hub):             # <<<<<<<<<<<<<<
- *                     self.active_greenlet = args[1]
- *                     self._store_greenlet(args[1])
+    /* "ddtrace/profiling/collector/_task.pyx":60
+ *                     # the application yielded back to the Hub. There's no point showing the Hub most of the time to the
+ *                     # users as that does not give any information about user code.
+ *                     if not isinstance(args[1], gevent.hub.Hub):             # <<<<<<<<<<<<<<
+ *                         self.active_greenlet = args[1]
+ *                         self._store_greenlet(args[1])
 */
-    __pyx_t_1 = __Pyx_GetItemInt(__pyx_v_args, 1, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 50, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_GetItemInt(__pyx_v_args, 1, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 60, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    if (unlikely(!__pyx_cur_scope->__pyx_v_gevent)) { __Pyx_RaiseClosureNameError("gevent"); __PYX_ERR(0, 50, __pyx_L1_error) }
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_gevent, __pyx_mstate_global->__pyx_n_u_hub); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 50, __pyx_L1_error)
+    if (unlikely(!__pyx_cur_scope->__pyx_v_gevent)) { __Pyx_RaiseClosureNameError("gevent"); __PYX_ERR(0, 60, __pyx_L1_error) }
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_gevent, __pyx_mstate_global->__pyx_n_u_hub); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 60, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_Hub); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 50, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_Hub); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 60, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_t_3 = PyObject_IsInstance(__pyx_t_1, __pyx_t_5); if (unlikely(__pyx_t_3 == ((int)-1))) __PYX_ERR(0, 50, __pyx_L1_error)
+    __pyx_t_3 = PyObject_IsInstance(__pyx_t_1, __pyx_t_5); if (unlikely(__pyx_t_3 == ((int)-1))) __PYX_ERR(0, 60, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __pyx_t_2 = (!__pyx_t_3);
     if (__pyx_t_2) {
 
-      /* "ddtrace/profiling/collector/_task.pyx":51
- *                 # users as that does not give any information about user code.
- *                 if not isinstance(args[1], gevent.hub.Hub):
- *                     self.active_greenlet = args[1]             # <<<<<<<<<<<<<<
- *                     self._store_greenlet(args[1])
+      /* "ddtrace/profiling/collector/_task.pyx":61
+ *                     # users as that does not give any information about user code.
+ *                     if not isinstance(args[1], gevent.hub.Hub):
+ *                         self.active_greenlet = args[1]             # <<<<<<<<<<<<<<
+ *                         self._store_greenlet(args[1])
  * 
 */
-      __pyx_t_5 = __Pyx_GetItemInt(__pyx_v_args, 1, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 51, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_GetItemInt(__pyx_v_args, 1, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 61, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
-      if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_active_greenlet, __pyx_t_5) < 0) __PYX_ERR(0, 51, __pyx_L1_error)
+      if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_active_greenlet, __pyx_t_5) < 0) __PYX_ERR(0, 61, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-      /* "ddtrace/profiling/collector/_task.pyx":52
- *                 if not isinstance(args[1], gevent.hub.Hub):
- *                     self.active_greenlet = args[1]
- *                     self._store_greenlet(args[1])             # <<<<<<<<<<<<<<
+      /* "ddtrace/profiling/collector/_task.pyx":62
+ *                     if not isinstance(args[1], gevent.hub.Hub):
+ *                         self.active_greenlet = args[1]
+ *                         self._store_greenlet(args[1])             # <<<<<<<<<<<<<<
  * 
- *             if self.previous_trace_function is not None:
+ *                 if self.previous_trace_function is not None:
 */
       __pyx_t_1 = __pyx_v_self;
       __Pyx_INCREF(__pyx_t_1);
-      __pyx_t_4 = __Pyx_GetItemInt(__pyx_v_args, 1, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 52, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_GetItemInt(__pyx_v_args, 1, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 62, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       __pyx_t_6 = 0;
       {
@@ -3452,48 +3639,48 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5_task_23install_greenl
         __pyx_t_5 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_store_greenlet, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
         __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-        if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 52, __pyx_L1_error)
+        if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 62, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
       }
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-      /* "ddtrace/profiling/collector/_task.pyx":50
- *                 # the application yielded back to the Hub. There's no point showing the Hub most of the time to the
- *                 # users as that does not give any information about user code.
- *                 if not isinstance(args[1], gevent.hub.Hub):             # <<<<<<<<<<<<<<
- *                     self.active_greenlet = args[1]
- *                     self._store_greenlet(args[1])
+      /* "ddtrace/profiling/collector/_task.pyx":60
+ *                     # the application yielded back to the Hub. There's no point showing the Hub most of the time to the
+ *                     # users as that does not give any information about user code.
+ *                     if not isinstance(args[1], gevent.hub.Hub):             # <<<<<<<<<<<<<<
+ *                         self.active_greenlet = args[1]
+ *                         self._store_greenlet(args[1])
 */
     }
 
-    /* "ddtrace/profiling/collector/_task.pyx":46
+    /* "ddtrace/profiling/collector/_task.pyx":56
  * 
- *         def __call__(self, event, args):
- *             if event in ('switch', 'throw'):             # <<<<<<<<<<<<<<
- *                 # Do not trace gevent Hub: the Hub is a greenlet but we want to know the latest active greenlet *before*
- *                 # the application yielded back to the Hub. There's no point showing the Hub most of the time to the
+ *             def __call__(self, event, args):
+ *                 if event in ('switch', 'throw'):             # <<<<<<<<<<<<<<
+ *                     # Do not trace gevent Hub: the Hub is a greenlet but we want to know the latest active greenlet *before*
+ *                     # the application yielded back to the Hub. There's no point showing the Hub most of the time to the
 */
   }
 
-  /* "ddtrace/profiling/collector/_task.pyx":54
- *                     self._store_greenlet(args[1])
+  /* "ddtrace/profiling/collector/_task.pyx":64
+ *                         self._store_greenlet(args[1])
  * 
- *             if self.previous_trace_function is not None:             # <<<<<<<<<<<<<<
- *                 self.previous_trace_function(event, args)
+ *                 if self.previous_trace_function is not None:             # <<<<<<<<<<<<<<
+ *                     self.previous_trace_function(event, args)
  * 
 */
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_previous_trace_function); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 54, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_previous_trace_function); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 64, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_t_2 = (__pyx_t_5 != Py_None);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   if (__pyx_t_2) {
 
-    /* "ddtrace/profiling/collector/_task.pyx":55
+    /* "ddtrace/profiling/collector/_task.pyx":65
  * 
- *             if self.previous_trace_function is not None:
- *                 self.previous_trace_function(event, args)             # <<<<<<<<<<<<<<
+ *                 if self.previous_trace_function is not None:
+ *                     self.previous_trace_function(event, args)             # <<<<<<<<<<<<<<
  * 
- *     _gevent_tracer = DDGreenletTracer(gevent)
+ *         _gevent_tracer = DDGreenletTracer(gevent)
 */
     __pyx_t_4 = __pyx_v_self;
     __Pyx_INCREF(__pyx_t_4);
@@ -3502,26 +3689,26 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5_task_23install_greenl
       PyObject *__pyx_callargs[3] = {__pyx_t_4, __pyx_v_event, __pyx_v_args};
       __pyx_t_5 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_previous_trace_function, __pyx_callargs+__pyx_t_6, (3-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 55, __pyx_L1_error)
+      if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 65, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
     }
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-    /* "ddtrace/profiling/collector/_task.pyx":54
- *                     self._store_greenlet(args[1])
+    /* "ddtrace/profiling/collector/_task.pyx":64
+ *                         self._store_greenlet(args[1])
  * 
- *             if self.previous_trace_function is not None:             # <<<<<<<<<<<<<<
- *                 self.previous_trace_function(event, args)
+ *                 if self.previous_trace_function is not None:             # <<<<<<<<<<<<<<
+ *                     self.previous_trace_function(event, args)
  * 
 */
   }
 
-  /* "ddtrace/profiling/collector/_task.pyx":45
- *             self.greenlets[gevent.thread.get_ident(greenlet)] = greenlet
+  /* "ddtrace/profiling/collector/_task.pyx":55
+ *                 self.greenlets[gevent.thread.get_ident(greenlet)] = greenlet
  * 
- *         def __call__(self, event, args):             # <<<<<<<<<<<<<<
- *             if event in ('switch', 'throw'):
- *                 # Do not trace gevent Hub: the Hub is a greenlet but we want to know the latest active greenlet *before*
+ *             def __call__(self, event, args):             # <<<<<<<<<<<<<<
+ *                 if event in ('switch', 'throw'):
+ *                     # Do not trace gevent Hub: the Hub is a greenlet but we want to know the latest active greenlet *before*
 */
 
   /* function exit code */
@@ -3539,15 +3726,15 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5_task_23install_greenl
   return __pyx_r;
 }
 
-/* "ddtrace/profiling/collector/_task.pyx":14
+/* "ddtrace/profiling/collector/_task.pyx":24
  * 
  * 
- * @when_imported("gevent")             # <<<<<<<<<<<<<<
- * def install_greenlet_tracer(gevent):
- *     global _gevent_tracer
+ *     @when_imported("gevent")             # <<<<<<<<<<<<<<
+ *     def install_greenlet_tracer(gevent):
+ *         global _gevent_tracer
 */
 
-static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5_task_install_greenlet_tracer(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_gevent) {
+static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5_task_2install_greenlet_tracer(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_gevent) {
   struct __pyx_obj_7ddtrace_9profiling_9collector_5_task___pyx_scope_struct__install_greenlet_tracer *__pyx_cur_scope;
   CYTHON_UNUSED PyObject *__pyx_v_greenlet = NULL;
   PyObject *__pyx_v_DDGreenletTracer = NULL;
@@ -3569,7 +3756,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5_task_install_greenlet
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_7ddtrace_9profiling_9collector_5_task___pyx_scope_struct__install_greenlet_tracer *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 14, __pyx_L1_error)
+    __PYX_ERR(0, 24, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -3577,12 +3764,12 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5_task_install_greenlet
   __Pyx_INCREF(__pyx_cur_scope->__pyx_v_gevent);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_gevent);
 
-  /* "ddtrace/profiling/collector/_task.pyx":18
- *     global _gevent_tracer
+  /* "ddtrace/profiling/collector/_task.pyx":28
+ *         global _gevent_tracer
  * 
- *     try:             # <<<<<<<<<<<<<<
- *         import gevent.hub
- *         import gevent.thread
+ *         try:             # <<<<<<<<<<<<<<
+ *             import gevent.hub
+ *             import gevent.thread
 */
   {
     __Pyx_PyThreadState_declare
@@ -3593,50 +3780,50 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5_task_install_greenlet
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "ddtrace/profiling/collector/_task.pyx":19
+      /* "ddtrace/profiling/collector/_task.pyx":29
  * 
- *     try:
- *         import gevent.hub             # <<<<<<<<<<<<<<
- *         import gevent.thread
- *         from greenlet import getcurrent
+ *         try:
+ *             import gevent.hub             # <<<<<<<<<<<<<<
+ *             import gevent.thread
+ *             from greenlet import getcurrent
 */
-      __pyx_t_4 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_gevent_hub, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 19, __pyx_L3_error)
+      __pyx_t_4 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_gevent_hub, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 29, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_4);
       __Pyx_GOTREF(__pyx_cur_scope->__pyx_v_gevent);
       __Pyx_DECREF_SET(__pyx_cur_scope->__pyx_v_gevent, __pyx_t_4);
       __Pyx_GIVEREF(__pyx_t_4);
       __pyx_t_4 = 0;
 
-      /* "ddtrace/profiling/collector/_task.pyx":20
- *     try:
- *         import gevent.hub
- *         import gevent.thread             # <<<<<<<<<<<<<<
- *         from greenlet import getcurrent
- *         from greenlet import greenlet
+      /* "ddtrace/profiling/collector/_task.pyx":30
+ *         try:
+ *             import gevent.hub
+ *             import gevent.thread             # <<<<<<<<<<<<<<
+ *             from greenlet import getcurrent
+ *             from greenlet import greenlet
 */
-      __pyx_t_4 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_gevent_thread, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 20, __pyx_L3_error)
+      __pyx_t_4 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_gevent_thread, 0, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 30, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_4);
       __Pyx_GOTREF(__pyx_cur_scope->__pyx_v_gevent);
       __Pyx_DECREF_SET(__pyx_cur_scope->__pyx_v_gevent, __pyx_t_4);
       __Pyx_GIVEREF(__pyx_t_4);
       __pyx_t_4 = 0;
 
-      /* "ddtrace/profiling/collector/_task.pyx":21
- *         import gevent.hub
- *         import gevent.thread
- *         from greenlet import getcurrent             # <<<<<<<<<<<<<<
- *         from greenlet import greenlet
- *         from greenlet import settrace
+      /* "ddtrace/profiling/collector/_task.pyx":31
+ *             import gevent.hub
+ *             import gevent.thread
+ *             from greenlet import getcurrent             # <<<<<<<<<<<<<<
+ *             from greenlet import greenlet
+ *             from greenlet import settrace
 */
-      __pyx_t_4 = PyList_New(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 21, __pyx_L3_error)
+      __pyx_t_4 = PyList_New(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 31, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_4);
       __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_getcurrent);
       __Pyx_GIVEREF(__pyx_mstate_global->__pyx_n_u_getcurrent);
-      if (__Pyx_PyList_SET_ITEM(__pyx_t_4, 0, __pyx_mstate_global->__pyx_n_u_getcurrent) != (0)) __PYX_ERR(0, 21, __pyx_L3_error);
-      __pyx_t_5 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_greenlet, __pyx_t_4, 0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 21, __pyx_L3_error)
+      if (__Pyx_PyList_SET_ITEM(__pyx_t_4, 0, __pyx_mstate_global->__pyx_n_u_getcurrent) != (0)) __PYX_ERR(0, 31, __pyx_L3_error);
+      __pyx_t_5 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_greenlet, __pyx_t_4, 0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 31, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_5);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_getcurrent); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 21, __pyx_L3_error)
+      __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_getcurrent); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 31, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_4);
       __Pyx_INCREF(__pyx_t_4);
       __Pyx_GIVEREF(__pyx_t_4);
@@ -3644,44 +3831,44 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5_task_install_greenlet
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-      /* "ddtrace/profiling/collector/_task.pyx":22
- *         import gevent.thread
- *         from greenlet import getcurrent
- *         from greenlet import greenlet             # <<<<<<<<<<<<<<
- *         from greenlet import settrace
- *     except ImportError:
+      /* "ddtrace/profiling/collector/_task.pyx":32
+ *             import gevent.thread
+ *             from greenlet import getcurrent
+ *             from greenlet import greenlet             # <<<<<<<<<<<<<<
+ *             from greenlet import settrace
+ *         except ImportError:
 */
-      __pyx_t_5 = PyList_New(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 22, __pyx_L3_error)
+      __pyx_t_5 = PyList_New(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 32, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_5);
       __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_greenlet);
       __Pyx_GIVEREF(__pyx_mstate_global->__pyx_n_u_greenlet);
-      if (__Pyx_PyList_SET_ITEM(__pyx_t_5, 0, __pyx_mstate_global->__pyx_n_u_greenlet) != (0)) __PYX_ERR(0, 22, __pyx_L3_error);
-      __pyx_t_4 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_greenlet, __pyx_t_5, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 22, __pyx_L3_error)
+      if (__Pyx_PyList_SET_ITEM(__pyx_t_5, 0, __pyx_mstate_global->__pyx_n_u_greenlet) != (0)) __PYX_ERR(0, 32, __pyx_L3_error);
+      __pyx_t_4 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_greenlet, __pyx_t_5, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 32, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_4);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      __pyx_t_5 = __Pyx_ImportFrom(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_greenlet); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 22, __pyx_L3_error)
+      __pyx_t_5 = __Pyx_ImportFrom(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_greenlet); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 32, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_5);
       __Pyx_INCREF(__pyx_t_5);
       __pyx_v_greenlet = __pyx_t_5;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-      /* "ddtrace/profiling/collector/_task.pyx":23
- *         from greenlet import getcurrent
- *         from greenlet import greenlet
- *         from greenlet import settrace             # <<<<<<<<<<<<<<
- *     except ImportError:
- *         # We don't seem to have the required dependencies.
+      /* "ddtrace/profiling/collector/_task.pyx":33
+ *             from greenlet import getcurrent
+ *             from greenlet import greenlet
+ *             from greenlet import settrace             # <<<<<<<<<<<<<<
+ *         except ImportError:
+ *             # We don't seem to have the required dependencies.
 */
-      __pyx_t_4 = PyList_New(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 23, __pyx_L3_error)
+      __pyx_t_4 = PyList_New(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 33, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_4);
       __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_settrace);
       __Pyx_GIVEREF(__pyx_mstate_global->__pyx_n_u_settrace);
-      if (__Pyx_PyList_SET_ITEM(__pyx_t_4, 0, __pyx_mstate_global->__pyx_n_u_settrace) != (0)) __PYX_ERR(0, 23, __pyx_L3_error);
-      __pyx_t_5 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_greenlet, __pyx_t_4, 0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 23, __pyx_L3_error)
+      if (__Pyx_PyList_SET_ITEM(__pyx_t_4, 0, __pyx_mstate_global->__pyx_n_u_settrace) != (0)) __PYX_ERR(0, 33, __pyx_L3_error);
+      __pyx_t_5 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_greenlet, __pyx_t_4, 0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 33, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_5);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_settrace); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 23, __pyx_L3_error)
+      __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_settrace); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 33, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_4);
       __Pyx_INCREF(__pyx_t_4);
       __Pyx_GIVEREF(__pyx_t_4);
@@ -3689,12 +3876,12 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5_task_install_greenlet
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-      /* "ddtrace/profiling/collector/_task.pyx":18
- *     global _gevent_tracer
+      /* "ddtrace/profiling/collector/_task.pyx":28
+ *         global _gevent_tracer
  * 
- *     try:             # <<<<<<<<<<<<<<
- *         import gevent.hub
- *         import gevent.thread
+ *         try:             # <<<<<<<<<<<<<<
+ *             import gevent.hub
+ *             import gevent.thread
 */
     }
     __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -3705,23 +3892,23 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5_task_install_greenlet
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-    /* "ddtrace/profiling/collector/_task.pyx":24
- *         from greenlet import greenlet
- *         from greenlet import settrace
- *     except ImportError:             # <<<<<<<<<<<<<<
- *         # We don't seem to have the required dependencies.
- *         return
+    /* "ddtrace/profiling/collector/_task.pyx":34
+ *             from greenlet import greenlet
+ *             from greenlet import settrace
+ *         except ImportError:             # <<<<<<<<<<<<<<
+ *             # We don't seem to have the required dependencies.
+ *             return
 */
     __pyx_t_6 = __Pyx_PyErr_ExceptionMatches(__pyx_builtin_ImportError);
     if (__pyx_t_6) {
       __Pyx_ErrRestore(0,0,0);
 
-      /* "ddtrace/profiling/collector/_task.pyx":26
- *     except ImportError:
- *         # We don't seem to have the required dependencies.
- *         return             # <<<<<<<<<<<<<<
+      /* "ddtrace/profiling/collector/_task.pyx":36
+ *         except ImportError:
+ *             # We don't seem to have the required dependencies.
+ *             return             # <<<<<<<<<<<<<<
  * 
- *     class DDGreenletTracer(object):
+ *         class DDGreenletTracer(object):
 */
       __Pyx_XDECREF(__pyx_r);
       __pyx_r = Py_None; __Pyx_INCREF(Py_None);
@@ -3729,12 +3916,12 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5_task_install_greenlet
     }
     goto __pyx_L5_except_error;
 
-    /* "ddtrace/profiling/collector/_task.pyx":18
- *     global _gevent_tracer
+    /* "ddtrace/profiling/collector/_task.pyx":28
+ *         global _gevent_tracer
  * 
- *     try:             # <<<<<<<<<<<<<<
- *         import gevent.hub
- *         import gevent.thread
+ *         try:             # <<<<<<<<<<<<<<
+ *             import gevent.hub
+ *             import gevent.thread
 */
     __pyx_L5_except_error:;
     __Pyx_XGIVEREF(__pyx_t_1);
@@ -3751,67 +3938,67 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5_task_install_greenlet
     __pyx_L8_try_end:;
   }
 
-  /* "ddtrace/profiling/collector/_task.pyx":28
- *         return
+  /* "ddtrace/profiling/collector/_task.pyx":38
+ *             return
  * 
- *     class DDGreenletTracer(object):             # <<<<<<<<<<<<<<
- *         def __init__(self, gevent):
- *             # type: (ModuleType) -> None
+ *         class DDGreenletTracer(object):             # <<<<<<<<<<<<<<
+ *             def __init__(self, gevent):
+ *                 # type: (ModuleType) -> None
 */
-  __pyx_t_5 = __Pyx_PEP560_update_bases(__pyx_mstate_global->__pyx_tuple[3]); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 28, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PEP560_update_bases(__pyx_mstate_global->__pyx_tuple[3]); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 38, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_4 = __Pyx_CalculateMetaclass(NULL, __pyx_t_5); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 28, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CalculateMetaclass(NULL, __pyx_t_5); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 38, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_7 = __Pyx_Py3MetaclassPrepare(__pyx_t_4, __pyx_t_5, __pyx_mstate_global->__pyx_n_u_DDGreenletTracer, __pyx_mstate_global->__pyx_n_u_install_greenlet_tracer_locals_D, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector__tas, (PyObject *) NULL); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 28, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_Py3MetaclassPrepare(__pyx_t_4, __pyx_t_5, __pyx_mstate_global->__pyx_n_u_DDGreenletTracer, __pyx_mstate_global->__pyx_n_u_install_greenlet_tracer_locals_D, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector__tas, (PyObject *) NULL); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 38, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   if (__pyx_t_5 != __pyx_mstate_global->__pyx_tuple[3]) {
-    if (unlikely((PyDict_SetItemString(__pyx_t_7, "__orig_bases__", __pyx_mstate_global->__pyx_tuple[3]) < 0))) __PYX_ERR(0, 28, __pyx_L1_error)
+    if (unlikely((PyDict_SetItemString(__pyx_t_7, "__orig_bases__", __pyx_mstate_global->__pyx_tuple[3]) < 0))) __PYX_ERR(0, 38, __pyx_L1_error)
   }
 
-  /* "ddtrace/profiling/collector/_task.pyx":29
+  /* "ddtrace/profiling/collector/_task.pyx":39
  * 
- *     class DDGreenletTracer(object):
- *         def __init__(self, gevent):             # <<<<<<<<<<<<<<
- *             # type: (ModuleType) -> None
- *             self.gevent = gevent
+ *         class DDGreenletTracer(object):
+ *             def __init__(self, gevent):             # <<<<<<<<<<<<<<
+ *                 # type: (ModuleType) -> None
+ *                 self.gevent = gevent
 */
-  __pyx_t_8 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_9profiling_9collector_5_task_23install_greenlet_tracer_16DDGreenletTracer_1__init__, 0, __pyx_mstate_global->__pyx_n_u_install_greenlet_tracer_locals_D_2, ((PyObject*)__pyx_cur_scope), __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector__tas, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[0])); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 29, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_9profiling_9collector_5_task_23install_greenlet_tracer_16DDGreenletTracer_1__init__, 0, __pyx_mstate_global->__pyx_n_u_install_greenlet_tracer_locals_D_2, ((PyObject*)__pyx_cur_scope), __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector__tas, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[0])); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 39, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_init, __pyx_t_8) < 0) __PYX_ERR(0, 29, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_init, __pyx_t_8) < 0) __PYX_ERR(0, 39, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+
+  /* "ddtrace/profiling/collector/_task.pyx":48
+ *                 self._store_greenlet(self.active_greenlet)
+ * 
+ *             def _store_greenlet(             # <<<<<<<<<<<<<<
+ *                     self,
+ *                     greenlet,  # type: greenlet.greenlet
+*/
+  __pyx_t_8 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_9profiling_9collector_5_task_23install_greenlet_tracer_16DDGreenletTracer_3_store_greenlet, 0, __pyx_mstate_global->__pyx_n_u_install_greenlet_tracer_locals_D_3, ((PyObject*)__pyx_cur_scope), __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector__tas, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[1])); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 48, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_8);
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_store_greenlet, __pyx_t_8) < 0) __PYX_ERR(0, 48, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+
+  /* "ddtrace/profiling/collector/_task.pyx":55
+ *                 self.greenlets[gevent.thread.get_ident(greenlet)] = greenlet
+ * 
+ *             def __call__(self, event, args):             # <<<<<<<<<<<<<<
+ *                 if event in ('switch', 'throw'):
+ *                     # Do not trace gevent Hub: the Hub is a greenlet but we want to know the latest active greenlet *before*
+*/
+  __pyx_t_8 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_9profiling_9collector_5_task_23install_greenlet_tracer_16DDGreenletTracer_5__call__, 0, __pyx_mstate_global->__pyx_n_u_install_greenlet_tracer_locals_D_4, ((PyObject*)__pyx_cur_scope), __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector__tas, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[2])); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 55, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_8);
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_8) < 0) __PYX_ERR(0, 55, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
 
   /* "ddtrace/profiling/collector/_task.pyx":38
- *             self._store_greenlet(self.active_greenlet)
+ *             return
  * 
- *         def _store_greenlet(             # <<<<<<<<<<<<<<
- *                 self,
- *                 greenlet,  # type: greenlet.greenlet
+ *         class DDGreenletTracer(object):             # <<<<<<<<<<<<<<
+ *             def __init__(self, gevent):
+ *                 # type: (ModuleType) -> None
 */
-  __pyx_t_8 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_9profiling_9collector_5_task_23install_greenlet_tracer_16DDGreenletTracer_3_store_greenlet, 0, __pyx_mstate_global->__pyx_n_u_install_greenlet_tracer_locals_D_3, ((PyObject*)__pyx_cur_scope), __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector__tas, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[1])); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 38, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_8);
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_store_greenlet, __pyx_t_8) < 0) __PYX_ERR(0, 38, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-
-  /* "ddtrace/profiling/collector/_task.pyx":45
- *             self.greenlets[gevent.thread.get_ident(greenlet)] = greenlet
- * 
- *         def __call__(self, event, args):             # <<<<<<<<<<<<<<
- *             if event in ('switch', 'throw'):
- *                 # Do not trace gevent Hub: the Hub is a greenlet but we want to know the latest active greenlet *before*
-*/
-  __pyx_t_8 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_9profiling_9collector_5_task_23install_greenlet_tracer_16DDGreenletTracer_5__call__, 0, __pyx_mstate_global->__pyx_n_u_install_greenlet_tracer_locals_D_4, ((PyObject*)__pyx_cur_scope), __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector__tas, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[2])); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 45, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_8);
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_call, __pyx_t_8) < 0) __PYX_ERR(0, 45, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-
-  /* "ddtrace/profiling/collector/_task.pyx":28
- *         return
- * 
- *     class DDGreenletTracer(object):             # <<<<<<<<<<<<<<
- *         def __init__(self, gevent):
- *             # type: (ModuleType) -> None
-*/
-  __pyx_t_8 = __Pyx_Py3ClassCreate(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_DDGreenletTracer, __pyx_t_5, __pyx_t_7, NULL, 0, 0); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 28, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_Py3ClassCreate(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_DDGreenletTracer, __pyx_t_5, __pyx_t_7, NULL, 0, 0); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 38, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
   __pyx_v_DDGreenletTracer = __pyx_t_8;
   __pyx_t_8 = 0;
@@ -3819,24 +4006,24 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5_task_install_greenlet
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "ddtrace/profiling/collector/_task.pyx":57
- *                 self.previous_trace_function(event, args)
+  /* "ddtrace/profiling/collector/_task.pyx":67
+ *                     self.previous_trace_function(event, args)
  * 
- *     _gevent_tracer = DDGreenletTracer(gevent)             # <<<<<<<<<<<<<<
+ *         _gevent_tracer = DDGreenletTracer(gevent)             # <<<<<<<<<<<<<<
  * 
  * 
 */
-  __pyx_t_5 = __Pyx_PyObject_CallOneArg(__pyx_v_DDGreenletTracer, __pyx_cur_scope->__pyx_v_gevent); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 57, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_CallOneArg(__pyx_v_DDGreenletTracer, __pyx_cur_scope->__pyx_v_gevent); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 67, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_gevent_tracer, __pyx_t_5) < 0) __PYX_ERR(0, 57, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_gevent_tracer, __pyx_t_5) < 0) __PYX_ERR(0, 67, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "ddtrace/profiling/collector/_task.pyx":14
+  /* "ddtrace/profiling/collector/_task.pyx":24
  * 
  * 
- * @when_imported("gevent")             # <<<<<<<<<<<<<<
- * def install_greenlet_tracer(gevent):
- *     global _gevent_tracer
+ *     @when_imported("gevent")             # <<<<<<<<<<<<<<
+ *     def install_greenlet_tracer(gevent):
+ *         global _gevent_tracer
 */
 
   /* function exit code */
@@ -3858,7 +4045,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5_task_install_greenlet
   return __pyx_r;
 }
 
-/* "ddtrace/profiling/collector/_task.pyx":60
+/* "ddtrace/profiling/collector/_task.pyx":70
  * 
  * 
  * cdef _asyncio_task_get_frame(task):             # <<<<<<<<<<<<<<
@@ -3877,29 +4064,29 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5_task__asyncio_task_get
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_asyncio_task_get_frame", 0);
 
-  /* "ddtrace/profiling/collector/_task.pyx":61
+  /* "ddtrace/profiling/collector/_task.pyx":71
  * 
  * cdef _asyncio_task_get_frame(task):
  *     coro = task._coro             # <<<<<<<<<<<<<<
  *     if hasattr(coro, "cr_frame"):
  *         # async def
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_task, __pyx_mstate_global->__pyx_n_u_coro); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 61, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_task, __pyx_mstate_global->__pyx_n_u_coro); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 71, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_coro = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "ddtrace/profiling/collector/_task.pyx":62
+  /* "ddtrace/profiling/collector/_task.pyx":72
  * cdef _asyncio_task_get_frame(task):
  *     coro = task._coro
  *     if hasattr(coro, "cr_frame"):             # <<<<<<<<<<<<<<
  *         # async def
  *         return coro.cr_frame
 */
-  __pyx_t_2 = __Pyx_HasAttr(__pyx_v_coro, __pyx_mstate_global->__pyx_n_u_cr_frame); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 62, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_HasAttr(__pyx_v_coro, __pyx_mstate_global->__pyx_n_u_cr_frame); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 72, __pyx_L1_error)
   if (__pyx_t_2) {
 
-    /* "ddtrace/profiling/collector/_task.pyx":64
+    /* "ddtrace/profiling/collector/_task.pyx":74
  *     if hasattr(coro, "cr_frame"):
  *         # async def
  *         return coro.cr_frame             # <<<<<<<<<<<<<<
@@ -3907,13 +4094,13 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5_task__asyncio_task_get
  *         # legacy coroutines
 */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_coro, __pyx_mstate_global->__pyx_n_u_cr_frame); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 64, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_coro, __pyx_mstate_global->__pyx_n_u_cr_frame); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 74, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_r = __pyx_t_1;
     __pyx_t_1 = 0;
     goto __pyx_L0;
 
-    /* "ddtrace/profiling/collector/_task.pyx":62
+    /* "ddtrace/profiling/collector/_task.pyx":72
  * cdef _asyncio_task_get_frame(task):
  *     coro = task._coro
  *     if hasattr(coro, "cr_frame"):             # <<<<<<<<<<<<<<
@@ -3922,17 +4109,17 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5_task__asyncio_task_get
 */
   }
 
-  /* "ddtrace/profiling/collector/_task.pyx":65
+  /* "ddtrace/profiling/collector/_task.pyx":75
  *         # async def
  *         return coro.cr_frame
  *     elif hasattr(coro, "gi_frame"):             # <<<<<<<<<<<<<<
  *         # legacy coroutines
  *         return coro.gi_frame
 */
-  __pyx_t_2 = __Pyx_HasAttr(__pyx_v_coro, __pyx_mstate_global->__pyx_n_u_gi_frame); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 65, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_HasAttr(__pyx_v_coro, __pyx_mstate_global->__pyx_n_u_gi_frame); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 75, __pyx_L1_error)
   if (__pyx_t_2) {
 
-    /* "ddtrace/profiling/collector/_task.pyx":67
+    /* "ddtrace/profiling/collector/_task.pyx":77
  *     elif hasattr(coro, "gi_frame"):
  *         # legacy coroutines
  *         return coro.gi_frame             # <<<<<<<<<<<<<<
@@ -3940,13 +4127,13 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5_task__asyncio_task_get
  *         # async generators
 */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_coro, __pyx_mstate_global->__pyx_n_u_gi_frame); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 67, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_coro, __pyx_mstate_global->__pyx_n_u_gi_frame); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 77, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_r = __pyx_t_1;
     __pyx_t_1 = 0;
     goto __pyx_L0;
 
-    /* "ddtrace/profiling/collector/_task.pyx":65
+    /* "ddtrace/profiling/collector/_task.pyx":75
  *         # async def
  *         return coro.cr_frame
  *     elif hasattr(coro, "gi_frame"):             # <<<<<<<<<<<<<<
@@ -3955,17 +4142,17 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5_task__asyncio_task_get
 */
   }
 
-  /* "ddtrace/profiling/collector/_task.pyx":68
+  /* "ddtrace/profiling/collector/_task.pyx":78
  *         # legacy coroutines
  *         return coro.gi_frame
  *     elif hasattr(coro, "ag_frame"):             # <<<<<<<<<<<<<<
  *         # async generators
  *         return coro.ag_frame
 */
-  __pyx_t_2 = __Pyx_HasAttr(__pyx_v_coro, __pyx_mstate_global->__pyx_n_u_ag_frame); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 68, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_HasAttr(__pyx_v_coro, __pyx_mstate_global->__pyx_n_u_ag_frame); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 78, __pyx_L1_error)
   if (__pyx_t_2) {
 
-    /* "ddtrace/profiling/collector/_task.pyx":70
+    /* "ddtrace/profiling/collector/_task.pyx":80
  *     elif hasattr(coro, "ag_frame"):
  *         # async generators
  *         return coro.ag_frame             # <<<<<<<<<<<<<<
@@ -3973,13 +4160,13 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5_task__asyncio_task_get
  *     return None
 */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_coro, __pyx_mstate_global->__pyx_n_u_ag_frame); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 70, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_coro, __pyx_mstate_global->__pyx_n_u_ag_frame); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 80, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_r = __pyx_t_1;
     __pyx_t_1 = 0;
     goto __pyx_L0;
 
-    /* "ddtrace/profiling/collector/_task.pyx":68
+    /* "ddtrace/profiling/collector/_task.pyx":78
  *         # legacy coroutines
  *         return coro.gi_frame
  *     elif hasattr(coro, "ag_frame"):             # <<<<<<<<<<<<<<
@@ -3988,7 +4175,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5_task__asyncio_task_get
 */
   }
 
-  /* "ddtrace/profiling/collector/_task.pyx":72
+  /* "ddtrace/profiling/collector/_task.pyx":82
  *         return coro.ag_frame
  *     # unknown
  *     return None             # <<<<<<<<<<<<<<
@@ -3999,7 +4186,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5_task__asyncio_task_get
   __pyx_r = Py_None; __Pyx_INCREF(Py_None);
   goto __pyx_L0;
 
-  /* "ddtrace/profiling/collector/_task.pyx":60
+  /* "ddtrace/profiling/collector/_task.pyx":70
  * 
  * 
  * cdef _asyncio_task_get_frame(task):             # <<<<<<<<<<<<<<
@@ -4019,7 +4206,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5_task__asyncio_task_get
   return __pyx_r;
 }
 
-/* "ddtrace/profiling/collector/_task.pyx":75
+/* "ddtrace/profiling/collector/_task.pyx":85
  * 
  * 
  * cpdef get_task(thread_id):             # <<<<<<<<<<<<<<
@@ -4027,7 +4214,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5_task__asyncio_task_get
  *     task_id = None
 */
 
-static PyObject *__pyx_pw_7ddtrace_9profiling_9collector_5_task_3get_task(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_7ddtrace_9profiling_9collector_5_task_5get_task(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -4055,7 +4242,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5_task_get_task(PyObject
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("get_task", 0);
 
-  /* "ddtrace/profiling/collector/_task.pyx":77
+  /* "ddtrace/profiling/collector/_task.pyx":87
  * cpdef get_task(thread_id):
  *     """Return the task id and name for a thread."""
  *     task_id = None             # <<<<<<<<<<<<<<
@@ -4065,7 +4252,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5_task_get_task(PyObject
   __Pyx_INCREF(Py_None);
   __pyx_v_task_id = Py_None;
 
-  /* "ddtrace/profiling/collector/_task.pyx":78
+  /* "ddtrace/profiling/collector/_task.pyx":88
  *     """Return the task id and name for a thread."""
  *     task_id = None
  *     task_name = None             # <<<<<<<<<<<<<<
@@ -4075,7 +4262,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5_task_get_task(PyObject
   __Pyx_INCREF(Py_None);
   __pyx_v_task_name = Py_None;
 
-  /* "ddtrace/profiling/collector/_task.pyx":79
+  /* "ddtrace/profiling/collector/_task.pyx":89
  *     task_id = None
  *     task_name = None
  *     frame = None             # <<<<<<<<<<<<<<
@@ -4085,7 +4272,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5_task_get_task(PyObject
   __Pyx_INCREF(Py_None);
   __pyx_v_frame = Py_None;
 
-  /* "ddtrace/profiling/collector/_task.pyx":81
+  /* "ddtrace/profiling/collector/_task.pyx":91
  *     frame = None
  * 
  *     loop = _asyncio.get_event_loop_for_thread(thread_id)             # <<<<<<<<<<<<<<
@@ -4093,9 +4280,9 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5_task_get_task(PyObject
  *         task = _asyncio.current_task(loop)
 */
   __pyx_t_2 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_asyncio); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 81, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_asyncio); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 91, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_get_event_loop_for_thread); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 81, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_get_event_loop_for_thread); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 91, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_5 = 1;
@@ -4115,13 +4302,13 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5_task_get_task(PyObject
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 81, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 91, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_loop = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "ddtrace/profiling/collector/_task.pyx":82
+  /* "ddtrace/profiling/collector/_task.pyx":92
  * 
  *     loop = _asyncio.get_event_loop_for_thread(thread_id)
  *     if loop is not None:             # <<<<<<<<<<<<<<
@@ -4131,7 +4318,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5_task_get_task(PyObject
   __pyx_t_6 = (__pyx_v_loop != Py_None);
   if (__pyx_t_6) {
 
-    /* "ddtrace/profiling/collector/_task.pyx":83
+    /* "ddtrace/profiling/collector/_task.pyx":93
  *     loop = _asyncio.get_event_loop_for_thread(thread_id)
  *     if loop is not None:
  *         task = _asyncio.current_task(loop)             # <<<<<<<<<<<<<<
@@ -4139,9 +4326,9 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5_task_get_task(PyObject
  *             task_id = id(task)
 */
     __pyx_t_4 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_asyncio); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 83, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_asyncio); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 93, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_current_task); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 83, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_current_task); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 93, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __pyx_t_5 = 1;
@@ -4161,13 +4348,13 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5_task_get_task(PyObject
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 83, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 93, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __pyx_v_task = __pyx_t_1;
     __pyx_t_1 = 0;
 
-    /* "ddtrace/profiling/collector/_task.pyx":84
+    /* "ddtrace/profiling/collector/_task.pyx":94
  *     if loop is not None:
  *         task = _asyncio.current_task(loop)
  *         if task is not None:             # <<<<<<<<<<<<<<
@@ -4177,7 +4364,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5_task_get_task(PyObject
     __pyx_t_6 = (__pyx_v_task != Py_None);
     if (__pyx_t_6) {
 
-      /* "ddtrace/profiling/collector/_task.pyx":85
+      /* "ddtrace/profiling/collector/_task.pyx":95
  *         task = _asyncio.current_task(loop)
  *         if task is not None:
  *             task_id = id(task)             # <<<<<<<<<<<<<<
@@ -4193,13 +4380,13 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5_task_get_task(PyObject
         __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
         __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 85, __pyx_L1_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 95, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
       }
       __Pyx_DECREF_SET(__pyx_v_task_id, __pyx_t_1);
       __pyx_t_1 = 0;
 
-      /* "ddtrace/profiling/collector/_task.pyx":86
+      /* "ddtrace/profiling/collector/_task.pyx":96
  *         if task is not None:
  *             task_id = id(task)
  *             task_name = _asyncio._task_get_name(task)             # <<<<<<<<<<<<<<
@@ -4207,9 +4394,9 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5_task_get_task(PyObject
  * 
 */
       __pyx_t_4 = NULL;
-      __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_asyncio); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 86, __pyx_L1_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_asyncio); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 96, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_task_get_name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 86, __pyx_L1_error)
+      __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_task_get_name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 96, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       __pyx_t_5 = 1;
@@ -4229,25 +4416,25 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5_task_get_task(PyObject
         __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 86, __pyx_L1_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 96, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
       }
       __Pyx_DECREF_SET(__pyx_v_task_name, __pyx_t_1);
       __pyx_t_1 = 0;
 
-      /* "ddtrace/profiling/collector/_task.pyx":87
+      /* "ddtrace/profiling/collector/_task.pyx":97
  *             task_id = id(task)
  *             task_name = _asyncio._task_get_name(task)
  *             frame = _asyncio_task_get_frame(task)             # <<<<<<<<<<<<<<
  * 
- *     # gevent greenlet support:
+ *     if not is_stack_v2:
 */
-      __pyx_t_1 = __pyx_f_7ddtrace_9profiling_9collector_5_task__asyncio_task_get_frame(__pyx_v_task); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 87, __pyx_L1_error)
+      __pyx_t_1 = __pyx_f_7ddtrace_9profiling_9collector_5_task__asyncio_task_get_frame(__pyx_v_task); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 97, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF_SET(__pyx_v_frame, __pyx_t_1);
       __pyx_t_1 = 0;
 
-      /* "ddtrace/profiling/collector/_task.pyx":84
+      /* "ddtrace/profiling/collector/_task.pyx":94
  *     if loop is not None:
  *         task = _asyncio.current_task(loop)
  *         if task is not None:             # <<<<<<<<<<<<<<
@@ -4256,7 +4443,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5_task_get_task(PyObject
 */
     }
 
-    /* "ddtrace/profiling/collector/_task.pyx":82
+    /* "ddtrace/profiling/collector/_task.pyx":92
  * 
  *     loop = _asyncio.get_event_loop_for_thread(thread_id)
  *     if loop is not None:             # <<<<<<<<<<<<<<
@@ -4265,158 +4452,181 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5_task_get_task(PyObject
 */
   }
 
-  /* "ddtrace/profiling/collector/_task.pyx":92
- *     # - we only support tracing tasks in the greenlets run in the MainThread.
- *     # - if both gevent and asyncio are in use (!) we only return asyncio
- *     if task_id is None and _gevent_tracer is not None:             # <<<<<<<<<<<<<<
- *         gevent_thread = _gevent_tracer.gevent.thread
- *         task_id = gevent_thread.get_ident(_gevent_tracer.active_greenlet)
+  /* "ddtrace/profiling/collector/_task.pyx":99
+ *             frame = _asyncio_task_get_frame(task)
+ * 
+ *     if not is_stack_v2:             # <<<<<<<<<<<<<<
+ *         # legacy gevent greenlet support:
+ *         # - we only support tracing tasks in the greenlets run in the MainThread.
 */
-  __pyx_t_7 = (__pyx_v_task_id == Py_None);
-  if (__pyx_t_7) {
-  } else {
-    __pyx_t_6 = __pyx_t_7;
-    goto __pyx_L6_bool_binop_done;
-  }
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_gevent_tracer); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 92, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_is_stack_v2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 99, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_7 = (__pyx_t_1 != Py_None);
+  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 99, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_6 = __pyx_t_7;
-  __pyx_L6_bool_binop_done:;
-  if (__pyx_t_6) {
+  __pyx_t_7 = (!__pyx_t_6);
+  if (__pyx_t_7) {
 
-    /* "ddtrace/profiling/collector/_task.pyx":93
- *     # - if both gevent and asyncio are in use (!) we only return asyncio
- *     if task_id is None and _gevent_tracer is not None:
- *         gevent_thread = _gevent_tracer.gevent.thread             # <<<<<<<<<<<<<<
- *         task_id = gevent_thread.get_ident(_gevent_tracer.active_greenlet)
- *         # Greenlets might be started as Thread in gevent
+    /* "ddtrace/profiling/collector/_task.pyx":103
+ *         # - we only support tracing tasks in the greenlets run in the MainThread.
+ *         # - if both gevent and asyncio are in use (!) we only return asyncio
+ *         if task_id is None and _gevent_tracer is not None:             # <<<<<<<<<<<<<<
+ *             gevent_thread = _gevent_tracer.gevent.thread
+ *             task_id = gevent_thread.get_ident(_gevent_tracer.active_greenlet)
 */
-    __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_gevent_tracer); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 93, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_gevent); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 93, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
-    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_thread); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 93, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_1);
-    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __pyx_v_gevent_thread = __pyx_t_1;
-    __pyx_t_1 = 0;
-
-    /* "ddtrace/profiling/collector/_task.pyx":94
- *     if task_id is None and _gevent_tracer is not None:
- *         gevent_thread = _gevent_tracer.gevent.thread
- *         task_id = gevent_thread.get_ident(_gevent_tracer.active_greenlet)             # <<<<<<<<<<<<<<
- *         # Greenlets might be started as Thread in gevent
- *         task_name = _threading.get_thread_name(task_id)
-*/
-    __pyx_t_2 = __pyx_v_gevent_thread;
-    __Pyx_INCREF(__pyx_t_2);
-    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_gevent_tracer); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 94, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_active_greenlet); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 94, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_3);
-    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_t_5 = 0;
-    {
-      PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_t_3};
-      __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_get_ident, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-      __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-      __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 94, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_1);
+    __pyx_t_6 = (__pyx_v_task_id == Py_None);
+    if (__pyx_t_6) {
+    } else {
+      __pyx_t_7 = __pyx_t_6;
+      goto __pyx_L7_bool_binop_done;
     }
-    __Pyx_DECREF_SET(__pyx_v_task_id, __pyx_t_1);
-    __pyx_t_1 = 0;
+    __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_gevent_tracer); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 103, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __pyx_t_6 = (__pyx_t_1 != Py_None);
+    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+    __pyx_t_7 = __pyx_t_6;
+    __pyx_L7_bool_binop_done:;
+    if (__pyx_t_7) {
 
-    /* "ddtrace/profiling/collector/_task.pyx":96
- *         task_id = gevent_thread.get_ident(_gevent_tracer.active_greenlet)
- *         # Greenlets might be started as Thread in gevent
- *         task_name = _threading.get_thread_name(task_id)             # <<<<<<<<<<<<<<
- *         frame = _gevent_tracer.active_greenlet.gr_frame
+      /* "ddtrace/profiling/collector/_task.pyx":104
+ *         # - if both gevent and asyncio are in use (!) we only return asyncio
+ *         if task_id is None and _gevent_tracer is not None:
+ *             gevent_thread = _gevent_tracer.gevent.thread             # <<<<<<<<<<<<<<
+ *             task_id = gevent_thread.get_ident(_gevent_tracer.active_greenlet)
+ *             # Greenlets might be started as Thread in gevent
+*/
+      __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_gevent_tracer); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 104, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_1);
+      __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_gevent); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 104, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_2);
+      __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_thread); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 104, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_1);
+      __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+      __pyx_v_gevent_thread = __pyx_t_1;
+      __pyx_t_1 = 0;
+
+      /* "ddtrace/profiling/collector/_task.pyx":105
+ *         if task_id is None and _gevent_tracer is not None:
+ *             gevent_thread = _gevent_tracer.gevent.thread
+ *             task_id = gevent_thread.get_ident(_gevent_tracer.active_greenlet)             # <<<<<<<<<<<<<<
+ *             # Greenlets might be started as Thread in gevent
+ *             task_name = _threading.get_thread_name(task_id)
+*/
+      __pyx_t_2 = __pyx_v_gevent_thread;
+      __Pyx_INCREF(__pyx_t_2);
+      __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_gevent_tracer); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 105, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_4);
+      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_active_greenlet); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 105, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_3);
+      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+      __pyx_t_5 = 0;
+      {
+        PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_t_3};
+        __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_get_ident, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+        __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
+        __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 105, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_1);
+      }
+      __Pyx_DECREF_SET(__pyx_v_task_id, __pyx_t_1);
+      __pyx_t_1 = 0;
+
+      /* "ddtrace/profiling/collector/_task.pyx":107
+ *             task_id = gevent_thread.get_ident(_gevent_tracer.active_greenlet)
+ *             # Greenlets might be started as Thread in gevent
+ *             task_name = _threading.get_thread_name(task_id)             # <<<<<<<<<<<<<<
+ *             frame = _gevent_tracer.active_greenlet.gr_frame
  * 
 */
-    __pyx_t_3 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_threading); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 96, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_get_thread_name); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 96, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_4);
-    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __pyx_t_5 = 1;
-    #if CYTHON_UNPACK_METHODS
-    if (unlikely(PyMethod_Check(__pyx_t_4))) {
-      __pyx_t_3 = PyMethod_GET_SELF(__pyx_t_4);
-      assert(__pyx_t_3);
-      PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_4);
-      __Pyx_INCREF(__pyx_t_3);
-      __Pyx_INCREF(__pyx__function);
-      __Pyx_DECREF_SET(__pyx_t_4, __pyx__function);
-      __pyx_t_5 = 0;
-    }
-    #endif
-    {
-      PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_v_task_id};
-      __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-      __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 96, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_1);
-    }
-    __Pyx_DECREF_SET(__pyx_v_task_name, __pyx_t_1);
-    __pyx_t_1 = 0;
+      __pyx_t_3 = NULL;
+      __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_threading); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 107, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_2);
+      __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_get_thread_name); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 107, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_4);
+      __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+      __pyx_t_5 = 1;
+      #if CYTHON_UNPACK_METHODS
+      if (unlikely(PyMethod_Check(__pyx_t_4))) {
+        __pyx_t_3 = PyMethod_GET_SELF(__pyx_t_4);
+        assert(__pyx_t_3);
+        PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_4);
+        __Pyx_INCREF(__pyx_t_3);
+        __Pyx_INCREF(__pyx__function);
+        __Pyx_DECREF_SET(__pyx_t_4, __pyx__function);
+        __pyx_t_5 = 0;
+      }
+      #endif
+      {
+        PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_v_task_id};
+        __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+        __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
+        __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 107, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_1);
+      }
+      __Pyx_DECREF_SET(__pyx_v_task_name, __pyx_t_1);
+      __pyx_t_1 = 0;
 
-    /* "ddtrace/profiling/collector/_task.pyx":97
- *         # Greenlets might be started as Thread in gevent
- *         task_name = _threading.get_thread_name(task_id)
- *         frame = _gevent_tracer.active_greenlet.gr_frame             # <<<<<<<<<<<<<<
+      /* "ddtrace/profiling/collector/_task.pyx":108
+ *             # Greenlets might be started as Thread in gevent
+ *             task_name = _threading.get_thread_name(task_id)
+ *             frame = _gevent_tracer.active_greenlet.gr_frame             # <<<<<<<<<<<<<<
  * 
  *     return task_id, task_name, frame
 */
-    __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_gevent_tracer); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 97, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_active_greenlet); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 97, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_4);
-    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_gr_frame); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 97, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_1);
-    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __Pyx_DECREF_SET(__pyx_v_frame, __pyx_t_1);
-    __pyx_t_1 = 0;
+      __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_gevent_tracer); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 108, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_1);
+      __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_active_greenlet); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 108, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_4);
+      __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_gr_frame); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 108, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_1);
+      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+      __Pyx_DECREF_SET(__pyx_v_frame, __pyx_t_1);
+      __pyx_t_1 = 0;
 
-    /* "ddtrace/profiling/collector/_task.pyx":92
- *     # - we only support tracing tasks in the greenlets run in the MainThread.
- *     # - if both gevent and asyncio are in use (!) we only return asyncio
- *     if task_id is None and _gevent_tracer is not None:             # <<<<<<<<<<<<<<
- *         gevent_thread = _gevent_tracer.gevent.thread
- *         task_id = gevent_thread.get_ident(_gevent_tracer.active_greenlet)
+      /* "ddtrace/profiling/collector/_task.pyx":103
+ *         # - we only support tracing tasks in the greenlets run in the MainThread.
+ *         # - if both gevent and asyncio are in use (!) we only return asyncio
+ *         if task_id is None and _gevent_tracer is not None:             # <<<<<<<<<<<<<<
+ *             gevent_thread = _gevent_tracer.gevent.thread
+ *             task_id = gevent_thread.get_ident(_gevent_tracer.active_greenlet)
+*/
+    }
+
+    /* "ddtrace/profiling/collector/_task.pyx":99
+ *             frame = _asyncio_task_get_frame(task)
+ * 
+ *     if not is_stack_v2:             # <<<<<<<<<<<<<<
+ *         # legacy gevent greenlet support:
+ *         # - we only support tracing tasks in the greenlets run in the MainThread.
 */
   }
 
-  /* "ddtrace/profiling/collector/_task.pyx":99
- *         frame = _gevent_tracer.active_greenlet.gr_frame
+  /* "ddtrace/profiling/collector/_task.pyx":110
+ *             frame = _gevent_tracer.active_greenlet.gr_frame
  * 
  *     return task_id, task_name, frame             # <<<<<<<<<<<<<<
  * 
  * 
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = PyTuple_New(3); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 99, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_New(3); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 110, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_INCREF(__pyx_v_task_id);
   __Pyx_GIVEREF(__pyx_v_task_id);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_v_task_id) != (0)) __PYX_ERR(0, 99, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_v_task_id) != (0)) __PYX_ERR(0, 110, __pyx_L1_error);
   __Pyx_INCREF(__pyx_v_task_name);
   __Pyx_GIVEREF(__pyx_v_task_name);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_v_task_name) != (0)) __PYX_ERR(0, 99, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_v_task_name) != (0)) __PYX_ERR(0, 110, __pyx_L1_error);
   __Pyx_INCREF(__pyx_v_frame);
   __Pyx_GIVEREF(__pyx_v_frame);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 2, __pyx_v_frame) != (0)) __PYX_ERR(0, 99, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 2, __pyx_v_frame) != (0)) __PYX_ERR(0, 110, __pyx_L1_error);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "ddtrace/profiling/collector/_task.pyx":75
+  /* "ddtrace/profiling/collector/_task.pyx":85
  * 
  * 
  * cpdef get_task(thread_id):             # <<<<<<<<<<<<<<
@@ -4445,16 +4655,16 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5_task_get_task(PyObject
 }
 
 /* Python wrapper */
-static PyObject *__pyx_pw_7ddtrace_9profiling_9collector_5_task_3get_task(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_7ddtrace_9profiling_9collector_5_task_5get_task(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_7ddtrace_9profiling_9collector_5_task_2get_task, "Return the task id and name for a thread.");
-static PyMethodDef __pyx_mdef_7ddtrace_9profiling_9collector_5_task_3get_task = {"get_task", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_7ddtrace_9profiling_9collector_5_task_3get_task, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_7ddtrace_9profiling_9collector_5_task_2get_task};
-static PyObject *__pyx_pw_7ddtrace_9profiling_9collector_5_task_3get_task(PyObject *__pyx_self, 
+PyDoc_STRVAR(__pyx_doc_7ddtrace_9profiling_9collector_5_task_4get_task, "Return the task id and name for a thread.");
+static PyMethodDef __pyx_mdef_7ddtrace_9profiling_9collector_5_task_5get_task = {"get_task", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_7ddtrace_9profiling_9collector_5_task_5get_task, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_7ddtrace_9profiling_9collector_5_task_4get_task};
+static PyObject *__pyx_pw_7ddtrace_9profiling_9collector_5_task_5get_task(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -4484,32 +4694,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_thread_id,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 75, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 85, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 75, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 85, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "get_task", 0) < 0) __PYX_ERR(0, 75, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "get_task", 0) < 0) __PYX_ERR(0, 85, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("get_task", 1, 1, 1, i); __PYX_ERR(0, 75, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("get_task", 1, 1, 1, i); __PYX_ERR(0, 85, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 75, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 85, __pyx_L3_error)
     }
     __pyx_v_thread_id = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("get_task", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 75, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("get_task", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 85, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -4520,7 +4730,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_7ddtrace_9profiling_9collector_5_task_2get_task(__pyx_self, __pyx_v_thread_id);
+  __pyx_r = __pyx_pf_7ddtrace_9profiling_9collector_5_task_4get_task(__pyx_self, __pyx_v_thread_id);
 
   /* function exit code */
   for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
@@ -4530,7 +4740,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5_task_2get_task(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_thread_id) {
+static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5_task_4get_task(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_thread_id) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
@@ -4539,7 +4749,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5_task_2get_task(CYTHON
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("get_task", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_7ddtrace_9profiling_9collector_5_task_get_task(__pyx_v_thread_id, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 75, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_7ddtrace_9profiling_9collector_5_task_get_task(__pyx_v_thread_id, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 85, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -4556,7 +4766,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5_task_2get_task(CYTHON
   return __pyx_r;
 }
 
-/* "ddtrace/profiling/collector/_task.pyx":102
+/* "ddtrace/profiling/collector/_task.pyx":113
  * 
  * 
  * cpdef list_tasks(thread_id):             # <<<<<<<<<<<<<<
@@ -4564,7 +4774,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5_task_2get_task(CYTHON
  *     """Return the list of running tasks.
 */
 
-static PyObject *__pyx_pw_7ddtrace_9profiling_9collector_5_task_5list_tasks(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_7ddtrace_9profiling_9collector_5_task_7list_tasks(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -4581,102 +4791,115 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5_task_list_tasks(PyObje
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
   int __pyx_t_2;
-  PyObject *__pyx_t_3 = NULL;
-  PyObject *__pyx_t_4 = NULL;
+  int __pyx_t_3;
+  int __pyx_t_4;
   PyObject *__pyx_t_5 = NULL;
   PyObject *__pyx_t_6 = NULL;
   PyObject *__pyx_t_7 = NULL;
-  size_t __pyx_t_8;
-  Py_ssize_t __pyx_t_9;
-  Py_ssize_t __pyx_t_10;
-  int __pyx_t_11;
-  PyObject *__pyx_t_12 = NULL;
+  PyObject *__pyx_t_8 = NULL;
+  PyObject *__pyx_t_9 = NULL;
+  size_t __pyx_t_10;
+  Py_ssize_t __pyx_t_11;
+  Py_ssize_t __pyx_t_12;
   int __pyx_t_13;
-  int __pyx_t_14;
+  PyObject *__pyx_t_14 = NULL;
   int __pyx_t_15;
-  PyObject *(*__pyx_t_16)(PyObject *);
+  int __pyx_t_16;
+  PyObject *(*__pyx_t_17)(PyObject *);
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("list_tasks", 0);
 
-  /* "ddtrace/profiling/collector/_task.pyx":111
+  /* "ddtrace/profiling/collector/_task.pyx":122
  *     :return: [(task_id, task_name, task_frame), ...]"""
  * 
  *     tasks = []             # <<<<<<<<<<<<<<
  * 
- *     if _gevent_tracer is not None:
+ *     if not is_stack_v2 and _gevent_tracer is not None:
 */
-  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 111, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 122, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_tasks = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "ddtrace/profiling/collector/_task.pyx":113
+  /* "ddtrace/profiling/collector/_task.pyx":124
  *     tasks = []
  * 
- *     if _gevent_tracer is not None:             # <<<<<<<<<<<<<<
+ *     if not is_stack_v2 and _gevent_tracer is not None:             # <<<<<<<<<<<<<<
  *         if type(_threading.get_thread_by_id(thread_id)).__name__.endswith("_MainThread"):
  *             # Under normal circumstances, the Hub is running in the main thread.
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_gevent_tracer); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 113, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_is_stack_v2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 124, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = (__pyx_t_1 != Py_None);
+  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 124, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __pyx_t_4 = (!__pyx_t_3);
+  if (__pyx_t_4) {
+  } else {
+    __pyx_t_2 = __pyx_t_4;
+    goto __pyx_L4_bool_binop_done;
+  }
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_gevent_tracer); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 124, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_t_4 = (__pyx_t_1 != Py_None);
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __pyx_t_2 = __pyx_t_4;
+  __pyx_L4_bool_binop_done:;
   if (__pyx_t_2) {
 
-    /* "ddtrace/profiling/collector/_task.pyx":114
+    /* "ddtrace/profiling/collector/_task.pyx":125
  * 
- *     if _gevent_tracer is not None:
+ *     if not is_stack_v2 and _gevent_tracer is not None:
  *         if type(_threading.get_thread_by_id(thread_id)).__name__.endswith("_MainThread"):             # <<<<<<<<<<<<<<
  *             # Under normal circumstances, the Hub is running in the main thread.
  *             # Python will only ever have a single instance of a _MainThread
 */
-    __pyx_t_5 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_threading); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 114, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_get_thread_by_id); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 114, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_7);
-    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    __pyx_t_8 = 1;
+    __pyx_t_7 = NULL;
+    __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_threading); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 125, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_8);
+    __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_get_thread_by_id); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 125, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_9);
+    __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+    __pyx_t_10 = 1;
     #if CYTHON_UNPACK_METHODS
-    if (unlikely(PyMethod_Check(__pyx_t_7))) {
-      __pyx_t_5 = PyMethod_GET_SELF(__pyx_t_7);
-      assert(__pyx_t_5);
-      PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_7);
-      __Pyx_INCREF(__pyx_t_5);
+    if (unlikely(PyMethod_Check(__pyx_t_9))) {
+      __pyx_t_7 = PyMethod_GET_SELF(__pyx_t_9);
+      assert(__pyx_t_7);
+      PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_9);
+      __Pyx_INCREF(__pyx_t_7);
       __Pyx_INCREF(__pyx__function);
-      __Pyx_DECREF_SET(__pyx_t_7, __pyx__function);
-      __pyx_t_8 = 0;
+      __Pyx_DECREF_SET(__pyx_t_9, __pyx__function);
+      __pyx_t_10 = 0;
     }
     #endif
     {
-      PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_v_thread_id};
-      __pyx_t_4 = __Pyx_PyObject_FastCall(__pyx_t_7, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-      __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-      __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 114, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_4);
+      PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_v_thread_id};
+      __pyx_t_6 = __Pyx_PyObject_FastCall(__pyx_t_9, __pyx_callargs+__pyx_t_10, (2-__pyx_t_10) | (__pyx_t_10*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
+      __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
+      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 125, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_6);
     }
-    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(((PyObject *)Py_TYPE(__pyx_t_4)), __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 114, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_7);
-    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_t_3 = __pyx_t_7;
-    __Pyx_INCREF(__pyx_t_3);
-    __pyx_t_8 = 0;
+    __pyx_t_9 = __Pyx_PyObject_GetAttrStr(((PyObject *)Py_TYPE(__pyx_t_6)), __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 125, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_9);
+    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+    __pyx_t_5 = __pyx_t_9;
+    __Pyx_INCREF(__pyx_t_5);
+    __pyx_t_10 = 0;
     {
-      PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_mstate_global->__pyx_n_u_MainThread};
-      __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_endswith, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-      __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-      __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 114, __pyx_L1_error)
+      PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_mstate_global->__pyx_n_u_MainThread};
+      __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_endswith, __pyx_callargs+__pyx_t_10, (2-__pyx_t_10) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
+      __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 125, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
-    __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 114, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 125, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     if (__pyx_t_2) {
 
-      /* "ddtrace/profiling/collector/_task.pyx":118
+      /* "ddtrace/profiling/collector/_task.pyx":129
  *             # Python will only ever have a single instance of a _MainThread
  *             # class, so if we find it we attribute all the greenlets to it.
  *             tasks.extend(             # <<<<<<<<<<<<<<
@@ -4685,139 +4908,139 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5_task_list_tasks(PyObje
 */
       { /* enter inner scope */
 
-        /* "ddtrace/profiling/collector/_task.pyx":119
+        /* "ddtrace/profiling/collector/_task.pyx":130
  *             # class, so if we find it we attribute all the greenlets to it.
  *             tasks.extend(
  *                 [             # <<<<<<<<<<<<<<
  *                     (
  *                         greenlet_id,
 */
-        __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 119, __pyx_L7_error)
+        __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 130, __pyx_L9_error)
         __Pyx_GOTREF(__pyx_t_1);
 
-        /* "ddtrace/profiling/collector/_task.pyx":125
+        /* "ddtrace/profiling/collector/_task.pyx":136
  *                         greenlet.gr_frame
  *                     )
  *                     for greenlet_id, greenlet in dict(_gevent_tracer.greenlets).items()             # <<<<<<<<<<<<<<
  *                     if not greenlet.dead
  *                 ]
 */
-        __pyx_t_9 = 0;
-        __pyx_t_4 = NULL;
+        __pyx_t_11 = 0;
+        __pyx_t_6 = NULL;
         __Pyx_INCREF((PyObject *)(&PyDict_Type));
-        __pyx_t_5 = ((PyObject *)(&PyDict_Type)); 
-        __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_gevent_tracer); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 125, __pyx_L7_error)
-        __Pyx_GOTREF(__pyx_t_6);
-        __pyx_t_12 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_greenlets); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 125, __pyx_L7_error)
-        __Pyx_GOTREF(__pyx_t_12);
-        __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-        __pyx_t_8 = 1;
+        __pyx_t_7 = ((PyObject *)(&PyDict_Type)); 
+        __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_gevent_tracer); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 136, __pyx_L9_error)
+        __Pyx_GOTREF(__pyx_t_8);
+        __pyx_t_14 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_greenlets); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 136, __pyx_L9_error)
+        __Pyx_GOTREF(__pyx_t_14);
+        __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+        __pyx_t_10 = 1;
         {
-          PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_t_12};
-          __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-          __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-          __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
-          __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-          if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 125, __pyx_L7_error)
-          __Pyx_GOTREF(__pyx_t_3);
-        }
-        __pyx_t_5 = __Pyx_dict_iterator(__pyx_t_3, 1, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_10), (&__pyx_t_11)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 125, __pyx_L7_error)
-        __Pyx_GOTREF(__pyx_t_5);
-        __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-        __Pyx_XDECREF(__pyx_t_7);
-        __pyx_t_7 = __pyx_t_5;
-        __pyx_t_5 = 0;
-        while (1) {
-          __pyx_t_13 = __Pyx_dict_iter_next(__pyx_t_7, __pyx_t_10, &__pyx_t_9, &__pyx_t_5, &__pyx_t_3, NULL, __pyx_t_11);
-          if (unlikely(__pyx_t_13 == 0)) break;
-          if (unlikely(__pyx_t_13 == -1)) __PYX_ERR(0, 125, __pyx_L7_error)
+          PyObject *__pyx_callargs[2] = {__pyx_t_6, __pyx_t_14};
+          __pyx_t_5 = __Pyx_PyObject_FastCall(__pyx_t_7, __pyx_callargs+__pyx_t_10, (2-__pyx_t_10) | (__pyx_t_10*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+          __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
+          __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
+          __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+          if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 136, __pyx_L9_error)
           __Pyx_GOTREF(__pyx_t_5);
-          __Pyx_GOTREF(__pyx_t_3);
-          __Pyx_XDECREF_SET(__pyx_7genexpr__pyx_v_greenlet_id, __pyx_t_5);
+        }
+        __pyx_t_7 = __Pyx_dict_iterator(__pyx_t_5, 1, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_12), (&__pyx_t_13)); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 136, __pyx_L9_error)
+        __Pyx_GOTREF(__pyx_t_7);
+        __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+        __Pyx_XDECREF(__pyx_t_9);
+        __pyx_t_9 = __pyx_t_7;
+        __pyx_t_7 = 0;
+        while (1) {
+          __pyx_t_15 = __Pyx_dict_iter_next(__pyx_t_9, __pyx_t_12, &__pyx_t_11, &__pyx_t_7, &__pyx_t_5, NULL, __pyx_t_13);
+          if (unlikely(__pyx_t_15 == 0)) break;
+          if (unlikely(__pyx_t_15 == -1)) __PYX_ERR(0, 136, __pyx_L9_error)
+          __Pyx_GOTREF(__pyx_t_7);
+          __Pyx_GOTREF(__pyx_t_5);
+          __Pyx_XDECREF_SET(__pyx_7genexpr__pyx_v_greenlet_id, __pyx_t_7);
+          __pyx_t_7 = 0;
+          __Pyx_XDECREF_SET(__pyx_7genexpr__pyx_v_greenlet, __pyx_t_5);
           __pyx_t_5 = 0;
-          __Pyx_XDECREF_SET(__pyx_7genexpr__pyx_v_greenlet, __pyx_t_3);
-          __pyx_t_3 = 0;
 
-          /* "ddtrace/profiling/collector/_task.pyx":126
+          /* "ddtrace/profiling/collector/_task.pyx":137
  *                     )
  *                     for greenlet_id, greenlet in dict(_gevent_tracer.greenlets).items()
  *                     if not greenlet.dead             # <<<<<<<<<<<<<<
  *                 ]
  *             )
 */
-          __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_7genexpr__pyx_v_greenlet, __pyx_mstate_global->__pyx_n_u_dead); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 126, __pyx_L7_error)
-          __Pyx_GOTREF(__pyx_t_3);
-          __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 126, __pyx_L7_error)
-          __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-          __pyx_t_14 = (!__pyx_t_2);
-          if (__pyx_t_14) {
+          __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_7genexpr__pyx_v_greenlet, __pyx_mstate_global->__pyx_n_u_dead); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 137, __pyx_L9_error)
+          __Pyx_GOTREF(__pyx_t_5);
+          __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 137, __pyx_L9_error)
+          __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+          __pyx_t_4 = (!__pyx_t_2);
+          if (__pyx_t_4) {
 
-            /* "ddtrace/profiling/collector/_task.pyx":122
+            /* "ddtrace/profiling/collector/_task.pyx":133
  *                     (
  *                         greenlet_id,
  *                         _threading.get_thread_name(greenlet_id),             # <<<<<<<<<<<<<<
  *                         greenlet.gr_frame
  *                     )
 */
-            __pyx_t_5 = NULL;
-            __Pyx_GetModuleGlobalName(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_threading); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 122, __pyx_L7_error)
-            __Pyx_GOTREF(__pyx_t_12);
-            __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_get_thread_name); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 122, __pyx_L7_error)
-            __Pyx_GOTREF(__pyx_t_4);
-            __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
-            __pyx_t_8 = 1;
+            __pyx_t_7 = NULL;
+            __Pyx_GetModuleGlobalName(__pyx_t_14, __pyx_mstate_global->__pyx_n_u_threading); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 133, __pyx_L9_error)
+            __Pyx_GOTREF(__pyx_t_14);
+            __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_14, __pyx_mstate_global->__pyx_n_u_get_thread_name); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 133, __pyx_L9_error)
+            __Pyx_GOTREF(__pyx_t_6);
+            __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
+            __pyx_t_10 = 1;
             #if CYTHON_UNPACK_METHODS
-            if (unlikely(PyMethod_Check(__pyx_t_4))) {
-              __pyx_t_5 = PyMethod_GET_SELF(__pyx_t_4);
-              assert(__pyx_t_5);
-              PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_4);
-              __Pyx_INCREF(__pyx_t_5);
+            if (unlikely(PyMethod_Check(__pyx_t_6))) {
+              __pyx_t_7 = PyMethod_GET_SELF(__pyx_t_6);
+              assert(__pyx_t_7);
+              PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_6);
+              __Pyx_INCREF(__pyx_t_7);
               __Pyx_INCREF(__pyx__function);
-              __Pyx_DECREF_SET(__pyx_t_4, __pyx__function);
-              __pyx_t_8 = 0;
+              __Pyx_DECREF_SET(__pyx_t_6, __pyx__function);
+              __pyx_t_10 = 0;
             }
             #endif
             {
-              PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_7genexpr__pyx_v_greenlet_id};
-              __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-              __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-              __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-              if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 122, __pyx_L7_error)
-              __Pyx_GOTREF(__pyx_t_3);
+              PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_7genexpr__pyx_v_greenlet_id};
+              __pyx_t_5 = __Pyx_PyObject_FastCall(__pyx_t_6, __pyx_callargs+__pyx_t_10, (2-__pyx_t_10) | (__pyx_t_10*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+              __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
+              __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+              if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 133, __pyx_L9_error)
+              __Pyx_GOTREF(__pyx_t_5);
             }
 
-            /* "ddtrace/profiling/collector/_task.pyx":123
+            /* "ddtrace/profiling/collector/_task.pyx":134
  *                         greenlet_id,
  *                         _threading.get_thread_name(greenlet_id),
  *                         greenlet.gr_frame             # <<<<<<<<<<<<<<
  *                     )
  *                     for greenlet_id, greenlet in dict(_gevent_tracer.greenlets).items()
 */
-            __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_7genexpr__pyx_v_greenlet, __pyx_mstate_global->__pyx_n_u_gr_frame); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 123, __pyx_L7_error)
-            __Pyx_GOTREF(__pyx_t_4);
+            __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_7genexpr__pyx_v_greenlet, __pyx_mstate_global->__pyx_n_u_gr_frame); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 134, __pyx_L9_error)
+            __Pyx_GOTREF(__pyx_t_6);
 
-            /* "ddtrace/profiling/collector/_task.pyx":121
+            /* "ddtrace/profiling/collector/_task.pyx":132
  *                 [
  *                     (
  *                         greenlet_id,             # <<<<<<<<<<<<<<
  *                         _threading.get_thread_name(greenlet_id),
  *                         greenlet.gr_frame
 */
-            __pyx_t_5 = PyTuple_New(3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 121, __pyx_L7_error)
-            __Pyx_GOTREF(__pyx_t_5);
+            __pyx_t_7 = PyTuple_New(3); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 132, __pyx_L9_error)
+            __Pyx_GOTREF(__pyx_t_7);
             __Pyx_INCREF(__pyx_7genexpr__pyx_v_greenlet_id);
             __Pyx_GIVEREF(__pyx_7genexpr__pyx_v_greenlet_id);
-            if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 0, __pyx_7genexpr__pyx_v_greenlet_id) != (0)) __PYX_ERR(0, 121, __pyx_L7_error);
-            __Pyx_GIVEREF(__pyx_t_3);
-            if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 1, __pyx_t_3) != (0)) __PYX_ERR(0, 121, __pyx_L7_error);
-            __Pyx_GIVEREF(__pyx_t_4);
-            if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 2, __pyx_t_4) != (0)) __PYX_ERR(0, 121, __pyx_L7_error);
-            __pyx_t_3 = 0;
-            __pyx_t_4 = 0;
-            if (unlikely(__Pyx_ListComp_Append(__pyx_t_1, (PyObject*)__pyx_t_5))) __PYX_ERR(0, 119, __pyx_L7_error)
-            __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+            if (__Pyx_PyTuple_SET_ITEM(__pyx_t_7, 0, __pyx_7genexpr__pyx_v_greenlet_id) != (0)) __PYX_ERR(0, 132, __pyx_L9_error);
+            __Pyx_GIVEREF(__pyx_t_5);
+            if (__Pyx_PyTuple_SET_ITEM(__pyx_t_7, 1, __pyx_t_5) != (0)) __PYX_ERR(0, 132, __pyx_L9_error);
+            __Pyx_GIVEREF(__pyx_t_6);
+            if (__Pyx_PyTuple_SET_ITEM(__pyx_t_7, 2, __pyx_t_6) != (0)) __PYX_ERR(0, 132, __pyx_L9_error);
+            __pyx_t_5 = 0;
+            __pyx_t_6 = 0;
+            if (unlikely(__Pyx_ListComp_Append(__pyx_t_1, (PyObject*)__pyx_t_7))) __PYX_ERR(0, 130, __pyx_L9_error)
+            __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-            /* "ddtrace/profiling/collector/_task.pyx":126
+            /* "ddtrace/profiling/collector/_task.pyx":137
  *                     )
  *                     for greenlet_id, greenlet in dict(_gevent_tracer.greenlets).items()
  *                     if not greenlet.dead             # <<<<<<<<<<<<<<
@@ -4826,92 +5049,92 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5_task_list_tasks(PyObje
 */
           }
         }
-        __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+        __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
         __Pyx_XDECREF(__pyx_7genexpr__pyx_v_greenlet); __pyx_7genexpr__pyx_v_greenlet = 0;
         __Pyx_XDECREF(__pyx_7genexpr__pyx_v_greenlet_id); __pyx_7genexpr__pyx_v_greenlet_id = 0;
-        goto __pyx_L11_exit_scope;
-        __pyx_L7_error:;
+        goto __pyx_L13_exit_scope;
+        __pyx_L9_error:;
         __Pyx_XDECREF(__pyx_7genexpr__pyx_v_greenlet); __pyx_7genexpr__pyx_v_greenlet = 0;
         __Pyx_XDECREF(__pyx_7genexpr__pyx_v_greenlet_id); __pyx_7genexpr__pyx_v_greenlet_id = 0;
         goto __pyx_L1_error;
-        __pyx_L11_exit_scope:;
+        __pyx_L13_exit_scope:;
       } /* exit inner scope */
 
-      /* "ddtrace/profiling/collector/_task.pyx":118
+      /* "ddtrace/profiling/collector/_task.pyx":129
  *             # Python will only ever have a single instance of a _MainThread
  *             # class, so if we find it we attribute all the greenlets to it.
  *             tasks.extend(             # <<<<<<<<<<<<<<
  *                 [
  *                     (
 */
-      __pyx_t_15 = __Pyx_PyList_Extend(__pyx_v_tasks, __pyx_t_1); if (unlikely(__pyx_t_15 == ((int)-1))) __PYX_ERR(0, 118, __pyx_L1_error)
+      __pyx_t_16 = __Pyx_PyList_Extend(__pyx_v_tasks, __pyx_t_1); if (unlikely(__pyx_t_16 == ((int)-1))) __PYX_ERR(0, 129, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-      /* "ddtrace/profiling/collector/_task.pyx":114
+      /* "ddtrace/profiling/collector/_task.pyx":125
  * 
- *     if _gevent_tracer is not None:
+ *     if not is_stack_v2 and _gevent_tracer is not None:
  *         if type(_threading.get_thread_by_id(thread_id)).__name__.endswith("_MainThread"):             # <<<<<<<<<<<<<<
  *             # Under normal circumstances, the Hub is running in the main thread.
  *             # Python will only ever have a single instance of a _MainThread
 */
     }
 
-    /* "ddtrace/profiling/collector/_task.pyx":113
+    /* "ddtrace/profiling/collector/_task.pyx":124
  *     tasks = []
  * 
- *     if _gevent_tracer is not None:             # <<<<<<<<<<<<<<
+ *     if not is_stack_v2 and _gevent_tracer is not None:             # <<<<<<<<<<<<<<
  *         if type(_threading.get_thread_by_id(thread_id)).__name__.endswith("_MainThread"):
  *             # Under normal circumstances, the Hub is running in the main thread.
 */
   }
 
-  /* "ddtrace/profiling/collector/_task.pyx":130
+  /* "ddtrace/profiling/collector/_task.pyx":141
  *             )
  * 
  *     loop = _asyncio.get_event_loop_for_thread(thread_id)             # <<<<<<<<<<<<<<
  *     if loop is not None:
  *         tasks.extend([
 */
-  __pyx_t_7 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_asyncio); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 130, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_get_event_loop_for_thread); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 130, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_8 = 1;
+  __pyx_t_9 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_asyncio); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 141, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_7);
+  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_get_event_loop_for_thread); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 141, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+  __pyx_t_10 = 1;
   #if CYTHON_UNPACK_METHODS
-  if (unlikely(PyMethod_Check(__pyx_t_4))) {
-    __pyx_t_7 = PyMethod_GET_SELF(__pyx_t_4);
-    assert(__pyx_t_7);
-    PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_4);
-    __Pyx_INCREF(__pyx_t_7);
+  if (unlikely(PyMethod_Check(__pyx_t_6))) {
+    __pyx_t_9 = PyMethod_GET_SELF(__pyx_t_6);
+    assert(__pyx_t_9);
+    PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_6);
+    __Pyx_INCREF(__pyx_t_9);
     __Pyx_INCREF(__pyx__function);
-    __Pyx_DECREF_SET(__pyx_t_4, __pyx__function);
-    __pyx_t_8 = 0;
+    __Pyx_DECREF_SET(__pyx_t_6, __pyx__function);
+    __pyx_t_10 = 0;
   }
   #endif
   {
-    PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_v_thread_id};
-    __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-    __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 130, __pyx_L1_error)
+    PyObject *__pyx_callargs[2] = {__pyx_t_9, __pyx_v_thread_id};
+    __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_6, __pyx_callargs+__pyx_t_10, (2-__pyx_t_10) | (__pyx_t_10*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
+    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 141, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_loop = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "ddtrace/profiling/collector/_task.pyx":131
+  /* "ddtrace/profiling/collector/_task.pyx":142
  * 
  *     loop = _asyncio.get_event_loop_for_thread(thread_id)
  *     if loop is not None:             # <<<<<<<<<<<<<<
  *         tasks.extend([
  *             (id(task),
 */
-  __pyx_t_14 = (__pyx_v_loop != Py_None);
-  if (__pyx_t_14) {
+  __pyx_t_4 = (__pyx_v_loop != Py_None);
+  if (__pyx_t_4) {
 
-    /* "ddtrace/profiling/collector/_task.pyx":132
+    /* "ddtrace/profiling/collector/_task.pyx":143
  *     loop = _asyncio.get_event_loop_for_thread(thread_id)
  *     if loop is not None:
  *         tasks.extend([             # <<<<<<<<<<<<<<
@@ -4919,181 +5142,181 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5_task_list_tasks(PyObje
  *                 _asyncio._task_get_name(task),
 */
     { /* enter inner scope */
-      __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 132, __pyx_L15_error)
+      __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 143, __pyx_L17_error)
       __Pyx_GOTREF(__pyx_t_1);
 
-      /* "ddtrace/profiling/collector/_task.pyx":136
+      /* "ddtrace/profiling/collector/_task.pyx":147
  *                 _asyncio._task_get_name(task),
  *                 _asyncio_task_get_frame(task))
  *             for task in _asyncio.all_tasks(loop)             # <<<<<<<<<<<<<<
  *         ])
  * 
 */
-      __pyx_t_7 = NULL;
-      __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_asyncio); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 136, __pyx_L15_error)
+      __pyx_t_9 = NULL;
+      __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_asyncio); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 147, __pyx_L17_error)
+      __Pyx_GOTREF(__pyx_t_7);
+      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_all_tasks); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 147, __pyx_L17_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_all_tasks); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 136, __pyx_L15_error)
-      __Pyx_GOTREF(__pyx_t_3);
-      __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      __pyx_t_8 = 1;
+      __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+      __pyx_t_10 = 1;
       #if CYTHON_UNPACK_METHODS
-      if (unlikely(PyMethod_Check(__pyx_t_3))) {
-        __pyx_t_7 = PyMethod_GET_SELF(__pyx_t_3);
-        assert(__pyx_t_7);
-        PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_3);
-        __Pyx_INCREF(__pyx_t_7);
+      if (unlikely(PyMethod_Check(__pyx_t_5))) {
+        __pyx_t_9 = PyMethod_GET_SELF(__pyx_t_5);
+        assert(__pyx_t_9);
+        PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_5);
+        __Pyx_INCREF(__pyx_t_9);
         __Pyx_INCREF(__pyx__function);
-        __Pyx_DECREF_SET(__pyx_t_3, __pyx__function);
-        __pyx_t_8 = 0;
+        __Pyx_DECREF_SET(__pyx_t_5, __pyx__function);
+        __pyx_t_10 = 0;
       }
       #endif
       {
-        PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_v_loop};
-        __pyx_t_4 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-        __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-        __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 136, __pyx_L15_error)
-        __Pyx_GOTREF(__pyx_t_4);
+        PyObject *__pyx_callargs[2] = {__pyx_t_9, __pyx_v_loop};
+        __pyx_t_6 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+__pyx_t_10, (2-__pyx_t_10) | (__pyx_t_10*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+        __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
+        __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 147, __pyx_L17_error)
+        __Pyx_GOTREF(__pyx_t_6);
       }
-      if (likely(PyList_CheckExact(__pyx_t_4)) || PyTuple_CheckExact(__pyx_t_4)) {
-        __pyx_t_3 = __pyx_t_4; __Pyx_INCREF(__pyx_t_3);
-        __pyx_t_10 = 0;
-        __pyx_t_16 = NULL;
+      if (likely(PyList_CheckExact(__pyx_t_6)) || PyTuple_CheckExact(__pyx_t_6)) {
+        __pyx_t_5 = __pyx_t_6; __Pyx_INCREF(__pyx_t_5);
+        __pyx_t_12 = 0;
+        __pyx_t_17 = NULL;
       } else {
-        __pyx_t_10 = -1; __pyx_t_3 = PyObject_GetIter(__pyx_t_4); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 136, __pyx_L15_error)
-        __Pyx_GOTREF(__pyx_t_3);
-        __pyx_t_16 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_3); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 136, __pyx_L15_error)
+        __pyx_t_12 = -1; __pyx_t_5 = PyObject_GetIter(__pyx_t_6); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 147, __pyx_L17_error)
+        __Pyx_GOTREF(__pyx_t_5);
+        __pyx_t_17 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_5); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 147, __pyx_L17_error)
       }
-      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+      __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       for (;;) {
-        if (likely(!__pyx_t_16)) {
-          if (likely(PyList_CheckExact(__pyx_t_3))) {
+        if (likely(!__pyx_t_17)) {
+          if (likely(PyList_CheckExact(__pyx_t_5))) {
             {
-              Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_3);
+              Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_5);
               #if !CYTHON_ASSUME_SAFE_SIZE
-              if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 136, __pyx_L15_error)
+              if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 147, __pyx_L17_error)
               #endif
-              if (__pyx_t_10 >= __pyx_temp) break;
+              if (__pyx_t_12 >= __pyx_temp) break;
             }
-            __pyx_t_4 = __Pyx_PyList_GetItemRef(__pyx_t_3, __pyx_t_10);
-            ++__pyx_t_10;
+            __pyx_t_6 = __Pyx_PyList_GetItemRef(__pyx_t_5, __pyx_t_12);
+            ++__pyx_t_12;
           } else {
             {
-              Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_3);
+              Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_5);
               #if !CYTHON_ASSUME_SAFE_SIZE
-              if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 136, __pyx_L15_error)
+              if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 147, __pyx_L17_error)
               #endif
-              if (__pyx_t_10 >= __pyx_temp) break;
+              if (__pyx_t_12 >= __pyx_temp) break;
             }
             #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-            __pyx_t_4 = __Pyx_NewRef(PyTuple_GET_ITEM(__pyx_t_3, __pyx_t_10));
+            __pyx_t_6 = __Pyx_NewRef(PyTuple_GET_ITEM(__pyx_t_5, __pyx_t_12));
             #else
-            __pyx_t_4 = __Pyx_PySequence_ITEM(__pyx_t_3, __pyx_t_10);
+            __pyx_t_6 = __Pyx_PySequence_ITEM(__pyx_t_5, __pyx_t_12);
             #endif
-            ++__pyx_t_10;
+            ++__pyx_t_12;
           }
-          if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 136, __pyx_L15_error)
+          if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 147, __pyx_L17_error)
         } else {
-          __pyx_t_4 = __pyx_t_16(__pyx_t_3);
-          if (unlikely(!__pyx_t_4)) {
+          __pyx_t_6 = __pyx_t_17(__pyx_t_5);
+          if (unlikely(!__pyx_t_6)) {
             PyObject* exc_type = PyErr_Occurred();
             if (exc_type) {
-              if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 136, __pyx_L15_error)
+              if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 147, __pyx_L17_error)
               PyErr_Clear();
             }
             break;
           }
         }
-        __Pyx_GOTREF(__pyx_t_4);
-        __Pyx_XDECREF_SET(__pyx_8genexpr1__pyx_v_task, __pyx_t_4);
-        __pyx_t_4 = 0;
+        __Pyx_GOTREF(__pyx_t_6);
+        __Pyx_XDECREF_SET(__pyx_8genexpr1__pyx_v_task, __pyx_t_6);
+        __pyx_t_6 = 0;
 
-        /* "ddtrace/profiling/collector/_task.pyx":133
+        /* "ddtrace/profiling/collector/_task.pyx":144
  *     if loop is not None:
  *         tasks.extend([
  *             (id(task),             # <<<<<<<<<<<<<<
  *                 _asyncio._task_get_name(task),
  *                 _asyncio_task_get_frame(task))
 */
-        __pyx_t_7 = NULL;
+        __pyx_t_9 = NULL;
         __Pyx_INCREF(__pyx_builtin_id);
-        __pyx_t_5 = __pyx_builtin_id; 
-        __pyx_t_8 = 1;
+        __pyx_t_7 = __pyx_builtin_id; 
+        __pyx_t_10 = 1;
         {
-          PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_8genexpr1__pyx_v_task};
-          __pyx_t_4 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-          __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-          __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-          if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 133, __pyx_L15_error)
-          __Pyx_GOTREF(__pyx_t_4);
+          PyObject *__pyx_callargs[2] = {__pyx_t_9, __pyx_8genexpr1__pyx_v_task};
+          __pyx_t_6 = __Pyx_PyObject_FastCall(__pyx_t_7, __pyx_callargs+__pyx_t_10, (2-__pyx_t_10) | (__pyx_t_10*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+          __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
+          __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+          if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 144, __pyx_L17_error)
+          __Pyx_GOTREF(__pyx_t_6);
         }
 
-        /* "ddtrace/profiling/collector/_task.pyx":134
+        /* "ddtrace/profiling/collector/_task.pyx":145
  *         tasks.extend([
  *             (id(task),
  *                 _asyncio._task_get_name(task),             # <<<<<<<<<<<<<<
  *                 _asyncio_task_get_frame(task))
  *             for task in _asyncio.all_tasks(loop)
 */
-        __pyx_t_7 = NULL;
-        __Pyx_GetModuleGlobalName(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_asyncio); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 134, __pyx_L15_error)
-        __Pyx_GOTREF(__pyx_t_12);
-        __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_task_get_name); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 134, __pyx_L15_error)
-        __Pyx_GOTREF(__pyx_t_6);
-        __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
-        __pyx_t_8 = 1;
+        __pyx_t_9 = NULL;
+        __Pyx_GetModuleGlobalName(__pyx_t_14, __pyx_mstate_global->__pyx_n_u_asyncio); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 145, __pyx_L17_error)
+        __Pyx_GOTREF(__pyx_t_14);
+        __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_14, __pyx_mstate_global->__pyx_n_u_task_get_name); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 145, __pyx_L17_error)
+        __Pyx_GOTREF(__pyx_t_8);
+        __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
+        __pyx_t_10 = 1;
         #if CYTHON_UNPACK_METHODS
-        if (unlikely(PyMethod_Check(__pyx_t_6))) {
-          __pyx_t_7 = PyMethod_GET_SELF(__pyx_t_6);
-          assert(__pyx_t_7);
-          PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_6);
-          __Pyx_INCREF(__pyx_t_7);
+        if (unlikely(PyMethod_Check(__pyx_t_8))) {
+          __pyx_t_9 = PyMethod_GET_SELF(__pyx_t_8);
+          assert(__pyx_t_9);
+          PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_8);
+          __Pyx_INCREF(__pyx_t_9);
           __Pyx_INCREF(__pyx__function);
-          __Pyx_DECREF_SET(__pyx_t_6, __pyx__function);
-          __pyx_t_8 = 0;
+          __Pyx_DECREF_SET(__pyx_t_8, __pyx__function);
+          __pyx_t_10 = 0;
         }
         #endif
         {
-          PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_8genexpr1__pyx_v_task};
-          __pyx_t_5 = __Pyx_PyObject_FastCall(__pyx_t_6, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-          __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-          __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-          if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 134, __pyx_L15_error)
-          __Pyx_GOTREF(__pyx_t_5);
+          PyObject *__pyx_callargs[2] = {__pyx_t_9, __pyx_8genexpr1__pyx_v_task};
+          __pyx_t_7 = __Pyx_PyObject_FastCall(__pyx_t_8, __pyx_callargs+__pyx_t_10, (2-__pyx_t_10) | (__pyx_t_10*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+          __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
+          __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+          if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 145, __pyx_L17_error)
+          __Pyx_GOTREF(__pyx_t_7);
         }
 
-        /* "ddtrace/profiling/collector/_task.pyx":135
+        /* "ddtrace/profiling/collector/_task.pyx":146
  *             (id(task),
  *                 _asyncio._task_get_name(task),
  *                 _asyncio_task_get_frame(task))             # <<<<<<<<<<<<<<
  *             for task in _asyncio.all_tasks(loop)
  *         ])
 */
-        __pyx_t_6 = __pyx_f_7ddtrace_9profiling_9collector_5_task__asyncio_task_get_frame(__pyx_8genexpr1__pyx_v_task); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 135, __pyx_L15_error)
-        __Pyx_GOTREF(__pyx_t_6);
+        __pyx_t_8 = __pyx_f_7ddtrace_9profiling_9collector_5_task__asyncio_task_get_frame(__pyx_8genexpr1__pyx_v_task); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 146, __pyx_L17_error)
+        __Pyx_GOTREF(__pyx_t_8);
 
-        /* "ddtrace/profiling/collector/_task.pyx":133
+        /* "ddtrace/profiling/collector/_task.pyx":144
  *     if loop is not None:
  *         tasks.extend([
  *             (id(task),             # <<<<<<<<<<<<<<
  *                 _asyncio._task_get_name(task),
  *                 _asyncio_task_get_frame(task))
 */
-        __pyx_t_7 = PyTuple_New(3); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 133, __pyx_L15_error)
-        __Pyx_GOTREF(__pyx_t_7);
-        __Pyx_GIVEREF(__pyx_t_4);
-        if (__Pyx_PyTuple_SET_ITEM(__pyx_t_7, 0, __pyx_t_4) != (0)) __PYX_ERR(0, 133, __pyx_L15_error);
-        __Pyx_GIVEREF(__pyx_t_5);
-        if (__Pyx_PyTuple_SET_ITEM(__pyx_t_7, 1, __pyx_t_5) != (0)) __PYX_ERR(0, 133, __pyx_L15_error);
+        __pyx_t_9 = PyTuple_New(3); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 144, __pyx_L17_error)
+        __Pyx_GOTREF(__pyx_t_9);
         __Pyx_GIVEREF(__pyx_t_6);
-        if (__Pyx_PyTuple_SET_ITEM(__pyx_t_7, 2, __pyx_t_6) != (0)) __PYX_ERR(0, 133, __pyx_L15_error);
-        __pyx_t_4 = 0;
-        __pyx_t_5 = 0;
+        if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 0, __pyx_t_6) != (0)) __PYX_ERR(0, 144, __pyx_L17_error);
+        __Pyx_GIVEREF(__pyx_t_7);
+        if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 1, __pyx_t_7) != (0)) __PYX_ERR(0, 144, __pyx_L17_error);
+        __Pyx_GIVEREF(__pyx_t_8);
+        if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 2, __pyx_t_8) != (0)) __PYX_ERR(0, 144, __pyx_L17_error);
         __pyx_t_6 = 0;
-        if (unlikely(__Pyx_ListComp_Append(__pyx_t_1, (PyObject*)__pyx_t_7))) __PYX_ERR(0, 132, __pyx_L15_error)
-        __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+        __pyx_t_7 = 0;
+        __pyx_t_8 = 0;
+        if (unlikely(__Pyx_ListComp_Append(__pyx_t_1, (PyObject*)__pyx_t_9))) __PYX_ERR(0, 143, __pyx_L17_error)
+        __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-        /* "ddtrace/profiling/collector/_task.pyx":136
+        /* "ddtrace/profiling/collector/_task.pyx":147
  *                 _asyncio._task_get_name(task),
  *                 _asyncio_task_get_frame(task))
  *             for task in _asyncio.all_tasks(loop)             # <<<<<<<<<<<<<<
@@ -5101,26 +5324,26 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5_task_list_tasks(PyObje
  * 
 */
       }
-      __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+      __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_XDECREF(__pyx_8genexpr1__pyx_v_task); __pyx_8genexpr1__pyx_v_task = 0;
-      goto __pyx_L19_exit_scope;
-      __pyx_L15_error:;
+      goto __pyx_L21_exit_scope;
+      __pyx_L17_error:;
       __Pyx_XDECREF(__pyx_8genexpr1__pyx_v_task); __pyx_8genexpr1__pyx_v_task = 0;
       goto __pyx_L1_error;
-      __pyx_L19_exit_scope:;
+      __pyx_L21_exit_scope:;
     } /* exit inner scope */
 
-    /* "ddtrace/profiling/collector/_task.pyx":132
+    /* "ddtrace/profiling/collector/_task.pyx":143
  *     loop = _asyncio.get_event_loop_for_thread(thread_id)
  *     if loop is not None:
  *         tasks.extend([             # <<<<<<<<<<<<<<
  *             (id(task),
  *                 _asyncio._task_get_name(task),
 */
-    __pyx_t_15 = __Pyx_PyList_Extend(__pyx_v_tasks, __pyx_t_1); if (unlikely(__pyx_t_15 == ((int)-1))) __PYX_ERR(0, 132, __pyx_L1_error)
+    __pyx_t_16 = __Pyx_PyList_Extend(__pyx_v_tasks, __pyx_t_1); if (unlikely(__pyx_t_16 == ((int)-1))) __PYX_ERR(0, 143, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "ddtrace/profiling/collector/_task.pyx":131
+    /* "ddtrace/profiling/collector/_task.pyx":142
  * 
  *     loop = _asyncio.get_event_loop_for_thread(thread_id)
  *     if loop is not None:             # <<<<<<<<<<<<<<
@@ -5129,7 +5352,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5_task_list_tasks(PyObje
 */
   }
 
-  /* "ddtrace/profiling/collector/_task.pyx":139
+  /* "ddtrace/profiling/collector/_task.pyx":150
  *         ])
  * 
  *     return tasks             # <<<<<<<<<<<<<<
@@ -5139,7 +5362,7 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5_task_list_tasks(PyObje
   __pyx_r = __pyx_v_tasks;
   goto __pyx_L0;
 
-  /* "ddtrace/profiling/collector/_task.pyx":102
+  /* "ddtrace/profiling/collector/_task.pyx":113
  * 
  * 
  * cpdef list_tasks(thread_id):             # <<<<<<<<<<<<<<
@@ -5150,12 +5373,12 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5_task_list_tasks(PyObje
   /* function exit code */
   __pyx_L1_error:;
   __Pyx_XDECREF(__pyx_t_1);
-  __Pyx_XDECREF(__pyx_t_3);
-  __Pyx_XDECREF(__pyx_t_4);
   __Pyx_XDECREF(__pyx_t_5);
   __Pyx_XDECREF(__pyx_t_6);
   __Pyx_XDECREF(__pyx_t_7);
-  __Pyx_XDECREF(__pyx_t_12);
+  __Pyx_XDECREF(__pyx_t_8);
+  __Pyx_XDECREF(__pyx_t_9);
+  __Pyx_XDECREF(__pyx_t_14);
   __Pyx_AddTraceback("ddtrace.profiling.collector._task.list_tasks", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = 0;
   __pyx_L0:;
@@ -5170,16 +5393,16 @@ static PyObject *__pyx_f_7ddtrace_9profiling_9collector_5_task_list_tasks(PyObje
 }
 
 /* Python wrapper */
-static PyObject *__pyx_pw_7ddtrace_9profiling_9collector_5_task_5list_tasks(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_7ddtrace_9profiling_9collector_5_task_7list_tasks(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_7ddtrace_9profiling_9collector_5_task_4list_tasks, "Return the list of running tasks.\n\n    This is computed for gevent by taking the list of existing threading.Thread object and removing if any real OS\n    thread that might be running.\n\n    :return: [(task_id, task_name, task_frame), ...]");
-static PyMethodDef __pyx_mdef_7ddtrace_9profiling_9collector_5_task_5list_tasks = {"list_tasks", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_7ddtrace_9profiling_9collector_5_task_5list_tasks, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_7ddtrace_9profiling_9collector_5_task_4list_tasks};
-static PyObject *__pyx_pw_7ddtrace_9profiling_9collector_5_task_5list_tasks(PyObject *__pyx_self, 
+PyDoc_STRVAR(__pyx_doc_7ddtrace_9profiling_9collector_5_task_6list_tasks, "Return the list of running tasks.\n\n    This is computed for gevent by taking the list of existing threading.Thread object and removing if any real OS\n    thread that might be running.\n\n    :return: [(task_id, task_name, task_frame), ...]");
+static PyMethodDef __pyx_mdef_7ddtrace_9profiling_9collector_5_task_7list_tasks = {"list_tasks", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_7ddtrace_9profiling_9collector_5_task_7list_tasks, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_7ddtrace_9profiling_9collector_5_task_6list_tasks};
+static PyObject *__pyx_pw_7ddtrace_9profiling_9collector_5_task_7list_tasks(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -5209,32 +5432,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_thread_id,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 102, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 113, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 102, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 113, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "list_tasks", 0) < 0) __PYX_ERR(0, 102, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "list_tasks", 0) < 0) __PYX_ERR(0, 113, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("list_tasks", 1, 1, 1, i); __PYX_ERR(0, 102, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("list_tasks", 1, 1, 1, i); __PYX_ERR(0, 113, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 102, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 113, __pyx_L3_error)
     }
     __pyx_v_thread_id = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("list_tasks", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 102, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("list_tasks", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 113, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -5245,7 +5468,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_7ddtrace_9profiling_9collector_5_task_4list_tasks(__pyx_self, __pyx_v_thread_id);
+  __pyx_r = __pyx_pf_7ddtrace_9profiling_9collector_5_task_6list_tasks(__pyx_self, __pyx_v_thread_id);
 
   /* function exit code */
   for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
@@ -5255,7 +5478,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5_task_4list_tasks(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_thread_id) {
+static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5_task_6list_tasks(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_thread_id) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
@@ -5264,7 +5487,7 @@ static PyObject *__pyx_pf_7ddtrace_9profiling_9collector_5_task_4list_tasks(CYTH
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("list_tasks", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_7ddtrace_9profiling_9collector_5_task_list_tasks(__pyx_v_thread_id, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 102, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_7ddtrace_9profiling_9collector_5_task_list_tasks(__pyx_v_thread_id, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 113, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -5516,15 +5739,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   __Pyx_RefNannySetupContext("__Pyx_modinit_type_init_code", 0);
   /*--- Type init code ---*/
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5_task___pyx_scope_struct__install_greenlet_tracer = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_7ddtrace_9profiling_9collector_5_task___pyx_scope_struct__install_greenlet_tracer_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5_task___pyx_scope_struct__install_greenlet_tracer)) __PYX_ERR(0, 14, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_7ddtrace_9profiling_9collector_5_task___pyx_scope_struct__install_greenlet_tracer_spec, __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5_task___pyx_scope_struct__install_greenlet_tracer) < 0) __PYX_ERR(0, 14, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5_task___pyx_scope_struct__install_greenlet_tracer = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_7ddtrace_9profiling_9collector_5_task___pyx_scope_struct__install_greenlet_tracer_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5_task___pyx_scope_struct__install_greenlet_tracer)) __PYX_ERR(0, 24, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_7ddtrace_9profiling_9collector_5_task___pyx_scope_struct__install_greenlet_tracer_spec, __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5_task___pyx_scope_struct__install_greenlet_tracer) < 0) __PYX_ERR(0, 24, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5_task___pyx_scope_struct__install_greenlet_tracer = &__pyx_type_7ddtrace_9profiling_9collector_5_task___pyx_scope_struct__install_greenlet_tracer;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5_task___pyx_scope_struct__install_greenlet_tracer) < 0) __PYX_ERR(0, 14, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5_task___pyx_scope_struct__install_greenlet_tracer) < 0) __PYX_ERR(0, 24, __pyx_L1_error)
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5_task___pyx_scope_struct__install_greenlet_tracer->tp_dictoffset && __pyx_mstate->__pyx_ptype_7ddtrace_9profiling_9collector_5_task___pyx_scope_struct__install_greenlet_tracer->tp_getattro == PyObject_GenericGetAttr)) {
@@ -5742,10 +5965,11 @@ static CYTHON_SMALL_CODE int __pyx_pymod_exec__task(PyObject *__pyx_pyinit_modul
   PyObject *__pyx_t_1 = NULL;
   PyObject *__pyx_t_2 = NULL;
   PyObject *__pyx_t_3 = NULL;
-  PyObject *__pyx_t_4 = NULL;
+  int __pyx_t_4;
   PyObject *__pyx_t_5 = NULL;
   PyObject *__pyx_t_6 = NULL;
-  size_t __pyx_t_7;
+  PyObject *__pyx_t_7 = NULL;
+  size_t __pyx_t_8;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
@@ -5914,11 +6138,11 @@ __Pyx_RefNannySetupContext("PyInit__task", 0);
  * 
  * from .. import _asyncio             # <<<<<<<<<<<<<<
  * from .. import _threading
- * 
+ * from ddtrace.settings.profiling import config
 */
   __pyx_t_2 = __Pyx_PyList_Pack(1, __pyx_mstate_global->__pyx_n_u_asyncio); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 7, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u__2, __pyx_t_2, 2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 7, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_, __pyx_t_2, 2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 7, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_2 = __Pyx_ImportFrom(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_asyncio); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 7, __pyx_L1_error)
@@ -5931,12 +6155,12 @@ __Pyx_RefNannySetupContext("PyInit__task", 0);
  * 
  * from .. import _asyncio
  * from .. import _threading             # <<<<<<<<<<<<<<
- * 
+ * from ddtrace.settings.profiling import config
  * 
 */
   __pyx_t_3 = __Pyx_PyList_Pack(1, __pyx_mstate_global->__pyx_n_u_threading); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 8, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_2 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u__2, __pyx_t_3, 2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 8, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_, __pyx_t_3, 2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 8, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_3 = __Pyx_ImportFrom(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_threading); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 8, __pyx_L1_error)
@@ -5945,83 +6169,169 @@ __Pyx_RefNannySetupContext("PyInit__task", 0);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "ddtrace/profiling/collector/_task.pyx":11
- * 
- * 
- * _gevent_tracer = None             # <<<<<<<<<<<<<<
+  /* "ddtrace/profiling/collector/_task.pyx":9
+ * from .. import _asyncio
+ * from .. import _threading
+ * from ddtrace.settings.profiling import config             # <<<<<<<<<<<<<<
  * 
  * 
 */
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_gevent_tracer, Py_None) < 0) __PYX_ERR(0, 11, __pyx_L1_error)
-
-  /* "ddtrace/profiling/collector/_task.pyx":14
- * 
- * 
- * @when_imported("gevent")             # <<<<<<<<<<<<<<
- * def install_greenlet_tracer(gevent):
- *     global _gevent_tracer
-*/
-  __pyx_t_3 = NULL;
-  __pyx_t_5 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_when_imported); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 14, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_6);
-  __pyx_t_7 = 1;
-  {
-    PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_mstate_global->__pyx_n_u_gevent};
-    __pyx_t_4 = __Pyx_PyObject_FastCall(__pyx_t_6, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-    __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 14, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_4);
-  }
-  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_9profiling_9collector_5_task_1install_greenlet_tracer, 0, __pyx_mstate_global->__pyx_n_u_install_greenlet_tracer, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector__tas, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[3])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 14, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_6);
-  __pyx_t_7 = 1;
-  {
-    PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_t_6};
-    __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-    __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 14, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
-  }
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_install_greenlet_tracer, __pyx_t_2) < 0) __PYX_ERR(0, 14, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyList_Pack(1, __pyx_mstate_global->__pyx_n_u_config); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 9, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_3 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_ddtrace_settings_profiling, __pyx_t_2, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 9, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_2 = __Pyx_ImportFrom(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_config); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 9, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_config, __pyx_t_2) < 0) __PYX_ERR(0, 9, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "ddtrace/profiling/collector/_task.pyx":75
+  /* "ddtrace/profiling/collector/_task.pyx":12
+ * 
+ * 
+ * if (is_stack_v2 := config.stack.v2_enabled):             # <<<<<<<<<<<<<<
+ * 
+ *     @when_imported("gevent")
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_config); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 12, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_stack); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 12, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_v2_enabled); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 12, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_is_stack_v2, __pyx_t_3) < 0) __PYX_ERR(0, 12, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 12, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  if (__pyx_t_4) {
+
+    /* "ddtrace/profiling/collector/_task.pyx":14
+ * if (is_stack_v2 := config.stack.v2_enabled):
+ * 
+ *     @when_imported("gevent")             # <<<<<<<<<<<<<<
+ *     def _(gevent):
+ *         from .. import _gevent
+*/
+    __pyx_t_2 = NULL;
+    __pyx_t_6 = NULL;
+    __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_when_imported); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 14, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+    __pyx_t_8 = 1;
+    {
+      PyObject *__pyx_callargs[2] = {__pyx_t_6, __pyx_mstate_global->__pyx_n_u_gevent};
+      __pyx_t_5 = __Pyx_PyObject_FastCall(__pyx_t_7, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
+      __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+      if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 14, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_5);
+    }
+    __pyx_t_7 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_9profiling_9collector_5_task_1_, 0, __pyx_mstate_global->__pyx_n_u__3, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector__tas, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[3])); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 14, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+    __pyx_t_8 = 1;
+    {
+      PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_t_7};
+      __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
+      __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+      __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 14, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_3);
+    }
+    if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u__3, __pyx_t_3) < 0) __PYX_ERR(0, 14, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+
+    /* "ddtrace/profiling/collector/_task.pyx":12
+ * 
+ * 
+ * if (is_stack_v2 := config.stack.v2_enabled):             # <<<<<<<<<<<<<<
+ * 
+ *     @when_imported("gevent")
+*/
+    goto __pyx_L2;
+  }
+
+  /* "ddtrace/profiling/collector/_task.pyx":21
+ * 
+ * else:
+ *     _gevent_tracer = None             # <<<<<<<<<<<<<<
+ * 
+ * 
+*/
+  /*else*/ {
+    if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_gevent_tracer, Py_None) < 0) __PYX_ERR(0, 21, __pyx_L1_error)
+
+    /* "ddtrace/profiling/collector/_task.pyx":24
+ * 
+ * 
+ *     @when_imported("gevent")             # <<<<<<<<<<<<<<
+ *     def install_greenlet_tracer(gevent):
+ *         global _gevent_tracer
+*/
+    __pyx_t_5 = NULL;
+    __pyx_t_2 = NULL;
+    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_when_imported); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 24, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
+    __pyx_t_8 = 1;
+    {
+      PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_mstate_global->__pyx_n_u_gevent};
+      __pyx_t_7 = __Pyx_PyObject_FastCall(__pyx_t_6, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
+      __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+      if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 24, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_7);
+    }
+    __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_9profiling_9collector_5_task_3install_greenlet_tracer, 0, __pyx_mstate_global->__pyx_n_u_install_greenlet_tracer, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector__tas, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[4])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 24, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
+    __pyx_t_8 = 1;
+    {
+      PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_t_6};
+      __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_7, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
+      __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+      __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 24, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_3);
+    }
+    if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_install_greenlet_tracer, __pyx_t_3) < 0) __PYX_ERR(0, 24, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  }
+  __pyx_L2:;
+
+  /* "ddtrace/profiling/collector/_task.pyx":85
  * 
  * 
  * cpdef get_task(thread_id):             # <<<<<<<<<<<<<<
  *     """Return the task id and name for a thread."""
  *     task_id = None
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_9profiling_9collector_5_task_3get_task, 0, __pyx_mstate_global->__pyx_n_u_get_task, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector__tas, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[4])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 75, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_get_task, __pyx_t_2) < 0) __PYX_ERR(0, 75, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_9profiling_9collector_5_task_5get_task, 0, __pyx_mstate_global->__pyx_n_u_get_task, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector__tas, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[5])); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 85, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_get_task, __pyx_t_3) < 0) __PYX_ERR(0, 85, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "ddtrace/profiling/collector/_task.pyx":102
+  /* "ddtrace/profiling/collector/_task.pyx":113
  * 
  * 
  * cpdef list_tasks(thread_id):             # <<<<<<<<<<<<<<
  *     # type: (...) -> typing.List[typing.Tuple[int, str, types.FrameType]]
  *     """Return the list of running tasks.
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_9profiling_9collector_5_task_5list_tasks, 0, __pyx_mstate_global->__pyx_n_u_list_tasks, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector__tas, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[5])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 102, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_list_tasks, __pyx_t_2) < 0) __PYX_ERR(0, 102, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_9profiling_9collector_5_task_7list_tasks, 0, __pyx_mstate_global->__pyx_n_u_list_tasks, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_profiling_collector__tas, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[6])); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 113, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_list_tasks, __pyx_t_3) < 0) __PYX_ERR(0, 113, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
   /* "ddtrace/profiling/collector/_task.pyx":1
  * import sys             # <<<<<<<<<<<<<<
  * from types import ModuleType
  * import weakref
 */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_test, __pyx_t_2) < 0) __PYX_ERR(0, 1, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_3 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_test, __pyx_t_3) < 0) __PYX_ERR(0, 1, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
   /*--- Wrapped vars code ---*/
 
@@ -6029,9 +6339,9 @@ __Pyx_RefNannySetupContext("PyInit__task", 0);
   __pyx_L1_error:;
   __Pyx_XDECREF(__pyx_t_2);
   __Pyx_XDECREF(__pyx_t_3);
-  __Pyx_XDECREF(__pyx_t_4);
   __Pyx_XDECREF(__pyx_t_5);
   __Pyx_XDECREF(__pyx_t_6);
+  __Pyx_XDECREF(__pyx_t_7);
   if (__pyx_m) {
     if (__pyx_mstate->__pyx_d && stringtab_initialized) {
       __Pyx_AddTraceback("init ddtrace.profiling.collector._task", __pyx_clineno, __pyx_lineno, __pyx_filename);
@@ -6085,15 +6395,16 @@ typedef struct {
 } __Pyx_StringTabEntry;
 static const char * const __pyx_string_tab_encodings[] = { 0 };
 static const __Pyx_StringTabEntry __pyx_string_tab[] = {
-  {__pyx_k_, sizeof(__pyx_k_), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_ */
+  {__pyx_k_, sizeof(__pyx_k_), 0, 1, 1}, /* PyObject cname: __pyx_n_u_ */
   {__pyx_k_DDGreenletTracer, sizeof(__pyx_k_DDGreenletTracer), 0, 1, 1}, /* PyObject cname: __pyx_n_u_DDGreenletTracer */
   {__pyx_k_Hub, sizeof(__pyx_k_Hub), 0, 1, 1}, /* PyObject cname: __pyx_n_u_Hub */
   {__pyx_k_ImportError, sizeof(__pyx_k_ImportError), 0, 1, 1}, /* PyObject cname: __pyx_n_u_ImportError */
   {__pyx_k_MainThread, sizeof(__pyx_k_MainThread), 0, 1, 1}, /* PyObject cname: __pyx_n_u_MainThread */
   {__pyx_k_ModuleType, sizeof(__pyx_k_ModuleType), 0, 1, 1}, /* PyObject cname: __pyx_n_u_ModuleType */
   {__pyx_k_WeakValueDictionary, sizeof(__pyx_k_WeakValueDictionary), 0, 1, 1}, /* PyObject cname: __pyx_n_u_WeakValueDictionary */
-  {__pyx_k__2, sizeof(__pyx_k__2), 0, 1, 1}, /* PyObject cname: __pyx_n_u__2 */
-  {__pyx_k__3, sizeof(__pyx_k__3), 0, 1, 0}, /* PyObject cname: __pyx_kp_u__3 */
+  {__pyx_k__2, sizeof(__pyx_k__2), 0, 1, 0}, /* PyObject cname: __pyx_kp_u__2 */
+  {__pyx_k__3, sizeof(__pyx_k__3), 0, 1, 1}, /* PyObject cname: __pyx_n_u__3 */
+  {__pyx_k__4, sizeof(__pyx_k__4), 0, 1, 0}, /* PyObject cname: __pyx_kp_u__4 */
   {__pyx_k_active_greenlet, sizeof(__pyx_k_active_greenlet), 0, 1, 1}, /* PyObject cname: __pyx_n_u_active_greenlet */
   {__pyx_k_ag_frame, sizeof(__pyx_k_ag_frame), 0, 1, 1}, /* PyObject cname: __pyx_n_u_ag_frame */
   {__pyx_k_all_tasks, sizeof(__pyx_k_all_tasks), 0, 1, 1}, /* PyObject cname: __pyx_n_u_all_tasks */
@@ -6102,11 +6413,13 @@ static const __Pyx_StringTabEntry __pyx_string_tab[] = {
   {__pyx_k_asyncio_coroutines, sizeof(__pyx_k_asyncio_coroutines), 0, 1, 1}, /* PyObject cname: __pyx_n_u_asyncio_coroutines */
   {__pyx_k_call, sizeof(__pyx_k_call), 0, 1, 1}, /* PyObject cname: __pyx_n_u_call */
   {__pyx_k_cline_in_traceback, sizeof(__pyx_k_cline_in_traceback), 0, 1, 1}, /* PyObject cname: __pyx_n_u_cline_in_traceback */
+  {__pyx_k_config, sizeof(__pyx_k_config), 0, 1, 1}, /* PyObject cname: __pyx_n_u_config */
   {__pyx_k_coro, sizeof(__pyx_k_coro), 0, 1, 1}, /* PyObject cname: __pyx_n_u_coro */
   {__pyx_k_cr_frame, sizeof(__pyx_k_cr_frame), 0, 1, 1}, /* PyObject cname: __pyx_n_u_cr_frame */
   {__pyx_k_current_task, sizeof(__pyx_k_current_task), 0, 1, 1}, /* PyObject cname: __pyx_n_u_current_task */
   {__pyx_k_ddtrace_profiling_collector__tas, sizeof(__pyx_k_ddtrace_profiling_collector__tas), 0, 1, 1}, /* PyObject cname: __pyx_n_u_ddtrace_profiling_collector__tas */
   {__pyx_k_ddtrace_profiling_collector__tas_2, sizeof(__pyx_k_ddtrace_profiling_collector__tas_2), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_ddtrace_profiling_collector__tas_2 */
+  {__pyx_k_ddtrace_settings_profiling, sizeof(__pyx_k_ddtrace_settings_profiling), 0, 1, 1}, /* PyObject cname: __pyx_n_u_ddtrace_settings_profiling */
   {__pyx_k_dead, sizeof(__pyx_k_dead), 0, 1, 1}, /* PyObject cname: __pyx_n_u_dead */
   {__pyx_k_disable, sizeof(__pyx_k_disable), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_disable */
   {__pyx_k_doc, sizeof(__pyx_k_doc), 0, 1, 1}, /* PyObject cname: __pyx_n_u_doc */
@@ -6122,6 +6435,7 @@ static const __Pyx_StringTabEntry __pyx_string_tab[] = {
   {__pyx_k_get_thread_name, sizeof(__pyx_k_get_thread_name), 0, 1, 1}, /* PyObject cname: __pyx_n_u_get_thread_name */
   {__pyx_k_getcurrent, sizeof(__pyx_k_getcurrent), 0, 1, 1}, /* PyObject cname: __pyx_n_u_getcurrent */
   {__pyx_k_gevent, sizeof(__pyx_k_gevent), 0, 1, 1}, /* PyObject cname: __pyx_n_u_gevent */
+  {__pyx_k_gevent_2, sizeof(__pyx_k_gevent_2), 0, 1, 1}, /* PyObject cname: __pyx_n_u_gevent_2 */
   {__pyx_k_gevent_hub, sizeof(__pyx_k_gevent_hub), 0, 1, 1}, /* PyObject cname: __pyx_n_u_gevent_hub */
   {__pyx_k_gevent_thread, sizeof(__pyx_k_gevent_thread), 0, 1, 1}, /* PyObject cname: __pyx_n_u_gevent_thread */
   {__pyx_k_gevent_tracer, sizeof(__pyx_k_gevent_tracer), 0, 1, 1}, /* PyObject cname: __pyx_n_u_gevent_tracer */
@@ -6139,6 +6453,7 @@ static const __Pyx_StringTabEntry __pyx_string_tab[] = {
   {__pyx_k_install_greenlet_tracer_locals_D_3, sizeof(__pyx_k_install_greenlet_tracer_locals_D_3), 0, 1, 1}, /* PyObject cname: __pyx_n_u_install_greenlet_tracer_locals_D_3 */
   {__pyx_k_install_greenlet_tracer_locals_D_4, sizeof(__pyx_k_install_greenlet_tracer_locals_D_4), 0, 1, 1}, /* PyObject cname: __pyx_n_u_install_greenlet_tracer_locals_D_4 */
   {__pyx_k_is_coroutine, sizeof(__pyx_k_is_coroutine), 0, 1, 1}, /* PyObject cname: __pyx_n_u_is_coroutine */
+  {__pyx_k_is_stack_v2, sizeof(__pyx_k_is_stack_v2), 0, 1, 1}, /* PyObject cname: __pyx_n_u_is_stack_v2 */
   {__pyx_k_isenabled, sizeof(__pyx_k_isenabled), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_isenabled */
   {__pyx_k_items, sizeof(__pyx_k_items), 0, 1, 1}, /* PyObject cname: __pyx_n_u_items */
   {__pyx_k_list_tasks, sizeof(__pyx_k_list_tasks), 0, 1, 1}, /* PyObject cname: __pyx_n_u_list_tasks */
@@ -6148,6 +6463,7 @@ static const __Pyx_StringTabEntry __pyx_string_tab[] = {
   {__pyx_k_mro_entries, sizeof(__pyx_k_mro_entries), 0, 1, 1}, /* PyObject cname: __pyx_n_u_mro_entries */
   {__pyx_k_name, sizeof(__pyx_k_name), 0, 1, 1}, /* PyObject cname: __pyx_n_u_name */
   {__pyx_k_object, sizeof(__pyx_k_object), 0, 1, 1}, /* PyObject cname: __pyx_n_u_object */
+  {__pyx_k_patch, sizeof(__pyx_k_patch), 0, 1, 1}, /* PyObject cname: __pyx_n_u_patch */
   {__pyx_k_pop, sizeof(__pyx_k_pop), 0, 1, 1}, /* PyObject cname: __pyx_n_u_pop */
   {__pyx_k_prepare, sizeof(__pyx_k_prepare), 0, 1, 1}, /* PyObject cname: __pyx_n_u_prepare */
   {__pyx_k_previous_trace_function, sizeof(__pyx_k_previous_trace_function), 0, 1, 1}, /* PyObject cname: __pyx_n_u_previous_trace_function */
@@ -6156,6 +6472,7 @@ static const __Pyx_StringTabEntry __pyx_string_tab[] = {
   {__pyx_k_set_name, sizeof(__pyx_k_set_name), 0, 1, 1}, /* PyObject cname: __pyx_n_u_set_name */
   {__pyx_k_settrace, sizeof(__pyx_k_settrace), 0, 1, 1}, /* PyObject cname: __pyx_n_u_settrace */
   {__pyx_k_spec, sizeof(__pyx_k_spec), 0, 1, 1}, /* PyObject cname: __pyx_n_u_spec */
+  {__pyx_k_stack, sizeof(__pyx_k_stack), 0, 1, 1}, /* PyObject cname: __pyx_n_u_stack */
   {__pyx_k_store_greenlet, sizeof(__pyx_k_store_greenlet), 0, 1, 1}, /* PyObject cname: __pyx_n_u_store_greenlet */
   {__pyx_k_switch, sizeof(__pyx_k_switch), 0, 1, 1}, /* PyObject cname: __pyx_n_u_switch */
   {__pyx_k_sys, sizeof(__pyx_k_sys), 0, 1, 1}, /* PyObject cname: __pyx_n_u_sys */
@@ -6166,6 +6483,7 @@ static const __Pyx_StringTabEntry __pyx_string_tab[] = {
   {__pyx_k_threading, sizeof(__pyx_k_threading), 0, 1, 1}, /* PyObject cname: __pyx_n_u_threading */
   {__pyx_k_throw, sizeof(__pyx_k_throw), 0, 1, 1}, /* PyObject cname: __pyx_n_u_throw */
   {__pyx_k_types, sizeof(__pyx_k_types), 0, 1, 1}, /* PyObject cname: __pyx_n_u_types */
+  {__pyx_k_v2_enabled, sizeof(__pyx_k_v2_enabled), 0, 1, 1}, /* PyObject cname: __pyx_n_u_v2_enabled */
   {__pyx_k_weakref, sizeof(__pyx_k_weakref), 0, 1, 1}, /* PyObject cname: __pyx_n_u_weakref */
   {__pyx_k_when_imported, sizeof(__pyx_k_when_imported), 0, 1, 1}, /* PyObject cname: __pyx_n_u_when_imported */
   {__pyx_k_wrapt_importer, sizeof(__pyx_k_wrapt_importer), 0, 1, 1}, /* PyObject cname: __pyx_n_u_wrapt_importer */
@@ -6178,9 +6496,9 @@ static int __Pyx_InitStrings(__Pyx_StringTabEntry const *t, PyObject **target, c
 
 static int __Pyx_InitCachedBuiltins(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
-  __pyx_builtin_ImportError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_ImportError); if (!__pyx_builtin_ImportError) __PYX_ERR(0, 24, __pyx_L1_error)
-  __pyx_builtin_object = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_object); if (!__pyx_builtin_object) __PYX_ERR(0, 28, __pyx_L1_error)
-  __pyx_builtin_id = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_id); if (!__pyx_builtin_id) __PYX_ERR(0, 85, __pyx_L1_error)
+  __pyx_builtin_ImportError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_ImportError); if (!__pyx_builtin_ImportError) __PYX_ERR(0, 34, __pyx_L1_error)
+  __pyx_builtin_object = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_object); if (!__pyx_builtin_object) __PYX_ERR(0, 38, __pyx_L1_error)
+  __pyx_builtin_id = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_id); if (!__pyx_builtin_id) __PYX_ERR(0, 95, __pyx_L1_error)
   return 0;
   __pyx_L1_error:;
   return -1;
@@ -6192,39 +6510,39 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   __Pyx_RefNannySetupContext("__Pyx_InitCachedConstants", 0);
 
-  /* "ddtrace/profiling/collector/_task.pyx":19
+  /* "ddtrace/profiling/collector/_task.pyx":29
  * 
- *     try:
- *         import gevent.hub             # <<<<<<<<<<<<<<
- *         import gevent.thread
- *         from greenlet import getcurrent
+ *         try:
+ *             import gevent.hub             # <<<<<<<<<<<<<<
+ *             import gevent.thread
+ *             from greenlet import getcurrent
 */
-  __pyx_mstate_global->__pyx_tuple[0] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u_gevent, __pyx_mstate_global->__pyx_n_u_hub); if (unlikely(!__pyx_mstate_global->__pyx_tuple[0])) __PYX_ERR(0, 19, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[0] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u_gevent, __pyx_mstate_global->__pyx_n_u_hub); if (unlikely(!__pyx_mstate_global->__pyx_tuple[0])) __PYX_ERR(0, 29, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[0]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[0]);
 
-  /* "ddtrace/profiling/collector/_task.pyx":20
- *     try:
- *         import gevent.hub
- *         import gevent.thread             # <<<<<<<<<<<<<<
- *         from greenlet import getcurrent
- *         from greenlet import greenlet
+  /* "ddtrace/profiling/collector/_task.pyx":30
+ *         try:
+ *             import gevent.hub
+ *             import gevent.thread             # <<<<<<<<<<<<<<
+ *             from greenlet import getcurrent
+ *             from greenlet import greenlet
 */
-  __pyx_mstate_global->__pyx_tuple[1] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u_gevent, __pyx_mstate_global->__pyx_n_u_thread); if (unlikely(!__pyx_mstate_global->__pyx_tuple[1])) __PYX_ERR(0, 20, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[1] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u_gevent, __pyx_mstate_global->__pyx_n_u_thread); if (unlikely(!__pyx_mstate_global->__pyx_tuple[1])) __PYX_ERR(0, 30, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[1]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[1]);
 
-  /* "ddtrace/profiling/collector/_task.pyx":28
- *         return
+  /* "ddtrace/profiling/collector/_task.pyx":38
+ *             return
  * 
- *     class DDGreenletTracer(object):             # <<<<<<<<<<<<<<
- *         def __init__(self, gevent):
- *             # type: (ModuleType) -> None
+ *         class DDGreenletTracer(object):             # <<<<<<<<<<<<<<
+ *             def __init__(self, gevent):
+ *                 # type: (ModuleType) -> None
 */
-  __pyx_mstate_global->__pyx_tuple[2] = PyTuple_Pack(1, __pyx_builtin_object); if (unlikely(!__pyx_mstate_global->__pyx_tuple[2])) __PYX_ERR(0, 28, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[2] = PyTuple_Pack(1, __pyx_builtin_object); if (unlikely(!__pyx_mstate_global->__pyx_tuple[2])) __PYX_ERR(0, 38, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[2]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[2]);
-  __pyx_mstate_global->__pyx_tuple[3] = PyTuple_Pack(1, __pyx_builtin_object); if (unlikely(!__pyx_mstate_global->__pyx_tuple[3])) __PYX_ERR(0, 28, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[3] = PyTuple_Pack(1, __pyx_builtin_object); if (unlikely(!__pyx_mstate_global->__pyx_tuple[3])) __PYX_ERR(0, 38, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[3]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[3]);
   __Pyx_RefNannyFinishContext();
@@ -6270,34 +6588,39 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
   PyObject* tuple_dedup_map = PyDict_New();
   if (unlikely(!tuple_dedup_map)) return -1;
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 29, 55};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 39, 55};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_gevent};
-    __pyx_mstate_global->__pyx_codeobj_tab[0] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_ddtrace_profiling_collector__tas_2, __pyx_mstate->__pyx_n_u_init, __pyx_k_81A_W_8_Q_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[0])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[0] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_ddtrace_profiling_collector__tas_2, __pyx_mstate->__pyx_n_u_init, __pyx_k_A_Ja_xq_M_A_z_AT, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[0])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 38, 23};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 48, 23};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_greenlet};
-    __pyx_mstate_global->__pyx_codeobj_tab[1] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_ddtrace_profiling_collector__tas_2, __pyx_mstate->__pyx_n_u_store_greenlet, __pyx_k_6, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[1])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[1] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_ddtrace_profiling_collector__tas_2, __pyx_mstate->__pyx_n_u_store_greenlet, __pyx_k_A_JavWJa_A, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[1])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 45, 86};
+    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 55, 86};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_event, __pyx_mstate->__pyx_n_u_args};
-    __pyx_mstate_global->__pyx_codeobj_tab[2] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_ddtrace_profiling_collector__tas_2, __pyx_mstate->__pyx_n_u_call, __pyx_k_vT_1_4z_at6_Q_4q_Qa_t_G1_AWA, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[2])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[2] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_ddtrace_profiling_collector__tas_2, __pyx_mstate->__pyx_n_u_call, __pyx_k_A_6_Zq_t_Qd_4vT_t1A_AT_4_0_q_0, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[2])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 14, 74};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 14, 16};
+    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_gevent, __pyx_mstate->__pyx_n_u_gevent_2};
+    __pyx_mstate_global->__pyx_codeobj_tab[3] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_ddtrace_profiling_collector__tas_2, __pyx_mstate->__pyx_n_u__3, __pyx_k_A_q_vQ, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[3])) goto bad;
+  }
+  {
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 24, 74};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_gevent, __pyx_mstate->__pyx_n_u_getcurrent, __pyx_mstate->__pyx_n_u_greenlet, __pyx_mstate->__pyx_n_u_settrace, __pyx_mstate->__pyx_n_u_DDGreenletTracer};
-    __pyx_mstate_global->__pyx_codeobj_tab[3] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_ddtrace_profiling_collector__tas_2, __pyx_mstate->__pyx_n_u_install_greenlet_tracer, __pyx_k_Q_Q_Q_1_Qa, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[3])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[4] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_ddtrace_profiling_collector__tas_2, __pyx_mstate->__pyx_n_u_install_greenlet_tracer, __pyx_k_A_q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[4])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 75, 160};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 85, 167};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_thread_id};
-    __pyx_mstate_global->__pyx_codeobj_tab[4] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_ddtrace_profiling_collector__tas_2, __pyx_mstate->__pyx_n_u_get_task, __pyx_k_a_A_8_Qa_uG1_x_AQ_5_q_b_q_1A_xs, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[4])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[5] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_ddtrace_profiling_collector__tas_2, __pyx_mstate->__pyx_n_u_get_task, __pyx_k_a_A_8_Qa_uG1_x_AQ_5_q_b_q_1A_t1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[5])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 102, 176};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 113, 182};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_thread_id};
-    __pyx_mstate_global->__pyx_codeobj_tab[5] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_ddtrace_profiling_collector__tas_2, __pyx_mstate->__pyx_n_u_list_tasks, __pyx_k_A_gQ_4q_1Ky_2_1_QnKvUV_t81_8_Qa, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[5])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[6] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_ddtrace_profiling_collector__tas_2, __pyx_mstate->__pyx_n_u_list_tasks, __pyx_k_A_t_t_4q_1Ky_2_1_QnKvUV_t81_8_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[6])) goto bad;
   }
   Py_DECREF(tuple_dedup_map);
   return 0;
@@ -7546,6 +7869,89 @@ static void __Pyx_RaiseArgtupleInvalid(
                  (num_expected == 1) ? "" : "s", num_found);
 }
 
+/* Import */
+static PyObject *__Pyx_Import(PyObject *name, PyObject *from_list, int level) {
+    PyObject *module = 0;
+    PyObject *empty_dict = 0;
+    PyObject *empty_list = 0;
+    empty_dict = PyDict_New();
+    if (unlikely(!empty_dict))
+        goto bad;
+    if (level == -1) {
+        const char* package_sep = strchr(__Pyx_MODULE_NAME, '.');
+        if (package_sep != (0)) {
+            module = PyImport_ImportModuleLevelObject(
+                name, __pyx_mstate_global->__pyx_d, empty_dict, from_list, 1);
+            if (unlikely(!module)) {
+                if (unlikely(!PyErr_ExceptionMatches(PyExc_ImportError)))
+                    goto bad;
+                PyErr_Clear();
+            }
+        }
+        level = 0;
+    }
+    if (!module) {
+        module = PyImport_ImportModuleLevelObject(
+            name, __pyx_mstate_global->__pyx_d, empty_dict, from_list, level);
+    }
+bad:
+    Py_XDECREF(empty_dict);
+    Py_XDECREF(empty_list);
+    return module;
+}
+
+/* ImportFrom */
+static PyObject* __Pyx_ImportFrom(PyObject* module, PyObject* name) {
+    PyObject* value = __Pyx_PyObject_GetAttrStr(module, name);
+    if (unlikely(!value) && PyErr_ExceptionMatches(PyExc_AttributeError)) {
+        const char* module_name_str = 0;
+        PyObject* module_name = 0;
+        PyObject* module_dot = 0;
+        PyObject* full_name = 0;
+        PyErr_Clear();
+        module_name_str = PyModule_GetName(module);
+        if (unlikely(!module_name_str)) { goto modbad; }
+        module_name = PyUnicode_FromString(module_name_str);
+        if (unlikely(!module_name)) { goto modbad; }
+        module_dot = PyUnicode_Concat(module_name, __pyx_mstate_global->__pyx_kp_u__2);
+        if (unlikely(!module_dot)) { goto modbad; }
+        full_name = PyUnicode_Concat(module_dot, name);
+        if (unlikely(!full_name)) { goto modbad; }
+        #if (CYTHON_COMPILING_IN_PYPY && PYPY_VERSION_NUM  < 0x07030400) ||\
+                CYTHON_COMPILING_IN_GRAAL
+        {
+            PyObject *modules = PyImport_GetModuleDict();
+            if (unlikely(!modules))
+                goto modbad;
+            value = PyObject_GetItem(modules, full_name);
+        }
+        #else
+        value = PyImport_GetModule(full_name);
+        #endif
+      modbad:
+        Py_XDECREF(full_name);
+        Py_XDECREF(module_dot);
+        Py_XDECREF(module_name);
+    }
+    if (unlikely(!value)) {
+        PyErr_Format(PyExc_ImportError, "cannot import name %S", name);
+    }
+    return value;
+}
+
+/* PyObjectFastCallMethod */
+#if !CYTHON_VECTORCALL || PY_VERSION_HEX < 0x03090000
+static PyObject *__Pyx_PyObject_FastCallMethod(PyObject *name, PyObject *const *args, size_t nargsf) {
+    PyObject *result;
+    PyObject *attr = PyObject_GetAttr(args[0], name);
+    if (unlikely(!attr))
+        return NULL;
+    result = __Pyx_PyObject_FastCall(attr, args+1, nargsf - 1);
+    Py_DECREF(attr);
+    return result;
+}
+#endif
+
 /* PyObjectSetAttrStr */
 #if CYTHON_USE_TYPE_SLOTS
 static CYTHON_INLINE int __Pyx_PyObject_SetAttrStr(PyObject* obj, PyObject* attr_name, PyObject* value) {
@@ -7622,19 +8028,6 @@ static CYTHON_INLINE PyObject *__Pyx__GetModuleGlobalName(PyObject *name)
 #endif
     return __Pyx_GetBuiltinName(name);
 }
-
-/* PyObjectFastCallMethod */
-#if !CYTHON_VECTORCALL || PY_VERSION_HEX < 0x03090000
-static PyObject *__Pyx_PyObject_FastCallMethod(PyObject *name, PyObject *const *args, size_t nargsf) {
-    PyObject *result;
-    PyObject *attr = PyObject_GetAttr(args[0], name);
-    if (unlikely(!attr))
-        return NULL;
-    result = __Pyx_PyObject_FastCall(attr, args+1, nargsf - 1);
-    Py_DECREF(attr);
-    return result;
-}
-#endif
 
 /* GetItemInt */
 static PyObject *__Pyx_GetItemInt_Generic(PyObject *o, PyObject* j) {
@@ -7727,76 +8120,6 @@ static CYTHON_INLINE PyObject *__Pyx_GetItemInt_Fast(PyObject *o, Py_ssize_t i, 
     }
 #endif
     return __Pyx_GetItemInt_Generic(o, PyLong_FromSsize_t(i));
-}
-
-/* Import */
-static PyObject *__Pyx_Import(PyObject *name, PyObject *from_list, int level) {
-    PyObject *module = 0;
-    PyObject *empty_dict = 0;
-    PyObject *empty_list = 0;
-    empty_dict = PyDict_New();
-    if (unlikely(!empty_dict))
-        goto bad;
-    if (level == -1) {
-        const char* package_sep = strchr(__Pyx_MODULE_NAME, '.');
-        if (package_sep != (0)) {
-            module = PyImport_ImportModuleLevelObject(
-                name, __pyx_mstate_global->__pyx_d, empty_dict, from_list, 1);
-            if (unlikely(!module)) {
-                if (unlikely(!PyErr_ExceptionMatches(PyExc_ImportError)))
-                    goto bad;
-                PyErr_Clear();
-            }
-        }
-        level = 0;
-    }
-    if (!module) {
-        module = PyImport_ImportModuleLevelObject(
-            name, __pyx_mstate_global->__pyx_d, empty_dict, from_list, level);
-    }
-bad:
-    Py_XDECREF(empty_dict);
-    Py_XDECREF(empty_list);
-    return module;
-}
-
-/* ImportFrom */
-static PyObject* __Pyx_ImportFrom(PyObject* module, PyObject* name) {
-    PyObject* value = __Pyx_PyObject_GetAttrStr(module, name);
-    if (unlikely(!value) && PyErr_ExceptionMatches(PyExc_AttributeError)) {
-        const char* module_name_str = 0;
-        PyObject* module_name = 0;
-        PyObject* module_dot = 0;
-        PyObject* full_name = 0;
-        PyErr_Clear();
-        module_name_str = PyModule_GetName(module);
-        if (unlikely(!module_name_str)) { goto modbad; }
-        module_name = PyUnicode_FromString(module_name_str);
-        if (unlikely(!module_name)) { goto modbad; }
-        module_dot = PyUnicode_Concat(module_name, __pyx_mstate_global->__pyx_kp_u_);
-        if (unlikely(!module_dot)) { goto modbad; }
-        full_name = PyUnicode_Concat(module_dot, name);
-        if (unlikely(!full_name)) { goto modbad; }
-        #if (CYTHON_COMPILING_IN_PYPY && PYPY_VERSION_NUM  < 0x07030400) ||\
-                CYTHON_COMPILING_IN_GRAAL
-        {
-            PyObject *modules = PyImport_GetModuleDict();
-            if (unlikely(!modules))
-                goto modbad;
-            value = PyObject_GetItem(modules, full_name);
-        }
-        #else
-        value = PyImport_GetModule(full_name);
-        #endif
-      modbad:
-        Py_XDECREF(full_name);
-        Py_XDECREF(module_dot);
-        Py_XDECREF(module_name);
-    }
-    if (unlikely(!value)) {
-        PyErr_Format(PyExc_ImportError, "cannot import name %S", name);
-    }
-    return value;
 }
 
 /* GetTopmostException */
@@ -10759,7 +11082,7 @@ __Pyx_PyType_GetFullyQualifiedName(PyTypeObject* tp)
         result = name;
         name = NULL;
     } else {
-        result = __Pyx_NewRef(__pyx_mstate_global->__pyx_kp_u__3);
+        result = __Pyx_NewRef(__pyx_mstate_global->__pyx_kp_u__4);
     }
     goto done;
 }

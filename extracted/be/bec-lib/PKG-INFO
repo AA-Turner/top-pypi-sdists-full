@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bec_lib
-Version: 3.48.0
+Version: 3.49.0
 Summary: BEC library
 Project-URL: Bug Tracker, https://github.com/bec-project/bec/issues
 Project-URL: Homepage, https://github.com/bec-project/bec
@@ -44,4 +44,3 @@ Requires-Dist: pytest-redis~=3.0; extra == 'dev'
 Requires-Dist: pytest-timeout~=2.2; extra == 'dev'
 Requires-Dist: pytest~=8.0; extra == 'dev'
 Requires-Dist: typer~=0.15; extra == 'dev'
-Requires-Dist: watchdog~=6.0; extra == 'dev'
